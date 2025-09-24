@@ -1,5 +1,5 @@
 # Modern multi-stage Dockerfile for FastAPI application with Redis
-FROM python:3.11-slim as builder
+FROM python:3.13-slim as builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -24,7 +24,7 @@ RUN pip install --upgrade pip && \
     pip install -r /tmp/requirements.txt
 
 # Production stage
-FROM python:3.11-slim as production
+FROM python:3.13-slim as production
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
