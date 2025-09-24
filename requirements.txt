@@ -11,7 +11,7 @@ aiosqlite>=0.20.0,<0.21.0
 alembic>=1.13.0,<2.0.0
 
 # Redis
-redis>=5.0.0,<6.0.0
+redis>=4.2.0,<5.0.0
 aioredis>=2.0.0,<3.0.0
 
 # HTTP client
@@ -30,7 +30,7 @@ numpy>=1.26.0,<2.0.0
 # Chart generation
 matplotlib>=3.8.0,<4.0.0
 yfinance>=0.2.0,<1.0.0
-mplfinance>=0.12.0,<1.0.0
+mplfinance>=0.12.10b0,<1.0.0
 
 # Telegram
 python-telegram-bot>=21.0.0,<22.0.0
