@@ -60,12 +60,11 @@ jobs:
   # Test Suite
   test:
     name: Test Suite
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.11', '3.12']
-        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
+    runs-on: ubuntu-latest
 
     services:
       redis:
