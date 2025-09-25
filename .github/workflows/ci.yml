@@ -145,6 +145,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -155,6 +156,9 @@ jobs:
 
       - name: Test Docker image
         run: |
+          echo "Checking if Docker image exists..."
+          docker images forex-bot:latest
+          echo "Testing Docker image..."
           docker run --rm forex-bot:latest python -c "from app.main import app; print('✅ App imports successfully')"
 
   # Performance Tests
