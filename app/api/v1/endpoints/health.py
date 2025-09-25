@@ -26,12 +26,14 @@ async def health_check() -> Dict[str, Any]:
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "version": settings.app_version,
-        "environment": settings.environment
+        "environment": settings.environment,
     }
 
 
 @router.get("/health/detailed", tags=["health"])
-async def detailed_health_check(db: AsyncSession = Depends(get_database)) -> Dict[str, Any]:
+async def detailed_health_check(
+    db: AsyncSession = Depends(get_database),
+) -> Dict[str, Any]:
     """
     Detailed health check including database connectivity.
 
@@ -49,7 +51,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_database)) -> Dic
         "timestamp": datetime.utcnow().isoformat(),
         "version": settings.app_version,
         "environment": settings.environment,
-        "components": {}
+        "components": {},
     }
 
     # Check database connectivity
@@ -57,13 +59,13 @@ async def detailed_health_check(db: AsyncSession = Depends(get_database)) -> Dic
         await db.execute(text("SELECT 1"))
         health_status["components"]["database"] = {
             "status": "healthy",
-            "message": "Database connection successful"
+            "message": "Database connection successful",
         }
     except Exception as e:
         logger.error("Database health check failed", error=str(e))
         health_status["components"]["database"] = {
             "status": "unhealthy",
-            "message": f"Database connection failed: {str(e)}"
+            "message": f"Database connection failed: {str(e)}",
         }
         health_status["status"] = "unhealthy"
 
@@ -71,27 +73,30 @@ async def detailed_health_check(db: AsyncSession = Depends(get_database)) -> Dic
     try:
         if settings.redis.url:
             import redis.asyncio as redis
+
             redis_client = redis.from_url(settings.redis.url)
             await redis_client.ping()
             await redis_client.close()
             health_status["components"]["redis"] = {
                 "status": "healthy",
-                "message": "Redis connection successful"
+                "message": "Redis connection successful",
             }
         else:
             health_status["components"]["redis"] = {
                 "status": "not_configured",
-                "message": "Redis not configured"
+                "message": "Redis not configured",
             }
     except Exception as e:
         logger.error("Redis health check failed", error=str(e))
         health_status["components"]["redis"] = {
             "status": "unhealthy",
-            "message": f"Redis connection failed: {str(e)}"
+            "message": f"Redis connection failed: {str(e)}",
         }
         # Don't fail overall health check for Redis issues in development
         if settings.environment == "development":
-            logger.warning("Redis unavailable in development, continuing with healthy status")
+            logger.warning(
+                "Redis unavailable in development, continuing with healthy status"
+            )
         else:
             health_status["status"] = "unhealthy"
 
@@ -100,18 +105,18 @@ async def detailed_health_check(db: AsyncSession = Depends(get_database)) -> Dic
         if settings.api.openai_api_key:
             health_status["components"]["openai"] = {
                 "status": "configured",
-                "message": "OpenAI API key configured"
+                "message": "OpenAI API key configured",
             }
         else:
             health_status["components"]["openai"] = {
                 "status": "not_configured",
-                "message": "OpenAI API key not configured"
+                "message": "OpenAI API key not configured",
             }
     except Exception as e:
         logger.error("OpenAI health check failed", error=str(e))
         health_status["components"]["openai"] = {
             "status": "error",
-            "message": f"OpenAI check failed: {str(e)}"
+            "message": f"OpenAI check failed: {str(e)}",
         }
 
     # Return appropriate status code
@@ -143,19 +148,19 @@ async def readiness_check(db: AsyncSession = Depends(get_database)) -> Dict[str,
         if settings.redis.url:
             try:
                 import redis.asyncio as redis
+
                 redis_client = redis.from_url(settings.redis.url)
                 await redis_client.ping()
                 await redis_client.close()
             except Exception as redis_error:
                 if settings.environment == "development":
-                    logger.warning("Redis unavailable in development, continuing readiness check")
+                    logger.warning(
+                        "Redis unavailable in development, continuing readiness check"
+                    )
                 else:
                     raise redis_error
 
-        return {
-            "status": "ready",
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        return {"status": "ready", "timestamp": datetime.utcnow().isoformat()}
     except Exception as e:
         logger.error("Readiness check failed", error=str(e))
         raise HTTPException(
@@ -163,8 +168,8 @@ async def readiness_check(db: AsyncSession = Depends(get_database)) -> Dict[str,
             detail={
                 "status": "not_ready",
                 "timestamp": datetime.utcnow().isoformat(),
-                "error": str(e)
-            }
+                "error": str(e),
+            },
         )
 
 
@@ -179,7 +184,7 @@ async def liveness_check() -> Dict[str, Any]:
     return {
         "status": "alive",
         "timestamp": datetime.utcnow().isoformat(),
-        "uptime": "running"
+        "uptime": "running",
     }
 
 
@@ -196,12 +201,12 @@ async def metrics_endpoint() -> Dict[str, Any]:
         from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
         return {
-            "metrics": generate_latest().decode('utf-8'),
-            "content_type": CONTENT_TYPE_LATEST
+            "metrics": generate_latest().decode("utf-8"),
+            "content_type": CONTENT_TYPE_LATEST,
         }
     except ImportError:
         return {
             "status": "metrics_not_available",
             "message": "Prometheus client not installed",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }

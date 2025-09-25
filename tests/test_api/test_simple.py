@@ -20,14 +20,17 @@ async def test_forex_news_endpoint_simple():
     """Test forex news endpoint with simple async client."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Mock the entire service method directly
-            with patch('app.services.forex_service.ForexService.get') as mock_get:
+            with patch("app.services.forex_service.ForexService.get") as mock_get:
                 from tests.factories import ForexNewsModelFactory
 
                 # Create a real ForexNewsModel instance

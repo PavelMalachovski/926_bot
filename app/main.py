@@ -81,14 +81,21 @@ def create_app() -> FastAPI:
 
     # Add middleware
     cors_config = get_cors_config()
-    app.add_middleware(
-        CORSMiddleware,
-        **cors_config
-    )
+    app.add_middleware(CORSMiddleware, **cors_config)
 
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*"] if settings.debug else ["yourdomain.com", "*.yourdomain.com", "testserver", "localhost", "127.0.0.1"]
+        allowed_hosts=(
+            ["*"]
+            if settings.debug
+            else [
+                "yourdomain.com",
+                "*.yourdomain.com",
+                "testserver",
+                "localhost",
+                "127.0.0.1",
+            ]
+        ),
     )
 
     # Add security and logging middleware
@@ -120,10 +127,7 @@ def create_app() -> FastAPI:
 
         # Handle ValidationError with 400 status code
         if isinstance(exc, ValidationError):
-            return JSONResponse(
-                status_code=400,
-                content={"detail": exc.message}
-            )
+            return JSONResponse(status_code=400, content={"detail": exc.message})
 
         return JSONResponse(
             status_code=400,
@@ -131,9 +135,8 @@ def create_app() -> FastAPI:
                 "error": exc.message,
                 "error_code": exc.error_code,
                 "details": exc.details,
-            }
+            },
         )
-
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
@@ -146,10 +149,7 @@ def create_app() -> FastAPI:
             method=request.method,
         )
 
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.detail}
-        )
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
@@ -160,13 +160,10 @@ def create_app() -> FastAPI:
             path=request.url.path,
             method=request.method,
             exception_type=type(exc).__name__,
-            exc_info=True
+            exc_info=True,
         )
 
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Internal server error"}
-        )
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
     # Health check endpoint
     @app.get("/health", tags=["health"])
@@ -189,7 +186,11 @@ def create_app() -> FastAPI:
         return {
             "message": f"Welcome to {settings.app_name}",
             "version": settings.app_version,
-            "docs": "/docs" if settings.debug else "Documentation not available in production",
+            "docs": (
+                "/docs"
+                if settings.debug
+                else "Documentation not available in production"
+            ),
             "health": "/health",
         }
 

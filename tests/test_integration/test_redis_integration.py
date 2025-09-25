@@ -12,7 +12,7 @@ from app.services.cache_service import (
     EnhancedCacheService,
     RedisPubSubService,
     RedisRateLimiter,
-    RedisSessionManager
+    RedisSessionManager,
 )
 from app.services.redis_config_service import RedisConfigService
 
@@ -58,7 +58,9 @@ class TestRedisIntegration:
         pubsub_service = redis_service.pubsub_service
 
         # Test message publishing
-        subscribers_count = await pubsub_service.publish("test_channel", {"message": "test"})
+        subscribers_count = await pubsub_service.publish(
+            "test_channel", {"message": "test"}
+        )
         assert subscribers_count >= 0
 
         # Test subscription (mock)
@@ -165,6 +167,7 @@ class TestRedisPerformance:
     @pytest.mark.asyncio
     async def test_concurrent_operations(self, performance_redis_service):
         """Test concurrent Redis operations."""
+
         async def set_operation(key: str, value: str):
             await performance_redis_service.set(key, value, ttl=300)
             return await performance_redis_service.get(key)
@@ -240,7 +243,7 @@ class TestRedisDataTypes:
             ("integer", 42),
             ("float", 3.14159),
             ("boolean", True),
-            ("none", None)
+            ("none", None),
         ]
 
         for key, value in test_cases:
@@ -262,7 +265,7 @@ class TestRedisDataTypes:
             "string": "value",
             "number": 42,
             "nested": {"key": "value"},
-            "list": [1, 2, 3]
+            "list": [1, 2, 3],
         }
         await data_type_redis_service.set("dict", test_dict, ttl=300)
         retrieved_dict = await data_type_redis_service.get("dict")
@@ -449,7 +452,7 @@ class TestRedisSecurity:
             "key/with/slashes",
             "key:with:colons",
             "key\nwith\nnewlines",
-            "key\twith\ttabs"
+            "key\twith\ttabs",
         ]
 
         for key in dangerous_keys:
@@ -465,7 +468,7 @@ class TestRedisSecurity:
             "normal": "value",
             "special_chars": "!@#$%^&*()",
             "unicode": "🚀💻🔥",
-            "large_data": "x" * 10000
+            "large_data": "x" * 10000,
         }
 
         await secure_redis_service.set("test", test_data)

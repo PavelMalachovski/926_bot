@@ -33,12 +33,13 @@ class DailyDigestScheduler:
 
         # Setup scheduler with SQLAlchemy job store
         jobstores = {
-            'default': SQLAlchemyJobStore(url=getattr(settings.database, 'url', 'sqlite:///digest_jobs.sqlite'))
+            "default": SQLAlchemyJobStore(
+                url=getattr(settings.database, "url", "sqlite:///digest_jobs.sqlite")
+            )
         }
 
         self.scheduler = BackgroundScheduler(
-            jobstores=jobstores,
-            timezone=pytz.UTC  # Default timezone
+            jobstores=jobstores, timezone=pytz.UTC  # Default timezone
         )
 
         self._setup_scheduler()
@@ -50,7 +51,9 @@ class DailyDigestScheduler:
             users_with_times = self._get_users_with_digest_times()
 
             # Group users by timezone and digest time
-            timezone_digest_groups = self._group_users_by_timezone_and_time(users_with_times)
+            timezone_digest_groups = self._group_users_by_timezone_and_time(
+                users_with_times
+            )
 
             # Add jobs for each unique timezone and digest time combination
             for (user_timezone, digest_time), users in timezone_digest_groups.items():
@@ -64,13 +67,15 @@ class DailyDigestScheduler:
 
         # Also add a channel digest at 07:00 if a channel/chat ID is configured
         try:
-            if getattr(self.config, 'telegram_chat_id', None):
+            if getattr(self.config, "telegram_chat_id", None):
                 self.scheduler.add_job(
                     func=self._send_channel_digest,
-                    trigger=CronTrigger(hour=7, minute=0, timezone=pytz.timezone('Europe/Prague')),
-                    id='channel_digest',
-                    name='Channel Daily Digest',
-                    replace_existing=True
+                    trigger=CronTrigger(
+                        hour=7, minute=0, timezone=pytz.timezone("Europe/Prague")
+                    ),
+                    id="channel_digest",
+                    name="Channel Daily Digest",
+                    replace_existing=True,
                 )
                 logger.info("Channel digest job added")
         except Exception as e:
@@ -93,13 +98,15 @@ class DailyDigestScheduler:
             logger.error("Failed to get users with digest times", error=str(e))
             return []
 
-    def _group_users_by_timezone_and_time(self, users: List[Dict[str, Any]]) -> Dict[tuple, List[Dict[str, Any]]]:
+    def _group_users_by_timezone_and_time(
+        self, users: List[Dict[str, Any]]
+    ) -> Dict[tuple, List[Dict[str, Any]]]:
         """Group users by their timezone and digest time."""
         groups = {}
 
         for user in users:
-            timezone = user.get('timezone', 'Europe/Prague')
-            digest_time = user.get('digest_time', time(8, 0))
+            timezone = user.get("timezone", "Europe/Prague")
+            digest_time = user.get("digest_time", time(8, 0))
             key = (timezone, digest_time)
 
             if key not in groups:
@@ -108,7 +115,9 @@ class DailyDigestScheduler:
 
         return groups
 
-    def _add_timezone_digest_job(self, user_timezone: str, digest_time: time, users: List[Dict[str, Any]]):
+    def _add_timezone_digest_job(
+        self, user_timezone: str, digest_time: time, users: List[Dict[str, Any]]
+    ):
         """Add a digest job for a specific timezone and time."""
         try:
             # Convert timezone string to pytz timezone object
@@ -121,31 +130,37 @@ class DailyDigestScheduler:
             self.scheduler.add_job(
                 func=self._send_digest_to_users,
                 trigger=CronTrigger(
-                    hour=digest_time.hour,
-                    minute=digest_time.minute,
-                    timezone=tz
+                    hour=digest_time.hour, minute=digest_time.minute, timezone=tz
                 ),
                 args=[users, user_timezone],
                 id=job_id,
                 name=f'Daily Digest for {user_timezone} at {digest_time.strftime("%H:%M")}',
-                replace_existing=True
+                replace_existing=True,
             )
 
-            logger.info("Added digest job",
-                       timezone=user_timezone,
-                       time=digest_time.strftime("%H:%M"),
-                       users_count=len(users))
+            logger.info(
+                "Added digest job",
+                timezone=user_timezone,
+                time=digest_time.strftime("%H:%M"),
+                users_count=len(users),
+            )
 
         except Exception as e:
-            logger.error("Failed to add timezone digest job",
-                        timezone=user_timezone,
-                        time=digest_time.strftime("%H:%M"),
-                        error=str(e))
+            logger.error(
+                "Failed to add timezone digest job",
+                timezone=user_timezone,
+                time=digest_time.strftime("%H:%M"),
+                error=str(e),
+            )
 
-    async def _send_digest_to_users(self, users: List[Dict[str, Any]], user_timezone: str):
+    async def _send_digest_to_users(
+        self, users: List[Dict[str, Any]], user_timezone: str
+    ):
         """Send daily digest to a group of users."""
         try:
-            logger.info("Starting daily digest", timezone=user_timezone, users_count=len(users))
+            logger.info(
+                "Starting daily digest", timezone=user_timezone, users_count=len(users)
+            )
 
             # Get today's date in the user's timezone
             tz = pytz.timezone(user_timezone)
@@ -161,7 +176,7 @@ class DailyDigestScheduler:
             # Send digest to each user
             for user in users:
                 try:
-                    user_id = user.get('user_id')
+                    user_id = user.get("user_id")
                     if not user_id:
                         continue
 
@@ -173,7 +188,7 @@ class DailyDigestScheduler:
                         user_id=user_id,
                         news_items=news_items,
                         target_date=datetime.combine(today, time()),
-                        user_preferences=user_preferences
+                        user_preferences=user_preferences,
                     )
 
                     if success:
@@ -182,18 +197,28 @@ class DailyDigestScheduler:
                         logger.warning("Failed to send daily digest", user_id=user_id)
 
                 except Exception as e:
-                    logger.error("Error sending digest to user", user_id=user.get('user_id'), error=str(e))
+                    logger.error(
+                        "Error sending digest to user",
+                        user_id=user.get("user_id"),
+                        error=str(e),
+                    )
                     continue
 
-            logger.info("Daily digest completed", timezone=user_timezone, users_processed=len(users))
+            logger.info(
+                "Daily digest completed",
+                timezone=user_timezone,
+                users_processed=len(users),
+            )
 
         except Exception as e:
-            logger.error("Failed to send digest to users", timezone=user_timezone, error=str(e))
+            logger.error(
+                "Failed to send digest to users", timezone=user_timezone, error=str(e)
+            )
 
     async def _send_channel_digest(self):
         """Send daily digest to the configured channel."""
         try:
-            chat_id = getattr(self.config, 'telegram_chat_id', None)
+            chat_id = getattr(self.config, "telegram_chat_id", None)
             if not chat_id:
                 logger.warning("No channel ID configured for channel digest")
                 return
@@ -245,17 +270,29 @@ class DailyDigestScheduler:
             user = await self.db_service.get_or_create_user(user_id)
 
             return {
-                'preferred_currencies': user.get_currencies_list() if hasattr(user, 'get_currencies_list') else [],
-                'impact_levels': user.get_impact_levels_list() if hasattr(user, 'get_impact_levels_list') else ['high', 'medium', 'low'],
-                'analysis_required': getattr(user, 'analysis_required', True),
-                'timezone': getattr(user, 'timezone', 'Europe/Prague')
+                "preferred_currencies": (
+                    user.get_currencies_list()
+                    if hasattr(user, "get_currencies_list")
+                    else []
+                ),
+                "impact_levels": (
+                    user.get_impact_levels_list()
+                    if hasattr(user, "get_impact_levels_list")
+                    else ["high", "medium", "low"]
+                ),
+                "analysis_required": getattr(user, "analysis_required", True),
+                "timezone": getattr(user, "timezone", "Europe/Prague"),
             }
 
         except Exception as e:
-            logger.error("Failed to get user preferences", user_id=user_id, error=str(e))
+            logger.error(
+                "Failed to get user preferences", user_id=user_id, error=str(e)
+            )
             return {}
 
-    async def _format_channel_digest(self, news_items: List[Dict[str, Any]], target_date: date) -> str:
+    async def _format_channel_digest(
+        self, news_items: List[Dict[str, Any]], target_date: date
+    ) -> str:
         """Format digest message for channel."""
         try:
             date_str = target_date.strftime("%d.%m.%Y")
@@ -266,7 +303,7 @@ class DailyDigestScheduler:
             # Group by currency
             grouped = {}
             for item in news_items:
-                currency = item.get('currency', 'Unknown')
+                currency = item.get("currency", "Unknown")
                 if currency not in grouped:
                     grouped[currency] = []
                 grouped[currency].append(item)
@@ -279,16 +316,16 @@ class DailyDigestScheduler:
 
                 for item in items:
                     impact_emoji = {
-                        'high': '🔴',
-                        'medium': '🟠',
-                        'low': '🟡',
-                        'tentative': '⏳',
-                        'none': '⚪️',
-                        'unknown': '❓',
-                    }.get(item.get('impact', 'unknown'), '❓')
+                        "high": "🔴",
+                        "medium": "🟠",
+                        "low": "🟡",
+                        "tentative": "⏳",
+                        "none": "⚪️",
+                        "unknown": "❓",
+                    }.get(item.get("impact", "unknown"), "❓")
 
-                    event = str(item.get('event', 'N/A')).replace('\\', '')
-                    time_str = item.get('time', 'N/A')
+                    event = str(item.get("event", "N/A")).replace("\\", "")
+                    time_str = item.get("time", "N/A")
 
                     message_parts.append(f"⏰ {time_str} {impact_emoji} {event}")
 
@@ -314,17 +351,20 @@ class DailyDigestScheduler:
             self.scheduler.add_job(
                 func=self._send_user_digest,
                 trigger=CronTrigger(
-                    hour=digest_time.hour,
-                    minute=digest_time.minute,
-                    timezone=tz
+                    hour=digest_time.hour, minute=digest_time.minute, timezone=tz
                 ),
                 args=[user_id, timezone],
                 id=job_id,
-                name=f'Daily Digest for User {user_id}',
-                replace_existing=True
+                name=f"Daily Digest for User {user_id}",
+                replace_existing=True,
             )
 
-            logger.info("Added user digest job", user_id=user_id, timezone=timezone, time=digest_time.strftime("%H:%M"))
+            logger.info(
+                "Added user digest job",
+                user_id=user_id,
+                timezone=timezone,
+                time=digest_time.strftime("%H:%M"),
+            )
 
         except Exception as e:
             logger.error("Failed to add user digest job", user_id=user_id, error=str(e))
@@ -340,7 +380,9 @@ class DailyDigestScheduler:
                 logger.info("Removed user digest job", user_id=user_id)
 
         except Exception as e:
-            logger.error("Failed to remove user digest job", user_id=user_id, error=str(e))
+            logger.error(
+                "Failed to remove user digest job", user_id=user_id, error=str(e)
+            )
 
     # Alias methods for backward compatibility
     def schedule_user_digest(self, user_id: int, timezone: str, digest_time: time):
@@ -351,14 +393,14 @@ class DailyDigestScheduler:
         """Unschedule user digest (alias for remove_user_digest_job)."""
         return self.remove_user_digest_job(user_id)
 
-    async def schedule_channel_digest(self, db_session, channel_id: int, digest_time: time, timezone: str):
+    async def schedule_channel_digest(
+        self, db_session, channel_id: int, digest_time: time, timezone: str
+    ):
         """Schedule channel digest."""
         try:
             job_id = f"channel_digest_{channel_id}"
             trigger = CronTrigger(
-                hour=digest_time.hour,
-                minute=digest_time.minute,
-                timezone=timezone
+                hour=digest_time.hour, minute=digest_time.minute, timezone=timezone
             )
 
             self.scheduler.add_job(
@@ -366,16 +408,25 @@ class DailyDigestScheduler:
                 trigger=trigger,
                 args=[db_session, channel_id],
                 id=job_id,
-                replace_existing=True
+                replace_existing=True,
             )
 
-            logger.info("Channel digest scheduled", channel_id=channel_id, time=digest_time, timezone=timezone)
+            logger.info(
+                "Channel digest scheduled",
+                channel_id=channel_id,
+                time=digest_time,
+                timezone=timezone,
+            )
 
         except Exception as e:
-            logger.error("Failed to schedule channel digest", channel_id=channel_id, error=str(e))
+            logger.error(
+                "Failed to schedule channel digest", channel_id=channel_id, error=str(e)
+            )
             raise DigestError(f"Failed to schedule channel digest: {e}")
 
-    async def send_channel_digest(self, db_session, channel_id: int, telegram_service, forex_service):
+    async def send_channel_digest(
+        self, db_session, channel_id: int, telegram_service, forex_service
+    ):
         """Send channel digest."""
         try:
             # Get today's news
@@ -383,7 +434,9 @@ class DailyDigestScheduler:
             news_data = await forex_service.get_news_by_date(db_session, today)
 
             if not news_data:
-                logger.info("No news available for channel digest", channel_id=channel_id)
+                logger.info(
+                    "No news available for channel digest", channel_id=channel_id
+                )
                 return
 
             # Format digest message
@@ -391,14 +444,15 @@ class DailyDigestScheduler:
 
             # Send message
             await telegram_service.send_formatted_message(
-                chat_id=channel_id,
-                message=message
+                chat_id=channel_id, message=message
             )
 
             logger.info("Channel digest sent successfully", channel_id=channel_id)
 
         except Exception as e:
-            logger.error("Failed to send channel digest", channel_id=channel_id, error=str(e))
+            logger.error(
+                "Failed to send channel digest", channel_id=channel_id, error=str(e)
+            )
             raise DigestError(f"Failed to send channel digest: {e}")
 
     async def _send_channel_digest(self, db_session, channel_id: int):
@@ -409,7 +463,9 @@ class DailyDigestScheduler:
             logger.info("Channel digest triggered", channel_id=channel_id)
 
         except Exception as e:
-            logger.error("Failed to send channel digest", channel_id=channel_id, error=str(e))
+            logger.error(
+                "Failed to send channel digest", channel_id=channel_id, error=str(e)
+            )
             raise DigestError(f"Failed to send channel digest: {e}")
 
     async def get_scheduled_jobs(self):
@@ -424,7 +480,7 @@ class DailyDigestScheduler:
                     "job_id": job.id,
                     "name": job.name,
                     "next_run_time": job.next_run_time,
-                    "trigger": str(job.trigger)
+                    "trigger": str(job.trigger),
                 }
                 for job in jobs
             ]
@@ -443,10 +499,14 @@ class DailyDigestScheduler:
             return int(offset.total_seconds() / 60)
 
         except Exception as e:
-            logger.error("Failed to get timezone offset", timezone=timezone_str, error=str(e))
+            logger.error(
+                "Failed to get timezone offset", timezone=timezone_str, error=str(e)
+            )
             raise DigestError(f"Failed to get timezone offset: {e}")
 
-    async def send_daily_digest(self, db_session, user_data, telegram_service, forex_service):
+    async def send_daily_digest(
+        self, db_session, user_data, telegram_service, forex_service
+    ):
         """Send daily digest to a user."""
         try:
             # Get today's news
@@ -454,7 +514,9 @@ class DailyDigestScheduler:
             news_data = await forex_service.get_news_by_date(db_session, today)
 
             if not news_data:
-                logger.info("No news available for daily digest", user_id=user_data.telegram_id)
+                logger.info(
+                    "No news available for daily digest", user_id=user_data.telegram_id
+                )
                 return
 
             # Format digest message
@@ -462,14 +524,17 @@ class DailyDigestScheduler:
 
             # Send message
             await telegram_service.send_formatted_message(
-                chat_id=user_data.telegram_id,
-                message=message
+                chat_id=user_data.telegram_id, message=message
             )
 
             logger.info("Daily digest sent successfully", user_id=user_data.telegram_id)
 
         except Exception as e:
-            logger.error("Failed to send daily digest", user_id=user_data.telegram_id, error=str(e))
+            logger.error(
+                "Failed to send daily digest",
+                user_id=user_data.telegram_id,
+                error=str(e),
+            )
             raise DigestError(f"Failed to send daily digest: {e}")
 
     def format_digest_message(self, news_data, user_data):
@@ -502,17 +567,15 @@ class DailyDigestScheduler:
 
     def get_impact_emoji(self, impact_level):
         """Get emoji for impact level."""
-        impact_emojis = {
-            "High": "🔴",
-            "Medium": "🟡",
-            "Low": "🟢"
-        }
+        impact_emojis = {"High": "🔴", "Medium": "🟡", "Low": "🟢"}
         return impact_emojis.get(impact_level, "⚪")
 
     async def _send_user_digest(self, user_id: int, timezone: str):
         """Send daily digest to a specific user."""
         try:
-            logger.info("Starting user daily digest", user_id=user_id, timezone=timezone)
+            logger.info(
+                "Starting user daily digest", user_id=user_id, timezone=timezone
+            )
 
             # Get today's date in the user's timezone
             tz = pytz.timezone(timezone)
@@ -522,7 +585,9 @@ class DailyDigestScheduler:
             news_items = await self._fetch_today_news(today)
 
             if not news_items:
-                logger.info("No news items found for user digest", user_id=user_id, date=today)
+                logger.info(
+                    "No news items found for user digest", user_id=user_id, date=today
+                )
                 return
 
             # Get user preferences
@@ -533,7 +598,7 @@ class DailyDigestScheduler:
                 user_id=user_id,
                 news_items=news_items,
                 target_date=datetime.combine(today, time()),
-                user_preferences=user_preferences
+                user_preferences=user_preferences,
             )
 
             if success:
@@ -544,7 +609,6 @@ class DailyDigestScheduler:
         except Exception as e:
             logger.error("Failed to send user digest", user_id=user_id, error=str(e))
 
-
     def health_check(self) -> Dict[str, Any]:
         """Check the health of the digest scheduler."""
         try:
@@ -553,15 +617,12 @@ class DailyDigestScheduler:
                 "scheduler_running": self.scheduler.running,
                 "scheduled_jobs": len(self.scheduler.get_jobs()),
                 "jobstore_configured": bool(self.scheduler.jobstores),
-                "timezone_support": True
+                "timezone_support": True,
             }
 
         except Exception as e:
             logger.error("Digest scheduler health check failed", error=str(e))
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}
 
     def shutdown(self):
         """Shutdown the digest scheduler."""

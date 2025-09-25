@@ -34,7 +34,7 @@ class TestGPTAnalysisService:
     async def test_initialize_success(self, gpt_service):
         """Test successful GPT service initialization."""
         # Arrange
-        with patch('openai.AsyncOpenAI') as mock_openai:
+        with patch("openai.AsyncOpenAI") as mock_openai:
             mock_client = AsyncMock()
             mock_openai.return_value = mock_client
 
@@ -48,7 +48,7 @@ class TestGPTAnalysisService:
     async def test_initialize_error(self, gpt_service):
         """Test GPT service initialization with error."""
         # Arrange
-        with patch('openai.AsyncOpenAI', side_effect=Exception("OpenAI error")):
+        with patch("openai.AsyncOpenAI", side_effect=Exception("OpenAI error")):
             # Act & Assert
             with pytest.raises(AnalysisError):
                 await gpt_service.initialize()
@@ -74,7 +74,9 @@ class TestGPTAnalysisService:
         # Arrange
         gpt_service.client = mock_openai_client
         news_data = ForexNewsCreateFactory.build()
-        mock_openai_client.chat.completions.create.side_effect = Exception("OpenAI API error")
+        mock_openai_client.chat.completions.create.side_effect = Exception(
+            "OpenAI API error"
+        )
 
         # Act & Assert
         with pytest.raises(ExternalAPIError):
@@ -89,9 +91,21 @@ class TestGPTAnalysisService:
             "symbol": "EURUSD",
             "timeframe": "1h",
             "data": [
-                {"timestamp": "2024-01-15T10:00:00Z", "open": 1.0850, "high": 1.0860, "low": 1.0840, "close": 1.0855},
-                {"timestamp": "2024-01-15T11:00:00Z", "open": 1.0855, "high": 1.0865, "low": 1.0845, "close": 1.0860},
-            ]
+                {
+                    "timestamp": "2024-01-15T10:00:00Z",
+                    "open": 1.0850,
+                    "high": 1.0860,
+                    "low": 1.0840,
+                    "close": 1.0855,
+                },
+                {
+                    "timestamp": "2024-01-15T11:00:00Z",
+                    "open": 1.0855,
+                    "high": 1.0865,
+                    "low": 1.0845,
+                    "close": 1.0860,
+                },
+            ],
         }
 
         # Act
@@ -108,21 +122,25 @@ class TestGPTAnalysisService:
         # Arrange
         gpt_service.client = mock_openai_client
         price_data = {"symbol": "EURUSD", "data": []}
-        mock_openai_client.chat.completions.create.side_effect = Exception("OpenAI API error")
+        mock_openai_client.chat.completions.create.side_effect = Exception(
+            "OpenAI API error"
+        )
 
         # Act & Assert
         with pytest.raises(ExternalAPIError):
             await gpt_service.analyze_price_data(price_data)
 
     @pytest.mark.asyncio
-    async def test_analyze_market_sentiment_success(self, gpt_service, mock_openai_client):
+    async def test_analyze_market_sentiment_success(
+        self, gpt_service, mock_openai_client
+    ):
         """Test successful market sentiment analysis."""
         # Arrange
         gpt_service.client = mock_openai_client
         market_data = {
             "currency": "USD",
             "news_events": [ForexNewsCreateFactory.build() for _ in range(3)],
-            "price_movement": "bullish"
+            "price_movement": "bullish",
         }
 
         # Act
@@ -134,19 +152,29 @@ class TestGPTAnalysisService:
         mock_openai_client.chat.completions.create.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_analyze_market_sentiment_error(self, gpt_service, mock_openai_client):
+    async def test_analyze_market_sentiment_error(
+        self, gpt_service, mock_openai_client
+    ):
         """Test market sentiment analysis with error."""
         # Arrange
         gpt_service.client = mock_openai_client
-        market_data = {"currency": "USD", "news_events": [], "price_movement": "neutral"}
-        mock_openai_client.chat.completions.create.side_effect = Exception("OpenAI API error")
+        market_data = {
+            "currency": "USD",
+            "news_events": [],
+            "price_movement": "neutral",
+        }
+        mock_openai_client.chat.completions.create.side_effect = Exception(
+            "OpenAI API error"
+        )
 
         # Act & Assert
         with pytest.raises(ExternalAPIError):
             await gpt_service.analyze_market_sentiment(market_data)
 
     @pytest.mark.asyncio
-    async def test_generate_trading_signals_success(self, gpt_service, mock_openai_client):
+    async def test_generate_trading_signals_success(
+        self, gpt_service, mock_openai_client
+    ):
         """Test successful trading signals generation."""
         # Arrange
         gpt_service.client = mock_openai_client
@@ -154,7 +182,7 @@ class TestGPTAnalysisService:
             "symbol": "EURUSD",
             "technical_indicators": {"rsi": 65, "macd": 0.001, "ema_20": 1.0850},
             "news_impact": "high",
-            "market_sentiment": "bullish"
+            "market_sentiment": "bullish",
         }
 
         # Act
@@ -166,12 +194,16 @@ class TestGPTAnalysisService:
         mock_openai_client.chat.completions.create.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_generate_trading_signals_error(self, gpt_service, mock_openai_client):
+    async def test_generate_trading_signals_error(
+        self, gpt_service, mock_openai_client
+    ):
         """Test trading signals generation with error."""
         # Arrange
         gpt_service.client = mock_openai_client
         analysis_data = {"symbol": "EURUSD", "technical_indicators": {}}
-        mock_openai_client.chat.completions.create.side_effect = Exception("OpenAI API error")
+        mock_openai_client.chat.completions.create.side_effect = Exception(
+            "OpenAI API error"
+        )
 
         # Act & Assert
         with pytest.raises(ExternalAPIError):
@@ -182,7 +214,11 @@ class TestGPTAnalysisService:
         """Test successful technical indicators calculation."""
         # Arrange
         price_data = [
-            {"close": 1.0850}, {"close": 1.0855}, {"close": 1.0860}, {"close": 1.0855}, {"close": 1.0865}
+            {"close": 1.0850},
+            {"close": 1.0855},
+            {"close": 1.0860},
+            {"close": 1.0855},
+            {"close": 1.0865},
         ]
 
         # Act
@@ -344,7 +380,9 @@ class TestGPTAnalysisService:
         """Test health check with error."""
         # Arrange
         gpt_service.client = mock_openai_client
-        mock_openai_client.chat.completions.create.side_effect = Exception("OpenAI API error")
+        mock_openai_client.chat.completions.create.side_effect = Exception(
+            "OpenAI API error"
+        )
 
         # Act
         result = await gpt_service.health_check()

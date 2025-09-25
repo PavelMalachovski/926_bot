@@ -24,15 +24,21 @@ class VisualizeHandler:
 
         # Available currencies for visualization
         self.available_currencies = [
-            "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD",
-            "XAU", "BTC", "ETH"
+            "USD",
+            "EUR",
+            "GBP",
+            "JPY",
+            "AUD",
+            "CAD",
+            "CHF",
+            "NZD",
+            "XAU",
+            "BTC",
+            "ETH",
         ]
 
         # Time windows for visualization
-        self.time_windows = [
-            ("1h", 1),
-            ("2h", 2)
-        ]
+        self.time_windows = [("1h", 1), ("2h", 2)]
 
         # Asymmetric time windows for cross-rate analysis
         self.cross_rate_windows = [
@@ -47,10 +53,9 @@ class VisualizeHandler:
             row = []
 
             for currency in self.available_currencies:
-                row.append({
-                    "text": currency,
-                    "callback_data": f"viz_currency_{currency}"
-                })
+                row.append(
+                    {"text": currency, "callback_data": f"viz_currency_{currency}"}
+                )
 
                 if len(row) == 3:  # 3 buttons per row
                     markup["inline_keyboard"].append(row)
@@ -61,7 +66,9 @@ class VisualizeHandler:
                 markup["inline_keyboard"].append(row)
 
             # Add back button
-            markup["inline_keyboard"].append([{"text": "🔙 Back to Menu", "callback_data": "viz_back"}])
+            markup["inline_keyboard"].append(
+                [{"text": "🔙 Back to Menu", "callback_data": "viz_back"}]
+            )
 
             return markup
 
@@ -69,7 +76,9 @@ class VisualizeHandler:
             logger.error("Failed to generate currency selection keyboard", error=str(e))
             return {"inline_keyboard": []}
 
-    def get_time_window_keyboard(self, currency: str, chart_type: str = "symmetric") -> dict:
+    def get_time_window_keyboard(
+        self, currency: str, chart_type: str = "symmetric"
+    ) -> dict:
         """Generate time window selection keyboard."""
         try:
             markup = {"inline_keyboard": []}
@@ -85,15 +94,18 @@ class VisualizeHandler:
                     callback_data = f"viz_window_{currency}_{hours}_{hours}"
                 else:
                     label, before_hours, after_hours = window_info
-                    callback_data = f"viz_window_{currency}_{before_hours}_{after_hours}"
+                    callback_data = (
+                        f"viz_window_{currency}_{before_hours}_{after_hours}"
+                    )
 
-                markup["inline_keyboard"].append([{
-                    "text": label,
-                    "callback_data": callback_data
-                }])
+                markup["inline_keyboard"].append(
+                    [{"text": label, "callback_data": callback_data}]
+                )
 
             # Add back button
-            markup["inline_keyboard"].append([{"text": "🔙 Back to Currencies", "callback_data": "viz_currencies"}])
+            markup["inline_keyboard"].append(
+                [{"text": "🔙 Back to Currencies", "callback_data": "viz_currencies"}]
+            )
 
             return markup
 
@@ -109,17 +121,23 @@ class VisualizeHandler:
             chart_types = [
                 ("📊 Symmetric", "symmetric"),
                 ("📈 Asymmetric", "asymmetric"),
-                ("📉 Cross-Rate", "cross_rate")
+                ("📉 Cross-Rate", "cross_rate"),
             ]
 
             for label, chart_type in chart_types:
-                markup["inline_keyboard"].append([{
-                    "text": label,
-                    "callback_data": f"viz_type_{currency}_{chart_type}"
-                }])
+                markup["inline_keyboard"].append(
+                    [
+                        {
+                            "text": label,
+                            "callback_data": f"viz_type_{currency}_{chart_type}",
+                        }
+                    ]
+                )
 
             # Add back button
-            markup["inline_keyboard"].append([{"text": "🔙 Back to Currencies", "callback_data": "viz_currencies"}])
+            markup["inline_keyboard"].append(
+                [{"text": "🔙 Back to Currencies", "callback_data": "viz_currencies"}]
+            )
 
             return markup
 
@@ -136,10 +154,14 @@ class VisualizeHandler:
             return message, keyboard
 
         except Exception as e:
-            logger.error("Failed to handle visualize command", user_id=user_id, error=str(e))
+            logger.error(
+                "Failed to handle visualize command", user_id=user_id, error=str(e)
+            )
             return "❌ Error loading visualization options.", {"inline_keyboard": []}
 
-    async def handle_currency_selection(self, user_id: int, currency: str) -> Tuple[str, dict]:
+    async def handle_currency_selection(
+        self, user_id: int, currency: str
+    ) -> Tuple[str, dict]:
         """Handle currency selection for visualization."""
         try:
             message = f"📊 **{currency} Chart Visualization**\n\nSelect chart type:"
@@ -148,10 +170,17 @@ class VisualizeHandler:
             return message, keyboard
 
         except Exception as e:
-            logger.error("Failed to handle currency selection", user_id=user_id, currency=currency, error=str(e))
+            logger.error(
+                "Failed to handle currency selection",
+                user_id=user_id,
+                currency=currency,
+                error=str(e),
+            )
             return f"❌ Error selecting {currency}.", {"inline_keyboard": []}
 
-    async def handle_chart_type_selection(self, user_id: int, currency: str, chart_type: str) -> Tuple[str, dict]:
+    async def handle_chart_type_selection(
+        self, user_id: int, currency: str, chart_type: str
+    ) -> Tuple[str, dict]:
         """Handle chart type selection."""
         try:
             if chart_type == "symmetric":
@@ -161,7 +190,9 @@ class VisualizeHandler:
                 message = f"📈 **{currency} Asymmetric Chart**\n\nSelect time window:"
                 keyboard = self.get_time_window_keyboard(currency, "asymmetric")
             elif chart_type == "cross_rate":
-                message = f"📉 **{currency} Cross-Rate Analysis**\n\nSelect time window:"
+                message = (
+                    f"📉 **{currency} Cross-Rate Analysis**\n\nSelect time window:"
+                )
                 keyboard = self.get_time_window_keyboard(currency, "asymmetric")
             else:
                 return "❌ Invalid chart type.", {"inline_keyboard": []}
@@ -169,13 +200,29 @@ class VisualizeHandler:
             return message, keyboard
 
         except Exception as e:
-            logger.error("Failed to handle chart type selection", user_id=user_id, currency=currency, chart_type=chart_type, error=str(e))
-            return f"❌ Error selecting chart type for {currency}.", {"inline_keyboard": []}
+            logger.error(
+                "Failed to handle chart type selection",
+                user_id=user_id,
+                currency=currency,
+                chart_type=chart_type,
+                error=str(e),
+            )
+            return f"❌ Error selecting chart type for {currency}.", {
+                "inline_keyboard": []
+            }
 
-    async def handle_time_window_selection(self, user_id: int, currency: str, before_hours: int, after_hours: int) -> Tuple[str, Optional[bytes]]:
+    async def handle_time_window_selection(
+        self, user_id: int, currency: str, before_hours: int, after_hours: int
+    ) -> Tuple[str, Optional[bytes]]:
         """Handle time window selection and generate chart."""
         try:
-            logger.info("Generating visualization chart", user_id=user_id, currency=currency, before_hours=before_hours, after_hours=after_hours)
+            logger.info(
+                "Generating visualization chart",
+                user_id=user_id,
+                currency=currency,
+                before_hours=before_hours,
+                after_hours=after_hours,
+            )
 
             # Calculate time range
             now = datetime.now()
@@ -183,7 +230,9 @@ class VisualizeHandler:
             end_time = now + timedelta(hours=after_hours)
 
             # Generate chart
-            chart_image = await self._generate_visualization_chart(currency, start_time, end_time, before_hours, after_hours)
+            chart_image = await self._generate_visualization_chart(
+                currency, start_time, end_time, before_hours, after_hours
+            )
 
             if chart_image:
                 message = f"📊 **{currency} Chart**\n\n⏰ Time Window: {before_hours}h before → {after_hours}h after\n📅 Generated: {now.strftime('%H:%M')}"
@@ -192,10 +241,22 @@ class VisualizeHandler:
                 return f"❌ Failed to generate chart for {currency}.", None
 
         except Exception as e:
-            logger.error("Failed to handle time window selection", user_id=user_id, currency=currency, error=str(e))
+            logger.error(
+                "Failed to handle time window selection",
+                user_id=user_id,
+                currency=currency,
+                error=str(e),
+            )
             return f"❌ Error generating chart for {currency}.", None
 
-    async def _generate_visualization_chart(self, currency: str, start_time: datetime, end_time: datetime, before_hours: int, after_hours: int) -> Optional[bytes]:
+    async def _generate_visualization_chart(
+        self,
+        currency: str,
+        start_time: datetime,
+        end_time: datetime,
+        before_hours: int,
+        after_hours: int,
+    ) -> Optional[bytes]:
         """Generate visualization chart for the given parameters."""
         try:
             # Create chart request
@@ -206,42 +267,71 @@ class VisualizeHandler:
                 event_name=f"{currency} Visualization",
                 start_time=start_time,
                 end_time=end_time,
-                chart_type='intraday'
+                chart_type="intraday",
             )
 
             # Generate chart using chart service
             response = await chart_service.generate_chart(request)
 
             if response.success and response.chart_image:
-                logger.info("Visualization chart generated successfully", currency=currency, size_bytes=len(response.chart_image))
+                logger.info(
+                    "Visualization chart generated successfully",
+                    currency=currency,
+                    size_bytes=len(response.chart_image),
+                )
                 return response.chart_image
             else:
-                logger.error("Failed to generate visualization chart", currency=currency, error=response.error_message)
+                logger.error(
+                    "Failed to generate visualization chart",
+                    currency=currency,
+                    error=response.error_message,
+                )
                 return None
 
         except Exception as e:
-            logger.error("Failed to generate visualization chart", currency=currency, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to generate visualization chart",
+                currency=currency,
+                error=str(e),
+                exc_info=True,
+            )
             return None
 
-    async def handle_callback_query(self, callback_data: str, user_id: int) -> Tuple[bool, str, dict, Optional[bytes]]:
+    async def handle_callback_query(
+        self, callback_data: str, user_id: int
+    ) -> Tuple[bool, str, dict, Optional[bytes]]:
         """Handle visualization-related callback queries."""
         try:
             if callback_data == "viz_back":
-                return True, "📊 **Chart Visualization**\n\nSelect a currency to visualize:", self.get_currency_selection_keyboard(), None
+                return (
+                    True,
+                    "📊 **Chart Visualization**\n\nSelect a currency to visualize:",
+                    self.get_currency_selection_keyboard(),
+                    None,
+                )
 
             elif callback_data == "viz_currencies":
-                return True, "📊 **Chart Visualization**\n\nSelect a currency to visualize:", self.get_currency_selection_keyboard(), None
+                return (
+                    True,
+                    "📊 **Chart Visualization**\n\nSelect a currency to visualize:",
+                    self.get_currency_selection_keyboard(),
+                    None,
+                )
 
             elif callback_data.startswith("viz_currency_"):
                 currency = callback_data.split("_", 2)[2]
-                message, keyboard = await self.handle_currency_selection(user_id, currency)
+                message, keyboard = await self.handle_currency_selection(
+                    user_id, currency
+                )
                 return True, message, keyboard, None
 
             elif callback_data.startswith("viz_type_"):
                 parts = callback_data.split("_")
                 currency = parts[2]
                 chart_type = parts[3]
-                message, keyboard = await self.handle_chart_type_selection(user_id, currency, chart_type)
+                message, keyboard = await self.handle_chart_type_selection(
+                    user_id, currency, chart_type
+                )
                 return True, message, keyboard, None
 
             elif callback_data.startswith("viz_window_"):
@@ -249,37 +339,62 @@ class VisualizeHandler:
                 currency = parts[2]
                 before_hours = int(parts[3])
                 after_hours = int(parts[4])
-                message, chart_image = await self.handle_time_window_selection(user_id, currency, before_hours, after_hours)
+                message, chart_image = await self.handle_time_window_selection(
+                    user_id, currency, before_hours, after_hours
+                )
                 return True, message, {}, chart_image
 
             else:
                 return False, "Unknown visualization callback", {}, None
 
         except Exception as e:
-            logger.error("Failed to handle visualization callback", callback_data=callback_data, user_id=user_id, error=str(e))
+            logger.error(
+                "Failed to handle visualization callback",
+                callback_data=callback_data,
+                user_id=user_id,
+                error=str(e),
+            )
             return False, f"Error: {str(e)}", {}, None
 
-    async def get_quick_chart(self, user_id: int, currency: str, hours: int = 2) -> Optional[bytes]:
+    async def get_quick_chart(
+        self, user_id: int, currency: str, hours: int = 2
+    ) -> Optional[bytes]:
         """Generate a quick chart for a currency."""
         try:
             now = datetime.now()
             start_time = now - timedelta(hours=hours)
             end_time = now + timedelta(hours=hours)
 
-            chart_image = await self._generate_visualization_chart(currency, start_time, end_time, hours, hours)
+            chart_image = await self._generate_visualization_chart(
+                currency, start_time, end_time, hours, hours
+            )
 
             if chart_image:
-                logger.info("Quick chart generated", user_id=user_id, currency=currency, hours=hours)
+                logger.info(
+                    "Quick chart generated",
+                    user_id=user_id,
+                    currency=currency,
+                    hours=hours,
+                )
                 return chart_image
             else:
-                logger.error("Failed to generate quick chart", user_id=user_id, currency=currency)
+                logger.error(
+                    "Failed to generate quick chart", user_id=user_id, currency=currency
+                )
                 return None
 
         except Exception as e:
-            logger.error("Failed to generate quick chart", user_id=user_id, currency=currency, error=str(e))
+            logger.error(
+                "Failed to generate quick chart",
+                user_id=user_id,
+                currency=currency,
+                error=str(e),
+            )
             return None
 
-    async def get_cross_rate_analysis(self, user_id: int, base_currency: str, quote_currency: str, hours: int = 2) -> Optional[bytes]:
+    async def get_cross_rate_analysis(
+        self, user_id: int, base_currency: str, quote_currency: str, hours: int = 2
+    ) -> Optional[bytes]:
         """Generate cross-rate analysis chart."""
         try:
             # Create cross-rate symbol
@@ -289,17 +404,34 @@ class VisualizeHandler:
             start_time = now - timedelta(hours=hours)
             end_time = now + timedelta(hours=hours)
 
-            chart_image = await self._generate_visualization_chart(cross_rate, start_time, end_time, hours, hours)
+            chart_image = await self._generate_visualization_chart(
+                cross_rate, start_time, end_time, hours, hours
+            )
 
             if chart_image:
-                logger.info("Cross-rate analysis generated", user_id=user_id, cross_rate=cross_rate, hours=hours)
+                logger.info(
+                    "Cross-rate analysis generated",
+                    user_id=user_id,
+                    cross_rate=cross_rate,
+                    hours=hours,
+                )
                 return chart_image
             else:
-                logger.error("Failed to generate cross-rate analysis", user_id=user_id, cross_rate=cross_rate)
+                logger.error(
+                    "Failed to generate cross-rate analysis",
+                    user_id=user_id,
+                    cross_rate=cross_rate,
+                )
                 return None
 
         except Exception as e:
-            logger.error("Failed to generate cross-rate analysis", user_id=user_id, base_currency=base_currency, quote_currency=quote_currency, error=str(e))
+            logger.error(
+                "Failed to generate cross-rate analysis",
+                user_id=user_id,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                error=str(e),
+            )
             return None
 
     def get_available_currencies(self) -> List[str]:
@@ -323,12 +455,9 @@ class VisualizeHandler:
                 "time_windows": len(self.time_windows),
                 "cross_rate_windows": len(self.cross_rate_windows),
                 "chart_service_available": True,
-                "telegram_service_available": True
+                "telegram_service_available": True,
             }
 
         except Exception as e:
             logger.error("Visualization service health check failed", error=str(e))
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}

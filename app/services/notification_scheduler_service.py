@@ -38,13 +38,14 @@ class NotificationScheduler:
 
         # Setup scheduler with SQLAlchemy job store
         jobstores = {
-            'default': SQLAlchemyJobStore(url=getattr(settings.database, 'url', 'sqlite:///notification_jobs.sqlite'))
+            "default": SQLAlchemyJobStore(
+                url=getattr(
+                    settings.database, "url", "sqlite:///notification_jobs.sqlite"
+                )
+            )
         }
 
-        self.scheduler = BackgroundScheduler(
-            jobstores=jobstores,
-            timezone=pytz.UTC
-        )
+        self.scheduler = BackgroundScheduler(jobstores=jobstores, timezone=pytz.UTC)
 
         self._setup_scheduler()
 
@@ -55,37 +56,37 @@ class NotificationScheduler:
             self.scheduler.add_job(
                 func=self._check_and_send_news_notifications,
                 trigger=IntervalTrigger(minutes=15),
-                id='news_checker',
-                name='News Notification Checker',
-                replace_existing=True
+                id="news_checker",
+                name="News Notification Checker",
+                replace_existing=True,
             )
 
             # Add daily cleanup job (every day at 2 AM UTC)
             self.scheduler.add_job(
                 func=self._daily_cleanup,
                 trigger=CronTrigger(hour=2, minute=0, timezone=pytz.UTC),
-                id='daily_cleanup',
-                name='Daily Cleanup',
-                replace_existing=True
+                id="daily_cleanup",
+                name="Daily Cleanup",
+                replace_existing=True,
             )
 
             # Add health check job (every hour)
             self.scheduler.add_job(
                 func=self._health_check,
                 trigger=IntervalTrigger(hours=1),
-                id='health_check',
-                name='Health Check',
-                replace_existing=True
+                id="health_check",
+                name="Health Check",
+                replace_existing=True,
             )
 
             # Add Render.com keep-alive job (every 10 minutes)
-            if getattr(self.config, 'render_hostname', None):
+            if getattr(self.config, "render_hostname", None):
                 self.scheduler.add_job(
                     func=self._render_keep_alive,
                     trigger=IntervalTrigger(minutes=10),
-                    id='render_keep_alive',
-                    name='Render.com Keep Alive',
-                    replace_existing=True
+                    id="render_keep_alive",
+                    name="Render.com Keep Alive",
+                    replace_existing=True,
                 )
 
             self.scheduler.start()
@@ -113,8 +114,9 @@ class NotificationScheduler:
 
             # Filter news by impact level and time
             high_impact_news = [
-                item for item in news_items
-                if item.get('impact') == 'high' and self._is_recent_news(item, now)
+                item
+                for item in news_items
+                if item.get("impact") == "high" and self._is_recent_news(item, now)
             ]
 
             if not high_impact_news:
@@ -133,28 +135,41 @@ class NotificationScheduler:
                 try:
                     await self._send_user_notification(user, high_impact_news, today)
                 except Exception as e:
-                    logger.error("Failed to send notification to user", user_id=user.get('user_id'), error=str(e))
+                    logger.error(
+                        "Failed to send notification to user",
+                        user_id=user.get("user_id"),
+                        error=str(e),
+                    )
                     continue
 
             # Send group notification if configured
             await self._send_group_notification(high_impact_news, today)
 
-            logger.info("News notification check completed", users_notified=len(users), news_count=len(high_impact_news))
+            logger.info(
+                "News notification check completed",
+                users_notified=len(users),
+                news_count=len(high_impact_news),
+            )
 
         except Exception as e:
             logger.error("Failed to check and send news notifications", error=str(e))
 
-    def _is_recent_news(self, news_item: Dict[str, Any], current_time: datetime) -> bool:
+    def _is_recent_news(
+        self, news_item: Dict[str, Any], current_time: datetime
+    ) -> bool:
         """Check if news item is recent (within last 2 hours)."""
         try:
             # Parse news time (assuming format like "08:30" or "14:00")
-            news_time_str = news_item.get('time', '')
+            news_time_str = news_item.get("time", "")
             if not news_time_str:
                 return False
 
             # Convert to datetime for today
-            hour, minute = map(int, news_time_str.split(':'))
-            news_datetime = datetime.combine(current_time.date(), datetime.min.time().replace(hour=hour, minute=minute))
+            hour, minute = map(int, news_time_str.split(":"))
+            news_datetime = datetime.combine(
+                current_time.date(),
+                datetime.min.time().replace(hour=hour, minute=minute),
+            )
 
             # Check if news is within last 2 hours
             time_diff = current_time - news_datetime
@@ -180,10 +195,12 @@ class NotificationScheduler:
             logger.error("Failed to get notification users", error=str(e))
             return []
 
-    async def _send_user_notification(self, user: Dict[str, Any], news_items: List[Dict[str, Any]], target_date: date):
+    async def _send_user_notification(
+        self, user: Dict[str, Any], news_items: List[Dict[str, Any]], target_date: date
+    ):
         """Send notification to a specific user."""
         try:
-            user_id = user.get('user_id')
+            user_id = user.get("user_id")
             if not user_id:
                 return
 
@@ -196,9 +213,9 @@ class NotificationScheduler:
                 news_items=news_items,
                 target_date=datetime.combine(target_date, datetime.min.time()),
                 impact_level="high",
-                analysis_required=user_preferences.get('analysis_required', True),
-                currencies=user_preferences.get('preferred_currencies'),
-                send_chart=user_preferences.get('charts_enabled', False)
+                analysis_required=user_preferences.get("analysis_required", True),
+                currencies=user_preferences.get("preferred_currencies"),
+                send_chart=user_preferences.get("charts_enabled", False),
             )
 
             if success:
@@ -207,12 +224,18 @@ class NotificationScheduler:
                 logger.warning("Failed to send user notification", user_id=user_id)
 
         except Exception as e:
-            logger.error("Failed to send user notification", user_id=user.get('user_id'), error=str(e))
+            logger.error(
+                "Failed to send user notification",
+                user_id=user.get("user_id"),
+                error=str(e),
+            )
 
-    async def _send_group_notification(self, news_items: List[Dict[str, Any]], target_date: date):
+    async def _send_group_notification(
+        self, news_items: List[Dict[str, Any]], target_date: date
+    ):
         """Send group notification if configured."""
         try:
-            chat_id = getattr(self.config, 'telegram_chat_id', None)
+            chat_id = getattr(self.config, "telegram_chat_id", None)
             if not chat_id:
                 return
 
@@ -223,7 +246,7 @@ class NotificationScheduler:
                 target_date=datetime.combine(target_date, datetime.min.time()),
                 impact_level="high",
                 analysis_required=True,
-                send_chart=True
+                send_chart=True,
             )
 
             if success:
@@ -240,15 +263,25 @@ class NotificationScheduler:
             user = await self.db_service.get_or_create_user(user_id)
 
             return {
-                'preferred_currencies': user.get_currencies_list() if hasattr(user, 'get_currencies_list') else [],
-                'impact_levels': user.get_impact_levels_list() if hasattr(user, 'get_impact_levels_list') else ['high'],
-                'analysis_required': getattr(user, 'analysis_required', True),
-                'charts_enabled': getattr(user, 'charts_enabled', False),
-                'notifications_enabled': getattr(user, 'notifications_enabled', True)
+                "preferred_currencies": (
+                    user.get_currencies_list()
+                    if hasattr(user, "get_currencies_list")
+                    else []
+                ),
+                "impact_levels": (
+                    user.get_impact_levels_list()
+                    if hasattr(user, "get_impact_levels_list")
+                    else ["high"]
+                ),
+                "analysis_required": getattr(user, "analysis_required", True),
+                "charts_enabled": getattr(user, "charts_enabled", False),
+                "notifications_enabled": getattr(user, "notifications_enabled", True),
             }
 
         except Exception as e:
-            logger.error("Failed to get user preferences", user_id=user_id, error=str(e))
+            logger.error(
+                "Failed to get user preferences", user_id=user_id, error=str(e)
+            )
             return {}
 
     async def _daily_cleanup(self):
@@ -308,11 +341,13 @@ class NotificationScheduler:
             chart_health = chart_service.health_check()
 
             # Log health status
-            logger.info("Health check completed",
-                       database=db_health.get('status', 'unknown'),
-                       scraping=scraping_health.get('status', 'unknown'),
-                       notifications=notification_health.get('status', 'unknown'),
-                       charts=chart_health.get('status', 'unknown'))
+            logger.info(
+                "Health check completed",
+                database=db_health.get("status", "unknown"),
+                scraping=scraping_health.get("status", "unknown"),
+                notifications=notification_health.get("status", "unknown"),
+                charts=chart_health.get("status", "unknown"),
+            )
 
         except Exception as e:
             logger.error("Health check failed", error=str(e))
@@ -340,18 +375,21 @@ class NotificationScheduler:
     async def _render_keep_alive(self):
         """Send keep-alive request to Render.com."""
         try:
-            render_hostname = getattr(self.config, 'render_hostname', None)
+            render_hostname = getattr(self.config, "render_hostname", None)
             if not render_hostname:
                 return
 
             # Send HTTP request to keep the service alive
             import requests
+
             response = requests.get(f"https://{render_hostname}/health", timeout=10)
 
             if response.status_code == 200:
                 logger.info("Render.com keep-alive successful")
             else:
-                logger.warning("Render.com keep-alive failed", status_code=response.status_code)
+                logger.warning(
+                    "Render.com keep-alive failed", status_code=response.status_code
+                )
 
         except Exception as e:
             logger.error("Render.com keep-alive failed", error=str(e))
@@ -365,7 +403,7 @@ class NotificationScheduler:
                 id=job_id,
                 name=name,
                 replace_existing=True,
-                **kwargs
+                **kwargs,
             )
 
             logger.info("Custom job added", job_id=job_id, name=name)
@@ -392,12 +430,16 @@ class NotificationScheduler:
         try:
             jobs = []
             for job in self.scheduler.get_jobs():
-                jobs.append({
-                    'id': job.id,
-                    'name': job.name,
-                    'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
-                    'trigger': str(job.trigger)
-                })
+                jobs.append(
+                    {
+                        "id": job.id,
+                        "name": job.name,
+                        "next_run_time": (
+                            job.next_run_time.isoformat() if job.next_run_time else None
+                        ),
+                        "trigger": str(job.trigger),
+                    }
+                )
             return jobs
 
         except Exception as e:
@@ -442,15 +484,12 @@ class NotificationScheduler:
                 "jobstore_configured": bool(self.scheduler.jobstores),
                 "notification_service_available": True,
                 "scraping_service_available": True,
-                "chart_service_available": True
+                "chart_service_available": True,
             }
 
         except Exception as e:
             logger.error("Notification scheduler health check failed", error=str(e))
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}
 
     def shutdown(self):
         """Shutdown the notification scheduler."""

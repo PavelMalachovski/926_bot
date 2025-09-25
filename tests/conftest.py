@@ -49,8 +49,11 @@ async def test_db_session(test_db_engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest_asyncio.fixture
-async def test_client(test_db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def test_client(
+    test_db_session: AsyncSession,
+) -> AsyncGenerator[AsyncClient, None]:
     """Create a test client for the FastAPI application."""
+
     # Override the database dependency
     async def override_get_database():
         yield test_db_session
@@ -88,8 +91,8 @@ def sample_user_data():
             "notification_impact_levels": ["high"],
             "charts_enabled": True,
             "chart_type": "single",
-            "chart_window_hours": 2
-        }
+            "chart_window_hours": 2,
+        },
     }
 
 
@@ -105,7 +108,7 @@ def sample_forex_news_data():
         "forecast": "195K",
         "previous": "190K",
         "impact_level": "high",
-        "analysis": "Strong employment data suggests economic growth"
+        "analysis": "Strong employment data suggests economic growth",
     }
 
 
@@ -118,7 +121,7 @@ def sample_chart_request_data():
         "event_name": "Non-Farm Payrolls",
         "impact_level": "high",
         "window_hours": 2,
-        "chart_type": "single"
+        "chart_type": "single",
     }
 
 
@@ -131,7 +134,7 @@ def sample_notification_data():
         "notification_type": "event_reminder",
         "message": "High impact event starting in 30 minutes",
         "scheduled_time": "2024-01-15T14:00:00Z",
-        "status": "pending"
+        "status": "pending",
     }
 
 
@@ -148,18 +151,18 @@ def sample_telegram_update_data():
                 "first_name": "Test",
                 "last_name": "User",
                 "username": "testuser",
-                "language_code": "en"
+                "language_code": "en",
             },
             "chat": {
                 "id": 123456789,
                 "type": "private",
                 "first_name": "Test",
                 "last_name": "User",
-                "username": "testuser"
+                "username": "testuser",
             },
             "date": 1640995200,
-            "text": "/start"
-        }
+            "text": "/start",
+        },
     }
 
 
@@ -198,8 +201,7 @@ def mock_external_api():
 
     mock_api = AsyncMock()
     mock_api.get.return_value = AsyncMock(
-        status_code=200,
-        json=lambda: {"data": "mock_data"}
+        status_code=200, json=lambda: {"data": "mock_data"}
     )
 
     return mock_api

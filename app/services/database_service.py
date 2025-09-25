@@ -27,20 +27,29 @@ class DatabaseService:
         try:
             async with self.db_manager.get_session_async() as session:
                 # Check if all required columns exist (notification + chart + timezone)
-                result = await session.execute(text("""
+                result = await session.execute(
+                    text(
+                        """
                     SELECT column_name
                     FROM information_schema.columns
                     WHERE table_name = 'users' AND column_name IN (
                         'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
                         'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
                     )
-                """))
+                """
+                    )
+                )
                 all_columns = [row[0] for row in result]
 
                 # Check if we have all required columns
                 required_columns = [
-                    'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                    'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                    "notifications_enabled",
+                    "notification_minutes",
+                    "notification_impact_levels",
+                    "charts_enabled",
+                    "chart_type",
+                    "chart_window_hours",
+                    "timezone",
                 ]
 
                 if all(col in all_columns for col in required_columns):
@@ -54,13 +63,26 @@ class DatabaseService:
                     return user
                 else:
                     # Some columns missing, use raw SQL for getting user
-                    base_columns = ['id', 'telegram_id', 'preferred_currencies', 'impact_levels',
-                                  'analysis_required', 'digest_time', 'created_at', 'updated_at']
+                    base_columns = [
+                        "id",
+                        "telegram_id",
+                        "preferred_currencies",
+                        "impact_levels",
+                        "analysis_required",
+                        "digest_time",
+                        "created_at",
+                        "updated_at",
+                    ]
 
                     # Add optional columns only if they exist
                     optional_columns = [
-                        'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                        'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                        "notifications_enabled",
+                        "notification_minutes",
+                        "notification_impact_levels",
+                        "charts_enabled",
+                        "chart_type",
+                        "chart_window_hours",
+                        "timezone",
                     ]
 
                     columns = base_columns.copy()
@@ -68,10 +90,14 @@ class DatabaseService:
                         if col in all_columns:
                             columns.append(col)
 
-                    columns_str = ', '.join([f'users.{col} AS users_{col}' for col in columns])
+                    columns_str = ", ".join(
+                        [f"users.{col} AS users_{col}" for col in columns]
+                    )
                     sql = f"SELECT {columns_str} FROM users WHERE telegram_id = :telegram_id LIMIT 1"
 
-                    result = await session.execute(text(sql), {'telegram_id': telegram_id})
+                    result = await session.execute(
+                        text(sql), {"telegram_id": telegram_id}
+                    )
                     row = result.fetchone()
 
                     if row:
@@ -81,14 +107,14 @@ class DatabaseService:
                             user_data[col] = row[i]
 
                         user = UserModel()
-                        user.id = user_data['id']
-                        user.telegram_id = user_data['telegram_id']
-                        user.preferred_currencies = user_data['preferred_currencies']
-                        user.impact_levels = user_data['impact_levels']
-                        user.analysis_required = user_data['analysis_required']
-                        user.digest_time = user_data['digest_time']
-                        user.created_at = user_data['created_at']
-                        user.updated_at = user_data['updated_at']
+                        user.id = user_data["id"]
+                        user.telegram_id = user_data["telegram_id"]
+                        user.preferred_currencies = user_data["preferred_currencies"]
+                        user.impact_levels = user_data["impact_levels"]
+                        user.analysis_required = user_data["analysis_required"]
+                        user.digest_time = user_data["digest_time"]
+                        user.created_at = user_data["created_at"]
+                        user.updated_at = user_data["updated_at"]
 
                         # Set optional fields only if they exist
                         for field in optional_columns:
@@ -98,8 +124,8 @@ class DatabaseService:
                         return user
                     else:
                         # User doesn't exist, create new user with raw SQL
-                        insert_columns = ['telegram_id', 'created_at', 'updated_at']
-                        insert_values = [':telegram_id', 'NOW()', 'NOW()']
+                        insert_columns = ["telegram_id", "created_at", "updated_at"]
+                        insert_values = [":telegram_id", "NOW()", "NOW()"]
 
                         insert_sql = f"""
                             INSERT INTO users ({', '.join(insert_columns)})
@@ -108,7 +134,9 @@ class DatabaseService:
                                      analysis_required, digest_time, created_at, updated_at
                         """
 
-                        result = await session.execute(text(insert_sql), {'telegram_id': telegram_id})
+                        result = await session.execute(
+                            text(insert_sql), {"telegram_id": telegram_id}
+                        )
                         row = result.fetchone()
                         await session.commit()
 
@@ -127,7 +155,9 @@ class DatabaseService:
                         return user
 
         except Exception as e:
-            logger.error("Error getting/creating user", telegram_id=telegram_id, error=str(e))
+            logger.error(
+                "Error getting/creating user", telegram_id=telegram_id, error=str(e)
+            )
             raise
 
     async def update_user_preferences(self, telegram_id: int, **kwargs) -> bool:
@@ -135,20 +165,29 @@ class DatabaseService:
         try:
             async with self.db_manager.get_session_async() as session:
                 # Check if all required columns exist (notification + chart + timezone)
-                result = await session.execute(text("""
+                result = await session.execute(
+                    text(
+                        """
                     SELECT column_name
                     FROM information_schema.columns
                     WHERE table_name = 'users' AND column_name IN (
                         'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
                         'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
                     )
-                """))
+                """
+                    )
+                )
                 all_columns = [row[0] for row in result]
 
                 # Check if we have all required columns
                 required_columns = [
-                    'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                    'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                    "notifications_enabled",
+                    "notification_minutes",
+                    "notification_impact_levels",
+                    "charts_enabled",
+                    "chart_type",
+                    "chart_window_hours",
+                    "timezone",
                 ]
 
                 if all(col in all_columns for col in required_columns):
@@ -172,13 +211,26 @@ class DatabaseService:
                 else:
                     # Some columns missing, use raw SQL
                     # First get the user to check if it exists
-                    base_columns = ['id', 'telegram_id', 'preferred_currencies', 'impact_levels',
-                                  'analysis_required', 'digest_time', 'created_at', 'updated_at']
+                    base_columns = [
+                        "id",
+                        "telegram_id",
+                        "preferred_currencies",
+                        "impact_levels",
+                        "analysis_required",
+                        "digest_time",
+                        "created_at",
+                        "updated_at",
+                    ]
 
                     # Add optional columns only if they exist
                     optional_columns = [
-                        'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                        'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                        "notifications_enabled",
+                        "notification_minutes",
+                        "notification_impact_levels",
+                        "charts_enabled",
+                        "chart_type",
+                        "chart_window_hours",
+                        "timezone",
                     ]
 
                     columns = base_columns.copy()
@@ -186,10 +238,14 @@ class DatabaseService:
                         if col in all_columns:
                             columns.append(col)
 
-                    columns_str = ', '.join([f'users.{col} AS users_{col}' for col in columns])
+                    columns_str = ", ".join(
+                        [f"users.{col} AS users_{col}" for col in columns]
+                    )
                     sql = f"SELECT {columns_str} FROM users WHERE telegram_id = :telegram_id LIMIT 1"
 
-                    result = await session.execute(text(sql), {'telegram_id': telegram_id})
+                    result = await session.execute(
+                        text(sql), {"telegram_id": telegram_id}
+                    )
                     row = result.fetchone()
 
                     if not row:
@@ -197,13 +253,21 @@ class DatabaseService:
 
                     # Build UPDATE statement with only existing columns
                     update_parts = []
-                    update_values = {'telegram_id': telegram_id}
+                    update_values = {"telegram_id": telegram_id}
 
                     for key, value in kwargs.items():
                         if key in columns:
                             update_parts.append(f"{key} = :{key}")
                             update_values[key] = value
-                        elif key in ['notifications_enabled', 'notification_minutes', 'notification_impact_levels', 'timezone', 'charts_enabled', 'chart_type', 'chart_window_hours']:
+                        elif key in [
+                            "notifications_enabled",
+                            "notification_minutes",
+                            "notification_impact_levels",
+                            "timezone",
+                            "charts_enabled",
+                            "chart_type",
+                            "chart_window_hours",
+                        ]:
                             # Skip notification and chart fields that don't exist
                             continue
 
@@ -216,34 +280,52 @@ class DatabaseService:
 
                         await session.execute(text(update_sql), update_values)
                         await session.commit()
-                        logger.info("Updated preferences for user", telegram_id=telegram_id)
+                        logger.info(
+                            "Updated preferences for user", telegram_id=telegram_id
+                        )
                         return True
                     else:
-                        logger.info("No valid fields to update for user", telegram_id=telegram_id)
+                        logger.info(
+                            "No valid fields to update for user",
+                            telegram_id=telegram_id,
+                        )
                         return True
 
         except Exception as e:
-            logger.error("Error updating user preferences", telegram_id=telegram_id, error=str(e))
+            logger.error(
+                "Error updating user preferences", telegram_id=telegram_id, error=str(e)
+            )
             return False
 
-    async def get_user_by_telegram_id(self, db: AsyncSession, telegram_id: int) -> Optional[UserModel]:
+    async def get_user_by_telegram_id(
+        self, db: AsyncSession, telegram_id: int
+    ) -> Optional[UserModel]:
         """Get user by telegram ID with schema evolution handling."""
         try:
             # Check if all required columns exist (notification + chart + timezone)
-            result = await db.execute(text("""
+            result = await db.execute(
+                text(
+                    """
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_name = 'users' AND column_name IN (
                     'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
                     'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
                 )
-            """))
+            """
+                )
+            )
             all_columns = [row[0] for row in await result.fetchall()]
 
             # Check if we have all required columns
             required_columns = [
-                'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                "notifications_enabled",
+                "notification_minutes",
+                "notification_impact_levels",
+                "charts_enabled",
+                "chart_type",
+                "chart_window_hours",
+                "timezone",
             ]
 
             if all(col in all_columns for col in required_columns):
@@ -251,13 +333,26 @@ class DatabaseService:
                 return await db.get(UserModel, telegram_id)
             else:
                 # Some columns missing, use raw SQL
-                base_columns = ['id', 'telegram_id', 'preferred_currencies', 'impact_levels',
-                              'analysis_required', 'digest_time', 'created_at', 'updated_at']
+                base_columns = [
+                    "id",
+                    "telegram_id",
+                    "preferred_currencies",
+                    "impact_levels",
+                    "analysis_required",
+                    "digest_time",
+                    "created_at",
+                    "updated_at",
+                ]
 
                 # Add optional columns only if they exist
                 optional_columns = [
-                    'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                    'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                    "notifications_enabled",
+                    "notification_minutes",
+                    "notification_impact_levels",
+                    "charts_enabled",
+                    "chart_type",
+                    "chart_window_hours",
+                    "timezone",
                 ]
 
                 columns = base_columns.copy()
@@ -265,10 +360,12 @@ class DatabaseService:
                     if col in all_columns:
                         columns.append(col)
 
-                columns_str = ', '.join([f'users.{col} AS users_{col}' for col in columns])
+                columns_str = ", ".join(
+                    [f"users.{col} AS users_{col}" for col in columns]
+                )
                 sql = f"SELECT {columns_str} FROM users WHERE telegram_id = :telegram_id LIMIT 1"
 
-                result = await db.execute(text(sql), {'telegram_id': telegram_id})
+                result = await db.execute(text(sql), {"telegram_id": telegram_id})
                 row = await result.fetchone()
 
                 if row:
@@ -278,28 +375,34 @@ class DatabaseService:
 
                     # Create User object manually
                     user = UserModel()
-                    user.id = user_data['id']
-                    user.telegram_id = user_data['telegram_id']
-                    user.preferred_currencies = user_data['preferred_currencies']
-                    user.impact_levels = user_data['impact_levels']
-                    user.analysis_required = user_data['analysis_required']
-                    user.digest_time = user_data['digest_time']
-                    user.created_at = user_data['created_at']
-                    user.updated_at = user_data['updated_at']
+                    user.id = user_data["id"]
+                    user.telegram_id = user_data["telegram_id"]
+                    user.preferred_currencies = user_data["preferred_currencies"]
+                    user.impact_levels = user_data["impact_levels"]
+                    user.analysis_required = user_data["analysis_required"]
+                    user.digest_time = user_data["digest_time"]
+                    user.created_at = user_data["created_at"]
+                    user.updated_at = user_data["updated_at"]
 
                     # Set notification fields only if they exist
-                    if 'notifications_enabled' in user_data:
-                        user.notifications_enabled = user_data['notifications_enabled']
-                    if 'notification_minutes' in user_data:
-                        user.notification_minutes = user_data['notification_minutes']
-                    if 'notification_impact_levels' in user_data:
-                        user.notification_impact_levels = user_data['notification_impact_levels']
+                    if "notifications_enabled" in user_data:
+                        user.notifications_enabled = user_data["notifications_enabled"]
+                    if "notification_minutes" in user_data:
+                        user.notification_minutes = user_data["notification_minutes"]
+                    if "notification_impact_levels" in user_data:
+                        user.notification_impact_levels = user_data[
+                            "notification_impact_levels"
+                        ]
 
                     return user
 
             return None
         except Exception as e:
-            logger.error("Error getting user by telegram ID", telegram_id=telegram_id, error=str(e))
+            logger.error(
+                "Error getting user by telegram ID",
+                telegram_id=telegram_id,
+                error=str(e),
+            )
             return None
 
     async def get_user_preferences(self, telegram_id: int) -> Optional[Dict[str, Any]]:
@@ -307,20 +410,29 @@ class DatabaseService:
         try:
             async with self.db_manager.get_session_async() as session:
                 # Check if all required columns exist (notification + chart + timezone)
-                result = await session.execute(text("""
+                result = await session.execute(
+                    text(
+                        """
                     SELECT column_name
                     FROM information_schema.columns
                     WHERE table_name = 'users' AND column_name IN (
                         'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
                         'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
                     )
-                """))
+                """
+                    )
+                )
                 all_columns = [row[0] for row in result]
 
                 # Check if we have all required columns
                 required_columns = [
-                    'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                    'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                    "notifications_enabled",
+                    "notification_minutes",
+                    "notification_impact_levels",
+                    "charts_enabled",
+                    "chart_type",
+                    "chart_window_hours",
+                    "timezone",
                 ]
 
                 if all(col in all_columns for col in required_columns):
@@ -330,13 +442,26 @@ class DatabaseService:
                         return user.to_dict()
                 else:
                     # Some columns missing, use raw SQL
-                    base_columns = ['id', 'telegram_id', 'preferred_currencies', 'impact_levels',
-                                  'analysis_required', 'digest_time', 'created_at', 'updated_at']
+                    base_columns = [
+                        "id",
+                        "telegram_id",
+                        "preferred_currencies",
+                        "impact_levels",
+                        "analysis_required",
+                        "digest_time",
+                        "created_at",
+                        "updated_at",
+                    ]
 
                     # Add optional columns only if they exist
                     optional_columns = [
-                        'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                        'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                        "notifications_enabled",
+                        "notification_minutes",
+                        "notification_impact_levels",
+                        "charts_enabled",
+                        "chart_type",
+                        "chart_window_hours",
+                        "timezone",
                     ]
 
                     columns = base_columns.copy()
@@ -344,10 +469,14 @@ class DatabaseService:
                         if col in all_columns:
                             columns.append(col)
 
-                    columns_str = ', '.join([f'users.{col} AS users_{col}' for col in columns])
+                    columns_str = ", ".join(
+                        [f"users.{col} AS users_{col}" for col in columns]
+                    )
                     sql = f"SELECT {columns_str} FROM users WHERE telegram_id = :telegram_id LIMIT 1"
 
-                    result = await session.execute(text(sql), {'telegram_id': telegram_id})
+                    result = await session.execute(
+                        text(sql), {"telegram_id": telegram_id}
+                    )
                     row = result.fetchone()
 
                     if row:
@@ -357,14 +486,14 @@ class DatabaseService:
 
                         # Create User object manually
                         user = UserModel()
-                        user.id = user_data['id']
-                        user.telegram_id = user_data['telegram_id']
-                        user.preferred_currencies = user_data['preferred_currencies']
-                        user.impact_levels = user_data['impact_levels']
-                        user.analysis_required = user_data['analysis_required']
-                        user.digest_time = user_data['digest_time']
-                        user.created_at = user_data['created_at']
-                        user.updated_at = user_data['updated_at']
+                        user.id = user_data["id"]
+                        user.telegram_id = user_data["telegram_id"]
+                        user.preferred_currencies = user_data["preferred_currencies"]
+                        user.impact_levels = user_data["impact_levels"]
+                        user.analysis_required = user_data["analysis_required"]
+                        user.digest_time = user_data["digest_time"]
+                        user.created_at = user_data["created_at"]
+                        user.updated_at = user_data["updated_at"]
 
                         # Set optional fields only if they exist
                         for field in optional_columns:
@@ -375,7 +504,9 @@ class DatabaseService:
 
                 return None
         except Exception as e:
-            logger.error("Error getting user preferences", telegram_id=telegram_id, error=str(e))
+            logger.error(
+                "Error getting user preferences", telegram_id=telegram_id, error=str(e)
+            )
             return None
 
     async def get_users_for_digest(self, digest_time: datetime.time) -> List[UserModel]:
@@ -384,7 +515,7 @@ class DatabaseService:
             async with self.db_manager.get_session_async() as session:
                 result = await session.execute(
                     text("SELECT * FROM users WHERE digest_time = :digest_time"),
-                    {'digest_time': digest_time}
+                    {"digest_time": digest_time},
                 )
                 users = []
                 for row in result:
@@ -397,7 +528,9 @@ class DatabaseService:
                     users.append(user)
                 return users
         except Exception as e:
-            logger.error("Error getting users for digest", digest_time=digest_time, error=str(e))
+            logger.error(
+                "Error getting users for digest", digest_time=digest_time, error=str(e)
+            )
             return []
 
     async def get_all_users(self) -> List[UserModel]:
@@ -405,20 +538,29 @@ class DatabaseService:
         try:
             async with self.db_manager.get_session_async() as session:
                 # Check if all required columns exist (notification + chart + timezone)
-                result = await session.execute(text("""
+                result = await session.execute(
+                    text(
+                        """
                     SELECT column_name
                     FROM information_schema.columns
                     WHERE table_name = 'users' AND column_name IN (
                         'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
                         'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
                     )
-                """))
+                """
+                    )
+                )
                 all_columns = [row[0] for row in result]
 
                 # Check if we have all required columns
                 required_columns = [
-                    'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                    'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                    "notifications_enabled",
+                    "notification_minutes",
+                    "notification_impact_levels",
+                    "charts_enabled",
+                    "chart_type",
+                    "chart_window_hours",
+                    "timezone",
                 ]
 
                 if all(col in all_columns for col in required_columns):
@@ -436,13 +578,26 @@ class DatabaseService:
                     return users
                 else:
                     # Some columns missing, use raw SQL
-                    base_columns = ['id', 'telegram_id', 'preferred_currencies', 'impact_levels',
-                                  'analysis_required', 'digest_time', 'created_at', 'updated_at']
+                    base_columns = [
+                        "id",
+                        "telegram_id",
+                        "preferred_currencies",
+                        "impact_levels",
+                        "analysis_required",
+                        "digest_time",
+                        "created_at",
+                        "updated_at",
+                    ]
 
                     # Add optional columns only if they exist
                     optional_columns = [
-                        'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                        'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                        "notifications_enabled",
+                        "notification_minutes",
+                        "notification_impact_levels",
+                        "charts_enabled",
+                        "chart_type",
+                        "chart_window_hours",
+                        "timezone",
                     ]
 
                     columns = base_columns.copy()
@@ -450,7 +605,9 @@ class DatabaseService:
                         if col in all_columns:
                             columns.append(col)
 
-                    columns_str = ', '.join([f'users.{col} AS users_{col}' for col in columns])
+                    columns_str = ", ".join(
+                        [f"users.{col} AS users_{col}" for col in columns]
+                    )
                     sql = f"SELECT {columns_str} FROM users"
 
                     result = await session.execute(text(sql))
@@ -462,14 +619,14 @@ class DatabaseService:
 
                         # Create User object manually
                         user = UserModel()
-                        user.id = user_data['id']
-                        user.telegram_id = user_data['telegram_id']
-                        user.preferred_currencies = user_data['preferred_currencies']
-                        user.impact_levels = user_data['impact_levels']
-                        user.analysis_required = user_data['analysis_required']
-                        user.digest_time = user_data['digest_time']
-                        user.created_at = user_data['created_at']
-                        user.updated_at = user_data['updated_at']
+                        user.id = user_data["id"]
+                        user.telegram_id = user_data["telegram_id"]
+                        user.preferred_currencies = user_data["preferred_currencies"]
+                        user.impact_levels = user_data["impact_levels"]
+                        user.analysis_required = user_data["analysis_required"]
+                        user.digest_time = user_data["digest_time"]
+                        user.created_at = user_data["created_at"]
+                        user.updated_at = user_data["updated_at"]
 
                         # Set optional fields only if they exist
                         for field in optional_columns:
@@ -488,30 +645,41 @@ class DatabaseService:
         try:
             async with self.db_manager.get_session_async() as session:
                 # Check if all required columns exist (notification + chart + timezone)
-                result = await session.execute(text("""
+                result = await session.execute(
+                    text(
+                        """
                     SELECT column_name
                     FROM information_schema.columns
                     WHERE table_name = 'users' AND column_name IN (
                         'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
                         'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
                     )
-                """))
+                """
+                    )
+                )
                 all_columns = [row[0] for row in result]
 
-                if 'notifications_enabled' not in all_columns:
+                if "notifications_enabled" not in all_columns:
                     # Notification columns don't exist, return empty list
                     logger.info("Notification columns not found, returning empty list")
                     return []
 
                 # Check if we have all required columns
                 required_columns = [
-                    'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                    'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                    "notifications_enabled",
+                    "notification_minutes",
+                    "notification_impact_levels",
+                    "charts_enabled",
+                    "chart_type",
+                    "chart_window_hours",
+                    "timezone",
                 ]
 
                 if all(col in all_columns for col in required_columns):
                     # All required columns exist, use normal query
-                    result = await session.execute(text("SELECT * FROM users WHERE notifications_enabled = TRUE"))
+                    result = await session.execute(
+                        text("SELECT * FROM users WHERE notifications_enabled = TRUE")
+                    )
                     users = []
                     for row in result:
                         user = UserModel()
@@ -524,13 +692,26 @@ class DatabaseService:
                     return users
                 else:
                     # Some columns missing, use raw SQL
-                    base_columns = ['id', 'telegram_id', 'preferred_currencies', 'impact_levels',
-                                  'analysis_required', 'digest_time', 'created_at', 'updated_at']
+                    base_columns = [
+                        "id",
+                        "telegram_id",
+                        "preferred_currencies",
+                        "impact_levels",
+                        "analysis_required",
+                        "digest_time",
+                        "created_at",
+                        "updated_at",
+                    ]
 
                     # Add optional columns only if they exist
                     optional_columns = [
-                        'notifications_enabled', 'notification_minutes', 'notification_impact_levels',
-                        'charts_enabled', 'chart_type', 'chart_window_hours', 'timezone'
+                        "notifications_enabled",
+                        "notification_minutes",
+                        "notification_impact_levels",
+                        "charts_enabled",
+                        "chart_type",
+                        "chart_window_hours",
+                        "timezone",
                     ]
 
                     columns = base_columns.copy()
@@ -538,7 +719,9 @@ class DatabaseService:
                         if col in all_columns:
                             columns.append(col)
 
-                    columns_str = ', '.join([f'users.{col} AS users_{col}' for col in columns])
+                    columns_str = ", ".join(
+                        [f"users.{col} AS users_{col}" for col in columns]
+                    )
                     sql = f"SELECT {columns_str} FROM users WHERE notifications_enabled = TRUE"
 
                     result = await session.execute(text(sql))
@@ -550,14 +733,14 @@ class DatabaseService:
 
                         # Create User object manually
                         user = UserModel()
-                        user.id = user_data['id']
-                        user.telegram_id = user_data['telegram_id']
-                        user.preferred_currencies = user_data['preferred_currencies']
-                        user.impact_levels = user_data['impact_levels']
-                        user.analysis_required = user_data['analysis_required']
-                        user.digest_time = user_data['digest_time']
-                        user.created_at = user_data['created_at']
-                        user.updated_at = user_data['updated_at']
+                        user.id = user_data["id"]
+                        user.telegram_id = user_data["telegram_id"]
+                        user.preferred_currencies = user_data["preferred_currencies"]
+                        user.impact_levels = user_data["impact_levels"]
+                        user.analysis_required = user_data["analysis_required"]
+                        user.digest_time = user_data["digest_time"]
+                        user.created_at = user_data["created_at"]
+                        user.updated_at = user_data["updated_at"]
 
                         # Set optional fields only if they exist
                         for field in optional_columns:
@@ -571,7 +754,9 @@ class DatabaseService:
             logger.error("Error getting users with notifications enabled", error=str(e))
             return []
 
-    async def get_news_for_date(self, target_date: date, impact_level: str = "high") -> List[Dict[str, Any]]:
+    async def get_news_for_date(
+        self, target_date: date, impact_level: str = "high"
+    ) -> List[Dict[str, Any]]:
         """Get news for a specific date from the database."""
         try:
             async with self.db_manager.get_session_async() as session:
@@ -583,12 +768,15 @@ class DatabaseService:
                     SELECT * FROM forex_news
                     WHERE date >= :start_datetime AND date <= :end_datetime
                 """
-                params = {'start_datetime': start_datetime, 'end_datetime': end_datetime}
+                params = {
+                    "start_datetime": start_datetime,
+                    "end_datetime": end_datetime,
+                }
 
                 # Filter by impact level if specified
                 if impact_level != "all":
                     query_sql += " AND impact_level = :impact_level"
-                    params['impact_level'] = impact_level
+                    params["impact_level"] = impact_level
 
                 # Order by currency and time
                 query_sql += " ORDER BY currency, time"
@@ -613,14 +801,23 @@ class DatabaseService:
                     }
                     result_list.append(news_dict)
 
-                logger.info("Retrieved news items", count=len(result_list), date=target_date, impact_level=impact_level)
+                logger.info(
+                    "Retrieved news items",
+                    count=len(result_list),
+                    date=target_date,
+                    impact_level=impact_level,
+                )
                 return result_list
 
         except Exception as e:
-            logger.error("Error retrieving news for date", date=target_date, error=str(e))
+            logger.error(
+                "Error retrieving news for date", date=target_date, error=str(e)
+            )
             return []
 
-    async def has_news_for_date(self, target_date: date, impact_level: str = "high") -> bool:
+    async def has_news_for_date(
+        self, target_date: date, impact_level: str = "high"
+    ) -> bool:
         """Check if news exists for a specific date."""
         try:
             async with self.db_manager.get_session_async() as session:
@@ -631,21 +828,31 @@ class DatabaseService:
                     SELECT COUNT(*) FROM forex_news
                     WHERE date >= :start_datetime AND date <= :end_datetime
                 """
-                params = {'start_datetime': start_datetime, 'end_datetime': end_datetime}
+                params = {
+                    "start_datetime": start_datetime,
+                    "end_datetime": end_datetime,
+                }
 
                 if impact_level != "all":
                     query_sql += " AND impact_level = :impact_level"
-                    params['impact_level'] = impact_level
+                    params["impact_level"] = impact_level
 
                 result = await session.execute(text(query_sql), params)
                 count = result.scalar()
                 return count > 0
 
         except Exception as e:
-            logger.error("Error checking news existence for date", date=target_date, error=str(e))
+            logger.error(
+                "Error checking news existence for date", date=target_date, error=str(e)
+            )
             return False
 
-    async def store_news_items(self, news_items: List[Dict[str, Any]], target_date: date, impact_level: str = "high") -> bool:
+    async def store_news_items(
+        self,
+        news_items: List[Dict[str, Any]],
+        target_date: date,
+        impact_level: str = "high",
+    ) -> bool:
         """Store news items in the database."""
         try:
             async with self.db_manager.get_session_async() as session:
@@ -658,11 +865,14 @@ class DatabaseService:
                     DELETE FROM forex_news
                     WHERE date >= :start_datetime AND date <= :end_datetime
                 """
-                params = {'start_datetime': start_datetime, 'end_datetime': end_datetime}
+                params = {
+                    "start_datetime": start_datetime,
+                    "end_datetime": end_datetime,
+                }
 
                 if impact_level != "all":
                     delete_sql += " AND impact_level = :impact_level"
-                    params['impact_level'] = impact_level
+                    params["impact_level"] = impact_level
 
                 await session.execute(text(delete_sql), params)
 
@@ -672,27 +882,39 @@ class DatabaseService:
                         INSERT INTO forex_news (date, time, currency, event, actual, forecast, previous, impact_level, analysis)
                         VALUES (:date, :time, :currency, :event, :actual, :forecast, :previous, :impact_level, :analysis)
                     """
-                    await session.execute(text(insert_sql), {
-                        'date': target_date,
-                        'time': item.get("time", "N/A"),
-                        'currency': item.get("currency", "N/A"),
-                        'event': item.get("event", "N/A"),
-                        'actual': item.get("actual", "N/A"),
-                        'forecast': item.get("forecast", "N/A"),
-                        'previous': item.get("previous", "N/A"),
-                        'impact_level': item.get("impact", impact_level),  # Use per-item impact if present
-                        'analysis': item.get("analysis", None)
-                    })
+                    await session.execute(
+                        text(insert_sql),
+                        {
+                            "date": target_date,
+                            "time": item.get("time", "N/A"),
+                            "currency": item.get("currency", "N/A"),
+                            "event": item.get("event", "N/A"),
+                            "actual": item.get("actual", "N/A"),
+                            "forecast": item.get("forecast", "N/A"),
+                            "previous": item.get("previous", "N/A"),
+                            "impact_level": item.get(
+                                "impact", impact_level
+                            ),  # Use per-item impact if present
+                            "analysis": item.get("analysis", None),
+                        },
+                    )
 
                 await session.commit()
-                logger.info("Stored news items", count=len(news_items), date=target_date, impact_level=impact_level)
+                logger.info(
+                    "Stored news items",
+                    count=len(news_items),
+                    date=target_date,
+                    impact_level=impact_level,
+                )
                 return True
 
         except Exception as e:
             logger.error("Error storing news for date", date=target_date, error=str(e))
             return False
 
-    async def get_date_range_stats(self, start_date: date, end_date: date) -> Dict[str, Any]:
+    async def get_date_range_stats(
+        self, start_date: date, end_date: date
+    ) -> Dict[str, Any]:
         """Get statistics for a date range."""
         try:
             async with self.db_manager.get_session_async() as session:
@@ -704,7 +926,10 @@ class DatabaseService:
                     SELECT COUNT(*) FROM forex_news
                     WHERE date >= :start_datetime AND date <= :end_datetime
                 """
-                result = await session.execute(text(total_count_sql), {'start_datetime': start_datetime, 'end_datetime': end_datetime})
+                result = await session.execute(
+                    text(total_count_sql),
+                    {"start_datetime": start_datetime, "end_datetime": end_datetime},
+                )
                 total_count = result.scalar()
 
                 # Get count by impact level
@@ -714,7 +939,10 @@ class DatabaseService:
                     WHERE date >= :start_datetime AND date <= :end_datetime
                     GROUP BY impact_level
                 """
-                result = await session.execute(text(impact_stats_sql), {'start_datetime': start_datetime, 'end_datetime': end_datetime})
+                result = await session.execute(
+                    text(impact_stats_sql),
+                    {"start_datetime": start_datetime, "end_datetime": end_datetime},
+                )
                 impact_stats = dict(result.fetchall())
 
                 # Get count by currency
@@ -724,7 +952,10 @@ class DatabaseService:
                     WHERE date >= :start_datetime AND date <= :end_datetime
                     GROUP BY currency
                 """
-                result = await session.execute(text(currency_stats_sql), {'start_datetime': start_datetime, 'end_datetime': end_datetime})
+                result = await session.execute(
+                    text(currency_stats_sql),
+                    {"start_datetime": start_datetime, "end_datetime": end_datetime},
+                )
                 currency_stats = dict(result.fetchall())
 
                 return {
@@ -733,12 +964,17 @@ class DatabaseService:
                     "currencies": currency_stats,
                     "date_range": {
                         "start": start_date.isoformat(),
-                        "end": end_date.isoformat()
-                    }
+                        "end": end_date.isoformat(),
+                    },
                 }
 
         except Exception as e:
-            logger.error("Error getting stats for date range", start_date=start_date, end_date=end_date, error=str(e))
+            logger.error(
+                "Error getting stats for date range",
+                start_date=start_date,
+                end_date=end_date,
+                error=str(e),
+            )
             return {}
 
     async def health_check(self) -> bool:
@@ -761,62 +997,80 @@ class DatabaseService:
             user_dict = user_data.model_dump()
 
             # Extract preferences and map to individual fields
-            preferences = user_dict.pop('preferences', {})
+            preferences = user_dict.pop("preferences", {})
             if preferences:
                 # Map preferences to individual fields
-                user_dict.update({
-                    'preferred_currencies': preferences.get('preferred_currencies', []),
-                    'impact_levels': preferences.get('impact_levels', ["high", "medium"]),
-                    'analysis_required': preferences.get('analysis_required', True),
-                    'digest_time': preferences.get('digest_time', "08:00:00"),
-                    'timezone': preferences.get('timezone', "Europe/Prague"),
-                    'notifications_enabled': preferences.get('notifications_enabled', False),
-                    'notification_minutes': preferences.get('notification_minutes', 30),
-                    'notification_impact_levels': preferences.get('notification_impact_levels', ["high"]),
-                    'charts_enabled': preferences.get('charts_enabled', False),
-                    'chart_type': preferences.get('chart_type', "single"),
-                    'chart_window_hours': preferences.get('chart_window_hours', 2),
-                })
+                user_dict.update(
+                    {
+                        "preferred_currencies": preferences.get(
+                            "preferred_currencies", []
+                        ),
+                        "impact_levels": preferences.get(
+                            "impact_levels", ["high", "medium"]
+                        ),
+                        "analysis_required": preferences.get("analysis_required", True),
+                        "digest_time": preferences.get("digest_time", "08:00:00"),
+                        "timezone": preferences.get("timezone", "Europe/Prague"),
+                        "notifications_enabled": preferences.get(
+                            "notifications_enabled", False
+                        ),
+                        "notification_minutes": preferences.get(
+                            "notification_minutes", 30
+                        ),
+                        "notification_impact_levels": preferences.get(
+                            "notification_impact_levels", ["high"]
+                        ),
+                        "charts_enabled": preferences.get("charts_enabled", False),
+                        "chart_type": preferences.get("chart_type", "single"),
+                        "chart_window_hours": preferences.get("chart_window_hours", 2),
+                    }
+                )
 
             user = UserModel(**user_dict)
             db.add(user)
             await db.commit()
             await db.refresh(user)
-            logger.info("Created new user", user_id=user.id, telegram_id=user.telegram_id)
+            logger.info(
+                "Created new user", user_id=user.id, telegram_id=user.telegram_id
+            )
             return user
         except Exception as e:
             await db.rollback()
             logger.error("Failed to create user", error=str(e), exc_info=True)
             raise DatabaseError(f"Failed to create user: {e}")
 
-    async def update_user(self, db: AsyncSession, telegram_id: int, update_data: UserUpdate) -> Optional[UserModel]:
+    async def update_user(
+        self, db: AsyncSession, telegram_id: int, update_data: UserUpdate
+    ) -> Optional[UserModel]:
         """Update user by telegram ID."""
         try:
             user = await self.get_user_by_telegram_id(db, telegram_id)
             if not user:
                 raise ValidationError("User not found")
 
-            if hasattr(update_data, 'model_dump'):
+            if hasattr(update_data, "model_dump"):
                 update_dict = update_data.model_dump(exclude_unset=True)
             else:
                 update_dict = update_data
 
             # Handle preferences separately
-            preferences = update_dict.pop('preferences', None)
+            preferences = update_dict.pop("preferences", None)
             if preferences:
                 # Map preferences to individual fields
                 preference_fields = {
-                    'preferred_currencies': preferences.get('preferred_currencies'),
-                    'impact_levels': preferences.get('impact_levels'),
-                    'analysis_required': preferences.get('analysis_required'),
-                    'digest_time': preferences.get('digest_time'),
-                    'timezone': preferences.get('timezone'),
-                    'notifications_enabled': preferences.get('notifications_enabled'),
-                    'notification_minutes': preferences.get('notification_minutes'),
-                    'notification_impact_levels': preferences.get('notification_impact_levels'),
-                    'charts_enabled': preferences.get('charts_enabled'),
-                    'chart_type': preferences.get('chart_type'),
-                    'chart_window_hours': preferences.get('chart_window_hours'),
+                    "preferred_currencies": preferences.get("preferred_currencies"),
+                    "impact_levels": preferences.get("impact_levels"),
+                    "analysis_required": preferences.get("analysis_required"),
+                    "digest_time": preferences.get("digest_time"),
+                    "timezone": preferences.get("timezone"),
+                    "notifications_enabled": preferences.get("notifications_enabled"),
+                    "notification_minutes": preferences.get("notification_minutes"),
+                    "notification_impact_levels": preferences.get(
+                        "notification_impact_levels"
+                    ),
+                    "charts_enabled": preferences.get("charts_enabled"),
+                    "chart_type": preferences.get("chart_type"),
+                    "chart_window_hours": preferences.get("chart_window_hours"),
                 }
                 # Only update fields that are not None
                 for key, value in preference_fields.items():
@@ -835,10 +1089,17 @@ class DatabaseService:
             raise
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to update user", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to update user",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to update user: {e}")
 
-    async def create_forex_news(self, db: AsyncSession, news_data: ForexNewsCreate) -> ForexNewsModel:
+    async def create_forex_news(
+        self, db: AsyncSession, news_data: ForexNewsCreate
+    ) -> ForexNewsModel:
         """Create new forex news."""
         try:
             news_dict = news_data.model_dump()
@@ -853,17 +1114,24 @@ class DatabaseService:
             logger.error("Failed to create forex news", error=str(e), exc_info=True)
             raise DatabaseError(f"Failed to create forex news: {e}")
 
-    async def get_forex_news_by_date(self, db: AsyncSession, target_date: date) -> List[ForexNewsModel]:
+    async def get_forex_news_by_date(
+        self, db: AsyncSession, target_date: date
+    ) -> List[ForexNewsModel]:
         """Get forex news by date."""
         try:
             start_datetime = datetime.combine(target_date, datetime.min.time())
             end_datetime = datetime.combine(target_date, datetime.max.time())
 
-            result = await db.execute(text("""
+            result = await db.execute(
+                text(
+                    """
                 SELECT * FROM forex_news
                 WHERE date >= :start_datetime AND date <= :end_datetime
                 ORDER BY time
-            """), {'start_datetime': start_datetime, 'end_datetime': end_datetime})
+            """
+                ),
+                {"start_datetime": start_datetime, "end_datetime": end_datetime},
+            )
 
             rows = await result.fetchall()
             news_items = []
@@ -886,17 +1154,29 @@ class DatabaseService:
 
             return news_items
         except Exception as e:
-            logger.error("Failed to get forex news by date", date=target_date, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get forex news by date",
+                date=target_date,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get forex news by date: {e}")
 
-    async def get_forex_news_by_currency(self, db: AsyncSession, currency: str) -> List[ForexNewsModel]:
+    async def get_forex_news_by_currency(
+        self, db: AsyncSession, currency: str
+    ) -> List[ForexNewsModel]:
         """Get forex news by currency."""
         try:
-            result = await db.execute(text("""
+            result = await db.execute(
+                text(
+                    """
                 SELECT * FROM forex_news
                 WHERE currency = :currency
                 ORDER BY date DESC, time DESC
-            """), {'currency': currency})
+            """
+                ),
+                {"currency": currency},
+            )
 
             rows = await result.fetchall()
             news_items = []
@@ -919,16 +1199,28 @@ class DatabaseService:
 
             return news_items
         except Exception as e:
-            logger.error("Failed to get forex news by currency", currency=currency, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get forex news by currency",
+                currency=currency,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get forex news by currency: {e}")
 
-    async def get_users_by_currency(self, db: AsyncSession, currency: str) -> List[UserModel]:
+    async def get_users_by_currency(
+        self, db: AsyncSession, currency: str
+    ) -> List[UserModel]:
         """Get users who have a specific currency in their preferences."""
         try:
-            result = await db.execute(text("""
+            result = await db.execute(
+                text(
+                    """
                 SELECT * FROM users
                 WHERE preferred_currencies @> :currency_array
-            """), {'currency_array': [currency]})
+            """
+                ),
+                {"currency_array": [currency]},
+            )
 
             rows = await result.fetchall()
             users = []
@@ -947,16 +1239,28 @@ class DatabaseService:
 
             return users
         except Exception as e:
-            logger.error("Failed to get users by currency", currency=currency, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get users by currency",
+                currency=currency,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get users by currency: {e}")
 
-    async def get_users_by_impact_level(self, db: AsyncSession, impact_level: str) -> List[UserModel]:
+    async def get_users_by_impact_level(
+        self, db: AsyncSession, impact_level: str
+    ) -> List[UserModel]:
         """Get users who have a specific impact level in their preferences."""
         try:
-            result = await db.execute(text("""
+            result = await db.execute(
+                text(
+                    """
                 SELECT * FROM users
                 WHERE impact_levels @> :impact_array
-            """), {'impact_array': [impact_level]})
+            """
+                ),
+                {"impact_array": [impact_level]},
+            )
 
             rows = await result.fetchall()
             users = []
@@ -975,5 +1279,10 @@ class DatabaseService:
 
             return users
         except Exception as e:
-            logger.error("Failed to get users by impact level", impact_level=impact_level, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get users by impact level",
+                impact_level=impact_level,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get users by impact level: {e}")

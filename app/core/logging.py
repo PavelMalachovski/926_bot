@@ -12,7 +12,7 @@ from app.core.config import settings
 def configure_logging(
     log_level: Optional[str] = None,
     log_format: Optional[str] = None,
-    log_file: Optional[str] = None
+    log_file: Optional[str] = None,
 ) -> None:
     """Configure structured logging for the application."""
 
@@ -47,7 +47,11 @@ def configure_logging(
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer() if settings.environment == "production" else structlog.dev.ConsoleRenderer(),
+            (
+                structlog.processors.JSONRenderer()
+                if settings.environment == "production"
+                else structlog.dev.ConsoleRenderer()
+            ),
         ],
         context_class=dict,
         logger_factory=LoggerFactory(),

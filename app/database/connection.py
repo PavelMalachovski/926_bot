@@ -32,16 +32,20 @@ class DatabaseManager:
 
             # Add SQLite-specific configuration
             if "sqlite" in settings.database.url:
-                engine_kwargs.update({
-                    "poolclass": StaticPool,
-                    "connect_args": {"check_same_thread": False},
-                })
+                engine_kwargs.update(
+                    {
+                        "poolclass": StaticPool,
+                        "connect_args": {"check_same_thread": False},
+                    }
+                )
             else:
                 # PostgreSQL/other databases
-                engine_kwargs.update({
-                    "pool_size": settings.database.pool_size,
-                    "max_overflow": settings.database.max_overflow,
-                })
+                engine_kwargs.update(
+                    {
+                        "pool_size": settings.database.pool_size,
+                        "max_overflow": settings.database.max_overflow,
+                    }
+                )
 
             self.engine = create_async_engine(settings.database.url, **engine_kwargs)
 

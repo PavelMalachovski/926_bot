@@ -2,7 +2,17 @@
 
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Float, ForeignKey
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    DateTime,
+    Text,
+    JSON,
+    Float,
+    ForeignKey,
+)
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -43,7 +53,9 @@ class UserModel(Base):
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     last_active = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
 
@@ -74,7 +86,9 @@ class ForexNewsModel(Base):
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     notifications = relationship("NotificationModel", back_populates="forex_news")
@@ -89,7 +103,9 @@ class NotificationModel(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     event_id = Column(Integer, ForeignKey("forex_news.id"), nullable=True, index=True)
 
-    notification_type = Column(String(50), nullable=False)  # event_reminder, digest, etc.
+    notification_type = Column(
+        String(50), nullable=False
+    )  # event_reminder, digest, etc.
     message = Column(Text, nullable=False)
     scheduled_time = Column(DateTime(timezone=True), nullable=False, index=True)
     sent_at = Column(DateTime(timezone=True), nullable=True)
@@ -103,7 +119,9 @@ class NotificationModel(Base):
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     user = relationship("UserModel", back_populates="notifications")
@@ -133,7 +151,9 @@ class ChartModel(Base):
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class APILogModel(Base):

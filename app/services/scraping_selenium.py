@@ -32,14 +32,20 @@ class SeleniumScraper:
             if chrome_binary:
                 logger.info("Using Chrome binary", path=chrome_binary)
             else:
-                logger.warning("Chrome binary not found via known paths; proceeding without explicit binary_location")
+                logger.warning(
+                    "Chrome binary not found via known paths; proceeding without explicit binary_location"
+                )
 
             # Try to detect installed Chrome major version for matching driver
             chrome_major_version = self._get_chrome_major_version(chrome_binary)
             if chrome_major_version:
-                logger.info("Detected Chrome major version", version=chrome_major_version)
+                logger.info(
+                    "Detected Chrome major version", version=chrome_major_version
+                )
             else:
-                logger.warning("Could not detect Chrome version; letting undetected-chromedriver decide")
+                logger.warning(
+                    "Could not detect Chrome version; letting undetected-chromedriver decide"
+                )
 
             options = uc.ChromeOptions()
             if chrome_binary:
@@ -66,14 +72,20 @@ class SeleniumScraper:
             # Add headless mode
             options.add_argument("--headless=new")
             # Add user agent
-            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            options.add_argument(
+                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
 
             # Pin driver to installed Chrome major version when known to avoid mismatch
             if chrome_major_version:
-                driver = uc.Chrome(options=options, version_main=int(chrome_major_version))
+                driver = uc.Chrome(
+                    options=options, version_main=int(chrome_major_version)
+                )
             else:
                 driver = uc.Chrome(options=options)
-            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            driver.execute_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
 
             try:
                 logger.info("Navigating to URL", url=url)
@@ -86,14 +98,20 @@ class SeleniumScraper:
                     page_source = driver.page_source
 
                     # Check if we're still on Cloudflare challenge page
-                    if "just a moment" in page_source.lower() or "verifying you are human" in page_source.lower():
+                    if (
+                        "just a moment" in page_source.lower()
+                        or "verifying you are human" in page_source.lower()
+                    ):
                         logger.info("Cloudflare challenge detected, waiting...")
                         await asyncio.sleep(2)
                         wait_time += 2
                         continue
 
                     # Check if we have actual content
-                    if "calendar" in page_source.lower() and ("forexfactory" in page_source.lower() or "forex factory" in page_source.lower()):
+                    if "calendar" in page_source.lower() and (
+                        "forexfactory" in page_source.lower()
+                        or "forex factory" in page_source.lower()
+                    ):
                         logger.info("Page loaded successfully")
                         break
 
@@ -111,7 +129,10 @@ class SeleniumScraper:
                 page_source = driver.page_source
 
                 # Final check for Cloudflare challenge
-                if "just a moment" in page_source.lower() or "verifying you are human" in page_source.lower():
+                if (
+                    "just a moment" in page_source.lower()
+                    or "verifying you are human" in page_source.lower()
+                ):
                     logger.warning("Still on Cloudflare challenge page after waiting")
                     return page_source
 
@@ -172,9 +193,13 @@ class SeleniumScraper:
         chrome_binary = os.environ.get("CHROME_BINARY") or self._find_chrome_binary()
         if chrome_binary:
             options.binary_location = chrome_binary
-            logger.info("Launching Google Chrome with binary", path=options.binary_location)
+            logger.info(
+                "Launching Google Chrome with binary", path=options.binary_location
+            )
         else:
-            logger.warning("CHROME_BINARY not set and Chrome binary not found via known paths; proceeding without explicit binary_location")
+            logger.warning(
+                "CHROME_BINARY not set and Chrome binary not found via known paths; proceeding without explicit binary_location"
+            )
 
         logger.info("ChromeOptions", arguments=options.arguments)
         logger.info("use_subprocess set to False for compatibility")
@@ -182,7 +207,11 @@ class SeleniumScraper:
         # Match driver version to installed Chrome if known
         chrome_major_version = self._get_chrome_major_version(chrome_binary)
         if chrome_major_version:
-            driver = uc.Chrome(options=options, use_subprocess=False, version_main=int(chrome_major_version))
+            driver = uc.Chrome(
+                options=options,
+                use_subprocess=False,
+                version_main=int(chrome_major_version),
+            )
         else:
             driver = uc.Chrome(options=options, use_subprocess=False)
 
@@ -206,7 +235,16 @@ class SeleniumScraper:
                 time.sleep(random.uniform(0.2, 0.7))
                 # Random key press
                 if random.random() < 0.5:
-                    actions.send_keys(random.choice([Keys.ARROW_DOWN, Keys.ARROW_UP, Keys.PAGE_DOWN, Keys.PAGE_UP])).perform()
+                    actions.send_keys(
+                        random.choice(
+                            [
+                                Keys.ARROW_DOWN,
+                                Keys.ARROW_UP,
+                                Keys.PAGE_DOWN,
+                                Keys.PAGE_UP,
+                            ]
+                        )
+                    ).perform()
                     time.sleep(random.uniform(0.2, 0.7))
 
             # Click somewhere on the page
@@ -217,7 +255,9 @@ class SeleniumScraper:
             # Wait for the calendar table
             for _ in range(60):  # up to 60 seconds
                 try:
-                    table = driver.find_element(By.CSS_SELECTOR, 'table.calendar__table')
+                    table = driver.find_element(
+                        By.CSS_SELECTOR, "table.calendar__table"
+                    )
                     if table.is_displayed():
                         break
                 except Exception:
@@ -241,17 +281,29 @@ class SeleniumScraper:
             ]
         elif sys.platform.startswith("win"):
             program_files = os.environ.get("PROGRAMFILES", r"C:\\Program Files")
-            program_files_x86 = os.environ.get("PROGRAMFILES(X86)", r"C:\\Program Files (x86)")
-            local_app_data = os.environ.get("LOCALAPPDATA", r"C:\\Users\\%USERNAME%\\AppData\\Local")
+            program_files_x86 = os.environ.get(
+                "PROGRAMFILES(X86)", r"C:\\Program Files (x86)"
+            )
+            local_app_data = os.environ.get(
+                "LOCALAPPDATA", r"C:\\Users\\%USERNAME%\\AppData\\Local"
+            )
             candidate_paths = [
-                os.path.join(program_files, "Google", "Chrome", "Application", "chrome.exe"),
-                os.path.join(program_files_x86, "Google", "Chrome", "Application", "chrome.exe"),
-                os.path.join(local_app_data, "Google", "Chrome", "Application", "chrome.exe"),
+                os.path.join(
+                    program_files, "Google", "Chrome", "Application", "chrome.exe"
+                ),
+                os.path.join(
+                    program_files_x86, "Google", "Chrome", "Application", "chrome.exe"
+                ),
+                os.path.join(
+                    local_app_data, "Google", "Chrome", "Application", "chrome.exe"
+                ),
             ]
         elif sys.platform == "darwin":
             candidate_paths = [
                 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                os.path.expanduser("~/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+                os.path.expanduser(
+                    "~/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+                ),
             ]
 
         for path in candidate_paths:
@@ -268,13 +320,29 @@ class SeleniumScraper:
             version_output = ""
             if chrome_binary_path and os.path.exists(chrome_binary_path):
                 # On Windows and Mac/Linux, Chrome supports --version
-                proc = subprocess.run([chrome_binary_path, "--version"], capture_output=True, text=True, timeout=5)
+                proc = subprocess.run(
+                    [chrome_binary_path, "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
                 version_output = (proc.stdout or proc.stderr or "").strip()
             else:
                 # Try generic 'google-chrome --version' in PATH
-                for cmd in ["google-chrome", "google-chrome-stable", "chrome", "chromium", "chromium-browser"]:
+                for cmd in [
+                    "google-chrome",
+                    "google-chrome-stable",
+                    "chrome",
+                    "chromium",
+                    "chromium-browser",
+                ]:
                     try:
-                        proc = subprocess.run([cmd, "--version"], capture_output=True, text=True, timeout=3)
+                        proc = subprocess.run(
+                            [cmd, "--version"],
+                            capture_output=True,
+                            text=True,
+                            timeout=3,
+                        )
                         if proc.returncode == 0 and (proc.stdout or proc.stderr):
                             version_output = (proc.stdout or proc.stderr).strip()
                             if version_output:

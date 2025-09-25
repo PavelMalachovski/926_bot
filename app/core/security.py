@@ -43,14 +43,18 @@ class SecurityService:
         """Hash a password."""
         return pwd_context.hash(password)
 
-    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(
+        self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
+    ) -> str:
         """Create JWT access token."""
         to_encode = data.copy()
 
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
+            expire = datetime.utcnow() + timedelta(
+                minutes=self.access_token_expire_minutes
+            )
 
         to_encode.update({"exp": expire, "type": "access"})
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -88,7 +92,9 @@ class SecurityService:
 security_service = SecurityService()
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Dict[str, Any]:
     """
     Get current user from JWT token.
 
@@ -112,11 +118,13 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         "id": user_id,
         "telegram_id": payload.get("telegram_id"),
         "username": payload.get("username"),
-        "is_active": payload.get("is_active", True)
+        "is_active": payload.get("is_active", True),
     }
 
 
-async def get_current_active_user(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_current_active_user(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
     Get current active user.
 
@@ -205,7 +213,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Content-Security-Policy"] = "default-src 'self'"
 
@@ -237,7 +247,7 @@ async def log_requests(request: Request, call_next):
         url=str(request.url),
         client_ip=get_remote_address(request),
         user_agent=request.headers.get("User-Agent"),
-        content_length=request.headers.get("Content-Length", 0)
+        content_length=request.headers.get("Content-Length", 0),
     )
 
     # Process request
@@ -251,7 +261,7 @@ async def log_requests(request: Request, call_next):
         url=str(request.url),
         status_code=response.status_code,
         process_time=process_time,
-        client_ip=get_remote_address(request)
+        client_ip=get_remote_address(request),
     )
 
     return response
@@ -288,8 +298,8 @@ def get_cors_config() -> Dict[str, Any]:
             "Content-Type",
             "Authorization",
             "X-API-Key",
-            "X-Requested-With"
+            "X-Requested-With",
         ],
         "expose_headers": ["X-Total-Count", "X-Page-Count"],
-        "max_age": 3600
+        "max_age": 3600,
     }

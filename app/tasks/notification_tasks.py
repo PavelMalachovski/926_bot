@@ -49,7 +49,8 @@ async def send_daily_digest(self):
 
                 # Filter news by user's preferred currencies and impact levels
                 user_news = [
-                    news for news in today_news
+                    news
+                    for news in today_news
                     if news.currency in user.preferences.preferred_currencies
                     and news.impact_level in user.preferences.notification_impact_levels
                 ]
@@ -61,30 +62,39 @@ async def send_daily_digest(self):
 
                     try:
                         await telegram_service.send_message(
-                            chat_id=user.telegram_id,
-                            message=message
+                            chat_id=user.telegram_id, message=message
                         )
-                        digest_results.append({
-                            "user_id": user.telegram_id,
-                            "status": "sent",
-                            "news_count": len(user_news)
-                        })
+                        digest_results.append(
+                            {
+                                "user_id": user.telegram_id,
+                                "status": "sent",
+                                "news_count": len(user_news),
+                            }
+                        )
                     except Exception as e:
-                        logger.error("Failed to send digest", user_id=user.telegram_id, error=str(e))
-                        digest_results.append({
-                            "user_id": user.telegram_id,
-                            "status": "failed",
-                            "error": str(e)
-                        })
+                        logger.error(
+                            "Failed to send digest",
+                            user_id=user.telegram_id,
+                            error=str(e),
+                        )
+                        digest_results.append(
+                            {
+                                "user_id": user.telegram_id,
+                                "status": "failed",
+                                "error": str(e),
+                            }
+                        )
 
-            logger.info("Daily digest task completed",
-                       task_id=task_id,
-                       users_processed=len(digest_results))
+            logger.info(
+                "Daily digest task completed",
+                task_id=task_id,
+                users_processed=len(digest_results),
+            )
 
             return {
                 "status": "completed",
                 "users_processed": len(digest_results),
-                "results": digest_results
+                "results": digest_results,
             }
 
     except Exception as e:
@@ -96,7 +106,9 @@ async def send_daily_digest(self):
 
 
 @celery_app.task(bind=True, name="app.tasks.notification_tasks.send_event_reminder")
-async def send_event_reminder(self, user_id: int, event_id: int, minutes_before: int = 30):
+async def send_event_reminder(
+    self, user_id: int, event_id: int, minutes_before: int = 30
+):
     """
     Send event reminder to specific user.
 
@@ -109,8 +121,12 @@ async def send_event_reminder(self, user_id: int, event_id: int, minutes_before:
         Dict with task results
     """
     task_id = self.request.id
-    logger.info("Starting event reminder task",
-                task_id=task_id, user_id=user_id, event_id=event_id)
+    logger.info(
+        "Starting event reminder task",
+        task_id=task_id,
+        user_id=user_id,
+        event_id=event_id,
+    )
 
     try:
         # Initialize database connection
@@ -125,44 +141,63 @@ async def send_event_reminder(self, user_id: int, event_id: int, minutes_before:
             event = await forex_service.get_forex_news_by_id(db, event_id)
 
             if not user or not event:
-                logger.warning("User or event not found", user_id=user_id, event_id=event_id)
+                logger.warning(
+                    "User or event not found", user_id=user_id, event_id=event_id
+                )
                 return {"status": "skipped", "reason": "user_or_event_not_found"}
 
             # Check if user wants notifications for this event
-            if (not user.preferences.notifications_enabled or
-                event.currency not in user.preferences.preferred_currencies or
-                event.impact_level not in user.preferences.notification_impact_levels):
-                logger.info("User preferences don't match event", user_id=user_id, event_id=event_id)
+            if (
+                not user.preferences.notifications_enabled
+                or event.currency not in user.preferences.preferred_currencies
+                or event.impact_level not in user.preferences.notification_impact_levels
+            ):
+                logger.info(
+                    "User preferences don't match event",
+                    user_id=user_id,
+                    event_id=event_id,
+                )
                 return {"status": "skipped", "reason": "preferences_dont_match"}
 
             # Send reminder
             telegram_service = TelegramService()
-            message = _format_event_reminder(event, minutes_before, user.preferences.timezone)
-
-            await telegram_service.send_message(
-                chat_id=user_id,
-                message=message
+            message = _format_event_reminder(
+                event, minutes_before, user.preferences.timezone
             )
 
-            logger.info("Event reminder sent", task_id=task_id, user_id=user_id, event_id=event_id)
+            await telegram_service.send_message(chat_id=user_id, message=message)
+
+            logger.info(
+                "Event reminder sent",
+                task_id=task_id,
+                user_id=user_id,
+                event_id=event_id,
+            )
 
             return {
                 "status": "sent",
                 "user_id": user_id,
                 "event_id": event_id,
-                "minutes_before": minutes_before
+                "minutes_before": minutes_before,
             }
 
     except Exception as e:
-        logger.error("Event reminder task failed",
-                    task_id=task_id, user_id=user_id, event_id=event_id, error=str(e))
+        logger.error(
+            "Event reminder task failed",
+            task_id=task_id,
+            user_id=user_id,
+            event_id=event_id,
+            error=str(e),
+        )
         raise NotificationError(f"Event reminder task failed: {e}")
 
     finally:
         await db_manager.close()
 
 
-@celery_app.task(bind=True, name="app.tasks.notification_tasks.cleanup_old_notifications")
+@celery_app.task(
+    bind=True, name="app.tasks.notification_tasks.cleanup_old_notifications"
+)
 async def cleanup_old_notifications(self, days_old: int = 30):
     """
     Clean up old notifications.
@@ -174,7 +209,9 @@ async def cleanup_old_notifications(self, days_old: int = 30):
         Dict with cleanup results
     """
     task_id = self.request.id
-    logger.info("Starting notification cleanup task", task_id=task_id, days_old=days_old)
+    logger.info(
+        "Starting notification cleanup task", task_id=task_id, days_old=days_old
+    )
 
     try:
         # Initialize database connection
@@ -187,15 +224,20 @@ async def cleanup_old_notifications(self, days_old: int = 30):
             cutoff_date = datetime.utcnow() - timedelta(days=days_old)
 
             # Delete old notifications
-            deleted_count = await notification_service.cleanup_old_notifications(db, cutoff_date)
+            deleted_count = await notification_service.cleanup_old_notifications(
+                db, cutoff_date
+            )
 
-            logger.info("Notification cleanup completed",
-                       task_id=task_id, deleted_count=deleted_count)
+            logger.info(
+                "Notification cleanup completed",
+                task_id=task_id,
+                deleted_count=deleted_count,
+            )
 
             return {
                 "status": "completed",
                 "deleted_count": deleted_count,
-                "cutoff_date": cutoff_date.isoformat()
+                "cutoff_date": cutoff_date.isoformat(),
             }
 
     except Exception as e:
@@ -224,10 +266,12 @@ async def health_check(self):
         async with db_manager.get_session_async() as db:
             # Test database connection
             from sqlalchemy import text
+
             await db.execute(text("SELECT 1"))
 
             # Test Redis connection
             from app.services.cache_service import cache_service
+
             await cache_service.initialize()
             await cache_service.set("health_check", "ok", ttl=60)
             health_value = await cache_service.get("health_check")
@@ -238,7 +282,7 @@ async def health_check(self):
                 "status": "healthy",
                 "database": "connected",
                 "redis": "connected" if health_value == "ok" else "error",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
     except Exception as e:
@@ -246,7 +290,7 @@ async def health_check(self):
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     finally:
@@ -271,7 +315,9 @@ def _format_daily_digest(news_items: List, timezone: str) -> str:
     for currency, events in by_currency.items():
         message += f"🇺🇸 {currency} Events:\n"
         for event in events:
-            impact_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(event.impact_level, "⚪")
+            impact_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(
+                event.impact_level, "⚪"
+            )
             message += f"{impact_emoji} {event.time} - {event.event}\n"
         message += "\n"
 
@@ -280,7 +326,9 @@ def _format_daily_digest(news_items: List, timezone: str) -> str:
 
 def _format_event_reminder(event, minutes_before: int, timezone: str) -> str:
     """Format event reminder message."""
-    impact_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(event.impact_level, "⚪")
+    impact_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(
+        event.impact_level, "⚪"
+    )
 
     message = f"⏰ Event Reminder ({timezone})\n\n"
     message += f"{impact_emoji} {event.currency} - {event.event}\n"

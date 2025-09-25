@@ -20,7 +20,7 @@ class RedisRateLimitMiddleware:
         requests_per_minute: int = 60,
         requests_per_hour: int = 1000,
         requests_per_day: int = 10000,
-        key_func: Optional[Callable[[Request], str]] = None
+        key_func: Optional[Callable[[Request], str]] = None,
     ):
         self.requests_per_minute = requests_per_minute
         self.requests_per_hour = requests_per_hour
@@ -47,7 +47,7 @@ class RedisRateLimitMiddleware:
             limits = [
                 (self.requests_per_minute, 60, "minute"),
                 (self.requests_per_hour, 3600, "hour"),
-                (self.requests_per_day, 86400, "day")
+                (self.requests_per_day, 86400, "day"),
             ]
 
             for limit, window, period in limits:
@@ -61,7 +61,7 @@ class RedisRateLimitMiddleware:
                         key=key,
                         period=period,
                         limit=limit,
-                        current_count=info.get("current_count", 0)
+                        current_count=info.get("current_count", 0),
                     )
 
                     return JSONResponse(
@@ -71,14 +71,14 @@ class RedisRateLimitMiddleware:
                             "message": f"Too many requests per {period}",
                             "limit": limit,
                             "remaining": info.get("remaining", 0),
-                            "reset_time": info.get("reset_time", 0)
+                            "reset_time": info.get("reset_time", 0),
                         },
                         headers={
                             "X-RateLimit-Limit": str(limit),
                             "X-RateLimit-Remaining": str(info.get("remaining", 0)),
                             "X-RateLimit-Reset": str(info.get("reset_time", 0)),
-                            "Retry-After": str(window)
-                        }
+                            "Retry-After": str(window),
+                        },
                     )
 
             # Process request
@@ -104,7 +104,7 @@ class RedisSessionMiddleware:
         self,
         session_cookie_name: str = "session_id",
         session_ttl: int = 3600,  # 1 hour
-        auto_extend: bool = True
+        auto_extend: bool = True,
     ):
         self.session_cookie_name = session_cookie_name
         self.session_ttl = session_ttl
@@ -144,12 +144,14 @@ class RedisSessionMiddleware:
                 max_age=self.session_ttl,
                 httponly=True,
                 secure=True,
-                samesite="lax"
+                samesite="lax",
             )
 
             # Auto-extend session if enabled
             if self.auto_extend and session_id:
-                await cache_service.session_manager.extend_session(session_id, self.session_ttl)
+                await cache_service.session_manager.extend_session(
+                    session_id, self.session_ttl
+                )
 
             return response
 
@@ -161,6 +163,7 @@ class RedisSessionMiddleware:
     def _generate_session_id(self) -> str:
         """Generate a unique session ID."""
         import secrets
+
         return secrets.token_urlsafe(32)
 
 
@@ -171,7 +174,7 @@ class RedisCacheMiddleware:
         self,
         cache_ttl: int = 300,  # 5 minutes
         cache_key_func: Optional[Callable[[Request], str]] = None,
-        skip_cache_func: Optional[Callable[[Request], bool]] = None
+        skip_cache_func: Optional[Callable[[Request], bool]] = None,
     ):
         self.cache_ttl = cache_ttl
         self.cache_key_func = cache_key_func or self._default_cache_key_func
@@ -183,7 +186,7 @@ class RedisCacheMiddleware:
         key_parts = [
             request.method,
             request.url.path,
-            str(sorted(request.query_params.items()))
+            str(sorted(request.query_params.items())),
         ]
         return f"cache:{':'.join(key_parts)}"
 
@@ -207,7 +210,9 @@ class RedisCacheMiddleware:
             cache_key = self.cache_key_func(request)
 
             # Try to get cached response
-            cached_response = await cache_service.get(cache_key, namespace="response_cache")
+            cached_response = await cache_service.get(
+                cache_key, namespace="response_cache"
+            )
 
             if cached_response:
                 logger.debug("Cache hit for API response", key=cache_key)
@@ -217,26 +222,36 @@ class RedisCacheMiddleware:
             response = await call_next(request)
 
             # Cache successful GET responses
-            if (request.method == "GET" and
-                response.status_code == 200 and
-                hasattr(response, 'body')):
+            if (
+                request.method == "GET"
+                and response.status_code == 200
+                and hasattr(response, "body")
+            ):
 
                 try:
                     # Get response body
-                    response_body = response.body.decode() if hasattr(response.body, 'decode') else str(response.body)
+                    response_body = (
+                        response.body.decode()
+                        if hasattr(response.body, "decode")
+                        else str(response.body)
+                    )
 
                     # Cache the response
                     await cache_service.set(
                         cache_key,
                         response_body,
                         ttl=self.cache_ttl,
-                        namespace="response_cache"
+                        namespace="response_cache",
                     )
 
-                    logger.debug("Cached API response", key=cache_key, ttl=self.cache_ttl)
+                    logger.debug(
+                        "Cached API response", key=cache_key, ttl=self.cache_ttl
+                    )
 
                 except Exception as e:
-                    logger.warning("Failed to cache response", key=cache_key, error=str(e))
+                    logger.warning(
+                        "Failed to cache response", key=cache_key, error=str(e)
+                    )
 
             return response
 

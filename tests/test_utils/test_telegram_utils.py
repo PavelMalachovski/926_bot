@@ -14,7 +14,7 @@ from app.utils.telegram_utils import (
     truncate_text,
     clean_html_tags,
     format_timestamp,
-    format_date_range
+    format_date_range,
 )
 
 
@@ -30,7 +30,10 @@ class TestTelegramUtils:
         result = escape_markdown_v2(text)
 
         # Assert
-        assert result == "Test message with special chars: \\_\\*\\[\\]\\(\\)\\~\\`\\>\\#\\+\\-\\=\\|\\{\\}\\.\\!"
+        assert (
+            result
+            == "Test message with special chars: \\_\\*\\[\\]\\(\\)\\~\\`\\>\\#\\+\\-\\=\\|\\{\\}\\.\\!"
+        )
 
     def test_escape_markdown_v2_empty_string(self):
         """Test MarkdownV2 escaping with empty string."""
@@ -117,7 +120,10 @@ class TestTelegramUtils:
         mock_bot = AsyncMock()
         chat_id = 123456789
         message = "A" * 5000  # Long message
-        mock_bot.send_message.side_effect = [Exception("Error"), AsyncMock(message_id=1)]
+        mock_bot.send_message.side_effect = [
+            Exception("Error"),
+            AsyncMock(message_id=1),
+        ]
 
         # Act
         result = send_long_message(mock_bot, chat_id, message)
@@ -280,6 +286,7 @@ class TestTelegramUtils:
         """Test successful timestamp formatting."""
         # Arrange
         from datetime import datetime
+
         timestamp = datetime(2024, 1, 15, 14, 30, 0)
 
         # Act
@@ -293,6 +300,7 @@ class TestTelegramUtils:
         """Test successful date range formatting."""
         # Arrange
         from datetime import datetime
+
         start_date = datetime(2024, 1, 15, 9, 0, 0)
         end_date = datetime(2024, 1, 15, 17, 0, 0)
 

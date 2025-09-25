@@ -26,13 +26,7 @@ class CacheService:
         self.pubsub_client: Optional[redis.Redis] = None
         self.connection_pool: Optional[ConnectionPool] = None
         self._initialized = False
-        self._stats = {
-            "hits": 0,
-            "misses": 0,
-            "sets": 0,
-            "deletes": 0,
-            "errors": 0
-        }
+        self._stats = {"hits": 0, "misses": 0, "sets": 0, "deletes": 0, "errors": 0}
 
     async def initialize(self) -> None:
         """Initialize Redis connection with advanced configuration."""
@@ -52,20 +46,19 @@ class CacheService:
                 socket_keepalive=True,
                 socket_keepalive_options={},
                 health_check_interval=30,
-                decode_responses=True
+                decode_responses=True,
             )
 
             # Create main Redis client
             self.redis_client = redis.Redis(
                 connection_pool=self.connection_pool,
                 protocol=3,  # Use RESP3 for better performance
-                retry_on_timeout=True
+                retry_on_timeout=True,
             )
 
             # Create separate client for Pub/Sub
             self.pubsub_client = redis.Redis(
-                connection_pool=self.connection_pool,
-                protocol=3
+                connection_pool=self.connection_pool, protocol=3
             )
 
             # Test connection with timeout
@@ -75,11 +68,15 @@ class CacheService:
             await self._configure_redis()
 
             self._initialized = True
-            logger.info("Redis cache service initialized successfully",
-                       max_connections=settings.redis.max_connections)
+            logger.info(
+                "Redis cache service initialized successfully",
+                max_connections=settings.redis.max_connections,
+            )
 
         except Exception as e:
-            logger.error("Failed to initialize Redis cache service", error=str(e), exc_info=True)
+            logger.error(
+                "Failed to initialize Redis cache service", error=str(e), exc_info=True
+            )
             self.redis_client = None
             self.pubsub_client = None
             self.connection_pool = None
@@ -109,13 +106,13 @@ class CacheService:
         try:
             # Try JSON first for simple types
             if isinstance(value, (str, int, float, bool, list, dict, type(None))):
-                return json.dumps(value).encode('utf-8')
+                return json.dumps(value).encode("utf-8")
             else:
                 # Use pickle for complex objects
                 return pickle.dumps(value)
         except (TypeError, ValueError):
             # Fallback to string representation
-            return str(value).encode('utf-8')
+            return str(value).encode("utf-8")
 
     def _deserialize_value(self, value: bytes) -> Any:
         """Deserialize value from storage with format detection."""
@@ -124,14 +121,14 @@ class CacheService:
 
         try:
             # Try JSON first
-            return json.loads(value.decode('utf-8'))
+            return json.loads(value.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             try:
                 # Try pickle
                 return pickle.loads(value)
             except (pickle.PickleError, EOFError):
                 # Fallback to string
-                return value.decode('utf-8', errors='ignore')
+                return value.decode("utf-8", errors="ignore")
 
     def _build_cache_key(self, key: str, namespace: str = "default") -> str:
         """Build namespaced cache key."""
@@ -174,7 +171,9 @@ class CacheService:
             logger.error("Redis get error", key=cache_key, error=str(e))
             return None
 
-    async def get_many(self, keys: List[str], namespace: str = "default") -> Dict[str, Any]:
+    async def get_many(
+        self, keys: List[str], namespace: str = "default"
+    ) -> Dict[str, Any]:
         """
         Get multiple values from cache in a single operation.
 
@@ -215,7 +214,7 @@ class CacheService:
         ttl: Optional[Union[int, timedelta]] = None,
         namespace: str = "default",
         nx: bool = False,
-        xx: bool = False
+        xx: bool = False,
     ) -> bool:
         """
         Set value in cache with advanced options.
@@ -243,11 +242,17 @@ class CacheService:
 
             # Use appropriate Redis command based on options
             if nx:
-                result = await self.redis_client.set(cache_key, serialized_value, ex=ttl, nx=True)
+                result = await self.redis_client.set(
+                    cache_key, serialized_value, ex=ttl, nx=True
+                )
             elif xx:
-                result = await self.redis_client.set(cache_key, serialized_value, ex=ttl, xx=True)
+                result = await self.redis_client.set(
+                    cache_key, serialized_value, ex=ttl, xx=True
+                )
             else:
-                result = await self.redis_client.set(cache_key, serialized_value, ex=ttl)
+                result = await self.redis_client.set(
+                    cache_key, serialized_value, ex=ttl
+                )
 
             if result:
                 self._stats["sets"] += 1
@@ -266,7 +271,7 @@ class CacheService:
         self,
         mapping: Dict[str, Any],
         ttl: Optional[Union[int, timedelta]] = None,
-        namespace: str = "default"
+        namespace: str = "default",
     ) -> bool:
         """
         Set multiple values in cache in a single operation.
@@ -353,7 +358,7 @@ class CacheService:
         func: Callable,
         ttl: Optional[Union[int, timedelta]] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         Get value from cache or set it using provided function.
@@ -409,7 +414,9 @@ class CacheService:
                 return result
             return 0
         except RedisError as e:
-            logger.error("Redis pattern invalidation error", pattern=pattern, error=str(e))
+            logger.error(
+                "Redis pattern invalidation error", pattern=pattern, error=str(e)
+            )
             return 0
 
     async def health_check(self) -> dict:
@@ -474,7 +481,7 @@ class CacheService:
                 "used_memory": info.get("used_memory_human", "0B"),
                 "keyspace_hits": info.get("keyspace_hits", 0),
                 "keyspace_misses": info.get("keyspace_misses", 0),
-                "total_commands_processed": info.get("total_commands_processed", 0)
+                "total_commands_processed": info.get("total_commands_processed", 0),
             }
         except RedisError as e:
             logger.error("Redis stats error", error=str(e))
@@ -484,7 +491,7 @@ class CacheService:
         self,
         ttl: Optional[Union[int, timedelta]] = None,
         key_prefix: str = "",
-        key_builder: Optional[Callable] = None
+        key_builder: Optional[Callable] = None,
     ):
         """
         Instance method decorator for caching function results.
@@ -497,6 +504,7 @@ class CacheService:
         Returns:
             Decorated function
         """
+
         def decorator(func):
             @wraps(func)
             async def wrapper(*args, **kwargs):
@@ -521,6 +529,7 @@ class CacheService:
                 return result
 
             return wrapper
+
         return decorator
 
 
@@ -530,7 +539,7 @@ class CacheService:
 def cache_result(
     ttl: Optional[Union[int, timedelta]] = None,
     key_prefix: str = "",
-    key_builder: Optional[Callable] = None
+    key_builder: Optional[Callable] = None,
 ):
     """
     Decorator for caching function results.
@@ -543,6 +552,7 @@ def cache_result(
     Returns:
         Decorated function
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -561,6 +571,7 @@ def cache_result(
             return await cache_service.get_or_set(cache_key, func, ttl, *args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -597,8 +608,12 @@ class RedisPubSubService:
 
         try:
             serialized_message = json.dumps(message, default=str)
-            subscribers_count = await self.cache_service.pubsub_client.publish(channel, serialized_message)
-            logger.debug("Message published", channel=channel, subscribers=subscribers_count)
+            subscribers_count = await self.cache_service.pubsub_client.publish(
+                channel, serialized_message
+            )
+            logger.debug(
+                "Message published", channel=channel, subscribers=subscribers_count
+            )
             return subscribers_count
         except Exception as e:
             logger.error("Failed to publish message", channel=channel, error=str(e))
@@ -628,9 +643,9 @@ class RedisPubSubService:
 
             # Start listening loop
             async for message in pubsub.listen():
-                if message['type'] == 'message':
-                    channel = message['channel']
-                    data = json.loads(message['data'])
+                if message["type"] == "message":
+                    channel = message["channel"]
+                    data = json.loads(message["data"])
 
                     # Call all handlers for this channel
                     for handler in self.subscribers.get(channel, []):
@@ -653,11 +668,7 @@ class RedisRateLimiter:
         self.cache_service = cache_service
 
     async def is_allowed(
-        self,
-        key: str,
-        limit: int,
-        window_seconds: int,
-        namespace: str = "rate_limit"
+        self, key: str, limit: int, window_seconds: int, namespace: str = "rate_limit"
     ) -> Tuple[bool, Dict[str, int]]:
         """
         Check if request is allowed within rate limit.
@@ -703,7 +714,7 @@ class RedisRateLimiter:
                 "limit": limit,
                 "remaining": remaining,
                 "reset_time": now + window_seconds,
-                "current_count": current_count
+                "current_count": current_count,
             }
 
         except Exception as e:
@@ -719,22 +730,13 @@ class RedisSessionManager:
         self.default_ttl = 3600  # 1 hour
 
     async def create_session(
-        self,
-        session_id: str,
-        data: Dict[str, Any],
-        ttl: Optional[int] = None
+        self, session_id: str, data: Dict[str, Any], ttl: Optional[int] = None
     ) -> bool:
         """Create a new session."""
         ttl = ttl or self.default_ttl
-        session_data = {
-            "created_at": datetime.now().isoformat(),
-            "data": data
-        }
+        session_data = {"created_at": datetime.now().isoformat(), "data": data}
         return await self.cache_service.set(
-            session_id,
-            session_data,
-            ttl=ttl,
-            namespace="session"
+            session_id, session_data, ttl=ttl, namespace="session"
         )
 
     async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -743,10 +745,7 @@ class RedisSessionManager:
         return session_data.get("data") if session_data else None
 
     async def update_session(
-        self,
-        session_id: str,
-        data: Dict[str, Any],
-        ttl: Optional[int] = None
+        self, session_id: str, data: Dict[str, Any], ttl: Optional[int] = None
     ) -> bool:
         """Update session data."""
         existing_session = await self.cache_service.get(session_id, namespace="session")
@@ -754,15 +753,9 @@ class RedisSessionManager:
             return False
 
         ttl = ttl or self.default_ttl
-        session_data = {
-            "created_at": existing_session.get("created_at"),
-            "data": data
-        }
+        session_data = {"created_at": existing_session.get("created_at"), "data": data}
         return await self.cache_service.set(
-            session_id,
-            session_data,
-            ttl=ttl,
-            namespace="session"
+            session_id, session_data, ttl=ttl, namespace="session"
         )
 
     async def delete_session(self, session_id: str) -> bool:
@@ -812,10 +805,9 @@ class EnhancedCacheService(CacheService):
     async def get_stats(self) -> Dict[str, Any]:
         """Get comprehensive cache statistics."""
         base_stats = await super().get_stats()
-        base_stats.update({
-            "hit_ratio": await self.get_hit_ratio(),
-            "local_stats": self._stats.copy()
-        })
+        base_stats.update(
+            {"hit_ratio": await self.get_hit_ratio(), "local_stats": self._stats.copy()}
+        )
         return base_stats
 
 

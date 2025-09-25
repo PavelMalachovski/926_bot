@@ -17,23 +17,23 @@ class UserPreferencesFactory(factory.Factory):
     class Meta:
         model = UserPreferences
 
-    preferred_currencies = factory.List([
-        fuzzy.FuzzyChoice(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"])
-        for _ in range(2)
-    ])
-    impact_levels = factory.List([
-        fuzzy.FuzzyChoice(["high", "medium", "low"])
-        for _ in range(2)
-    ])
+    preferred_currencies = factory.List(
+        [
+            fuzzy.FuzzyChoice(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"])
+            for _ in range(2)
+        ]
+    )
+    impact_levels = factory.List(
+        [fuzzy.FuzzyChoice(["high", "medium", "low"]) for _ in range(2)]
+    )
     analysis_required = fuzzy.FuzzyChoice([True, False])
     digest_time = factory.LazyFunction(lambda: time(8, 0))
     timezone = fuzzy.FuzzyChoice(["Europe/Prague", "America/New_York", "Asia/Tokyo"])
     notifications_enabled = fuzzy.FuzzyChoice([True, False])
     notification_minutes = fuzzy.FuzzyChoice([15, 30, 60])
-    notification_impact_levels = factory.List([
-        fuzzy.FuzzyChoice(["high", "medium", "low"])
-        for _ in range(1)
-    ])
+    notification_impact_levels = factory.List(
+        [fuzzy.FuzzyChoice(["high", "medium", "low"]) for _ in range(1)]
+    )
     charts_enabled = fuzzy.FuzzyChoice([True, False])
     chart_type = fuzzy.FuzzyChoice(["single", "multi", "none"])
     chart_window_hours = fuzzy.FuzzyInteger(1, 6)
@@ -72,23 +72,23 @@ class UserModelFactory(factory.Factory):
     is_active = True
 
     # Individual preference fields (matching SQLAlchemy model)
-    preferred_currencies = factory.List([
-        fuzzy.FuzzyChoice(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"])
-        for _ in range(2)
-    ])
-    impact_levels = factory.List([
-        fuzzy.FuzzyChoice(["high", "medium", "low"])
-        for _ in range(2)
-    ])
+    preferred_currencies = factory.List(
+        [
+            fuzzy.FuzzyChoice(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"])
+            for _ in range(2)
+        ]
+    )
+    impact_levels = factory.List(
+        [fuzzy.FuzzyChoice(["high", "medium", "low"]) for _ in range(2)]
+    )
     analysis_required = fuzzy.FuzzyChoice([True, False])
     digest_time = factory.LazyFunction(lambda: "08:00:00")
     timezone = fuzzy.FuzzyChoice(["Europe/Prague", "America/New_York", "Asia/Tokyo"])
     notifications_enabled = fuzzy.FuzzyChoice([True, False])
     notification_minutes = fuzzy.FuzzyChoice([15, 30, 60])
-    notification_impact_levels = factory.List([
-        fuzzy.FuzzyChoice(["high", "medium", "low"])
-        for _ in range(1)
-    ])
+    notification_impact_levels = factory.List(
+        [fuzzy.FuzzyChoice(["high", "medium", "low"]) for _ in range(1)]
+    )
     charts_enabled = fuzzy.FuzzyChoice([True, False])
     chart_type = fuzzy.FuzzyChoice(["single", "multi", "none"])
     chart_window_hours = fuzzy.FuzzyInteger(1, 6)
@@ -105,7 +105,9 @@ class ForexNewsCreateFactory(factory.Factory):
 
     date = factory.LazyFunction(lambda: datetime.utcnow())
     time = factory.LazyFunction(lambda: "14:30")
-    currency = fuzzy.FuzzyChoice(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"])
+    currency = fuzzy.FuzzyChoice(
+        ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]
+    )
     event = factory.Faker("sentence", nb_words=3)
     actual = factory.Faker("numerify", text="###.#")
     forecast = factory.Faker("numerify", text="###.#")
@@ -123,7 +125,9 @@ class ForexNewsModelFactory(factory.Factory):
     id = factory.Sequence(lambda n: n + 1)
     date = factory.LazyFunction(lambda: datetime.utcnow())
     time = factory.LazyFunction(lambda: "14:30")
-    currency = fuzzy.FuzzyChoice(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"])
+    currency = fuzzy.FuzzyChoice(
+        ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]
+    )
     event = factory.Faker("sentence", nb_words=3)
     actual = factory.Faker("numerify", text="###.#")
     forecast = factory.Faker("numerify", text="###.#")
@@ -145,9 +149,9 @@ class NotificationCreateFactory(factory.Factory):
 
     user_id = factory.Sequence(lambda n: n + 1)
     event_id = factory.Sequence(lambda n: n + 1)
-    notification_type = fuzzy.FuzzyChoice([
-        "event_reminder", "event_start", "daily_digest", "analysis_complete"
-    ])
+    notification_type = fuzzy.FuzzyChoice(
+        ["event_reminder", "event_start", "daily_digest", "analysis_complete"]
+    )
     message = factory.Faker("sentence", nb_words=8)
     scheduled_time = factory.LazyFunction(
         lambda: datetime.utcnow() + timedelta(minutes=30)
@@ -163,9 +167,9 @@ class NotificationModelFactory(factory.Factory):
 
     user_id = factory.Sequence(lambda n: n + 1)
     event_id = factory.Sequence(lambda n: n + 1)
-    notification_type = fuzzy.FuzzyChoice([
-        "event_reminder", "event_start", "daily_digest", "analysis_complete"
-    ])
+    notification_type = fuzzy.FuzzyChoice(
+        ["event_reminder", "event_start", "daily_digest", "analysis_complete"]
+    )
     message = factory.Faker("sentence", nb_words=8)
     scheduled_time = factory.LazyFunction(
         lambda: datetime.utcnow() + timedelta(minutes=30)
@@ -195,13 +199,11 @@ def create_sample_notifications(count: int = 5) -> List[Dict[str, Any]]:
 def create_high_impact_news() -> Dict[str, Any]:
     """Create high impact forex news for testing."""
     return ForexNewsCreateFactory.build(
-        impact_level="high",
-        currency="USD",
-        event="Non-Farm Payrolls"
+        impact_level="high", currency="USD", event="Non-Farm Payrolls"
     )
 
 
 def create_user_with_preferences(**kwargs) -> Dict[str, Any]:
     """Create user with specific preferences for testing."""
-    preferences = UserPreferencesFactory.build(**kwargs.get('preferences', {}))
+    preferences = UserPreferencesFactory.build(**kwargs.get("preferences", {}))
     return UserCreateFactory.build(preferences=preferences, **kwargs)

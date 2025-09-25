@@ -23,8 +23,8 @@ _LAST_GPT_CALLS: Dict[str, float] = {}
 
 def _get_symbol_from_currencies(base_currency: str, quote_currency: str) -> str:
     """Convert currency pair to yfinance symbol format."""
-    base = (base_currency or '').upper()
-    quote = (quote_currency or '').upper()
+    base = (base_currency or "").upper()
+    quote = (quote_currency or "").upper()
 
     # Crypto pairs on Yahoo use dash notation, e.g., BTC-USD, ETH-EUR
     crypto = {"BTC", "ETH"}
@@ -52,14 +52,15 @@ def _ema(series: pd.Series, period: int) -> pd.Series:
     return series.ewm(span=period, adjust=False).mean()
 
 
-def _atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+def _atr(
+    high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
+) -> pd.Series:
     """Calculate Average True Range."""
     prev_close = close.shift(1)
-    tr = pd.concat([
-        (high - low).abs(),
-        (high - prev_close).abs(),
-        (low - prev_close).abs()
-    ], axis=1).max(axis=1)
+    tr = pd.concat(
+        [(high - low).abs(), (high - prev_close).abs(), (low - prev_close).abs()],
+        axis=1,
+    ).max(axis=1)
     return tr.rolling(window=period).mean()
 
 
@@ -72,7 +73,9 @@ def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
     return 100 - (100 / (1 + rs))
 
 
-def _macd(close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> Tuple[pd.Series, pd.Series, pd.Series]:
+def _macd(
+    close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9
+) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """Calculate MACD (Moving Average Convergence Divergence)."""
     ema_fast = _ema(close, fast)
     ema_slow = _ema(close, slow)
@@ -82,7 +85,9 @@ def _macd(close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> 
     return macd_line, signal_line, histogram
 
 
-def _bollinger_bands(close: pd.Series, period: int = 20, std_dev: float = 2) -> Tuple[pd.Series, pd.Series, pd.Series]:
+def _bollinger_bands(
+    close: pd.Series, period: int = 20, std_dev: float = 2
+) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """Calculate Bollinger Bands."""
     sma = close.rolling(window=period).mean()
     std = close.rolling(window=period).std()
@@ -95,7 +100,7 @@ class ChatGPTAnalyzer:
     """Advanced ChatGPT analyzer for forex news and market analysis."""
 
     def __init__(self):
-        self.api_key = os.getenv('CHATGPT_API_KEY')
+        self.api_key = os.getenv("CHATGPT_API_KEY")
         self.base_url = "https://api.openai.com/v1/chat/completions"
         self.model = "gpt-3.5-turbo"
         self.max_tokens = 500
@@ -117,7 +122,9 @@ class ChatGPTAnalyzer:
         """Analyze forex news using ChatGPT."""
         try:
             if not self.api_key:
-                logger.warning("ChatGPT API key not configured, returning mock analysis")
+                logger.warning(
+                    "ChatGPT API key not configured, returning mock analysis"
+                )
                 return self._generate_mock_analysis(news_item)
 
             if not self._rate_limit_check():
@@ -131,7 +138,9 @@ class ChatGPTAnalyzer:
             response = await self._call_chatgpt_api(prompt)
 
             if response:
-                logger.info("ChatGPT analysis completed", event=news_item.get('event', 'N/A'))
+                logger.info(
+                    "ChatGPT analysis completed", event=news_item.get("event", "N/A")
+                )
                 return response
             else:
                 logger.warning("ChatGPT API call failed, returning mock analysis")
@@ -143,12 +152,12 @@ class ChatGPTAnalyzer:
 
     def _create_analysis_prompt(self, news_item: Dict[str, Any]) -> str:
         """Create analysis prompt for ChatGPT."""
-        event = news_item.get('event', 'N/A')
-        currency = news_item.get('currency', 'N/A')
-        actual = news_item.get('actual', 'N/A')
-        forecast = news_item.get('forecast', 'N/A')
-        previous = news_item.get('previous', 'N/A')
-        impact = news_item.get('impact', 'N/A')
+        event = news_item.get("event", "N/A")
+        currency = news_item.get("currency", "N/A")
+        actual = news_item.get("actual", "N/A")
+        forecast = news_item.get("forecast", "N/A")
+        previous = news_item.get("previous", "N/A")
+        impact = news_item.get("impact", "N/A")
 
         prompt = f"""
 Analyze this forex news event and provide a brief market analysis:
@@ -174,32 +183,32 @@ Keep the analysis concise and professional (max 200 words).
         """Make API call to ChatGPT."""
         try:
             headers = {
-                'Authorization': f'Bearer {self.api_key}',
-                'Content-Type': 'application/json'
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
             }
 
             data = {
-                'model': self.model,
-                'messages': [
-                    {'role': 'system', 'content': 'You are a professional forex market analyst.'},
-                    {'role': 'user', 'content': prompt}
+                "model": self.model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a professional forex market analyst.",
+                    },
+                    {"role": "user", "content": prompt},
                 ],
-                'max_tokens': self.max_tokens,
-                'temperature': self.temperature
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
             }
 
             response = requests.post(
-                self.base_url,
-                headers=headers,
-                json=data,
-                timeout=30
+                self.base_url, headers=headers, json=data, timeout=30
             )
 
             response.raise_for_status()
             result = response.json()
 
-            if 'choices' in result and len(result['choices']) > 0:
-                return result['choices'][0]['message']['content'].strip()
+            if "choices" in result and len(result["choices"]) > 0:
+                return result["choices"][0]["message"]["content"].strip()
             else:
                 logger.error("Unexpected ChatGPT API response", response=result)
                 return None
@@ -213,14 +222,14 @@ Keep the analysis concise and professional (max 200 words).
 
     def _generate_mock_analysis(self, news_item: Dict[str, Any]) -> str:
         """Generate mock analysis when ChatGPT is not available."""
-        event = news_item.get('event', 'N/A')
-        currency = news_item.get('currency', 'N/A')
-        impact = news_item.get('impact', 'N/A')
+        event = news_item.get("event", "N/A")
+        currency = news_item.get("currency", "N/A")
+        impact = news_item.get("impact", "N/A")
 
         mock_analyses = {
-            'high': f"High impact event for {currency}. Monitor price action closely for potential volatility spikes.",
-            'medium': f"Medium impact event for {currency}. Moderate market reaction expected.",
-            'low': f"Low impact event for {currency}. Minimal market reaction anticipated."
+            "high": f"High impact event for {currency}. Monitor price action closely for potential volatility spikes.",
+            "medium": f"Medium impact event for {currency}. Moderate market reaction expected.",
+            "low": f"Low impact event for {currency}. Minimal market reaction anticipated.",
         }
 
         return mock_analyses.get(impact, f"Analysis for {event} in {currency} market.")
@@ -232,7 +241,9 @@ class TechnicalAnalysisService:
     def __init__(self):
         self.chart_service = chart_service
 
-    async def analyze_price_data(self, symbol: str, period_days: int = 30) -> Dict[str, Any]:
+    async def analyze_price_data(
+        self, symbol: str, period_days: int = 30
+    ) -> Dict[str, Any]:
         """Perform technical analysis on price data."""
         try:
             # Fetch price data
@@ -241,64 +252,84 @@ class TechnicalAnalysisService:
 
             # Create chart request
             from app.models.chart import ChartRequest
+
             request = ChartRequest(
                 currency=symbol,
                 event_name=f"{symbol} Technical Analysis",
                 start_time=start_time,
                 end_time=end_time,
-                chart_type='daily'
+                chart_type="daily",
             )
 
             # Get chart data
             response = await self.chart_service.generate_chart(request)
 
             if not response.success or not response.chart_data:
-                logger.error("Failed to get price data for technical analysis", symbol=symbol)
+                logger.error(
+                    "Failed to get price data for technical analysis", symbol=symbol
+                )
                 return {"error": "Failed to fetch price data"}
 
             # Convert to DataFrame
-            df = pd.DataFrame([{
-                'Open': item.open,
-                'High': item.high,
-                'Low': item.low,
-                'Close': item.close,
-                'Volume': item.volume
-            } for item in response.chart_data.data])
+            df = pd.DataFrame(
+                [
+                    {
+                        "Open": item.open,
+                        "High": item.high,
+                        "Low": item.low,
+                        "Close": item.close,
+                        "Volume": item.volume,
+                    }
+                    for item in response.chart_data.data
+                ]
+            )
 
-            df.index = pd.to_datetime([item.timestamp for item in response.chart_data.data])
+            df.index = pd.to_datetime(
+                [item.timestamp for item in response.chart_data.data]
+            )
 
             # Perform technical analysis
             analysis = await self._perform_technical_analysis(df, symbol)
 
-            logger.info("Technical analysis completed", symbol=symbol, indicators=len(analysis))
+            logger.info(
+                "Technical analysis completed", symbol=symbol, indicators=len(analysis)
+            )
             return analysis
 
         except Exception as e:
             logger.error("Failed to analyze price data", symbol=symbol, error=str(e))
             return {"error": str(e)}
 
-    async def _perform_technical_analysis(self, df: pd.DataFrame, symbol: str) -> Dict[str, Any]:
+    async def _perform_technical_analysis(
+        self, df: pd.DataFrame, symbol: str
+    ) -> Dict[str, Any]:
         """Perform comprehensive technical analysis."""
         try:
             analysis = {
                 "symbol": symbol,
                 "analysis_date": datetime.now().isoformat(),
                 "data_points": len(df),
-                "indicators": {}
+                "indicators": {},
             }
 
             if len(df) < 20:
                 analysis["error"] = "Insufficient data for technical analysis"
                 return analysis
 
-            close = df['Close']
-            high = df['High']
-            low = df['Low']
-            volume = df['Volume']
+            close = df["Close"]
+            high = df["High"]
+            low = df["Low"]
+            volume = df["Volume"]
 
             # Moving Averages
-            analysis["indicators"]["sma_20"] = float(close.rolling(window=20).mean().iloc[-1])
-            analysis["indicators"]["sma_50"] = float(close.rolling(window=50).mean().iloc[-1]) if len(df) >= 50 else None
+            analysis["indicators"]["sma_20"] = float(
+                close.rolling(window=20).mean().iloc[-1]
+            )
+            analysis["indicators"]["sma_50"] = (
+                float(close.rolling(window=50).mean().iloc[-1])
+                if len(df) >= 50
+                else None
+            )
             analysis["indicators"]["ema_12"] = float(_ema(close, 12).iloc[-1])
             analysis["indicators"]["ema_26"] = float(_ema(close, 26).iloc[-1])
 
@@ -322,18 +353,28 @@ class TechnicalAnalysisService:
 
             # Price levels
             analysis["indicators"]["current_price"] = float(close.iloc[-1])
-            analysis["indicators"]["high_20d"] = float(high.rolling(window=20).max().iloc[-1])
-            analysis["indicators"]["low_20d"] = float(low.rolling(window=20).min().iloc[-1])
+            analysis["indicators"]["high_20d"] = float(
+                high.rolling(window=20).max().iloc[-1]
+            )
+            analysis["indicators"]["low_20d"] = float(
+                low.rolling(window=20).min().iloc[-1]
+            )
 
             # Volume analysis
-            analysis["indicators"]["avg_volume"] = float(volume.rolling(window=20).mean().iloc[-1])
-            analysis["indicators"]["volume_ratio"] = float(volume.iloc[-1] / analysis["indicators"]["avg_volume"])
+            analysis["indicators"]["avg_volume"] = float(
+                volume.rolling(window=20).mean().iloc[-1]
+            )
+            analysis["indicators"]["volume_ratio"] = float(
+                volume.iloc[-1] / analysis["indicators"]["avg_volume"]
+            )
 
             # Generate trading signals
             analysis["signals"] = self._generate_trading_signals(analysis["indicators"])
 
             # Generate summary
-            analysis["summary"] = self._generate_analysis_summary(analysis["indicators"], analysis["signals"])
+            analysis["summary"] = self._generate_analysis_summary(
+                analysis["indicators"], analysis["signals"]
+            )
 
             return analysis
 
@@ -382,7 +423,9 @@ class TechnicalAnalysisService:
 
         return signals
 
-    def _generate_analysis_summary(self, indicators: Dict[str, Any], signals: Dict[str, str]) -> str:
+    def _generate_analysis_summary(
+        self, indicators: Dict[str, Any], signals: Dict[str, str]
+    ) -> str:
         """Generate a summary of the technical analysis."""
         try:
             current_price = indicators.get("current_price", 0)
@@ -436,26 +479,36 @@ class GPTAnalysisService:
             # Escape markdown for Telegram
             escaped_analysis = escape_markdown_v2(analysis)
 
-            logger.info("News event analysis completed", event=news_item.get('event', 'N/A'))
+            logger.info(
+                "News event analysis completed", event=news_item.get("event", "N/A")
+            )
             return escaped_analysis
 
         except Exception as e:
             logger.error("Failed to analyze news event", error=str(e))
             return f"Analysis error: {str(e)}"
 
-    async def analyze_market_conditions(self, symbol: str, period_days: int = 30) -> Dict[str, Any]:
+    async def analyze_market_conditions(
+        self, symbol: str, period_days: int = 30
+    ) -> Dict[str, Any]:
         """Analyze market conditions using technical analysis."""
         try:
-            analysis = await self.technical_analyzer.analyze_price_data(symbol, period_days)
+            analysis = await self.technical_analyzer.analyze_price_data(
+                symbol, period_days
+            )
 
             logger.info("Market conditions analysis completed", symbol=symbol)
             return analysis
 
         except Exception as e:
-            logger.error("Failed to analyze market conditions", symbol=symbol, error=str(e))
+            logger.error(
+                "Failed to analyze market conditions", symbol=symbol, error=str(e)
+            )
             return {"error": str(e)}
 
-    async def generate_comprehensive_analysis(self, news_item: Dict[str, Any], symbol: str) -> Dict[str, Any]:
+    async def generate_comprehensive_analysis(
+        self, news_item: Dict[str, Any], symbol: str
+    ) -> Dict[str, Any]:
         """Generate comprehensive analysis combining news and technical analysis."""
         try:
             # Get news analysis
@@ -470,31 +523,34 @@ class GPTAnalysisService:
                 "technical_analysis": technical_analysis,
                 "analysis_timestamp": datetime.now().isoformat(),
                 "symbol": symbol,
-                "event": news_item.get('event', 'N/A')
+                "event": news_item.get("event", "N/A"),
             }
 
-            logger.info("Comprehensive analysis completed", symbol=symbol, event=news_item.get('event', 'N/A'))
+            logger.info(
+                "Comprehensive analysis completed",
+                symbol=symbol,
+                event=news_item.get("event", "N/A"),
+            )
             return comprehensive
 
         except Exception as e:
-            logger.error("Failed to generate comprehensive analysis", symbol=symbol, error=str(e))
+            logger.error(
+                "Failed to generate comprehensive analysis", symbol=symbol, error=str(e)
+            )
             return {"error": str(e)}
 
     async def health_check(self) -> Dict[str, Any]:
         """Check the health of the GPT analysis service."""
         try:
             if not self.client:
-                return {
-                    "status": "unhealthy",
-                    "openai": "not_initialized"
-                }
+                return {"status": "unhealthy", "openai": "not_initialized"}
 
             # Test OpenAI connection
             try:
                 await self.client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[{"role": "user", "content": "test"}],
-                    max_tokens=1
+                    max_tokens=1,
                 )
                 openai_status = "connected"
                 status = "healthy"
@@ -507,20 +563,18 @@ class GPTAnalysisService:
                 "openai": openai_status,
                 "technical_analyzer_available": True,
                 "rate_limit_active": True,
-                "last_gpt_calls": len(_LAST_GPT_CALLS)
+                "last_gpt_calls": len(_LAST_GPT_CALLS),
             }
 
         except Exception as e:
             logger.error("GPT analysis service health check failed", error=str(e))
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}
 
     async def initialize(self):
         """Initialize the GPT service."""
         try:
             import openai
+
             self.client = openai.AsyncOpenAI(api_key=settings.api.openai_api_key)
             logger.info("GPT service initialized successfully")
         except Exception as e:
@@ -544,7 +598,7 @@ class GPTAnalysisService:
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500
+                max_tokens=500,
             )
 
             analysis = response.choices[0].message.content
@@ -574,7 +628,7 @@ class GPTAnalysisService:
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500
+                max_tokens=500,
             )
 
             analysis = response.choices[0].message.content
@@ -598,13 +652,15 @@ class GPTAnalysisService:
                 raise AnalysisError("Rate limit exceeded")
 
             # Create analysis prompt
-            prompt = await self._format_analysis_prompt(market_data, "sentiment_analysis")
+            prompt = await self._format_analysis_prompt(
+                market_data, "sentiment_analysis"
+            )
 
             # Call GPT API
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500
+                max_tokens=500,
             )
 
             analysis = response.choices[0].message.content
@@ -628,13 +684,15 @@ class GPTAnalysisService:
                 raise AnalysisError("Rate limit exceeded")
 
             # Create analysis prompt
-            prompt = await self._format_analysis_prompt(analysis_data, "trading_signals")
+            prompt = await self._format_analysis_prompt(
+                analysis_data, "trading_signals"
+            )
 
             # Call GPT API
             response = await self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500
+                max_tokens=500,
             )
 
             signals = response.choices[0].message.content
@@ -654,33 +712,37 @@ class GPTAnalysisService:
             if isinstance(price_data, list):
                 prices = price_data
                 if len(prices) < 5:  # Minimum for basic indicators
-                    raise AnalysisError("Insufficient price data for technical analysis")
+                    raise AnalysisError(
+                        "Insufficient price data for technical analysis"
+                    )
             elif isinstance(price_data, dict):
-                prices = price_data.get('prices', [])
+                prices = price_data.get("prices", [])
                 if len(prices) < 20:
-                    raise AnalysisError("Insufficient price data for technical analysis")
+                    raise AnalysisError(
+                        "Insufficient price data for technical analysis"
+                    )
             else:
                 raise AnalysisError("Invalid price data format")
 
             df = pd.DataFrame(prices)
 
             # Ensure we have numeric data
-            for col in ['close', 'high', 'low']:
+            for col in ["close", "high", "low"]:
                 if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
 
             # For ATR calculation, if we don't have high/low, use close price
-            if 'high' not in df.columns or 'low' not in df.columns:
-                df['high'] = df['close'] * 1.001  # Simulate high
-                df['low'] = df['close'] * 0.999   # Simulate low
+            if "high" not in df.columns or "low" not in df.columns:
+                df["high"] = df["close"] * 1.001  # Simulate high
+                df["low"] = df["close"] * 0.999  # Simulate low
 
             # Calculate indicators
             indicators = {
-                'rsi': await self.calculate_rsi(df['close']),
-                'ema_20': await self.calculate_ema(df['close'], 20),
-                'ema_50': await self.calculate_ema(df['close'], 50),
-                'macd': await self.calculate_macd(df['close']),
-                'atr': await self.calculate_atr(df)
+                "rsi": await self.calculate_rsi(df["close"]),
+                "ema_20": await self.calculate_ema(df["close"], 20),
+                "ema_50": await self.calculate_ema(df["close"], 50),
+                "macd": await self.calculate_macd(df["close"]),
+                "atr": await self.calculate_atr(df),
             }
 
             logger.info("Technical indicators calculated")
@@ -723,9 +785,9 @@ class GPTAnalysisService:
                 prices = pd.Series(prices)
             macd_line, signal_line, histogram = _macd(prices)
             return {
-                'macd': float(macd_line.iloc[-1]),
-                'signal': float(signal_line.iloc[-1]),
-                'histogram': float(histogram.iloc[-1])
+                "macd": float(macd_line.iloc[-1]),
+                "signal": float(signal_line.iloc[-1]),
+                "histogram": float(histogram.iloc[-1]),
             }
         except Exception as e:
             logger.error("Failed to calculate MACD", error=str(e))
@@ -738,7 +800,9 @@ class GPTAnalysisService:
                 price_data = pd.DataFrame(price_data)
             elif isinstance(price_data, list):
                 price_data = pd.DataFrame(price_data)
-            atr_values = _atr(price_data['high'], price_data['low'], price_data['close'])
+            atr_values = _atr(
+                price_data["high"], price_data["low"], price_data["close"]
+            )
             result = float(atr_values.iloc[-1])
             # Handle NaN values
             if pd.isna(result):
@@ -761,7 +825,9 @@ class GPTAnalysisService:
             logger.error("Failed to check rate limit", error=str(e))
             return False
 
-    async def _format_analysis_prompt(self, data: Dict[str, Any], prompt_type: str) -> str:
+    async def _format_analysis_prompt(
+        self, data: Dict[str, Any], prompt_type: str
+    ) -> str:
         """Format analysis prompt based on data and type."""
         try:
             if prompt_type == "price_analysis":

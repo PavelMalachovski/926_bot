@@ -26,7 +26,9 @@ class UserService(BaseService[UserModel]):
             # Check if user already exists
             existing_user = await self.get_by_telegram_id(db, user_data.telegram_id)
             if existing_user:
-                raise ValidationError(f"User with Telegram ID {user_data.telegram_id} already exists")
+                raise ValidationError(
+                    f"User with Telegram ID {user_data.telegram_id} already exists"
+                )
 
             # Create user data
             user_dict = user_data.model_dump()
@@ -42,7 +44,9 @@ class UserService(BaseService[UserModel]):
             logger.error("Failed to create user", error=str(e), exc_info=True)
             raise DatabaseError(f"Failed to create user: {e}")
 
-    async def get_by_telegram_id(self, db: AsyncSession, telegram_id: int) -> Optional[UserModel]:
+    async def get_by_telegram_id(
+        self, db: AsyncSession, telegram_id: int
+    ) -> Optional[UserModel]:
         """Get user by Telegram ID."""
         try:
             result = await db.execute(
@@ -50,14 +54,16 @@ class UserService(BaseService[UserModel]):
             )
             return result.scalar_one_or_none()
         except Exception as e:
-            logger.error("Failed to get user by Telegram ID", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get user by Telegram ID",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get user by Telegram ID: {e}")
 
     async def update_user(
-        self,
-        db: AsyncSession,
-        telegram_id: int,
-        user_data: UserUpdate
+        self, db: AsyncSession, telegram_id: int, user_data: UserUpdate
     ) -> Optional[UserModel]:
         """Update user by Telegram ID."""
         try:
@@ -90,14 +96,16 @@ class UserService(BaseService[UserModel]):
             raise
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to update user", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to update user",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to update user: {e}")
 
     async def update_preferences(
-        self,
-        db: AsyncSession,
-        telegram_id: int,
-        preferences: UserPreferences
+        self, db: AsyncSession, telegram_id: int, preferences: UserPreferences
     ) -> Optional[UserModel]:
         """Update user preferences."""
         try:
@@ -116,7 +124,12 @@ class UserService(BaseService[UserModel]):
             return user
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to update user preferences", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to update user preferences",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to update user preferences: {e}")
 
     async def get_active_users(self, db: AsyncSession) -> List[UserModel]:
@@ -130,42 +143,57 @@ class UserService(BaseService[UserModel]):
             logger.error("Failed to get active users", error=str(e), exc_info=True)
             raise DatabaseError(f"Failed to get active users: {e}")
 
-    async def get_users_by_currency(self, db: AsyncSession, currency: str) -> List[UserModel]:
+    async def get_users_by_currency(
+        self, db: AsyncSession, currency: str
+    ) -> List[UserModel]:
         """Get users who have a specific currency in their preferences."""
         try:
             result = await db.execute(
                 select(UserModel).where(
                     and_(
                         UserModel.is_active == True,
-                        UserModel.preferred_currencies.contains([currency])
+                        UserModel.preferred_currencies.contains([currency]),
                     )
                 )
             )
             return (await result.scalars()).all()
         except Exception as e:
-            logger.error("Failed to get users by currency", currency=currency, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get users by currency",
+                currency=currency,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get users by currency: {e}")
 
-    async def get_users_by_impact_level(self, db: AsyncSession, impact_level: str) -> List[UserModel]:
+    async def get_users_by_impact_level(
+        self, db: AsyncSession, impact_level: str
+    ) -> List[UserModel]:
         """Get users who have a specific impact level in their preferences."""
         try:
             result = await db.execute(
                 select(UserModel).where(
                     and_(
                         UserModel.is_active == True,
-                        UserModel.impact_levels.contains([impact_level])
+                        UserModel.impact_levels.contains([impact_level]),
                     )
                 )
             )
             return (await result.scalars()).all()
         except Exception as e:
-            logger.error("Failed to get users by impact level", impact_level=impact_level, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get users by impact level",
+                impact_level=impact_level,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get users by impact level: {e}")
 
     async def update_last_active(self, db: AsyncSession, telegram_id: int) -> bool:
         """Update user's last active timestamp."""
         try:
             from datetime import datetime
+
             await db.execute(
                 update(UserModel)
                 .where(UserModel.telegram_id == telegram_id)
@@ -175,7 +203,12 @@ class UserService(BaseService[UserModel]):
             return True
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to update last active", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to update last active",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to update last active: {e}")
 
     async def deactivate_user(self, db: AsyncSession, telegram_id: int) -> bool:
@@ -190,19 +223,23 @@ class UserService(BaseService[UserModel]):
             return True
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to deactivate user", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to deactivate user",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to deactivate user: {e}")
 
     # Additional methods expected by tests
-    async def get_user_by_telegram_id(self, db: AsyncSession, telegram_id: int) -> Optional[UserModel]:
+    async def get_user_by_telegram_id(
+        self, db: AsyncSession, telegram_id: int
+    ) -> Optional[UserModel]:
         """Get user by Telegram ID (alias for get_by_telegram_id)."""
         return await self.get_by_telegram_id(db, telegram_id)
 
     async def get_all_users_with_pagination(
-        self,
-        db: AsyncSession,
-        skip: int = 0,
-        limit: int = 100
+        self, db: AsyncSession, skip: int = 0, limit: int = 100
     ) -> List[UserModel]:
         """Get all users with pagination."""
         try:
@@ -214,7 +251,13 @@ class UserService(BaseService[UserModel]):
             )
             return (await result.scalars()).all()
         except Exception as e:
-            logger.error("Failed to get users with pagination", skip=skip, limit=limit, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to get users with pagination",
+                skip=skip,
+                limit=limit,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to get users with pagination: {e}")
 
     async def count_users(self, db: AsyncSession) -> int:
@@ -234,10 +277,17 @@ class UserService(BaseService[UserModel]):
             )
             return result.scalar_one_or_none() is not None
         except Exception as e:
-            logger.error("Failed to check user existence", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to check user existence",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to check user existence: {e}")
 
-    async def update_user_preferences(self, db: AsyncSession, telegram_id: int, preferences: UserPreferences) -> UserModel:
+    async def update_user_preferences(
+        self, db: AsyncSession, telegram_id: int, preferences: UserPreferences
+    ) -> UserModel:
         """Update user preferences."""
         try:
             user = await self.get_by_telegram_id(db, telegram_id)
@@ -256,7 +306,12 @@ class UserService(BaseService[UserModel]):
             raise
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to update user preferences", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to update user preferences",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to update user preferences: {e}")
 
     async def delete_user(self, db: AsyncSession, telegram_id: int) -> bool:
@@ -271,7 +326,12 @@ class UserService(BaseService[UserModel]):
             return True
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to delete user", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to delete user",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to delete user: {e}")
 
     async def update_user_activity(self, db: AsyncSession, telegram_id: int) -> bool:
@@ -287,5 +347,10 @@ class UserService(BaseService[UserModel]):
             return True
         except Exception as e:
             await db.rollback()
-            logger.error("Failed to update user activity", telegram_id=telegram_id, error=str(e), exc_info=True)
+            logger.error(
+                "Failed to update user activity",
+                telegram_id=telegram_id,
+                error=str(e),
+                exc_info=True,
+            )
             raise DatabaseError(f"Failed to update user activity: {e}")

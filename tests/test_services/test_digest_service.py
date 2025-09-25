@@ -85,7 +85,9 @@ class TestDailyDigestScheduler:
         # Should not raise any exception
 
     @pytest.mark.asyncio
-    async def test_schedule_user_digest_success(self, digest_scheduler, mock_db_session):
+    async def test_schedule_user_digest_success(
+        self, digest_scheduler, mock_db_session
+    ):
         """Test successful user digest scheduling."""
         # Arrange
         user_data = UserCreateFactory.build()
@@ -151,7 +153,13 @@ class TestDailyDigestScheduler:
         # The method catches exceptions and logs them
 
     @pytest.mark.asyncio
-    async def test_send_daily_digest_success(self, digest_scheduler, mock_db_session, mock_telegram_service, mock_forex_service):
+    async def test_send_daily_digest_success(
+        self,
+        digest_scheduler,
+        mock_db_session,
+        mock_telegram_service,
+        mock_forex_service,
+    ):
         """Test successful daily digest sending."""
         # Arrange
         user_data = UserCreateFactory.build()
@@ -170,7 +178,13 @@ class TestDailyDigestScheduler:
         mock_telegram_service.send_formatted_message.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_daily_digest_no_news(self, digest_scheduler, mock_db_session, mock_telegram_service, mock_forex_service):
+    async def test_send_daily_digest_no_news(
+        self,
+        digest_scheduler,
+        mock_db_session,
+        mock_telegram_service,
+        mock_forex_service,
+    ):
         """Test daily digest sending with no news."""
         # Arrange
         user_data = UserCreateFactory.build()
@@ -187,7 +201,13 @@ class TestDailyDigestScheduler:
         mock_telegram_service.send_formatted_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_send_daily_digest_error(self, digest_scheduler, mock_db_session, mock_telegram_service, mock_forex_service):
+    async def test_send_daily_digest_error(
+        self,
+        digest_scheduler,
+        mock_db_session,
+        mock_telegram_service,
+        mock_forex_service,
+    ):
         """Test daily digest sending with error."""
         # Arrange
         user_data = UserCreateFactory.build()
@@ -200,7 +220,9 @@ class TestDailyDigestScheduler:
             )
 
     @pytest.mark.asyncio
-    async def test_schedule_channel_digest_success(self, digest_scheduler, mock_db_session):
+    async def test_schedule_channel_digest_success(
+        self, digest_scheduler, mock_db_session
+    ):
         """Test successful channel digest scheduling."""
         # Arrange
         channel_id = -1001234567890
@@ -219,7 +241,9 @@ class TestDailyDigestScheduler:
         mock_scheduler.add_job.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_schedule_channel_digest_error(self, digest_scheduler, mock_db_session):
+    async def test_schedule_channel_digest_error(
+        self, digest_scheduler, mock_db_session
+    ):
         """Test channel digest scheduling with error."""
         # Arrange
         channel_id = -1001234567890
@@ -237,7 +261,13 @@ class TestDailyDigestScheduler:
             )
 
     @pytest.mark.asyncio
-    async def test_send_channel_digest_success(self, digest_scheduler, mock_db_session, mock_telegram_service, mock_forex_service):
+    async def test_send_channel_digest_success(
+        self,
+        digest_scheduler,
+        mock_db_session,
+        mock_telegram_service,
+        mock_forex_service,
+    ):
         """Test successful channel digest sending."""
         # Arrange
         channel_id = -1001234567890
@@ -256,7 +286,13 @@ class TestDailyDigestScheduler:
         mock_telegram_service.send_formatted_message.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_channel_digest_error(self, digest_scheduler, mock_db_session, mock_telegram_service, mock_forex_service):
+    async def test_send_channel_digest_error(
+        self,
+        digest_scheduler,
+        mock_db_session,
+        mock_telegram_service,
+        mock_forex_service,
+    ):
         """Test channel digest sending with error."""
         # Arrange
         channel_id = -1001234567890
@@ -298,7 +334,6 @@ class TestDailyDigestScheduler:
         # Act & Assert
         with pytest.raises(DigestError):
             await digest_scheduler.get_scheduled_jobs()
-
 
     @pytest.mark.asyncio
     async def test_health_check_not_running(self, digest_scheduler):

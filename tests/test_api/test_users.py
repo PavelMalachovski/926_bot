@@ -16,16 +16,19 @@ async def test_create_user():
     """Test user creation endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_user_data = UserCreateFactory.build()
 
-            with patch('app.services.user_service.UserService.create') as mock_service:
+            with patch("app.services.user_service.UserService.create") as mock_service:
                 # Create a mock response that matches the input data
                 mock_response = UserModelFactory.build()
                 mock_response.telegram_id = sample_user_data.telegram_id
@@ -34,7 +37,9 @@ async def test_create_user():
                 mock_service.return_value = mock_response
 
                 # Act
-                response = await client.post("/api/v1/users/", json=sample_user_data.model_dump(mode='json'))
+                response = await client.post(
+                    "/api/v1/users/", json=sample_user_data.model_dump(mode="json")
+                )
 
             # Assert
             assert response.status_code == 201
@@ -55,26 +60,36 @@ async def test_create_user_duplicate():
     """Test creating duplicate user."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_user_data = UserCreateFactory.build()
 
-            with patch('app.services.user_service.UserService.create') as mock_service:
+            with patch("app.services.user_service.UserService.create") as mock_service:
                 # First call succeeds, second call raises ValidationError
                 mock_response = UserModelFactory.build()
                 mock_response.telegram_id = sample_user_data.telegram_id
-                mock_service.side_effect = [mock_response, ValidationError("User already exists")]
+                mock_service.side_effect = [
+                    mock_response,
+                    ValidationError("User already exists"),
+                ]
 
                 # Create first user
-                await client.post("/api/v1/users/", json=sample_user_data.model_dump(mode='json'))
+                await client.post(
+                    "/api/v1/users/", json=sample_user_data.model_dump(mode="json")
+                )
 
                 # Try to create duplicate
-                response = await client.post("/api/v1/users/", json=sample_user_data.model_dump(mode='json'))
+                response = await client.post(
+                    "/api/v1/users/", json=sample_user_data.model_dump(mode="json")
+                )
 
             # Assert
             assert response.status_code == 400
@@ -89,22 +104,29 @@ async def test_get_user():
     """Test get user endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_user_data = UserCreateFactory.build()
             mock_user = UserModelFactory.build()
             mock_user.telegram_id = sample_user_data.telegram_id
 
-            with patch('app.services.user_service.UserService.get_by_telegram_id') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.get_by_telegram_id"
+            ) as mock_service:
                 mock_service.return_value = mock_user
 
                 # Get user
-                response = await client.get(f"/api/v1/users/{sample_user_data.telegram_id}")
+                response = await client.get(
+                    f"/api/v1/users/{sample_user_data.telegram_id}"
+                )
 
             # Assert
             assert response.status_code == 200
@@ -122,14 +144,19 @@ async def test_get_user_not_found():
     """Test get non-existent user."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
-            with patch('app.services.user_service.UserService.get_by_telegram_id') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.get_by_telegram_id"
+            ) as mock_service:
                 mock_service.return_value = None
 
                 # Act
@@ -148,12 +175,15 @@ async def test_update_user():
     """Test user update endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_user_data = UserCreateFactory.build()
             mock_user = UserModelFactory.build()
@@ -165,16 +195,17 @@ async def test_update_user():
             update_data = {
                 "username": "updateduser",
                 "first_name": "Updated",
-                "is_premium": True
+                "is_premium": True,
             }
 
-            with patch('app.services.user_service.UserService.update_user') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.update_user"
+            ) as mock_service:
                 mock_service.return_value = mock_user
 
                 # Act
                 response = await client.put(
-                    f"/api/v1/users/{sample_user_data.telegram_id}",
-                    json=update_data
+                    f"/api/v1/users/{sample_user_data.telegram_id}", json=update_data
                 )
 
             # Assert
@@ -194,16 +225,21 @@ async def test_update_user_not_found():
     """Test update non-existent user."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             update_data = {"username": "updateduser"}
 
-            with patch('app.services.user_service.UserService.update_user') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.update_user"
+            ) as mock_service:
                 mock_service.side_effect = ValidationError("User not found")
 
                 # Act
@@ -222,12 +258,15 @@ async def test_update_user_preferences():
     """Test user preferences update endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_user_data = UserCreateFactory.build()
             mock_user = UserModelFactory.build()
@@ -245,16 +284,18 @@ async def test_update_user_preferences():
                 "notifications_enabled": True,
                 "notification_minutes": 15,
                 "charts_enabled": True,
-                "chart_type": "multi"
+                "chart_type": "multi",
             }
 
-            with patch('app.services.user_service.UserService.update_preferences') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.update_preferences"
+            ) as mock_service:
                 mock_service.return_value = mock_user
 
                 # Act
                 response = await client.put(
                     f"/api/v1/users/{sample_user_data.telegram_id}/preferences",
-                    json=preferences_data
+                    json=preferences_data,
                 )
 
             # Assert
@@ -276,16 +317,19 @@ async def test_get_users():
     """Test get users endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             mock_users = [UserModelFactory.build() for _ in range(3)]
 
-            with patch('app.services.user_service.UserService.get_all') as mock_service:
+            with patch("app.services.user_service.UserService.get_all") as mock_service:
                 mock_service.return_value = mock_users
 
                 # Act
@@ -307,16 +351,19 @@ async def test_get_users_with_pagination():
     """Test get users with pagination."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             mock_users = [UserModelFactory.build() for _ in range(2)]
 
-            with patch('app.services.user_service.UserService.get_all') as mock_service:
+            with patch("app.services.user_service.UserService.get_all") as mock_service:
                 mock_service.return_value = mock_users
 
                 # Get first page
@@ -336,17 +383,22 @@ async def test_get_users_by_currency():
     """Test get users by currency endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             mock_user = UserModelFactory.build()
             mock_user.telegram_id = 111111111
 
-            with patch('app.services.user_service.UserService.get_users_by_currency') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.get_users_by_currency"
+            ) as mock_service:
                 mock_service.return_value = [mock_user]
 
                 # Act
@@ -367,17 +419,22 @@ async def test_get_users_by_impact_level():
     """Test get users by impact level endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             mock_user = UserModelFactory.build()
             mock_user.telegram_id = 111111111
 
-            with patch('app.services.user_service.UserService.get_users_by_impact_level') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.get_users_by_impact_level"
+            ) as mock_service:
                 mock_service.return_value = [mock_user]
 
                 # Act
@@ -398,16 +455,21 @@ async def test_update_user_activity():
     """Test update user activity endpoint."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_user_data = UserCreateFactory.build()
 
-            with patch('app.services.user_service.UserService.update_user_activity') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.update_user_activity"
+            ) as mock_service:
                 mock_service.return_value = True
 
                 # Act
@@ -429,16 +491,19 @@ async def test_create_user_invalid_data():
     """Test user creation with invalid data."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             invalid_data = {
                 "telegram_id": "invalid",  # Should be integer
-                "username": "testuser"
+                "username": "testuser",
             }
 
             # Act
@@ -456,28 +521,33 @@ async def test_update_user_invalid_preferences():
     """Test user update with invalid preferences."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_user_data = UserCreateFactory.build()
 
             # Update with invalid preferences
             invalid_preferences = {
                 "preferred_currencies": ["INVALID"],  # Invalid currency
-                "notification_minutes": 45  # Invalid minutes
+                "notification_minutes": 45,  # Invalid minutes
             }
 
-            with patch('app.services.user_service.UserService.update_preferences') as mock_service:
+            with patch(
+                "app.services.user_service.UserService.update_preferences"
+            ) as mock_service:
                 mock_service.side_effect = ValidationError("Invalid currency")
 
                 # Act
                 response = await client.put(
                     f"/api/v1/users/{sample_user_data.telegram_id}/preferences",
-                    json=invalid_preferences
+                    json=invalid_preferences,
                 )
 
             # Assert

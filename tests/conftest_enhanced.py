@@ -15,12 +15,17 @@ from app.database.connection import db_manager
 from app.services.cache_service import cache_service
 from app.core.config import settings
 from app.database.models import UserModel, ForexNewsModel, UserPreferences
-from tests.factories import UserModelFactory, ForexNewsModelFactory, UserPreferencesFactory
+from tests.factories import (
+    UserModelFactory,
+    ForexNewsModelFactory,
+    UserPreferencesFactory,
+)
 
 
 # ============================================================================
 # ASYNC TEST CONFIGURATION
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator:
@@ -33,6 +38,7 @@ def event_loop() -> Generator:
 # ============================================================================
 # DATABASE FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 async def test_db_session() -> AsyncGenerator:
@@ -69,6 +75,7 @@ async def clean_db(test_db_session) -> AsyncGenerator:
 # REDIS/CACHE FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
 async def mock_redis_client():
     """Create a mock Redis client for testing."""
@@ -77,15 +84,17 @@ async def mock_redis_client():
     # Configure common Redis methods
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.config_set = AsyncMock(return_value=True)
-    mock_client.info = AsyncMock(return_value={
-        "connected_clients": 1,
-        "used_memory_human": "1MB",
-        "keyspace_hits": 100,
-        "keyspace_misses": 50,
-        "total_commands_processed": 1000,
-        "redis_version": "7.0.0",
-        "uptime_in_seconds": 3600
-    })
+    mock_client.info = AsyncMock(
+        return_value={
+            "connected_clients": 1,
+            "used_memory_human": "1MB",
+            "keyspace_hits": 100,
+            "keyspace_misses": 50,
+            "total_commands_processed": 1000,
+            "redis_version": "7.0.0",
+            "uptime_in_seconds": 3600,
+        }
+    )
 
     # Cache operations
     mock_client.get = AsyncMock(return_value=None)
@@ -124,7 +133,7 @@ async def mock_redis_client():
 @pytest.fixture
 async def mock_cache_service(mock_redis_client):
     """Create a mock cache service."""
-    with patch('app.services.cache_service.cache_service') as mock_service:
+    with patch("app.services.cache_service.cache_service") as mock_service:
         mock_service._initialized = True
         mock_service.redis_client = mock_redis_client
         mock_service.pubsub_client = mock_redis_client
@@ -154,6 +163,7 @@ async def mock_cache_service(mock_redis_client):
 # SERVICE FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
 def mock_telegram_bot():
     """Create a mock Telegram bot."""
@@ -169,9 +179,11 @@ def mock_telegram_bot():
 def mock_openai_client():
     """Create a mock OpenAI client."""
     mock_client = AsyncMock()
-    mock_client.chat.completions.create = AsyncMock(return_value=MagicMock(
-        choices=[MagicMock(message=MagicMock(content="Test analysis"))]
-    ))
+    mock_client.chat.completions.create = AsyncMock(
+        return_value=MagicMock(
+            choices=[MagicMock(message=MagicMock(content="Test analysis"))]
+        )
+    )
     return mock_client
 
 
@@ -179,16 +191,18 @@ def mock_openai_client():
 def mock_alpha_vantage_client():
     """Create a mock Alpha Vantage client."""
     mock_client = AsyncMock()
-    mock_client.get_forex_data = AsyncMock(return_value={
-        "Time Series (FX)": {
-            "2024-01-01 00:00:00": {
-                "1. open": "1.2345",
-                "2. high": "1.2350",
-                "3. low": "1.2340",
-                "4. close": "1.2348"
+    mock_client.get_forex_data = AsyncMock(
+        return_value={
+            "Time Series (FX)": {
+                "2024-01-01 00:00:00": {
+                    "1. open": "1.2345",
+                    "2. high": "1.2350",
+                    "3. low": "1.2340",
+                    "4. close": "1.2348",
+                }
             }
         }
-    })
+    )
     return mock_client
 
 
@@ -196,14 +210,12 @@ def mock_alpha_vantage_client():
 # MODEL FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
 def sample_user() -> UserModel:
     """Create a sample user for testing."""
     return UserModelFactory.build(
-        telegram_id=123456789,
-        username="testuser",
-        first_name="Test",
-        last_name="User"
+        telegram_id=123456789, username="testuser", first_name="Test", last_name="User"
     )
 
 
@@ -216,7 +228,7 @@ def sample_forex_news() -> ForexNewsModel:
         impact_level="high",
         actual="200K",
         forecast="180K",
-        previous="190K"
+        previous="190K",
     )
 
 
@@ -227,13 +239,14 @@ def sample_user_preferences() -> UserPreferences:
         preferred_currencies=["USD", "EUR"],
         impact_levels=["high", "medium"],
         notifications_enabled=True,
-        notification_minutes=15
+        notification_minutes=15,
     )
 
 
 # ============================================================================
 # API CLIENT FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 async def async_client():
@@ -249,13 +262,14 @@ async def async_client():
 async def authenticated_client(async_client, sample_user):
     """Create an authenticated HTTP client."""
     # Mock authentication
-    with patch('app.api.dependencies.get_current_user', return_value=sample_user):
+    with patch("app.api.dependencies.get_current_user", return_value=sample_user):
         yield async_client
 
 
 # ============================================================================
 # TEST DATA FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 def test_forex_data():
@@ -266,7 +280,7 @@ def test_forex_data():
         "price": 0.9234,
         "change": 0.0012,
         "change_percent": 0.13,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
@@ -277,9 +291,21 @@ def test_chart_data():
         "symbol": "USD/EUR",
         "timeframe": "1h",
         "data": [
-            {"timestamp": "2024-01-01T00:00:00", "open": 0.9234, "high": 0.9240, "low": 0.9230, "close": 0.9238},
-            {"timestamp": "2024-01-01T01:00:00", "open": 0.9238, "high": 0.9245, "low": 0.9235, "close": 0.9242},
-        ]
+            {
+                "timestamp": "2024-01-01T00:00:00",
+                "open": 0.9234,
+                "high": 0.9240,
+                "low": 0.9230,
+                "close": 0.9238,
+            },
+            {
+                "timestamp": "2024-01-01T01:00:00",
+                "open": 0.9238,
+                "high": 0.9245,
+                "low": 0.9235,
+                "close": 0.9242,
+            },
+        ],
     }
 
 
@@ -290,7 +316,7 @@ def test_notification_data():
         "user_id": 123456789,
         "message": "High impact news: USD Non-Farm Payrolls",
         "priority": "high",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
@@ -298,19 +324,21 @@ def test_notification_data():
 # PERFORMANCE TEST FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
 def performance_test_data():
     """Generate large datasets for performance testing."""
     return {
         "users": [UserModelFactory.build() for _ in range(100)],
         "forex_news": [ForexNewsModelFactory.build() for _ in range(1000)],
-        "preferences": [UserPreferencesFactory.build() for _ in range(100)]
+        "preferences": [UserPreferencesFactory.build() for _ in range(100)],
     }
 
 
 # ============================================================================
 # INTEGRATION TEST FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 async def integration_test_setup(clean_db, mock_cache_service):
@@ -327,16 +355,13 @@ async def integration_test_setup(clean_db, mock_cache_service):
 
     await clean_db.commit()
 
-    return {
-        "users": users,
-        "forex_news": forex_news,
-        "db": clean_db
-    }
+    return {"users": users, "forex_news": forex_news, "db": clean_db}
 
 
 # ============================================================================
 # UTILITY FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 def temp_file():
@@ -369,6 +394,7 @@ def mock_logger():
 # PARAMETRIZED FIXTURES
 # ============================================================================
 
+
 @pytest.fixture(params=["USD", "EUR", "GBP", "JPY"])
 def currency_param(request):
     """Parametrized fixture for different currencies."""
@@ -391,23 +417,16 @@ def batch_size_param(request):
 # MARKERS AND CONFIGURATION
 # ============================================================================
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
-    config.addinivalue_line(
-        "markers", "performance: marks tests as performance tests"
-    )
-    config.addinivalue_line(
-        "markers", "redis: marks tests that require Redis"
-    )
-    config.addinivalue_line(
-        "markers", "database: marks tests that require database"
-    )
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
+    config.addinivalue_line("markers", "performance: marks tests as performance tests")
+    config.addinivalue_line("markers", "redis: marks tests that require Redis")
+    config.addinivalue_line("markers", "database: marks tests that require database")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -433,6 +452,7 @@ def pytest_collection_modifyitems(config, items):
 # ============================================================================
 # TEST UTILITIES
 # ============================================================================
+
 
 class TestDataBuilder:
     """Builder pattern for creating test data."""
@@ -466,13 +486,14 @@ def test_data_builder():
 # CLEANUP FIXTURES
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 async def cleanup_after_test():
     """Automatic cleanup after each test."""
     yield
 
     # Clean up any temporary files, connections, etc.
-    if hasattr(cache_service, 'redis_client') and cache_service.redis_client:
+    if hasattr(cache_service, "redis_client") and cache_service.redis_client:
         try:
             await cache_service.close()
         except Exception:

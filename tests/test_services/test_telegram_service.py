@@ -44,7 +44,7 @@ class TestTelegramService:
         message = "Test message"
 
         # Mock the HTTP client
-        with patch('httpx.AsyncClient.post') as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = AsyncMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"ok": True, "result": {"message_id": 1}}
@@ -65,7 +65,7 @@ class TestTelegramService:
         message = "Test message"
 
         # Mock the HTTP client to raise an exception
-        with patch('httpx.AsyncClient.post') as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post:
             mock_post.side_effect = Exception("Telegram API error")
 
             # Act
@@ -82,7 +82,7 @@ class TestTelegramService:
         long_message = "A" * 5000  # Long message
 
         # Mock the bot_manager.send_message method
-        with patch.object(telegram_service.bot_manager, 'send_message') as mock_send:
+        with patch.object(telegram_service.bot_manager, "send_message") as mock_send:
             mock_send.return_value = True
 
             # Act
@@ -101,7 +101,9 @@ class TestTelegramService:
         message = "**Bold text** and *italic text*"
 
         # Mock the bot_manager.send_formatted_message method
-        with patch.object(telegram_service.bot_manager, 'send_formatted_message') as mock_send:
+        with patch.object(
+            telegram_service.bot_manager, "send_formatted_message"
+        ) as mock_send:
             mock_send.return_value = True
 
             # Act
@@ -119,7 +121,7 @@ class TestTelegramService:
         telegram_service.bot_manager.render_hostname = "example.com"
 
         # Mock the bot_manager.setup_webhook method
-        with patch.object(telegram_service.bot_manager, 'setup_webhook') as mock_setup:
+        with patch.object(telegram_service.bot_manager, "setup_webhook") as mock_setup:
             mock_setup.return_value = True
 
             # Act
@@ -137,7 +139,7 @@ class TestTelegramService:
         telegram_service.render_hostname = "example.com"
 
         # Mock the HTTP client to raise an exception
-        with patch('httpx.AsyncClient.post') as mock_post:
+        with patch("httpx.AsyncClient.post") as mock_post:
             mock_post.side_effect = Exception("Webhook setup failed")
 
             # Act
@@ -151,7 +153,9 @@ class TestTelegramService:
         """Test successful webhook deletion."""
         # Arrange
         # Mock the bot_manager.delete_webhook method
-        with patch.object(telegram_service.bot_manager, 'delete_webhook') as mock_delete:
+        with patch.object(
+            telegram_service.bot_manager, "delete_webhook"
+        ) as mock_delete:
             mock_delete.return_value = True
 
             # Act
@@ -165,10 +169,15 @@ class TestTelegramService:
     async def test_get_webhook_info_success(self, telegram_service, mock_bot):
         """Test successful webhook info retrieval."""
         # Arrange
-        mock_info = {"url": "https://example.com/webhook", "has_custom_certificate": False}
+        mock_info = {
+            "url": "https://example.com/webhook",
+            "has_custom_certificate": False,
+        }
 
         # Mock the bot_manager.get_webhook_info method
-        with patch.object(telegram_service.bot_manager, 'get_webhook_info') as mock_get_info:
+        with patch.object(
+            telegram_service.bot_manager, "get_webhook_info"
+        ) as mock_get_info:
             mock_get_info.return_value = mock_info
 
             # Act
@@ -179,7 +188,9 @@ class TestTelegramService:
             mock_get_info.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_start_command(self, telegram_service, mock_bot, mock_db_session):
+    async def test_handle_start_command(
+        self, telegram_service, mock_bot, mock_db_session
+    ):
         """Test handling start command."""
         # Arrange
         chat_id = 123456789
@@ -192,9 +203,11 @@ class TestTelegramService:
         mock_db_session.commit = AsyncMock()
         mock_db_session.refresh = AsyncMock()
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_start_command(mock_bot, chat_id, user_data, mock_db_session)
+            result = await telegram_service.handle_start_command(
+                mock_bot, chat_id, user_data, mock_db_session
+            )
 
             # Assert
             assert result is not None
@@ -207,7 +220,9 @@ class TestTelegramService:
         # Arrange
         chat_id = 123456789
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()) as mock_send:
+        with patch.object(
+            telegram_service, "send_message", return_value=AsyncMock()
+        ) as mock_send:
             # Act
             result = await telegram_service.handle_help_command(mock_bot, chat_id)
 
@@ -216,7 +231,9 @@ class TestTelegramService:
             mock_send.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_settings_command(self, telegram_service, mock_bot, mock_db_session):
+    async def test_handle_settings_command(
+        self, telegram_service, mock_bot, mock_db_session
+    ):
         """Test handling settings command."""
         # Arrange
         chat_id = 123456789
@@ -226,15 +243,19 @@ class TestTelegramService:
         mock_result.scalar_one_or_none.return_value = user_data
         mock_db_session.execute.return_value = mock_result
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_settings_command(mock_bot, chat_id, mock_db_session)
+            result = await telegram_service.handle_settings_command(
+                mock_bot, chat_id, mock_db_session
+            )
 
             # Assert
             assert result is not None
 
     @pytest.mark.asyncio
-    async def test_handle_currency_selection(self, telegram_service, mock_bot, mock_db_session):
+    async def test_handle_currency_selection(
+        self, telegram_service, mock_bot, mock_db_session
+    ):
         """Test handling currency selection."""
         # Arrange
         chat_id = 123456789
@@ -246,16 +267,20 @@ class TestTelegramService:
         mock_db_session.execute.return_value = mock_result
         mock_db_session.commit = AsyncMock()
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_currency_selection(mock_bot, chat_id, currency, mock_db_session)
+            result = await telegram_service.handle_currency_selection(
+                mock_bot, chat_id, currency, mock_db_session
+            )
 
             # Assert
             assert result is not None
             mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_impact_level_selection(self, telegram_service, mock_bot, mock_db_session):
+    async def test_handle_impact_level_selection(
+        self, telegram_service, mock_bot, mock_db_session
+    ):
         """Test handling impact level selection."""
         # Arrange
         chat_id = 123456789
@@ -267,16 +292,20 @@ class TestTelegramService:
         mock_db_session.execute.return_value = mock_result
         mock_db_session.commit = AsyncMock()
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_impact_level_selection(mock_bot, chat_id, impact_level, mock_db_session)
+            result = await telegram_service.handle_impact_level_selection(
+                mock_bot, chat_id, impact_level, mock_db_session
+            )
 
             # Assert
             assert result is not None
             mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_timezone_selection(self, telegram_service, mock_bot, mock_db_session):
+    async def test_handle_timezone_selection(
+        self, telegram_service, mock_bot, mock_db_session
+    ):
         """Test handling timezone selection."""
         # Arrange
         chat_id = 123456789
@@ -288,16 +317,20 @@ class TestTelegramService:
         mock_db_session.execute.return_value = mock_result
         mock_db_session.commit = AsyncMock()
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_timezone_selection(mock_bot, chat_id, timezone, mock_db_session)
+            result = await telegram_service.handle_timezone_selection(
+                mock_bot, chat_id, timezone, mock_db_session
+            )
 
             # Assert
             assert result is not None
             mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_notification_toggle(self, telegram_service, mock_bot, mock_db_session):
+    async def test_handle_notification_toggle(
+        self, telegram_service, mock_bot, mock_db_session
+    ):
         """Test handling notification toggle."""
         # Arrange
         chat_id = 123456789
@@ -308,16 +341,20 @@ class TestTelegramService:
         mock_db_session.execute.return_value = mock_result
         mock_db_session.commit = AsyncMock()
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_notification_toggle(mock_bot, chat_id, mock_db_session)
+            result = await telegram_service.handle_notification_toggle(
+                mock_bot, chat_id, mock_db_session
+            )
 
             # Assert
             assert result is not None
             mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_chart_toggle(self, telegram_service, mock_bot, mock_db_session):
+    async def test_handle_chart_toggle(
+        self, telegram_service, mock_bot, mock_db_session
+    ):
         """Test handling chart toggle."""
         # Arrange
         chat_id = 123456789
@@ -328,9 +365,11 @@ class TestTelegramService:
         mock_db_session.execute.return_value = mock_result
         mock_db_session.commit = AsyncMock()
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_chart_toggle(mock_bot, chat_id, mock_db_session)
+            result = await telegram_service.handle_chart_toggle(
+                mock_bot, chat_id, mock_db_session
+            )
 
             # Assert
             assert result is not None
@@ -343,9 +382,11 @@ class TestTelegramService:
         chat_id = 123456789
         command = "/unknown"
 
-        with patch.object(telegram_service, 'send_message', return_value=AsyncMock()):
+        with patch.object(telegram_service, "send_message", return_value=AsyncMock()):
             # Act
-            result = await telegram_service.handle_unknown_command(mock_bot, chat_id, command)
+            result = await telegram_service.handle_unknown_command(
+                mock_bot, chat_id, command
+            )
 
             # Assert
             assert result is not None

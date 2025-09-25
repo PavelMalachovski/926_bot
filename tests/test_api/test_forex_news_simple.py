@@ -13,16 +13,21 @@ async def test_create_forex_news_success():
     """Test successful forex news creation via API."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_data = ForexNewsCreateFactory.build()
 
-            with patch('app.services.forex_service.ForexService.create') as mock_service:
+            with patch(
+                "app.services.forex_service.ForexService.create"
+            ) as mock_service:
                 # Create a mock response that matches the input data
                 mock_response = ForexNewsModelFactory.build()
                 mock_response.currency = sample_data.currency
@@ -31,8 +36,7 @@ async def test_create_forex_news_success():
 
                 # Act
                 response = await client.post(
-                    "/api/v1/forex-news/",
-                    json=sample_data.model_dump(mode='json')
+                    "/api/v1/forex-news/", json=sample_data.model_dump(mode="json")
                 )
 
             # Assert
@@ -51,16 +55,19 @@ async def test_get_forex_news_by_id_success():
     """Test successful forex news retrieval by ID."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
             sample_model = ForexNewsModelFactory.build()
 
-            with patch('app.services.forex_service.ForexService.get') as mock_service:
+            with patch("app.services.forex_service.ForexService.get") as mock_service:
                 mock_service.return_value = sample_model
 
                 # Act
@@ -81,14 +88,17 @@ async def test_get_forex_news_by_id_not_found():
     """Test forex news retrieval when not found."""
     # Initialize the database manager for testing
     from app.database.connection import db_manager
+
     await db_manager.initialize()
 
     try:
         # Create a simple async client
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             # Arrange
-            with patch('app.services.forex_service.ForexService.get') as mock_service:
+            with patch("app.services.forex_service.ForexService.get") as mock_service:
                 mock_service.return_value = None
 
                 # Act

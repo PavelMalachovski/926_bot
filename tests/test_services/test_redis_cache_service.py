@@ -11,7 +11,7 @@ from app.services.cache_service import (
     EnhancedCacheService,
     RedisPubSubService,
     RedisRateLimiter,
-    RedisSessionManager
+    RedisSessionManager,
 )
 
 
@@ -27,19 +27,22 @@ class TestCacheService:
         mock_client = AsyncMock()
         mock_client.ping = AsyncMock(return_value=True)
         mock_client.config_set = AsyncMock(return_value=True)
-        mock_client.info = AsyncMock(return_value={
-            "connected_clients": 1,
-            "used_memory_human": "1MB",
-            "keyspace_hits": 100,
-            "keyspace_misses": 50,
-            "total_commands_processed": 1000
-        })
+        mock_client.info = AsyncMock(
+            return_value={
+                "connected_clients": 1,
+                "used_memory_human": "1MB",
+                "keyspace_hits": 100,
+                "keyspace_misses": 50,
+                "total_commands_processed": 1000,
+            }
+        )
         mock_client.get = AsyncMock()
         mock_client.set = AsyncMock(return_value=True)
         mock_client.delete = AsyncMock(return_value=1)
         mock_client.exists = AsyncMock(return_value=True)
         mock_client.mget = AsyncMock(return_value=[])
         mock_client.keys = AsyncMock(return_value=[])
+
         # Create a proper pipeline context manager
         class MockPipelineContext:
             def __init__(self):
@@ -65,8 +68,9 @@ class TestCacheService:
     @pytest.mark.asyncio
     async def test_initialize_success(self, cache_service, mock_redis_client):
         """Test successful Redis initialization."""
-        with patch('app.services.cache_service.redis.from_url') as mock_from_url, \
-             patch('app.services.cache_service.ConnectionPool.from_url') as mock_pool:
+        with patch("app.services.cache_service.redis.from_url") as mock_from_url, patch(
+            "app.services.cache_service.ConnectionPool.from_url"
+        ) as mock_pool:
 
             mock_pool.return_value = AsyncMock()
             mock_from_url.return_value = mock_redis_client
@@ -79,7 +83,7 @@ class TestCacheService:
     @pytest.mark.asyncio
     async def test_initialize_no_redis_url(self, cache_service):
         """Test initialization when Redis URL is not configured."""
-        with patch('app.core.config.settings.redis.url', None):
+        with patch("app.core.config.settings.redis.url", None):
             await cache_service.initialize()
 
             assert cache_service._initialized is False
@@ -96,7 +100,7 @@ class TestCacheService:
             True,
             None,
             ["list", "of", "items"],
-            {"key": "value", "nested": {"data": 123}}
+            {"key": "value", "nested": {"data": 123}},
         ]
 
         for value in test_values:
@@ -116,7 +120,9 @@ class TestCacheService:
         assert result is True
 
         # Test get
-        mock_redis_client.get.return_value = cache_service._serialize_value("test_value")
+        mock_redis_client.get.return_value = cache_service._serialize_value(
+            "test_value"
+        )
         result = await cache_service.get("test_key")
         assert result == "test_value"
 
@@ -157,7 +163,7 @@ class TestCacheService:
         # Test get_many
         mock_redis_client.mget.return_value = [
             cache_service._serialize_value("value1"),
-            cache_service._serialize_value("value2")
+            cache_service._serialize_value("value2"),
         ]
         result = await cache_service.get_many(["key1", "key2"])
         assert result == {"key1": "value1", "key2": "value2"}
@@ -179,7 +185,9 @@ class TestCacheService:
         assert result == "computed_value"
 
         # Test cache hit
-        mock_redis_client.get.return_value = cache_service._serialize_value("cached_value")
+        mock_redis_client.get.return_value = cache_service._serialize_value(
+            "cached_value"
+        )
         result = await cache_service.get_or_set("test_key", factory_func, ttl=300)
         assert result == "cached_value"
 
@@ -223,7 +231,9 @@ class TestRedisPubSubService:
         mock_pubsub_instance.subscribe = AsyncMock()
         mock_pubsub_instance.close = AsyncMock()
         mock_pubsub_instance.listen = AsyncMock()
-        mock_pubsub_instance.listen.return_value.__aiter__ = AsyncMock(return_value=iter([]))
+        mock_pubsub_instance.listen.return_value.__aiter__ = AsyncMock(
+            return_value=iter([])
+        )
 
         # Make pubsub() method return the instance
         mock_pubsub_client.pubsub = lambda: mock_pubsub_instance
@@ -268,7 +278,9 @@ class TestRedisRateLimiter:
 
         # Create a shared pipeline mock that can be configured
         shared_pipeline = AsyncMock()
-        shared_pipeline.execute = AsyncMock(return_value=[0, 5, True, True])  # Default values
+        shared_pipeline.execute = AsyncMock(
+            return_value=[0, 5, True, True]
+        )  # Default values
         shared_pipeline.set = AsyncMock()
         shared_pipeline.get = AsyncMock()
         shared_pipeline.zremrangebyscore = AsyncMock()
@@ -312,7 +324,12 @@ class TestRedisRateLimiter:
         # Set up the pipeline mock to return the expected values for exceeded limit
         # Access the shared pipeline and configure it
         pipeline_context = rate_limiter.cache_service.redis_client.pipeline()
-        pipeline_context.pipeline.execute.return_value = [0, 10, True, True]  # current_count = 10, limit = 10
+        pipeline_context.pipeline.execute.return_value = [
+            0,
+            10,
+            True,
+            True,
+        ]  # current_count = 10, limit = 10
 
         is_allowed, info = await rate_limiter.is_allowed("test_key", 10, 60)
 
@@ -386,19 +403,22 @@ class TestEnhancedCacheService:
         mock_client = AsyncMock()
         mock_client.ping = AsyncMock(return_value=True)
         mock_client.config_set = AsyncMock(return_value=True)
-        mock_client.info = AsyncMock(return_value={
-            "connected_clients": 1,
-            "used_memory_human": "1MB",
-            "keyspace_hits": 100,
-            "keyspace_misses": 50,
-            "total_commands_processed": 1000
-        })
+        mock_client.info = AsyncMock(
+            return_value={
+                "connected_clients": 1,
+                "used_memory_human": "1MB",
+                "keyspace_hits": 100,
+                "keyspace_misses": 50,
+                "total_commands_processed": 1000,
+            }
+        )
         mock_client.get = AsyncMock()
         mock_client.set = AsyncMock(return_value=True)
         mock_client.delete = AsyncMock(return_value=1)
         mock_client.exists = AsyncMock(return_value=True)
         mock_client.mget = AsyncMock(return_value=[])
         mock_client.keys = AsyncMock(return_value=[])
+
         # Create a proper pipeline context manager
         class MockPipelineContext:
             def __init__(self):
@@ -424,8 +444,9 @@ class TestEnhancedCacheService:
     @pytest.mark.asyncio
     async def test_initialize_enhanced(self, enhanced_cache_service, mock_redis_client):
         """Test enhanced cache service initialization."""
-        with patch('app.services.cache_service.redis.from_url') as mock_from_url, \
-             patch('app.services.cache_service.ConnectionPool.from_url') as mock_pool:
+        with patch("app.services.cache_service.redis.from_url") as mock_from_url, patch(
+            "app.services.cache_service.ConnectionPool.from_url"
+        ) as mock_pool:
 
             mock_pool.return_value = AsyncMock()
             mock_from_url.return_value = mock_redis_client
@@ -512,8 +533,11 @@ class TestRedisIntegration:
         mock_client.get.return_value = None
         mock_client.delete.return_value = 1
 
-        with patch('app.services.cache_service.ConnectionPool.from_url') as mock_pool, \
-             patch('app.services.cache_service.redis.Redis') as mock_redis_class:
+        with patch(
+            "app.services.cache_service.ConnectionPool.from_url"
+        ) as mock_pool, patch(
+            "app.services.cache_service.redis.Redis"
+        ) as mock_redis_class:
 
             mock_pool.return_value = AsyncMock()
             mock_redis_class.return_value = mock_client

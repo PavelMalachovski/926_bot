@@ -40,7 +40,9 @@ class TestUserService:
     """Test cases for UserService."""
 
     @pytest.mark.asyncio
-    async def test_create_user_success(self, user_service, mock_db_session, sample_user_data):
+    async def test_create_user_success(
+        self, user_service, mock_db_session, sample_user_data
+    ):
         """Test successful user creation."""
         # Arrange
         mock_db_session.add = AsyncMock()
@@ -48,7 +50,7 @@ class TestUserService:
         mock_db_session.refresh = AsyncMock()
 
         # Mock the get_by_telegram_id call to return None (user doesn't exist)
-        with patch.object(user_service, 'get_by_telegram_id', return_value=None):
+        with patch.object(user_service, "get_by_telegram_id", return_value=None):
             # Act
             result = await user_service.create_user(mock_db_session, sample_user_data)
 
@@ -61,7 +63,9 @@ class TestUserService:
         mock_db_session.refresh.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_user_database_error(self, user_service, mock_db_session, sample_user_data):
+    async def test_create_user_database_error(
+        self, user_service, mock_db_session, sample_user_data
+    ):
         """Test user creation with database error."""
         # Arrange
         mock_db_session.add = AsyncMock()
@@ -69,7 +73,7 @@ class TestUserService:
         mock_db_session.rollback = AsyncMock()
 
         # Mock the get_by_telegram_id call to return None (user doesn't exist)
-        with patch.object(user_service, 'get_by_telegram_id', return_value=None):
+        with patch.object(user_service, "get_by_telegram_id", return_value=None):
             # Act & Assert
             with pytest.raises(DatabaseError):
                 await user_service.create_user(mock_db_session, sample_user_data)
@@ -77,7 +81,9 @@ class TestUserService:
         mock_db_session.rollback.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_user_by_telegram_id_success(self, user_service, mock_db_session, sample_user_model):
+    async def test_get_user_by_telegram_id_success(
+        self, user_service, mock_db_session, sample_user_model
+    ):
         """Test successful user retrieval by telegram_id."""
         # Arrange
         mock_result = AsyncMock()
@@ -94,7 +100,9 @@ class TestUserService:
         mock_db_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_user_by_telegram_id_not_found(self, user_service, mock_db_session):
+    async def test_get_user_by_telegram_id_not_found(
+        self, user_service, mock_db_session
+    ):
         """Test user retrieval when user not found."""
         # Arrange
         mock_result = AsyncMock()
@@ -108,7 +116,9 @@ class TestUserService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_user_by_telegram_id_database_error(self, user_service, mock_db_session):
+    async def test_get_user_by_telegram_id_database_error(
+        self, user_service, mock_db_session
+    ):
         """Test user retrieval with database error."""
         # Arrange
         mock_db_session.execute.side_effect = Exception("Database error")
@@ -118,7 +128,9 @@ class TestUserService:
             await user_service.get_user_by_telegram_id(mock_db_session, 123456789)
 
     @pytest.mark.asyncio
-    async def test_update_user_success(self, user_service, mock_db_session, sample_user_model):
+    async def test_update_user_success(
+        self, user_service, mock_db_session, sample_user_model
+    ):
         """Test successful user update."""
         # Arrange
         update_data = UserUpdate(first_name="Updated Name")
@@ -126,7 +138,9 @@ class TestUserService:
         mock_db_session.refresh = AsyncMock(return_value=None)
 
         # Mock the get_by_telegram_id call
-        with patch.object(user_service, 'get_by_telegram_id', return_value=sample_user_model):
+        with patch.object(
+            user_service, "get_by_telegram_id", return_value=sample_user_model
+        ):
             # Act
             result = await user_service.update_user(
                 mock_db_session, sample_user_model.telegram_id, update_data
@@ -143,24 +157,27 @@ class TestUserService:
         # Arrange
         update_data = UserUpdate(first_name="Updated Name")
 
-        with patch.object(user_service, 'get_by_telegram_id', return_value=None):
+        with patch.object(user_service, "get_by_telegram_id", return_value=None):
             # Act & Assert
             with pytest.raises(ValidationError):
                 await user_service.update_user(mock_db_session, 999999999, update_data)
 
     @pytest.mark.asyncio
-    async def test_update_user_preferences_success(self, user_service, mock_db_session, sample_user_model):
+    async def test_update_user_preferences_success(
+        self, user_service, mock_db_session, sample_user_model
+    ):
         """Test successful user preferences update."""
         # Arrange
         new_preferences = UserPreferencesFactory.build(
-            preferred_currencies=["USD", "EUR"],
-            impact_levels=["high"]
+            preferred_currencies=["USD", "EUR"], impact_levels=["high"]
         )
 
         mock_db_session.commit = AsyncMock(return_value=None)
         mock_db_session.refresh = AsyncMock(return_value=None)
 
-        with patch.object(user_service, 'get_by_telegram_id', return_value=sample_user_model):
+        with patch.object(
+            user_service, "get_by_telegram_id", return_value=sample_user_model
+        ):
             # Act
             result = await user_service.update_user_preferences(
                 mock_db_session, sample_user_model.telegram_id, new_preferences
@@ -222,22 +239,30 @@ class TestUserService:
         mock_db_session.execute.return_value = mock_result
 
         # Act
-        result = await user_service.get_all_users_with_pagination(mock_db_session, skip=0, limit=10)
+        result = await user_service.get_all_users_with_pagination(
+            mock_db_session, skip=0, limit=10
+        )
 
         # Assert
         assert len(result) == 5
         mock_db_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_delete_user_success(self, user_service, mock_db_session, sample_user_model):
+    async def test_delete_user_success(
+        self, user_service, mock_db_session, sample_user_model
+    ):
         """Test successful user deletion."""
         # Arrange
-        with patch.object(user_service, 'get_user_by_telegram_id', return_value=sample_user_model):
+        with patch.object(
+            user_service, "get_user_by_telegram_id", return_value=sample_user_model
+        ):
             mock_db_session.delete = AsyncMock()
             mock_db_session.commit = AsyncMock()
 
             # Act
-            result = await user_service.delete_user(mock_db_session, sample_user_model.telegram_id)
+            result = await user_service.delete_user(
+                mock_db_session, sample_user_model.telegram_id
+            )
 
         # Assert
         assert result is True
@@ -248,7 +273,7 @@ class TestUserService:
     async def test_delete_user_not_found(self, user_service, mock_db_session):
         """Test user deletion when user not found."""
         # Arrange
-        with patch.object(user_service, 'get_by_telegram_id', return_value=None):
+        with patch.object(user_service, "get_by_telegram_id", return_value=None):
             # Act
             result = await user_service.delete_user(mock_db_session, 999999999)
 

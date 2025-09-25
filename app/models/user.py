@@ -8,16 +8,26 @@ from pydantic import BaseModel, Field, field_validator
 class UserPreferences(BaseModel):
     """User preferences model."""
 
-    preferred_currencies: List[str] = Field(default=[], description="Preferred currencies")
-    impact_levels: List[str] = Field(default=["high", "medium"], description="Impact levels to follow")
+    preferred_currencies: List[str] = Field(
+        default=[], description="Preferred currencies"
+    )
+    impact_levels: List[str] = Field(
+        default=["high", "medium"], description="Impact levels to follow"
+    )
     analysis_required: bool = Field(default=True, description="Require AI analysis")
     digest_time: time = Field(default=time(8, 0), description="Daily digest time")
     timezone: str = Field(default="Europe/Prague", description="User timezone")
 
     # Notification settings
-    notifications_enabled: bool = Field(default=False, description="Enable notifications")
-    notification_minutes: int = Field(default=30, description="Notification minutes before event")
-    notification_impact_levels: List[str] = Field(default=["high"], description="Notification impact levels")
+    notifications_enabled: bool = Field(
+        default=False, description="Enable notifications"
+    )
+    notification_minutes: int = Field(
+        default=30, description="Notification minutes before event"
+    )
+    notification_impact_levels: List[str] = Field(
+        default=["high"], description="Notification impact levels"
+    )
 
     # Chart settings
     charts_enabled: bool = Field(default=False, description="Enable charts")
@@ -29,9 +39,25 @@ class UserPreferences(BaseModel):
     def validate_currencies(cls, v):
         """Validate currency codes."""
         valid_currencies = {
-            "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD",
-            "CNY", "INR", "BRL", "RUB", "KRW", "MXN", "SGD", "HKD",
-            "XAU", "BTC", "ETH"
+            "USD",
+            "EUR",
+            "GBP",
+            "JPY",
+            "AUD",
+            "CAD",
+            "CHF",
+            "NZD",
+            "CNY",
+            "INR",
+            "BRL",
+            "RUB",
+            "KRW",
+            "MXN",
+            "SGD",
+            "HKD",
+            "XAU",
+            "BTC",
+            "ETH",
         }
         for currency in v:
             if currency not in valid_currencies:
@@ -104,16 +130,26 @@ class User(UserBase):
     is_active: bool = True
 
     # Individual preference fields (matching SQLAlchemy model)
-    preferred_currencies: List[str] = Field(default=[], description="Preferred currencies")
-    impact_levels: List[str] = Field(default=["high", "medium"], description="Impact levels to follow")
+    preferred_currencies: List[str] = Field(
+        default=[], description="Preferred currencies"
+    )
+    impact_levels: List[str] = Field(
+        default=["high", "medium"], description="Impact levels to follow"
+    )
     analysis_required: bool = Field(default=True, description="Require AI analysis")
     digest_time: str = Field(default="08:00:00", description="Daily digest time")
     timezone: str = Field(default="Europe/Prague", description="User timezone")
 
     # Notification settings
-    notifications_enabled: bool = Field(default=False, description="Enable notifications")
-    notification_minutes: int = Field(default=30, description="Notification minutes before event")
-    notification_impact_levels: List[str] = Field(default=["high"], description="Notification impact levels")
+    notifications_enabled: bool = Field(
+        default=False, description="Enable notifications"
+    )
+    notification_minutes: int = Field(
+        default=30, description="Notification minutes before event"
+    )
+    notification_impact_levels: List[str] = Field(
+        default=["high"], description="Notification impact levels"
+    )
 
     # Chart settings
     charts_enabled: bool = Field(default=False, description="Enable charts")

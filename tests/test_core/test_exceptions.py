@@ -50,11 +50,7 @@ class TestForexBotException:
     def test_exception_with_all_params(self):
         """Test exception with all parameters."""
         details = {"field": "value"}
-        exc = ForexBotException(
-            "Test error",
-            error_code="TEST_001",
-            details=details
-        )
+        exc = ForexBotException("Test error", error_code="TEST_001", details=details)
 
         assert exc.message == "Test error"
         assert exc.error_code == "TEST_001"

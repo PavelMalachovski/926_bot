@@ -57,9 +57,25 @@ class ChartRequest(BaseModel):
     def validate_currency(cls, v):
         """Validate currency code."""
         valid_currencies = {
-            "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD",
-            "CNY", "INR", "BRL", "RUB", "KRW", "MXN", "SGD", "HKD",
-            "XAU", "BTC", "ETH"
+            "USD",
+            "EUR",
+            "GBP",
+            "JPY",
+            "AUD",
+            "CAD",
+            "CHF",
+            "NZD",
+            "CNY",
+            "INR",
+            "BRL",
+            "RUB",
+            "KRW",
+            "MXN",
+            "SGD",
+            "HKD",
+            "XAU",
+            "BTC",
+            "ETH",
         }
         if v not in valid_currencies:
             raise ValueError(f"Invalid currency: {v}")
@@ -90,5 +106,9 @@ class ChartResponse(BaseModel):
     success: bool = Field(description="Generation success")
     chart_data: Optional[ChartData] = Field(default=None, description="Chart data")
     chart_image: Optional[bytes] = Field(default=None, description="Chart image bytes")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Response metadata")
-    error_message: Optional[str] = Field(default=None, description="Error message if failed")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Response metadata"
+    )
+    error_message: Optional[str] = Field(
+        default=None, description="Error message if failed"
+    )

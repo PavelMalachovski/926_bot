@@ -52,7 +52,9 @@ class TelegramUpdate(BaseModel):
 
     update_id: int = Field(description="Update ID")
     message: Optional[TelegramMessage] = Field(default=None, description="Message")
-    callback_query: Optional[TelegramCallbackQuery] = Field(default=None, description="Callback query")
+    callback_query: Optional[TelegramCallbackQuery] = Field(
+        default=None, description="Callback query"
+    )
 
     class Config:
         extra = "allow"  # Allow additional fields from Telegram API

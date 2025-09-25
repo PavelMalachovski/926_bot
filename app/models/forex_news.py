@@ -23,9 +23,25 @@ class ForexNewsBase(BaseModel):
     def validate_currency(cls, v):
         """Validate currency code."""
         valid_currencies = {
-            "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD",
-            "CNY", "INR", "BRL", "RUB", "KRW", "MXN", "SGD", "HKD",
-            "XAU", "BTC", "ETH"
+            "USD",
+            "EUR",
+            "GBP",
+            "JPY",
+            "AUD",
+            "CAD",
+            "CHF",
+            "NZD",
+            "CNY",
+            "INR",
+            "BRL",
+            "RUB",
+            "KRW",
+            "MXN",
+            "SGD",
+            "HKD",
+            "XAU",
+            "BTC",
+            "ETH",
         }
         if v not in valid_currencies:
             raise ValueError(f"Invalid currency: {v}")

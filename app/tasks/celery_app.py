@@ -17,8 +17,8 @@ celery_app = Celery(
     include=[
         "app.tasks.notification_tasks",
         "app.tasks.scraping_tasks",
-        "app.tasks.chart_tasks"
-    ]
+        "app.tasks.chart_tasks",
+    ],
 )
 
 # Celery configuration
@@ -29,7 +29,6 @@ celery_app.conf.update(
         "app.tasks.scraping_tasks.*": {"queue": "scraping"},
         "app.tasks.chart_tasks.*": {"queue": "charts"},
     },
-
     # Queue configuration
     task_default_queue="default",
     task_queues=(
@@ -38,25 +37,20 @@ celery_app.conf.update(
         Queue("scraping", routing_key="scraping"),
         Queue("charts", routing_key="charts"),
     ),
-
     # Task execution
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-
     # Task time limits
     task_soft_time_limit=300,  # 5 minutes
-    task_time_limit=600,       # 10 minutes
-
+    task_time_limit=600,  # 10 minutes
     # Retry configuration
     task_acks_late=True,
     worker_prefetch_multiplier=1,
-
     # Result backend
     result_expires=3600,  # 1 hour
-
     # Monitoring
     worker_send_task_events=True,
     task_send_sent_event=True,
@@ -68,37 +62,34 @@ celery_app.conf.beat_schedule = {
     "scrape-daily-forex-news": {
         "task": "app.tasks.scraping_tasks.scrape_daily_forex_news",
         "schedule": crontab(hour=6, minute=0),
-        "options": {"queue": "scraping"}
+        "options": {"queue": "scraping"},
     },
-
     # Send daily digest at 8 AM UTC
     "send-daily-digest": {
         "task": "app.tasks.notification_tasks.send_daily_digest",
         "schedule": crontab(hour=8, minute=0),
-        "options": {"queue": "notifications"}
+        "options": {"queue": "notifications"},
     },
-
     # Clean up old notifications every hour
     "cleanup-old-notifications": {
         "task": "app.tasks.notification_tasks.cleanup_old_notifications",
         "schedule": crontab(minute=0),
-        "options": {"queue": "notifications"}
+        "options": {"queue": "notifications"},
     },
-
     # Generate charts for upcoming events every 30 minutes
     "generate-upcoming-charts": {
         "task": "app.tasks.chart_tasks.generate_upcoming_charts",
         "schedule": crontab(minute="*/30"),
-        "options": {"queue": "charts"}
+        "options": {"queue": "charts"},
     },
-
     # Health check every 5 minutes
     "health-check": {
         "task": "app.tasks.notification_tasks.health_check",
         "schedule": crontab(minute="*/5"),
-        "options": {"queue": "default"}
+        "options": {"queue": "default"},
     },
 }
+
 
 # Task error handling
 @celery_app.task(bind=True)

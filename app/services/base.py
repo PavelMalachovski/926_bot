@@ -39,7 +39,9 @@ class BaseService(Generic[ModelType]):
             result = await db.execute(select(self.model).where(self.model.id == id))
             return result.scalar_one_or_none()
         except Exception as e:
-            self.logger.error("Failed to get record", id=id, error=str(e), exc_info=True)
+            self.logger.error(
+                "Failed to get record", id=id, error=str(e), exc_info=True
+            )
             raise DatabaseError(f"Failed to get {self.model.__name__}: {e}")
 
     async def get_all(
@@ -47,7 +49,7 @@ class BaseService(Generic[ModelType]):
         db: AsyncSession,
         skip: int = 0,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None
+        filters: Optional[Dict[str, Any]] = None,
     ) -> List[ModelType]:
         """Get all records with optional filtering."""
         try:
@@ -80,9 +82,7 @@ class BaseService(Generic[ModelType]):
                 return existing_record
 
             await db.execute(
-                update(self.model)
-                .where(self.model.id == id)
-                .values(**update_data)
+                update(self.model).where(self.model.id == id).values(**update_data)
             )
             await db.commit()
             return await self.get(db, id)
@@ -91,7 +91,9 @@ class BaseService(Generic[ModelType]):
             raise
         except Exception as e:
             await db.rollback()
-            self.logger.error("Failed to update record", id=id, error=str(e), exc_info=True)
+            self.logger.error(
+                "Failed to update record", id=id, error=str(e), exc_info=True
+            )
             raise DatabaseError(f"Failed to update {self.model.__name__}: {e}")
 
     async def delete(self, db: AsyncSession, id: int) -> bool:
@@ -102,13 +104,13 @@ class BaseService(Generic[ModelType]):
             return True
         except Exception as e:
             await db.rollback()
-            self.logger.error("Failed to delete record", id=id, error=str(e), exc_info=True)
+            self.logger.error(
+                "Failed to delete record", id=id, error=str(e), exc_info=True
+            )
             raise DatabaseError(f"Failed to delete {self.model.__name__}: {e}")
 
     async def count(
-        self,
-        db: AsyncSession,
-        filters: Optional[Dict[str, Any]] = None
+        self, db: AsyncSession, filters: Optional[Dict[str, Any]] = None
     ) -> int:
         """Count records with optional filtering."""
         try:
@@ -131,5 +133,7 @@ class BaseService(Generic[ModelType]):
             result = await db.execute(select(self.model).where(self.model.id == id))
             return result.scalar_one_or_none() is not None
         except Exception as e:
-            self.logger.error("Failed to check existence", id=id, error=str(e), exc_info=True)
+            self.logger.error(
+                "Failed to check existence", id=id, error=str(e), exc_info=True
+            )
             raise DatabaseError(f"Failed to check {self.model.__name__} existence: {e}")

@@ -8,12 +8,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class DatabaseSettings(BaseSettings):
     """Database configuration."""
 
-    url: Optional[str] = Field(default="sqlite+aiosqlite:///./forex_bot.db", description="Database URL")
+    url: Optional[str] = Field(
+        default="sqlite+aiosqlite:///./forex_bot.db", description="Database URL"
+    )
     host: Optional[str] = Field(default="localhost", description="Database host")
     port: int = Field(default=5432, description="Database port")
     name: Optional[str] = Field(default="forex_bot", description="Database name")
     user: Optional[str] = Field(default="forex_user", description="Database user")
-    password: Optional[str] = Field(default="forex_password", description="Database password")
+    password: Optional[str] = Field(
+        default="forex_password", description="Database password"
+    )
     pool_size: int = Field(default=10, description="Connection pool size")
     max_overflow: int = Field(default=20, description="Max overflow connections")
     echo: bool = Field(default=False, description="Echo SQL queries")
@@ -24,7 +28,9 @@ class DatabaseSettings(BaseSettings):
 class RedisSettings(BaseSettings):
     """Redis configuration."""
 
-    url: Optional[str] = Field(default="redis://localhost:6379", description="Redis URL")
+    url: Optional[str] = Field(
+        default="redis://localhost:6379", description="Redis URL"
+    )
     host: str = Field(default="localhost", description="Redis host")
     port: int = Field(default=6379, description="Redis port")
     password: Optional[str] = Field(default=None, description="Redis password")
@@ -37,7 +43,9 @@ class RedisSettings(BaseSettings):
 class TelegramSettings(BaseSettings):
     """Telegram bot configuration."""
 
-    bot_token: str = Field(default="your-telegram-bot-token-here", description="Telegram bot token")
+    bot_token: str = Field(
+        default="your-telegram-bot-token-here", description="Telegram bot token"
+    )
     webhook_url: Optional[str] = Field(default=None, description="Webhook URL")
     webhook_secret: Optional[str] = Field(default=None, description="Webhook secret")
     chat_id: Optional[str] = Field(default=None, description="Default chat ID")
@@ -48,13 +56,17 @@ class TelegramSettings(BaseSettings):
 class APISettings(BaseSettings):
     """External API configuration."""
 
-    alpha_vantage_key: Optional[str] = Field(default=None, description="Alpha Vantage API key")
+    alpha_vantage_key: Optional[str] = Field(
+        default=None, description="Alpha Vantage API key"
+    )
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
     openai_model: str = Field(default="gpt-4o-mini", description="OpenAI model")
     openai_temperature: float = Field(default=0.25, description="OpenAI temperature")
     openai_max_tokens: int = Field(default=500, description="OpenAI max tokens")
     openai_enabled: bool = Field(default=True, description="Enable OpenAI features")
-    openai_rate_limit_seconds: int = Field(default=15, description="Rate limit in seconds")
+    openai_rate_limit_seconds: int = Field(
+        default=15, description="Rate limit in seconds"
+    )
 
     model_config = SettingsConfigDict(env_prefix="API_")
 
@@ -62,11 +74,19 @@ class APISettings(BaseSettings):
 class ChartSettings(BaseSettings):
     """Chart generation configuration."""
 
-    enable_alpha_vantage: bool = Field(default=False, description="Enable Alpha Vantage")
-    enable_alt_symbols: bool = Field(default=False, description="Enable alternative symbols")
+    enable_alpha_vantage: bool = Field(
+        default=False, description="Enable Alpha Vantage"
+    )
+    enable_alt_symbols: bool = Field(
+        default=False, description="Enable alternative symbols"
+    )
     allow_mock_data: bool = Field(default=False, description="Allow mock data")
-    display_timezone: str = Field(default="Europe/Prague", description="Display timezone")
-    yf_min_request_interval_sec: float = Field(default=3.0, description="Yahoo Finance min interval")
+    display_timezone: str = Field(
+        default="Europe/Prague", description="Display timezone"
+    )
+    yf_min_request_interval_sec: float = Field(
+        default=3.0, description="Yahoo Finance min interval"
+    )
     chart_retention_days: int = Field(default=3, description="Chart retention days")
 
     model_config = SettingsConfigDict(env_prefix="CHART_")
@@ -75,11 +95,20 @@ class ChartSettings(BaseSettings):
 class SecuritySettings(BaseSettings):
     """Security configuration."""
 
-    secret_key: str = Field(default="your-secret-key-change-in-production-minimum-32-characters", description="Secret key for JWT tokens")
+    secret_key: str = Field(
+        default="your-secret-key-change-in-production-minimum-32-characters",
+        description="Secret key for JWT tokens",
+    )
     algorithm: str = Field(default="HS256", description="JWT algorithm")
-    access_token_expire_minutes: int = Field(default=30, description="Access token expiration")
-    refresh_token_expire_days: int = Field(default=7, description="Refresh token expiration")
-    api_key: Optional[str] = Field(default=None, description="API key for internal endpoints")
+    access_token_expire_minutes: int = Field(
+        default=30, description="Access token expiration"
+    )
+    refresh_token_expire_days: int = Field(
+        default=7, description="Refresh token expiration"
+    )
+    api_key: Optional[str] = Field(
+        default=None, description="API key for internal endpoints"
+    )
 
     model_config = SettingsConfigDict(env_prefix="SECURITY_")
 
@@ -88,7 +117,10 @@ class LoggingSettings(BaseSettings):
     """Logging configuration."""
 
     level: str = Field(default="INFO", description="Log level")
-    format: str = Field(default="%(asctime)s [%(levelname)s] %(name)s: %(message)s", description="Log format")
+    format: str = Field(
+        default="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        description="Log format",
+    )
     file_path: Optional[str] = Field(default=None, description="Log file path")
     max_file_size: int = Field(default=10485760, description="Max log file size")
     backup_count: int = Field(default=5, description="Log backup count")
@@ -123,10 +155,15 @@ class Settings(BaseSettings):
     # Application info
     app_name: str = Field(default="Forex News Bot", description="Application name")
     app_version: str = Field(default="2.0.0", description="Application version")
-    app_description: str = Field(default="A modern Telegram bot for Forex news with AI analysis", description="Application description")
+    app_description: str = Field(
+        default="A modern Telegram bot for Forex news with AI analysis",
+        description="Application description",
+    )
 
     # Environment
-    environment: Literal["development", "staging", "production"] = Field(default="development", description="Environment")
+    environment: Literal["development", "staging", "production"] = Field(
+        default="development", description="Environment"
+    )
     debug: bool = Field(default=False, description="Debug mode")
 
     # Nested settings
@@ -168,10 +205,7 @@ class Settings(BaseSettings):
         return v
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
 

@@ -21,7 +21,7 @@ def get_user_service() -> UserService:
 async def create_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Create a new user."""
     try:
@@ -30,23 +30,29 @@ async def create_user(
     except ValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.get("/{telegram_id}", response_model=UserResponse)
 async def get_user(
     telegram_id: int,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Get user by Telegram ID."""
     try:
         user = await user_service.get_by_telegram_id(db, telegram_id)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
         return UserResponse.model_validate(user)
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.put("/{telegram_id}", response_model=UserResponse)
@@ -54,18 +60,22 @@ async def update_user(
     telegram_id: int,
     user_data: UserUpdate,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Update user by Telegram ID."""
     try:
         user = await user_service.update_user(db, telegram_id, user_data)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
         return UserResponse.model_validate(user)
     except ValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.put("/{telegram_id}/preferences", response_model=UserResponse)
@@ -73,18 +83,22 @@ async def update_user_preferences(
     telegram_id: int,
     preferences: UserPreferences,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Update user preferences."""
     try:
         user = await user_service.update_preferences(db, telegram_id, preferences)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
         return UserResponse.model_validate(user)
     except ValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.get("/", response_model=List[UserResponse])
@@ -93,7 +107,7 @@ async def get_users(
     limit: int = Query(100, ge=1, le=1000, description="Number of records to return"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Get all users with optional filtering."""
     try:
@@ -104,64 +118,78 @@ async def get_users(
         users = await user_service.get_all(db, skip=skip, limit=limit, filters=filters)
         return [UserResponse.model_validate(user) for user in users]
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.get("/by-currency/{currency}", response_model=List[UserResponse])
 async def get_users_by_currency(
     currency: str,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Get users by preferred currency."""
     try:
         users = await user_service.get_users_by_currency(db, currency)
         return [UserResponse.model_validate(user) for user in users]
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.get("/by-impact/{impact_level}", response_model=List[UserResponse])
 async def get_users_by_impact_level(
     impact_level: str,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Get users by impact level preference."""
     try:
         users = await user_service.get_users_by_impact_level(db, impact_level)
         return [UserResponse.model_validate(user) for user in users]
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.post("/{telegram_id}/update-activity")
 async def update_user_activity(
     telegram_id: int,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Update user's last active timestamp."""
     try:
         success = await user_service.update_last_active(db, telegram_id)
         if not success:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
         return {"message": "Activity updated successfully"}
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
 
 
 @router.delete("/{telegram_id}")
 async def deactivate_user(
     telegram_id: int,
     db: AsyncSession = Depends(get_database),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     """Deactivate a user."""
     try:
         success = await user_service.deactivate_user(db, telegram_id)
         if not success:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
         return {"message": "User deactivated successfully"}
     except DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
