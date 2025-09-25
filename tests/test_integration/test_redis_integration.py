@@ -2,11 +2,12 @@
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import pytest_asyncio
 
 from app.services.cache_service import (
     CacheService,
@@ -18,19 +19,90 @@ from app.services.cache_service import (
 from app.services.redis_config_service import RedisConfigService
 
 
+@pytest_asyncio.fixture
+async def redis_service(mock_redis):
+    """Create Redis service for integration testing."""
+    service = EnhancedCacheService()
+    service.redis_client = mock_redis
+    service.pubsub_client = mock_redis
+    service._initialized = True
+    return service
+
+
+@pytest_asyncio.fixture
+async def performance_redis_service(mock_redis):
+    """Create Redis service for performance testing."""
+    service = EnhancedCacheService()
+    service.redis_client = mock_redis
+    service._initialized = True
+    return service
+
+
+@pytest_asyncio.fixture
+async def data_type_redis_service(mock_redis):
+    """Create Redis service for data type testing."""
+    service = EnhancedCacheService()
+    service.redis_client = mock_redis
+    service._initialized = True
+    return service
+
+
+@pytest_asyncio.fixture
+async def namespace_redis_service(mock_redis):
+    """Create Redis service for namespace testing."""
+    service = EnhancedCacheService()
+    service.redis_client = mock_redis
+    service._initialized = True
+    return service
+
+
+@pytest_asyncio.fixture
+async def ttl_redis_service(mock_redis):
+    """Create Redis service for TTL testing."""
+    service = EnhancedCacheService()
+    service.redis_client = mock_redis
+    service._initialized = True
+    return service
+
+
+@pytest_asyncio.fixture
+async def monitoring_redis_service(mock_redis):
+    """Create Redis service for monitoring testing."""
+    service = EnhancedCacheService()
+    service.redis_client = mock_redis
+    service._initialized = True
+    return service
+
+
+@pytest_asyncio.fixture
+async def secure_redis_service(mock_redis):
+    """Create Redis service for security testing."""
+    service = EnhancedCacheService()
+    service.redis_client = mock_redis
+    service._initialized = True
+    return service
+
+
+@pytest_asyncio.fixture
+async def error_redis_service():
+    """Create Redis service for error testing."""
+    service = EnhancedCacheService()
+
+    # Create a mock client that simulates errors
+    mock_client = AsyncMock()
+    mock_client.ping.side_effect = Exception("Connection failed")
+    mock_client.get.side_effect = Exception("Redis error")
+    mock_client.set.side_effect = Exception("Redis error")
+
+    service.redis_client = mock_client
+    service._initialized = True
+    return service
+
+
 @pytest.mark.integration
 @pytest.mark.redis
 class TestRedisIntegration:
     """Integration tests for Redis functionality."""
-
-    @pytest.fixture
-    async def redis_service(self, mock_redis_client):
-        """Create Redis service for integration testing."""
-        service = EnhancedCacheService()
-        service.redis_client = mock_redis_client
-        service.pubsub_client = mock_redis_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_cache_service_integration(self, redis_service):
@@ -112,10 +184,10 @@ class TestRedisIntegration:
         assert success is True
 
     @pytest.mark.asyncio
-    async def test_redis_config_service_integration(self, mock_redis_client):
+    async def test_redis_config_service_integration(self, mock_redis):
         """Test Redis configuration service integration."""
         config_service = RedisConfigService()
-        config_service.cache_service.redis_client = mock_redis_client
+        config_service.cache_service.redis_client = mock_redis
 
         # Test Redis info retrieval
         info = await config_service.get_redis_info()
@@ -138,13 +210,6 @@ class TestRedisIntegration:
 class TestRedisPerformance:
     """Performance tests for Redis functionality."""
 
-    @pytest.fixture
-    async def performance_redis_service(self, mock_redis_client):
-        """Create Redis service for performance testing."""
-        service = EnhancedCacheService()
-        service.redis_client = mock_redis_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_bulk_operations_performance(self, performance_redis_service):
@@ -187,20 +252,6 @@ class TestRedisPerformance:
 class TestRedisErrorHandling:
     """Test Redis error handling and resilience."""
 
-    @pytest.fixture
-    async def error_redis_service(self):
-        """Create Redis service with error simulation."""
-        service = EnhancedCacheService()
-
-        # Create a mock client that simulates errors
-        mock_client = AsyncMock()
-        mock_client.ping.side_effect = Exception("Connection failed")
-        mock_client.get.side_effect = Exception("Redis error")
-        mock_client.set.side_effect = Exception("Redis error")
-
-        service.redis_client = mock_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_connection_error_handling(self, error_redis_service):
@@ -228,13 +279,6 @@ class TestRedisErrorHandling:
 class TestRedisDataTypes:
     """Test Redis with different data types."""
 
-    @pytest.fixture
-    async def data_type_redis_service(self, mock_redis_client):
-        """Create Redis service for data type testing."""
-        service = EnhancedCacheService()
-        service.redis_client = mock_redis_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_primitive_data_types(self, data_type_redis_service):
@@ -298,13 +342,6 @@ class TestRedisDataTypes:
 class TestRedisNamespaceIsolation:
     """Test Redis namespace isolation."""
 
-    @pytest.fixture
-    async def namespace_redis_service(self, mock_redis_client):
-        """Create Redis service for namespace testing."""
-        service = EnhancedCacheService()
-        service.redis_client = mock_redis_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_namespace_isolation(self, namespace_redis_service):
@@ -347,13 +384,6 @@ class TestRedisNamespaceIsolation:
 class TestRedisTTLHandling:
     """Test Redis TTL (Time To Live) handling."""
 
-    @pytest.fixture
-    async def ttl_redis_service(self, mock_redis_client):
-        """Create Redis service for TTL testing."""
-        service = EnhancedCacheService()
-        service.redis_client = mock_redis_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_ttl_setting(self, ttl_redis_service):
@@ -388,13 +418,6 @@ class TestRedisTTLHandling:
 class TestRedisMonitoring:
     """Test Redis monitoring and observability."""
 
-    @pytest.fixture
-    async def monitoring_redis_service(self, mock_redis_client):
-        """Create Redis service for monitoring testing."""
-        service = EnhancedCacheService()
-        service.redis_client = mock_redis_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_statistics_collection(self, monitoring_redis_service):
@@ -436,13 +459,6 @@ class TestRedisMonitoring:
 class TestRedisSecurity:
     """Test Redis security features."""
 
-    @pytest.fixture
-    async def secure_redis_service(self, mock_redis_client):
-        """Create Redis service for security testing."""
-        service = EnhancedCacheService()
-        service.redis_client = mock_redis_client
-        service._initialized = True
-        return service
 
     @pytest.mark.asyncio
     async def test_key_sanitization(self, secure_redis_service):

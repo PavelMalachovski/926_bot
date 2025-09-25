@@ -61,9 +61,14 @@ async def redis_health_check():
 
 @router.post("/cache/invalidate", summary="Invalidate Cache Pattern")
 async def invalidate_cache_pattern(
-    pattern: str = Query(..., description="Redis key pattern to invalidate")
+    pattern: str = Query(..., description="Redis key pattern to invalidate", min_length=1)
 ):
     """Invalidate all cache keys matching a pattern."""
+    if not pattern.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Pattern cannot be empty"
+        )
     try:
         count = await cache_service.invalidate_pattern(pattern)
         return JSONResponse(
@@ -101,9 +106,9 @@ async def get_cache_hit_ratio():
 
 @router.post("/rate-limit/check", summary="Check Rate Limit")
 async def check_rate_limit(
-    key: str = Query(..., description="Rate limit key"),
-    limit: int = Query(100, description="Request limit"),
-    window: int = Query(3600, description="Time window in seconds"),
+    key: str = Query(..., description="Rate limit key", min_length=1),
+    limit: int = Query(100, description="Request limit", ge=1),
+    window: int = Query(3600, description="Time window in seconds", ge=1),
 ):
     """Check if request is within rate limit."""
     try:
@@ -125,6 +130,8 @@ async def check_rate_limit(
             status_code=status_code,
             content={"allowed": is_allowed, "rate_limit_info": info},
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Rate limit check failed", key=key, error=str(e))
         raise HTTPException(
@@ -135,7 +142,7 @@ async def check_rate_limit(
 
 @router.post("/pubsub/publish", summary="Publish Message")
 async def publish_message(
-    channel: str = Query(..., description="Channel name"),
+    channel: str = Query(..., description="Channel name", min_length=1),
     message: Dict[str, Any] = Body(..., description="Message to publish"),
 ):
     """Publish a message to a Redis channel."""
@@ -155,6 +162,8 @@ async def publish_message(
                 "subscribers_notified": subscribers_count,
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to publish message", channel=channel, error=str(e))
         raise HTTPException(
