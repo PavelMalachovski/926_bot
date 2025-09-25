@@ -153,8 +153,10 @@ jobs:
           tags: forex-bot:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          outputs: type=docker
 
       - name: Test Docker image
+        if: steps.build.outcome == 'success'
         run: |
           echo "Checking if Docker image exists..."
           docker images forex-bot:latest
