@@ -49,6 +49,7 @@ async def mock_redis_with_storage():
 
     async def mock_keys(pattern):
         import fnmatch
+
         # Simple pattern matching for test purposes
         matching_keys = []
         for key in storage.keys():
@@ -83,12 +84,12 @@ async def mock_redis_with_storage():
         pipeline_operations = []
 
         def mock_pipeline_set(key, value, ex=None):
-            pipeline_operations.append(('set', key, value, ex))
+            pipeline_operations.append(("set", key, value, ex))
 
         async def mock_pipeline_execute():
             # Execute all operations in the pipeline
             for op_type, key, value, ex in pipeline_operations:
-                if op_type == 'set':
+                if op_type == "set":
                     storage[key] = value
             pipeline_operations.clear()
             return [True] * len(pipeline_operations)
