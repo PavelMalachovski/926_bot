@@ -312,12 +312,13 @@ class CacheService:
             logger.error("Redis mset error", keys=list(mapping.keys()), error=str(e))
             return False
 
-    async def delete(self, key: str) -> bool:
+    async def delete(self, key: str, namespace: str = "default") -> bool:
         """
         Delete value from cache.
 
         Args:
             key: Cache key
+            namespace: Cache namespace
 
         Returns:
             True if successful, False otherwise
@@ -326,7 +327,8 @@ class CacheService:
             return False
 
         try:
-            result = await self.redis_client.delete(key)
+            cache_key = self._build_cache_key(key, namespace)
+            result = await self.redis_client.delete(cache_key)
             if result:
                 self._stats["deletes"] += 1
             logger.debug("Cache delete", key=key, deleted=bool(result))
@@ -764,8 +766,7 @@ class RedisSessionManager:
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete session."""
-        cache_key = self.cache_service._build_cache_key(session_id, "session")
-        return await self.cache_service.delete(cache_key)
+        return await self.cache_service.delete(session_id, "session")
 
     async def extend_session(self, session_id: str, ttl: int) -> bool:
         """Extend session TTL."""
