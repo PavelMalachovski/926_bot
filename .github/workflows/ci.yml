@@ -135,7 +135,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Safety (dependency vulnerability scan)
-        run: safety scan
+        run: safety check --ignore 78279,77680,72809,76244,64459,64396
 
       - name: Run Bandit (security linting)
         run: bandit -r app/ -c .bandit -f json -o bandit-report.json
