@@ -10,8 +10,7 @@ from app.core.exceptions import DatabaseError, ValidationError
 from app.database.models import UserModel
 from app.models.user import UserCreate, UserPreferences, UserUpdate
 from app.services.user_service import UserService
-from tests.factories import (UserCreateFactory, UserModelFactory,
-                             UserPreferencesFactory)
+from tests.factories import UserCreateFactory, UserModelFactory, UserPreferencesFactory
 
 
 @pytest.fixture

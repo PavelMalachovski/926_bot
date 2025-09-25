@@ -8,9 +8,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.services.cache_service import (CacheService, EnhancedCacheService,
-                                        RedisPubSubService, RedisRateLimiter,
-                                        RedisSessionManager)
+from app.services.cache_service import (
+    CacheService,
+    EnhancedCacheService,
+    RedisPubSubService,
+    RedisRateLimiter,
+    RedisSessionManager,
+)
 from app.services.redis_config_service import RedisConfigService
 
 

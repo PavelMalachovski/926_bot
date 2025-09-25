@@ -8,8 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DatabaseError, ValidationError
 from app.database.connection import get_database
-from app.models.notification import (Notification, NotificationCreate,
-                                     NotificationResponse)
+from app.models.notification import (
+    Notification,
+    NotificationCreate,
+    NotificationResponse,
+)
 from app.services.notification_service import NotificationService
 
 router = APIRouter()

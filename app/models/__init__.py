@@ -1,12 +1,14 @@
 """Pydantic models for the Forex Bot application."""
 
 from .chart import ChartData, ChartRequest, ChartResponse, OHLCData
-from .forex_news import (ForexNews, ForexNewsCreate, ForexNewsResponse,
-                         ForexNewsUpdate)
-from .notification import (Notification, NotificationCreate,
-                           NotificationResponse)
-from .telegram import (TelegramCallbackQuery, TelegramMessage, TelegramUpdate,
-                       TelegramUser)
+from .forex_news import ForexNews, ForexNewsCreate, ForexNewsResponse, ForexNewsUpdate
+from .notification import Notification, NotificationCreate, NotificationResponse
+from .telegram import (
+    TelegramCallbackQuery,
+    TelegramMessage,
+    TelegramUpdate,
+    TelegramUser,
+)
 from .user import User, UserCreate, UserPreferences, UserResponse, UserUpdate
 
 __all__ = [

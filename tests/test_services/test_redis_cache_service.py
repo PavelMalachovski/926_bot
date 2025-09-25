@@ -7,9 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.cache_service import (CacheService, EnhancedCacheService,
-                                        RedisPubSubService, RedisRateLimiter,
-                                        RedisSessionManager)
+from app.services.cache_service import (
+    CacheService,
+    EnhancedCacheService,
+    RedisPubSubService,
+    RedisRateLimiter,
+    RedisSessionManager,
+)
 
 
 class TestCacheService:

@@ -18,8 +18,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import ForexBotException, ValidationError
 from app.core.logging import configure_logging
-from app.core.security import (add_security_headers, get_cors_config,
-                               log_requests)
+from app.core.security import add_security_headers, get_cors_config, log_requests
 from app.database.connection import db_manager
 from app.services.cache_service import cache_service
 

@@ -13,11 +13,15 @@ import pytest
 from app.core.config import settings
 from app.database.connection import db_manager
 from app.database.models import ForexNewsModel, UserModel, UserPreferences
+
 # Import application components
 from app.main import app
 from app.services.cache_service import cache_service
-from tests.factories import (ForexNewsModelFactory, UserModelFactory,
-                             UserPreferencesFactory)
+from tests.factories import (
+    ForexNewsModelFactory,
+    UserModelFactory,
+    UserPreferencesFactory,
+)
 
 # ============================================================================
 # ASYNC TEST CONFIGURATION

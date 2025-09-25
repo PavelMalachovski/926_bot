@@ -2,12 +2,21 @@
 
 import pytest
 
-from app.core.exceptions import (AuthenticationError, AuthorizationError,
-                                 ChartGenerationError, ConfigurationError,
-                                 DatabaseError, DataFetchError,
-                                 ExternalAPIError, ForexBotException,
-                                 NotificationError, RateLimitError,
-                                 ScrapingError, TelegramError, ValidationError)
+from app.core.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    ChartGenerationError,
+    ConfigurationError,
+    DatabaseError,
+    DataFetchError,
+    ExternalAPIError,
+    ForexBotException,
+    NotificationError,
+    RateLimitError,
+    ScrapingError,
+    TelegramError,
+    ValidationError,
+)
 
 
 class TestForexBotException:

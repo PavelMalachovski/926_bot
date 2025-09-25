@@ -5,11 +5,18 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import pytest_asyncio
 
-from app.utils.telegram_utils import (_fix_markdown_issues, clean_html_tags,
-                                      escape_markdown_v2, format_currency_pair,
-                                      format_date_range, format_percentage,
-                                      format_price, format_timestamp,
-                                      send_long_message, truncate_text)
+from app.utils.telegram_utils import (
+    _fix_markdown_issues,
+    clean_html_tags,
+    escape_markdown_v2,
+    format_currency_pair,
+    format_date_range,
+    format_percentage,
+    format_price,
+    format_timestamp,
+    send_long_message,
+    truncate_text,
+)
 
 
 class TestTelegramUtils:

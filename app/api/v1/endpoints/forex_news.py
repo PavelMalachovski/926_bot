@@ -8,8 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DatabaseError, ValidationError
 from app.database.connection import get_database
-from app.models.forex_news import (ForexNews, ForexNewsCreate,
-                                   ForexNewsResponse, ForexNewsUpdate)
+from app.models.forex_news import (
+    ForexNews,
+    ForexNewsCreate,
+    ForexNewsResponse,
+    ForexNewsUpdate,
+)
 from app.services.forex_service import ForexService
 
 router = APIRouter()

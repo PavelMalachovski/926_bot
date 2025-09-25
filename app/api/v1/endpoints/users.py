@@ -7,8 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DatabaseError, ValidationError
 from app.database.connection import get_database
-from app.models.user import (User, UserCreate, UserPreferences, UserResponse,
-                             UserUpdate)
+from app.models.user import User, UserCreate, UserPreferences, UserResponse, UserUpdate
 from app.services.user_service import UserService
 
 router = APIRouter()
