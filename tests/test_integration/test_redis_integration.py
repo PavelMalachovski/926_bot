@@ -210,7 +210,6 @@ class TestRedisIntegration:
 class TestRedisPerformance:
     """Performance tests for Redis functionality."""
 
-
     @pytest.mark.asyncio
     async def test_bulk_operations_performance(self, performance_redis_service):
         """Test performance of bulk operations."""
@@ -252,7 +251,6 @@ class TestRedisPerformance:
 class TestRedisErrorHandling:
     """Test Redis error handling and resilience."""
 
-
     @pytest.mark.asyncio
     async def test_connection_error_handling(self, error_redis_service):
         """Test handling of connection errors."""
@@ -278,7 +276,6 @@ class TestRedisErrorHandling:
 @pytest.mark.redis
 class TestRedisDataTypes:
     """Test Redis with different data types."""
-
 
     @pytest.mark.asyncio
     async def test_primitive_data_types(self, data_type_redis_service):
@@ -342,7 +339,6 @@ class TestRedisDataTypes:
 class TestRedisNamespaceIsolation:
     """Test Redis namespace isolation."""
 
-
     @pytest.mark.asyncio
     async def test_namespace_isolation(self, namespace_redis_service):
         """Test that different namespaces are isolated."""
@@ -384,7 +380,6 @@ class TestRedisNamespaceIsolation:
 class TestRedisTTLHandling:
     """Test Redis TTL (Time To Live) handling."""
 
-
     @pytest.mark.asyncio
     async def test_ttl_setting(self, ttl_redis_service):
         """Test setting TTL on cache entries."""
@@ -417,7 +412,6 @@ class TestRedisTTLHandling:
 @pytest.mark.redis
 class TestRedisMonitoring:
     """Test Redis monitoring and observability."""
-
 
     @pytest.mark.asyncio
     async def test_statistics_collection(self, monitoring_redis_service):
@@ -458,7 +452,6 @@ class TestRedisMonitoring:
 @pytest.mark.redis
 class TestRedisSecurity:
     """Test Redis security features."""
-
 
     @pytest.mark.asyncio
     async def test_key_sanitization(self, secure_redis_service):

@@ -61,13 +61,15 @@ async def redis_health_check():
 
 @router.post("/cache/invalidate", summary="Invalidate Cache Pattern")
 async def invalidate_cache_pattern(
-    pattern: str = Query(..., description="Redis key pattern to invalidate", min_length=1)
+    pattern: str = Query(
+        ..., description="Redis key pattern to invalidate", min_length=1
+    )
 ):
     """Invalidate all cache keys matching a pattern."""
     if not pattern.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Pattern cannot be empty"
+            detail="Pattern cannot be empty",
         )
     try:
         count = await cache_service.invalidate_pattern(pattern)
