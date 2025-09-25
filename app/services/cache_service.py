@@ -327,9 +327,12 @@ class CacheService:
 
         try:
             result = await self.redis_client.delete(key)
+            if result:
+                self._stats["deletes"] += 1
             logger.debug("Cache delete", key=key, deleted=bool(result))
             return bool(result)
         except RedisError as e:
+            self._stats["errors"] += 1
             logger.error("Redis delete error", key=key, error=str(e))
             return False
 
@@ -761,7 +764,8 @@ class RedisSessionManager:
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete session."""
-        return await self.cache_service.delete(session_id, namespace="session")
+        cache_key = self.cache_service._build_cache_key(session_id, "session")
+        return await self.cache_service.delete(cache_key)
 
     async def extend_session(self, session_id: str, ttl: int) -> bool:
         """Extend session TTL."""
