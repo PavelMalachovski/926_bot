@@ -1,14 +1,15 @@
 """Health check endpoints for monitoring and production readiness."""
 
 from datetime import datetime
-from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from typing import Any, Dict
 
-from app.database.connection import get_database
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.database.connection import get_database
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -198,7 +199,7 @@ async def metrics_endpoint() -> Dict[str, Any]:
     """
     try:
         # Import prometheus_client only if available
-        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
         return {
             "metrics": generate_latest().decode("utf-8"),

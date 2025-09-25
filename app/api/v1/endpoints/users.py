@@ -1,13 +1,15 @@
 """User API endpoints."""
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import DatabaseError, ValidationError
 from app.database.connection import get_database
+from app.models.user import (User, UserCreate, UserPreferences, UserResponse,
+                             UserUpdate)
 from app.services.user_service import UserService
-from app.models.user import User, UserCreate, UserUpdate, UserPreferences, UserResponse
-from app.core.exceptions import ValidationError, DatabaseError
 
 router = APIRouter()
 

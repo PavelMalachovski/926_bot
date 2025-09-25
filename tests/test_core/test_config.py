@@ -2,7 +2,8 @@
 
 import pytest
 from pydantic import ValidationError
-from app.core.config import Settings, DatabaseSettings, TelegramSettings
+
+from app.core.config import DatabaseSettings, Settings, TelegramSettings
 
 
 class TestDatabaseSettings:

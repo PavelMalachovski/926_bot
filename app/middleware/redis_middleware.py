@@ -2,12 +2,13 @@
 
 import time
 from typing import Callable, Optional
-from fastapi import Request, Response, HTTPException, status
-from fastapi.responses import JSONResponse
-import structlog
 
-from app.services.cache_service import cache_service
+import structlog
+from fastapi import HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
+
 from app.core.exceptions import RateLimitError
+from app.services.cache_service import cache_service
 
 logger = structlog.get_logger(__name__)
 

@@ -1,6 +1,6 @@
 """Custom exceptions for the Forex Bot application."""
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 
 class ForexBotException(Exception):

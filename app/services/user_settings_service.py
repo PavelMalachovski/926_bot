@@ -1,12 +1,13 @@
 """Interactive user settings handler with keyboard generation and callback management."""
 
 import logging
-from typing import List, Optional, Tuple
 from datetime import datetime, time
+from typing import List, Optional, Tuple
+
 import structlog
 
-from app.services.database_service import DatabaseService
 from app.core.exceptions import UserSettingsError
+from app.services.database_service import DatabaseService
 
 logger = structlog.get_logger(__name__)
 

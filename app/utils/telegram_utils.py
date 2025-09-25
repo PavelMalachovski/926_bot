@@ -1,8 +1,9 @@
 """Telegram utility functions for message formatting and handling."""
 
 import logging
-from typing import Optional
 import re
+from typing import Optional
+
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -235,8 +236,9 @@ def clean_html_tags(text: str) -> str:
 
 def format_timestamp(timestamp, timezone_str: str = "Europe/Prague") -> str:
     """Format timestamp for display."""
-    import pytz
     from datetime import datetime
+
+    import pytz
 
     if isinstance(timestamp, str):
         timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
@@ -248,8 +250,9 @@ def format_timestamp(timestamp, timezone_str: str = "Europe/Prague") -> str:
 
 def format_date_range(start_date, end_date, timezone_str: str = "Europe/Prague") -> str:
     """Format date range for display."""
-    import pytz
     from datetime import datetime
+
+    import pytz
 
     tz = pytz.timezone(timezone_str)
 

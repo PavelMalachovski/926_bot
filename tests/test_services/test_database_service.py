@@ -1,15 +1,16 @@
 """Tests for database service."""
 
+from datetime import date, datetime
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch
-from datetime import datetime, date
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.database_service import DatabaseService
 from app.core.exceptions import DatabaseError, ValidationError
-from app.database.models import UserModel, ForexNewsModel
-from tests.factories import UserCreateFactory, ForexNewsCreateFactory
+from app.database.models import ForexNewsModel, UserModel
+from app.services.database_service import DatabaseService
+from tests.factories import ForexNewsCreateFactory, UserCreateFactory
 
 
 class TestDatabaseService:

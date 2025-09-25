@@ -1,18 +1,15 @@
 """Comprehensive tests for Redis cache service."""
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime, timedelta
 import json
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.cache_service import (
-    CacheService,
-    EnhancedCacheService,
-    RedisPubSubService,
-    RedisRateLimiter,
-    RedisSessionManager,
-)
+import pytest
+
+from app.services.cache_service import (CacheService, EnhancedCacheService,
+                                        RedisPubSubService, RedisRateLimiter,
+                                        RedisSessionManager)
 
 
 class TestCacheService:

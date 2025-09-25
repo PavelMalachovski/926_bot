@@ -1,21 +1,13 @@
 """Tests for core exceptions module."""
 
 import pytest
-from app.core.exceptions import (
-    ForexBotException,
-    ConfigurationError,
-    DatabaseError,
-    DataFetchError,
-    ChartGenerationError,
-    TelegramError,
-    ValidationError,
-    AuthenticationError,
-    AuthorizationError,
-    RateLimitError,
-    ExternalAPIError,
-    ScrapingError,
-    NotificationError,
-)
+
+from app.core.exceptions import (AuthenticationError, AuthorizationError,
+                                 ChartGenerationError, ConfigurationError,
+                                 DatabaseError, DataFetchError,
+                                 ExternalAPIError, ForexBotException,
+                                 NotificationError, RateLimitError,
+                                 ScrapingError, TelegramError, ValidationError)
 
 
 class TestForexBotException:

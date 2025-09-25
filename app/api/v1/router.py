@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter
 
-from .endpoints import users, forex_news, charts, notifications, telegram, health, redis
+from .endpoints import (charts, forex_news, health, notifications, redis,
+                        telegram, users)
 
 # Create main API router
 api_router = APIRouter()

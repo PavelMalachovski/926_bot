@@ -1,13 +1,14 @@
 """Tests for forex news API endpoints."""
 
-import pytest
-from unittest.mock import AsyncMock, patch
-from httpx import AsyncClient, ASGITransport
 from datetime import date, datetime
+from unittest.mock import AsyncMock, patch
 
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from app.core.exceptions import ValidationError
 from app.main import app
 from app.models.forex_news import ForexNewsCreate, ForexNewsUpdate
-from app.core.exceptions import ValidationError
 from tests.factories import ForexNewsCreateFactory, ForexNewsModelFactory
 
 

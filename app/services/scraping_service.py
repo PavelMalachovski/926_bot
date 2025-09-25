@@ -9,20 +9,21 @@ import subprocess
 import sys
 import time
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
+import structlog
 import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
-from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import structlog
 
 from app.core.config import settings
-from app.core.exceptions import ScrapingError, ExternalAPIError
+from app.core.exceptions import ExternalAPIError, ScrapingError
 from app.models.forex_news import ForexNewsCreate
-from .scraping_selenium import SeleniumScraper
+
 from .scraping_parser import ForexNewsParser
+from .scraping_selenium import SeleniumScraper
 
 logger = structlog.get_logger(__name__)
 

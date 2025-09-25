@@ -1,13 +1,15 @@
 """Tests for user API endpoints."""
 
-import pytest
 from unittest.mock import patch
-from httpx import AsyncClient, ASGITransport
+
+import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.main import app
-from app.database.models import UserModel
-from app.models.user import UserCreate, UserUpdate, UserPreferences
+
 from app.core.exceptions import ValidationError
+from app.database.models import UserModel
+from app.main import app
+from app.models.user import UserCreate, UserPreferences, UserUpdate
 from tests.factories import UserCreateFactory, UserModelFactory
 
 

@@ -1,12 +1,13 @@
 """Redis management and monitoring endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-from fastapi.responses import JSONResponse
-from typing import Dict, Any, Optional
-import structlog
+from typing import Any, Dict, Optional
 
-from app.services.cache_service import cache_service
+import structlog
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
+
 from app.core.exceptions import CacheError
+from app.services.cache_service import cache_service
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

@@ -1,20 +1,11 @@
 """SQLAlchemy database models."""
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Boolean,
-    DateTime,
-    Text,
-    JSON,
-    Float,
-    ForeignKey,
-)
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import relationship
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import (JSON, Boolean, Column, DateTime, Float, ForeignKey,
+                        Integer, String, Text)
+from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 
 Base = declarative_base()

@@ -1,16 +1,16 @@
 """Telegram webhook API endpoints."""
 
-from fastapi import APIRouter, Request, Depends, HTTPException, status, Header
+import structlog
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.exceptions import TelegramError, ValidationError
 from app.database.connection import get_database
-from app.services.telegram_service import TelegramService
-from app.services.user_service import UserService
 from app.models.telegram import TelegramUpdate
 from app.models.user import UserCreate, UserPreferences
-from app.core.exceptions import TelegramError, ValidationError
-from app.core.config import settings
-import structlog
+from app.services.telegram_service import TelegramService
+from app.services.user_service import UserService
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

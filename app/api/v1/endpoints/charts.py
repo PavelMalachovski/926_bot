@@ -1,14 +1,15 @@
 """Chart API endpoints."""
 
+from io import BytesIO
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from io import BytesIO
 
-from app.database.connection import get_database
-from app.services.chart_service import ChartService
-from app.models.chart import ChartRequest, ChartResponse
 from app.core.exceptions import ChartGenerationError, ValidationError
+from app.database.connection import get_database
+from app.models.chart import ChartRequest, ChartResponse
+from app.services.chart_service import ChartService
 
 router = APIRouter()
 

@@ -1,14 +1,15 @@
 """Tests for ForexService."""
 
-import pytest
-from unittest.mock import AsyncMock, Mock, patch
 from datetime import date, time
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.forex_service import ForexService
+from app.core.exceptions import DatabaseError, ValidationError
 from app.database.models import ForexNewsModel
 from app.models.forex_news import ForexNewsCreate, ForexNewsUpdate
-from app.core.exceptions import DatabaseError, ValidationError
+from app.services.forex_service import ForexService
 from tests.factories import ForexNewsCreateFactory, ForexNewsModelFactory
 
 

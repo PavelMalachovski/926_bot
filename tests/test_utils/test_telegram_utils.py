@@ -1,21 +1,15 @@
 """Tests for telegram utilities."""
 
-import pytest
-import pytest_asyncio
 from unittest.mock import AsyncMock, patch
 
-from app.utils.telegram_utils import (
-    escape_markdown_v2,
-    send_long_message,
-    _fix_markdown_issues,
-    format_currency_pair,
-    format_price,
-    format_percentage,
-    truncate_text,
-    clean_html_tags,
-    format_timestamp,
-    format_date_range,
-)
+import pytest
+import pytest_asyncio
+
+from app.utils.telegram_utils import (_fix_markdown_issues, clean_html_tags,
+                                      escape_markdown_v2, format_currency_pair,
+                                      format_date_range, format_percentage,
+                                      format_price, format_timestamp,
+                                      send_long_message, truncate_text)
 
 
 class TestTelegramUtils:

@@ -1,27 +1,27 @@
 """Automated notification scheduler with comprehensive management."""
 
-import logging
-import hashlib
 import asyncio
+import hashlib
+import logging
+import os
 import subprocess
 import sys
-import os
-from datetime import datetime, timedelta, date
-from typing import Optional, Dict, Any, List
-import structlog
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 import pytz
+import structlog
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import settings
 from app.core.exceptions import SchedulerError
-from app.services.notification_service import NotificationService
-from app.services.database_service import DatabaseService
-from app.services.scraping_service import ScrapingService
 from app.services.chart_service import chart_service
+from app.services.database_service import DatabaseService
+from app.services.notification_service import NotificationService
+from app.services.scraping_service import ScrapingService
 
 logger = structlog.get_logger(__name__)
 

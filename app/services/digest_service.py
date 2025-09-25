@@ -1,21 +1,21 @@
 """Daily digest scheduler with timezone-aware scheduling and comprehensive functionality."""
 
-import logging
 import asyncio
-from datetime import datetime, date, time
-from typing import List, Optional, Dict, Any
+import logging
+from datetime import date, datetime, time
+from typing import Any, Dict, List, Optional
+
 import pytz
 import structlog
-
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 from app.core.config import settings
 from app.core.exceptions import DigestError
 from app.services.database_service import DatabaseService
-from app.services.scraping_service import ScrapingService
 from app.services.notification_service import NotificationService
+from app.services.scraping_service import ScrapingService
 from app.utils.telegram_utils import send_long_message
 
 logger = structlog.get_logger(__name__)

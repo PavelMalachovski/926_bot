@@ -2,14 +2,15 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Tuple
 from io import BytesIO
+from typing import Any, Dict, List, Optional, Tuple
+
 import structlog
 
 from app.core.config import settings
 from app.core.exceptions import VisualizationError
-from app.services.database_service import DatabaseService
 from app.services.chart_service import chart_service
+from app.services.database_service import DatabaseService
 from app.services.telegram_service import TelegramService
 
 logger = structlog.get_logger(__name__)

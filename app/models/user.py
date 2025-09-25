@@ -1,7 +1,8 @@
 """User-related Pydantic models."""
 
 from datetime import datetime, time
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 

@@ -1,18 +1,16 @@
 """Notification API endpoints."""
 
-from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import DatabaseError, ValidationError
 from app.database.connection import get_database
+from app.models.notification import (Notification, NotificationCreate,
+                                     NotificationResponse)
 from app.services.notification_service import NotificationService
-from app.models.notification import (
-    Notification,
-    NotificationCreate,
-    NotificationResponse,
-)
-from app.core.exceptions import ValidationError, DatabaseError
 
 router = APIRouter()
 

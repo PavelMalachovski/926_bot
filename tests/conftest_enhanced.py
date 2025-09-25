@@ -1,26 +1,23 @@
 """Enhanced test configuration with Context7 best practices."""
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import AsyncGenerator, Generator
-import tempfile
-import os
-from datetime import datetime, date, time
 import json
+import os
+import tempfile
+from datetime import date, datetime, time
+from typing import AsyncGenerator, Generator
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.core.config import settings
+from app.database.connection import db_manager
+from app.database.models import ForexNewsModel, UserModel, UserPreferences
 # Import application components
 from app.main import app
-from app.database.connection import db_manager
 from app.services.cache_service import cache_service
-from app.core.config import settings
-from app.database.models import UserModel, ForexNewsModel, UserPreferences
-from tests.factories import (
-    UserModelFactory,
-    ForexNewsModelFactory,
-    UserPreferencesFactory,
-)
-
+from tests.factories import (ForexNewsModelFactory, UserModelFactory,
+                             UserPreferencesFactory)
 
 # ============================================================================
 # ASYNC TEST CONFIGURATION
@@ -251,7 +248,7 @@ def sample_user_preferences() -> UserPreferences:
 @pytest.fixture
 async def async_client():
     """Create an async HTTP client for testing."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:

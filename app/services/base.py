@@ -1,10 +1,11 @@
 """Base service class with common CRUD operations."""
 
-from typing import TypeVar, Generic, Type, Optional, List, Dict, Any
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
-from sqlalchemy.orm import DeclarativeBase
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+
 import structlog
+from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase
 
 from app.core.exceptions import DatabaseError, ValidationError
 

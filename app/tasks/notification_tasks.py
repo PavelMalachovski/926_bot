@@ -1,18 +1,19 @@
 """Background tasks for notifications."""
 
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from celery import current_task
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.tasks.celery_app import celery_app
-from app.database.connection import db_manager
-from app.services.notification_service import NotificationService
-from app.services.user_service import UserService
-from app.services.forex_service import ForexService
-from app.services.telegram_service import TelegramService
-from app.core.logging import get_logger
 from app.core.exceptions import NotificationError
+from app.core.logging import get_logger
+from app.database.connection import db_manager
+from app.services.forex_service import ForexService
+from app.services.notification_service import NotificationService
+from app.services.telegram_service import TelegramService
+from app.services.user_service import UserService
+from app.tasks.celery_app import celery_app
 
 logger = get_logger(__name__)
 

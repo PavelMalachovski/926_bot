@@ -1,10 +1,11 @@
 """Comprehensive tests for Redis API endpoints using Context7 best practices."""
 
-import pytest
 import json
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from app.services.cache_service import cache_service

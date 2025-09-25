@@ -1,29 +1,30 @@
 """Advanced chart generation service with caching, fallbacks, and comprehensive functionality."""
 
+import json
 import logging
 import os
 import tempfile
+import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
-import yfinance as yf
-import pandas as pd
-import matplotlib.pyplot as plt
+from io import BytesIO
+from typing import Any, Dict, List, Optional, Tuple
+
 import matplotlib.dates as mdates
-from matplotlib.patches import Rectangle
+import matplotlib.pyplot as plt
 import mplfinance as mpf
 import numpy as np
-from io import BytesIO
+import pandas as pd
 import pytz
-import time
 import requests
+import structlog
+import yfinance as yf
+from matplotlib.patches import Rectangle
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import json
-import structlog
 
 from app.core.config import settings
 from app.core.exceptions import ChartGenerationError, DataFetchError
-from app.models.chart import ChartRequest, ChartResponse, ChartData, OHLCData
+from app.models.chart import ChartData, ChartRequest, ChartResponse, OHLCData
 
 logger = structlog.get_logger(__name__)
 

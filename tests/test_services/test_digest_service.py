@@ -1,14 +1,15 @@
 """Tests for digest service."""
 
+from datetime import datetime, time, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime, time, timedelta
 import pytz
 
+from app.core.exceptions import DatabaseError, DigestError
 from app.services.digest_service import DailyDigestScheduler
-from app.core.exceptions import DigestError, DatabaseError
-from tests.factories import UserCreateFactory, ForexNewsCreateFactory
+from tests.factories import ForexNewsCreateFactory, UserCreateFactory
 
 
 @pytest.fixture

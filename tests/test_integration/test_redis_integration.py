@@ -1,19 +1,16 @@
 """Comprehensive Redis integration tests using Context7 best practices."""
 
-import pytest
 import asyncio
 import json
 from datetime import datetime, timedelta
+from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
-from typing import Dict, Any
 
-from app.services.cache_service import (
-    CacheService,
-    EnhancedCacheService,
-    RedisPubSubService,
-    RedisRateLimiter,
-    RedisSessionManager,
-)
+import pytest
+
+from app.services.cache_service import (CacheService, EnhancedCacheService,
+                                        RedisPubSubService, RedisRateLimiter,
+                                        RedisSessionManager)
 from app.services.redis_config_service import RedisConfigService
 
 

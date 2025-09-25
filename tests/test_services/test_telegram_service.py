@@ -1,12 +1,13 @@
 """Tests for telegram service."""
 
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime
 
-from app.services.telegram_service import TelegramService
 from app.core.exceptions import TelegramError, ValidationError
+from app.services.telegram_service import TelegramService
 from tests.factories import UserCreateFactory
 
 

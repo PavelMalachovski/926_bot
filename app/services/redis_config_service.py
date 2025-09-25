@@ -1,11 +1,12 @@
 """Redis configuration and management service."""
 
 import asyncio
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 import structlog
 
-from app.services.cache_service import cache_service
 from app.core.config import settings
+from app.services.cache_service import cache_service
 
 logger = structlog.get_logger(__name__)
 

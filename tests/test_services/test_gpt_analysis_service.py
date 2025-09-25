@@ -1,12 +1,13 @@
 """Tests for GPT analysis service."""
 
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime, timedelta
 
-from app.services.gpt_analysis_service import GPTAnalysisService
 from app.core.exceptions import AnalysisError, ExternalAPIError
+from app.services.gpt_analysis_service import GPTAnalysisService
 from tests.factories import ForexNewsCreateFactory
 
 

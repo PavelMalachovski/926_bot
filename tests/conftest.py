@@ -1,16 +1,18 @@
 """Pytest configuration and shared fixtures for the modern FastAPI application."""
 
+from typing import AsyncGenerator
+
 import pytest
 import pytest_asyncio
-from typing import AsyncGenerator
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 from sqlalchemy.pool import StaticPool
 
-from app.main import app
+from app.core.config import settings
 from app.database.connection import db_manager
 from app.database.models import Base
-from app.core.config import settings
+from app.main import app
 
 
 @pytest_asyncio.fixture

@@ -1,15 +1,17 @@
 """Tests for UserService."""
 
-import pytest
 from unittest.mock import AsyncMock, Mock, patch
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 
-from app.services.user_service import UserService
-from app.database.models import UserModel
-from app.models.user import UserCreate, UserUpdate, UserPreferences
+import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.exceptions import DatabaseError, ValidationError
-from tests.factories import UserCreateFactory, UserModelFactory, UserPreferencesFactory
+from app.database.models import UserModel
+from app.models.user import UserCreate, UserPreferences, UserUpdate
+from app.services.user_service import UserService
+from tests.factories import (UserCreateFactory, UserModelFactory,
+                             UserPreferencesFactory)
 
 
 @pytest.fixture

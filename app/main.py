@@ -1,25 +1,27 @@
 """Main FastAPI application entry point."""
 
+import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
+
+import structlog
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import time
-import structlog
+from slowapi.util import get_remote_address
 
+from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.logging import configure_logging
 from app.core.exceptions import ForexBotException, ValidationError
-from app.core.security import add_security_headers, log_requests, get_cors_config
+from app.core.logging import configure_logging
+from app.core.security import (add_security_headers, get_cors_config,
+                               log_requests)
 from app.database.connection import db_manager
 from app.services.cache_service import cache_service
-from app.api.v1.router import api_router
 
 # Configure structured logging
 configure_logging()

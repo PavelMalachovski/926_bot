@@ -1,17 +1,18 @@
 """Advanced database service with schema evolution handling for Render.com PostgreSQL."""
 
-from datetime import datetime, date
-from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+
+import structlog
 from sqlalchemy import and_, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
+from sqlalchemy.orm import Session
 
-from app.database.connection import db_manager
-from app.database.models import UserModel, ForexNewsModel
-from app.models.user import UserCreate, UserUpdate
-from app.models.forex_news import ForexNewsCreate
 from app.core.exceptions import DatabaseError, ValidationError
+from app.database.connection import db_manager
+from app.database.models import ForexNewsModel, UserModel
+from app.models.forex_news import ForexNewsCreate
+from app.models.user import UserCreate, UserUpdate
 
 logger = structlog.get_logger(__name__)
 

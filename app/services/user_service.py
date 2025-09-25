@@ -1,15 +1,17 @@
 """User service implementation."""
 
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
+
+import structlog
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, update
+
+from app.core.exceptions import DatabaseError, ValidationError
+from app.database.models import UserModel
+from app.models.user import UserCreate, UserPreferences, UserUpdate
 
 from .base import BaseService
-from app.database.models import UserModel
-from app.models.user import UserCreate, UserUpdate, UserPreferences
-from app.core.exceptions import DatabaseError, ValidationError
-import structlog
 
 logger = structlog.get_logger(__name__)
 

@@ -1,15 +1,17 @@
 """Forex news service implementation."""
 
-from typing import Optional, List
-from datetime import datetime, date
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func
+from datetime import date, datetime
+from typing import List, Optional
 
-from .base import BaseService
+import structlog
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import DatabaseError, ValidationError
 from app.database.models import ForexNewsModel
 from app.models.forex_news import ForexNewsCreate, ForexNewsUpdate
-from app.core.exceptions import DatabaseError, ValidationError
-import structlog
+
+from .base import BaseService
 
 logger = structlog.get_logger(__name__)
 

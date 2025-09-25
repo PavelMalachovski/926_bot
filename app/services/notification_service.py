@@ -1,19 +1,20 @@
 """Advanced notification service with deduplication, rate limiting, and comprehensive functionality."""
 
-import logging
-import hashlib
 import asyncio
-import threading
+import hashlib
 import html
+import logging
+import threading
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Set
 from io import BytesIO
+from typing import Any, Dict, List, Optional, Set
+
 import structlog
 
 from app.core.config import settings
 from app.core.exceptions import NotificationError
-from app.services.database_service import DatabaseService
 from app.services.chart_service import chart_service
+from app.services.database_service import DatabaseService
 from app.services.telegram_service import TelegramService
 
 logger = structlog.get_logger(__name__)

@@ -1,19 +1,16 @@
 """Forex news API endpoints."""
 
+from datetime import date, datetime
 from typing import List, Optional
-from datetime import datetime, date
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import DatabaseError, ValidationError
 from app.database.connection import get_database
+from app.models.forex_news import (ForexNews, ForexNewsCreate,
+                                   ForexNewsResponse, ForexNewsUpdate)
 from app.services.forex_service import ForexService
-from app.models.forex_news import (
-    ForexNews,
-    ForexNewsCreate,
-    ForexNewsUpdate,
-    ForexNewsResponse,
-)
-from app.core.exceptions import ValidationError, DatabaseError
 
 router = APIRouter()
 

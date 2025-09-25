@@ -1,8 +1,9 @@
 """Simple tests for forex news API endpoints."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
-from httpx import AsyncClient, ASGITransport
+
+import pytest
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from tests.factories import ForexNewsCreateFactory, ForexNewsModelFactory

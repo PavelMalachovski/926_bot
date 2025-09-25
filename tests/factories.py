@@ -1,14 +1,15 @@
 """Test data factories using factory_boy."""
 
+from datetime import datetime, time, timedelta
+from typing import Any, Dict, List
+
 import factory
 from factory import fuzzy
-from datetime import datetime, time, timedelta
-from typing import List, Dict, Any
 
-from app.database.models import UserModel, ForexNewsModel, NotificationModel
-from app.models.user import UserCreate, UserPreferences
+from app.database.models import ForexNewsModel, NotificationModel, UserModel
 from app.models.forex_news import ForexNewsCreate
 from app.models.notification import NotificationCreate
+from app.models.user import UserCreate, UserPreferences
 
 
 class UserPreferencesFactory(factory.Factory):
