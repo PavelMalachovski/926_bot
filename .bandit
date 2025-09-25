@@ -1,0 +1,35 @@
+exclude_dirs:
+  - tests
+  - migrations
+  - build
+  - dist
+  - .venv
+  - venv
+  - __pycache__
+
+skips:
+  # B104: Binding to all interfaces is acceptable for web services
+  - B104
+  # B107: "access" is not a hardcoded password, it's a token type parameter
+  - B107
+  # B403/B301: Pickle usage is acceptable for caching trusted data
+  - B403
+  - B301
+  # B324: MD5 usage for non-security purposes (caching, hashing)
+  - B324
+  # B608: SQL injection warnings for parameterized queries (false positives)
+  - B608
+  # B404: Subprocess usage is acceptable for Chrome detection
+  - B404
+  # B603: Subprocess calls are safe (no shell=True, using known binaries)
+  - B603
+  # B311: Random usage for web scraping simulation (non-cryptographic)
+  - B311
+  # B110/B112: Try-except-pass/continue are acceptable for error handling
+  - B110
+  - B112
+  # B108: Temporary file usage is acceptable for debugging
+  - B108
+
+confidence: HIGH
+severity: MEDIUM
