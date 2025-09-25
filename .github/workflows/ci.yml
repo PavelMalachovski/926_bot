@@ -55,7 +55,7 @@ jobs:
         run: mypy app/
 
       - name: Run Bandit (security linting)
-        run: bandit -r app/
+        run: bandit -r app/ -c .bandit
 
   # Test Suite
   test:
@@ -135,10 +135,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Safety (dependency vulnerability scan)
-        run: safety check
+        run: safety scan
 
       - name: Run Bandit (security linting)
-        run: bandit -r app/ -f json -o bandit-report.json
+        run: bandit -r app/ -c .bandit -f json -o bandit-report.json
 
       - name: Upload Bandit results
         uses: actions/upload-artifact@v3

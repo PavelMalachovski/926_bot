@@ -89,8 +89,8 @@ def run_linting() -> bool:
 def run_security_checks() -> bool:
     """Run security checks."""
     commands = [
-        (["python", "-m", "bandit", "-r", "app/"], "Security vulnerability scan"),
-        (["python", "-m", "safety", "check"], "Dependency vulnerability check")
+        (["python", "-m", "bandit", "-r", "app/", "-c", ".bandit"], "Security vulnerability scan"),
+        (["python", "-m", "safety", "scan"], "Dependency vulnerability check")
     ]
 
     all_passed = True
