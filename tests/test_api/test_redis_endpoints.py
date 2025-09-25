@@ -64,9 +64,10 @@ class TestRedisEndpoints:
 
     def test_redis_health_check(self, client):
         """Test Redis health check."""
-        with patch.object(cache_service, "_initialized", True), patch.object(
-            cache_service, "redis_client"
-        ) as mock_client:
+        with (
+            patch.object(cache_service, "_initialized", True),
+            patch.object(cache_service, "redis_client") as mock_client,
+        ):
             mock_client.ping = AsyncMock(return_value=True)
 
             response = client.get("/api/v1/redis/health")
@@ -368,9 +369,10 @@ class TestRedisEndpointPerformance:
 
     def test_health_check_performance(self, client):
         """Test health check endpoint performance."""
-        with patch.object(cache_service, "_initialized", True), patch.object(
-            cache_service, "redis_client"
-        ) as mock_client:
+        with (
+            patch.object(cache_service, "_initialized", True),
+            patch.object(cache_service, "redis_client") as mock_client,
+        ):
             mock_client.ping = AsyncMock(return_value=True)
 
             import time
@@ -468,9 +470,10 @@ class TestRedisEndpointIntegration:
     def test_complete_redis_workflow(self, client):
         """Test complete Redis workflow."""
         # 1. Check Redis health
-        with patch.object(cache_service, "_initialized", True), patch.object(
-            cache_service, "redis_client"
-        ) as mock_client:
+        with (
+            patch.object(cache_service, "_initialized", True),
+            patch.object(cache_service, "redis_client") as mock_client,
+        ):
             mock_client.ping = AsyncMock(return_value=True)
 
             response = client.get("/api/v1/redis/health")

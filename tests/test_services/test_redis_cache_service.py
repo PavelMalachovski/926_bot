@@ -69,9 +69,10 @@ class TestCacheService:
     @pytest.mark.asyncio
     async def test_initialize_success(self, cache_service, mock_redis_client):
         """Test successful Redis initialization."""
-        with patch("app.services.cache_service.redis.from_url") as mock_from_url, patch(
-            "app.services.cache_service.ConnectionPool.from_url"
-        ) as mock_pool:
+        with (
+            patch("app.services.cache_service.redis.from_url") as mock_from_url,
+            patch("app.services.cache_service.ConnectionPool.from_url") as mock_pool,
+        ):
 
             mock_pool.return_value = AsyncMock()
             mock_from_url.return_value = mock_redis_client
@@ -445,9 +446,10 @@ class TestEnhancedCacheService:
     @pytest.mark.asyncio
     async def test_initialize_enhanced(self, enhanced_cache_service, mock_redis_client):
         """Test enhanced cache service initialization."""
-        with patch("app.services.cache_service.redis.from_url") as mock_from_url, patch(
-            "app.services.cache_service.ConnectionPool.from_url"
-        ) as mock_pool:
+        with (
+            patch("app.services.cache_service.redis.from_url") as mock_from_url,
+            patch("app.services.cache_service.ConnectionPool.from_url") as mock_pool,
+        ):
 
             mock_pool.return_value = AsyncMock()
             mock_from_url.return_value = mock_redis_client
@@ -534,11 +536,10 @@ class TestRedisIntegration:
         mock_client.get.return_value = None
         mock_client.delete.return_value = 1
 
-        with patch(
-            "app.services.cache_service.ConnectionPool.from_url"
-        ) as mock_pool, patch(
-            "app.services.cache_service.redis.Redis"
-        ) as mock_redis_class:
+        with (
+            patch("app.services.cache_service.ConnectionPool.from_url") as mock_pool,
+            patch("app.services.cache_service.redis.Redis") as mock_redis_class,
+        ):
 
             mock_pool.return_value = AsyncMock()
             mock_redis_class.return_value = mock_client
