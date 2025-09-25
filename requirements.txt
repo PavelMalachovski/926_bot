@@ -25,7 +25,7 @@ requests>=2.31.0,<3.0.0
 
 # Data processing
 pandas>=2.2.0,<3.0.0
-numpy>=1.26.0,<2.0.0
+numpy>=1.26.0,<3.0.0
 
 # Chart generation
 matplotlib>=3.8.0,<4.0.0
