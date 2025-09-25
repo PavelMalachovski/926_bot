@@ -1,0 +1,51 @@
+[flake8]
+# Increase line length to match Black's default (88 characters)
+max-line-length = 88
+
+# Ignore common issues that are handled by other tools
+ignore =
+    # E501: line too long (handled by Black)
+    E501,
+    # F401: imported but unused (handled by autoflake/isort)
+    F401,
+    # F541: f-string is missing placeholders (sometimes intentional)
+    F541,
+    # F811: redefinition of unused (common in test files)
+    F811,
+    # F841: local variable assigned but never used (common in development)
+    F841,
+    # E203: whitespace before ':' (conflicts with Black)
+    E203,
+    # E722: do not use bare 'except' (sometimes needed for broad exception handling)
+    E722,
+    # E712: comparison to True/False (sometimes more readable)
+    E712,
+    # F402: import shadowed by loop variable (common in test files)
+    F402,
+    # F821: undefined name (sometimes in test fixtures)
+    F821,
+    # W503: line break before binary operator (conflicts with Black)
+    W503
+
+# Exclude certain directories from flake8 checks
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .pytest_cache,
+    .coverage,
+    htmlcov,
+    migrations,
+    *.egg-info,
+    build,
+    dist
+
+# Per-file ignores for problematic files
+per-file-ignores =
+    # Test files can have more relaxed rules
+    tests/*:F401,F811,F841,E501
+    # Service files often have unused imports during development
+    app/services/*:F401,F841,E501
+    # Main files might have unused imports for API docs
+    app/main.py:F401
