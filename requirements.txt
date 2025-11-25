@@ -33,7 +33,7 @@ yfinance>=0.2.0,<1.0.0
 mplfinance>=0.12.10b0,<1.0.0
 
 # Telegram
-python-telegram-bot>=21.0.0,<22.0.0
+python-telegram-bot>=21.0.0,<23.0.0
 
 # Timezone handling
 pytz>=2024.1
