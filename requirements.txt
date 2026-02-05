@@ -39,7 +39,7 @@ python-telegram-bot>=21.0.0,<22.0.0
 pytz>=2024.1
 
 # Logging
-structlog>=24.1.0,<25.0.0
+structlog>=24.1.0,<26.0.0
 
 # Testing
 pytest>=8.2.0,<9.0.0
