@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TelegramUser(BaseModel):
@@ -31,8 +31,13 @@ class TelegramChat(BaseModel):
 class TelegramMessage(BaseModel):
     """Telegram message model."""
 
+    # Telegram sends the sender as "from" (a Python keyword), hence the alias
+    model_config = ConfigDict(populate_by_name=True)
+
     message_id: int = Field(description="Message ID")
-    from_user: Optional[TelegramUser] = Field(default=None, description="From user")
+    from_user: Optional[TelegramUser] = Field(
+        default=None, alias="from", description="From user"
+    )
     chat: TelegramChat = Field(description="Chat")
     date: int = Field(description="Message date")
     text: Optional[str] = Field(default=None, description="Message text")
@@ -42,8 +47,10 @@ class TelegramMessage(BaseModel):
 class TelegramCallbackQuery(BaseModel):
     """Telegram callback query model."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str = Field(description="Callback query ID")
-    from_user: TelegramUser = Field(description="From user")
+    from_user: TelegramUser = Field(alias="from", description="From user")
     message: Optional[TelegramMessage] = Field(default=None, description="Message")
     data: Optional[str] = Field(default=None, description="Callback data")
 
