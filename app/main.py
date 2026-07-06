@@ -28,6 +28,26 @@ configure_logging()
 logger = structlog.get_logger(__name__)
 
 
+def _sanitize_webhook_url(url):
+    """Recover from a common paste mistake: 'TELEGRAM_WEBHOOK_URL=https://...'.
+
+    If the value does not start with http(s) but contains an URL, take the URL
+    part and log a warning so the misconfiguration is visible.
+    """
+    if not url:
+        return url
+    url = url.strip()
+    if not url.startswith("http") and "http" in url:
+        fixed = url[url.index("http") :]
+        logger.warning(
+            "TELEGRAM_WEBHOOK_URL contained extra prefix, using URL part only",
+            original=url,
+            fixed=fixed,
+        )
+        return fixed
+    return url
+
+
 async def _register_telegram_webhook() -> None:
     """Point the Telegram webhook at this deployment.
 
@@ -44,7 +64,7 @@ async def _register_telegram_webhook() -> None:
             logger.warning("Telegram bot token not configured, skipping webhook setup")
             return
 
-        webhook_url = settings.telegram.webhook_url
+        webhook_url = _sanitize_webhook_url(settings.telegram.webhook_url)
         if not webhook_url:
             public_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN") or os.getenv(
                 "RENDER_EXTERNAL_HOSTNAME"
