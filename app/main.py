@@ -1,5 +1,6 @@
 """Main FastAPI application entry point."""
 
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -27,6 +28,44 @@ configure_logging()
 logger = structlog.get_logger(__name__)
 
 
+async def _register_telegram_webhook() -> None:
+    """Point the Telegram webhook at this deployment.
+
+    URL resolution order: TELEGRAM_WEBHOOK_URL, then the public domain
+    injected by the platform (Railway / Render). Failure is non-fatal —
+    the API still works, only bot commands are unavailable.
+    """
+    from app.services.telegram_service import TelegramBotManager
+
+    try:
+        bot_manager = TelegramBotManager()
+        token = bot_manager.bot_token
+        if not token or token.startswith("your-"):
+            logger.warning("Telegram bot token not configured, skipping webhook setup")
+            return
+
+        webhook_url = settings.telegram.webhook_url
+        if not webhook_url:
+            public_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN") or os.getenv(
+                "RENDER_EXTERNAL_HOSTNAME"
+            )
+            if public_domain:
+                webhook_url = f"https://{public_domain}/api/v1/telegram/webhook"
+        if not webhook_url:
+            logger.warning(
+                "No webhook URL available (set TELEGRAM_WEBHOOK_URL), "
+                "bot commands will not work"
+            )
+            return
+
+        success = await bot_manager.set_webhook(
+            webhook_url, settings.telegram.webhook_secret
+        )
+        logger.info("Telegram webhook registered", url=webhook_url, success=success)
+    except Exception as e:
+        logger.error("Failed to register Telegram webhook", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
@@ -42,8 +81,8 @@ async def lifespan(app: FastAPI):
         await cache_service.initialize()
         logger.info("Cache service initialized successfully")
 
-        # Initialize Telegram bot
-        # await telegram_service.initialize()
+        # Register Telegram webhook so bot commands reach this instance
+        await _register_telegram_webhook()
 
         logger.info("Application startup completed")
         yield
@@ -84,19 +123,11 @@ def create_app() -> FastAPI:
     cors_config = get_cors_config()
     app.add_middleware(CORSMiddleware, **cors_config)
 
+    # Host filtering is handled by the platform's proxy (Railway/Render).
+    # Restrict via SERVER_ALLOWED_HOSTS when running behind your own domain.
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=(
-            ["*"]
-            if settings.debug
-            else [
-                "yourdomain.com",
-                "*.yourdomain.com",
-                "testserver",
-                "localhost",
-                "127.0.0.1",
-            ]
-        ),
+        allowed_hosts=settings.server.allowed_hosts,
     )
 
     # Add security and logging middleware

@@ -189,6 +189,10 @@ class ServerSettings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")
     workers: int = Field(default=1, description="Number of workers")
+    allowed_hosts: list[str] = Field(
+        default=["*"],
+        description='Trusted Host header values, e.g. \'["mydomain.com"]\'',
+    )
 
     model_config = SettingsConfigDict(env_prefix="SERVER_")
 
