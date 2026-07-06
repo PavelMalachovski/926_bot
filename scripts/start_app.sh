@@ -36,7 +36,8 @@ REDIS_MAX_RETRIES=${REDIS_MAX_RETRIES:-30}
 REDIS_RETRY_DELAY=${REDIS_RETRY_DELAY:-2}
 
 APP_HOST=${APP_HOST:-0.0.0.0}
-APP_PORT=${APP_PORT:-8000}
+# Railway/Heroku inject PORT; fall back to APP_PORT, then 8000
+APP_PORT=${PORT:-${APP_PORT:-8000}}
 APP_WORKERS=${APP_WORKERS:-1}
 
 log_info "Starting Forex Bot application with Redis integration"
@@ -46,6 +47,12 @@ log_info "App: ${APP_HOST}:${APP_PORT}"
 # Function to check if Redis is available
 check_redis() {
     log_info "Checking Redis availability..."
+
+    # REDIS_URL (Railway/Heroku) is validated by wait_for_redis.py instead
+    if [ -n "$REDIS_URL" ]; then
+        log_info "REDIS_URL is set, skipping redis-cli check"
+        return 0
+    fi
 
     if command -v redis-cli >/dev/null 2>&1; then
         if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping >/dev/null 2>&1; then
@@ -61,16 +68,15 @@ check_redis() {
     fi
 }
 
-# Function to wait for Redis
+# Function to wait for Redis (the script itself decides whether a missing
+# Redis is fatal — see REDIS_REQUIRED in scripts/wait_for_redis.py)
 wait_for_redis() {
     log_info "Waiting for Redis to be ready..."
 
-    python scripts/wait_for_redis.py
-
-    if [ $? -eq 0 ]; then
-        log_success "Redis is ready"
+    if python scripts/wait_for_redis.py; then
+        log_success "Redis check finished"
     else
-        log_error "Redis failed to become ready"
+        log_error "Redis is required but not available"
         exit 1
     fi
 }
@@ -117,8 +123,7 @@ start_app() {
             --host "$APP_HOST" \
             --port "$APP_PORT" \
             --access-log \
-            --log-level info \
-            --reload
+            --log-level info
     fi
 }
 

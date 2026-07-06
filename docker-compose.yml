@@ -91,6 +91,25 @@ services:
       retries: 3
       start_period: 60s
 
+  # SMC Strategy Watcher (Triple Sync + Imbalance, every 15 minutes)
+  smc-watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python smc_watcher.py
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      SMC_SYMBOL: ${SMC_SYMBOL:-ETHUSDT}
+      SMC_DISPLAY_SYMBOL: ${SMC_DISPLAY_SYMBOL:-ETHUSD}
+      SMC_INTERVAL_MINUTES: ${SMC_INTERVAL_MINUTES:-15}
+      SMC_NOTIFY_NO_SETUP: ${SMC_NOTIFY_NO_SETUP:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
   # Celery Worker for Background Tasks
   celery-worker:
     build:
