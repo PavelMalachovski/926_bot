@@ -340,25 +340,6 @@ class TelegramBotManager:
             text = text.replace(char, f"\\{char}")
         return text
 
-    async def send_message(
-        self, chat_id: int, message: str, parse_mode: str = "MarkdownV2"
-    ) -> bool:
-        """Send a message to a Telegram chat."""
-        try:
-            url = f"{self.base_url}/sendMessage"
-            data = {"chat_id": chat_id, "text": message, "parse_mode": parse_mode}
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=data)
-                response.raise_for_status()
-
-            logger.info("Message sent successfully", chat_id=chat_id)
-            return True
-
-        except httpx.HTTPError as e:
-            logger.error("Failed to send message", chat_id=chat_id, error=str(e))
-            raise TelegramError(f"Failed to send message: {e}")
-
     async def get_webhook_info(self) -> Dict[str, Any]:
         """Get webhook information."""
         try:

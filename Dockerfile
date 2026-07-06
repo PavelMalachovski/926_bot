@@ -48,6 +48,7 @@ WORKDIR /app
 
 # Copy application code
 COPY app/ /app/app/
+COPY smc_watcher.py /app/
 COPY alembic.ini /app/
 COPY migrations/ /app/migrations/
 COPY scripts/ /app/scripts/
@@ -65,9 +66,9 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Health check with Redis dependency
+# Health check (Redis is optional — the app degrades to no-cache mode)
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health && redis-cli -h redis ping || exit 1
+    CMD curl -f "http://localhost:${PORT:-8000}/health" || exit 1
 
 # Default command with Redis initialization
 CMD ["/app/scripts/start_app.sh"]

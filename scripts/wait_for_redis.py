@@ -22,7 +22,8 @@ class RedisWaiter:
         redis_password: Optional[str] = None,
         redis_db: int = 0,
         max_retries: int = 30,
-        retry_delay: int = 2
+        retry_delay: int = 2,
+        redis_url: Optional[str] = None,
     ):
         self.redis_host = redis_host
         self.redis_port = redis_port
@@ -30,10 +31,13 @@ class RedisWaiter:
         self.redis_db = redis_db
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.redis_url = redis_url
         self.redis_client = None
 
     def _build_redis_url(self) -> str:
-        """Build Redis URL from components."""
+        """Build Redis URL: prefer a full REDIS_URL (Railway/Heroku style)."""
+        if self.redis_url:
+            return self.redis_url
         if self.redis_password:
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         else:
@@ -143,10 +147,28 @@ class RedisWaiter:
 async def main():
     """Main function."""
     # Get Redis configuration from environment variables
+    redis_url = os.getenv("REDIS_URL")
     redis_host = os.getenv("REDIS_HOST", "redis")
     redis_port = int(os.getenv("REDIS_PORT", "6379"))
     redis_password = os.getenv("REDIS_PASSWORD")
     redis_db = int(os.getenv("REDIS_DB", "0"))
+
+    # Redis is optional by default: the app degrades to no-cache mode.
+    # Set REDIS_REQUIRED=true to make startup fail without Redis.
+    redis_required = os.getenv("REDIS_REQUIRED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    # Nothing configured at all (e.g. Railway without a Redis service):
+    # don't burn a minute retrying a hostname that cannot exist.
+    if not redis_url and not os.getenv("REDIS_HOST"):
+        if redis_required:
+            logger.error("REDIS_REQUIRED=true but no REDIS_URL/REDIS_HOST configured")
+            sys.exit(1)
+        logger.warning("Redis is not configured, starting without cache")
+        return
 
     # Get wait configuration
     max_retries = int(os.getenv("REDIS_MAX_RETRIES", "30"))
@@ -159,13 +181,17 @@ async def main():
         redis_password=redis_password,
         redis_db=redis_db,
         max_retries=max_retries,
-        retry_delay=retry_delay
+        retry_delay=retry_delay,
+        redis_url=redis_url,
     )
 
     # Wait for Redis
     if not await waiter.wait_for_redis():
-        logger.error("Redis is not available, exiting")
-        sys.exit(1)
+        if redis_required:
+            logger.error("Redis is not available, exiting")
+            sys.exit(1)
+        logger.warning("Redis is not available, starting without cache")
+        return
 
     # Optimize Redis configuration
     await waiter.optimize_redis()

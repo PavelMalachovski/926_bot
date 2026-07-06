@@ -2,7 +2,7 @@
 
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +10,9 @@ class DatabaseSettings(BaseSettings):
     """Database configuration."""
 
     url: Optional[str] = Field(
-        default="sqlite+aiosqlite:///./forex_bot.db", description="Database URL"
+        default="sqlite+aiosqlite:///./forex_bot.db",
+        description="Database URL",
+        validation_alias=AliasChoices("DB_URL", "DATABASE_URL"),
     )
     host: Optional[str] = Field(default="localhost", description="Database host")
     port: int = Field(default=5432, description="Database port")
@@ -22,6 +24,20 @@ class DatabaseSettings(BaseSettings):
     pool_size: int = Field(default=10, description="Connection pool size")
     max_overflow: int = Field(default=20, description="Max overflow connections")
     echo: bool = Field(default=False, description="Echo SQL queries")
+
+    @field_validator("url")
+    @classmethod
+    def normalize_async_driver(cls, v):
+        """Rewrite sync-style URLs (Railway/Heroku) to async drivers."""
+        if not v:
+            return v
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if v.startswith("sqlite://"):
+            return v.replace("sqlite://", "sqlite+aiosqlite://", 1)
+        return v
 
     model_config = SettingsConfigDict(env_prefix="DB_")
 
@@ -91,6 +107,33 @@ class ChartSettings(BaseSettings):
     chart_retention_days: int = Field(default=3, description="Chart retention days")
 
     model_config = SettingsConfigDict(env_prefix="CHART_")
+
+
+class SMCSettings(BaseSettings):
+    """Triple Sync + Imbalance strategy watcher configuration."""
+
+    enabled: bool = Field(default=True, description="Enable SMC watcher")
+    symbol: str = Field(default="ETHUSDT", description="Binance symbol to trade")
+    display_symbol: str = Field(default="ETHUSD", description="Symbol name in messages")
+    interval_minutes: int = Field(default=15, description="Check interval in minutes")
+    min_fvg_usd: float = Field(default=2.0, description="Minimum FVG size in USD")
+    sl_buffer_usd: float = Field(default=2.0, description="SL buffer beyond pivot, USD")
+    min_rr: float = Field(default=2.0, description="Minimum risk/reward ratio")
+    risk_pct: float = Field(default=2.0, description="Risk percent per trade")
+    deposit: Optional[float] = Field(
+        default=None, description="Deposit size in USD for lot calculation"
+    )
+    enforce_sessions: bool = Field(
+        default=True, description="Only look for entries inside session windows"
+    )
+    notify_no_setup: bool = Field(
+        default=False, description="Also send Telegram messages when no setup is found"
+    )
+    chat_id: Optional[str] = Field(
+        default=None, description="Telegram chat id override (falls back to TELEGRAM_CHAT_ID)"
+    )
+
+    model_config = SettingsConfigDict(env_prefix="SMC_")
 
 
 class SecuritySettings(BaseSettings):
@@ -173,6 +216,7 @@ class Settings(BaseSettings):
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     api: APISettings = Field(default_factory=APISettings)
     chart: ChartSettings = Field(default_factory=ChartSettings)
+    smc: SMCSettings = Field(default_factory=SMCSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)

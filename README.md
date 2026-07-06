@@ -280,6 +280,42 @@ Once the application is running, visit:
 - `DELETE /api/v1/telegram/webhook` - Delete webhook
 - `POST /api/v1/telegram/test-message` - Send test message
 
+## 📉 SMC Strategy Watcher (Triple Sync + Imbalance)
+
+A standalone watcher that runs the **Triple Sync + Imbalance** SMC strategy for
+**ETHUSD** every 15 minutes and sends a Telegram alert when a valid setup is found.
+
+### How it works
+
+Every 15 minutes (aligned to :00/:15/:30/:45) the watcher:
+
+1. Checks the session filter (Prague time windows; entries only during
+   Frankfurt/London and NY sessions).
+2. Fetches H4 / H1 / M5 candles from Binance (no API key needed).
+3. Runs the rule checklist: H4 trend (HH+HL / LH+LL), H1 untested Demand/Supply
+   zone, M5 pullback → CHoCH trigger, FVG validation (≥ $2, fill < 50%,
+   same-session), SL behind the confirmed M5 pivot (+$2 buffer), TP at the
+   nearest untested opposite zone, RR ≥ 1:2, funding rate advisory.
+4. If everything passes — sends a Telegram message with entry / SL / TP / RR
+   (and a position size hint if `SMC_DEPOSIT` is set). The same setup is never
+   reported twice in one session.
+
+### Running
+
+```bash
+# single check (prints the analysis, sends Telegram only if a setup is found)
+python smc_watcher.py --once
+
+# run forever (every 15 minutes)
+python smc_watcher.py
+
+# or via Docker Compose
+docker-compose up -d smc-watcher
+```
+
+Required environment: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (or `SMC_CHAT_ID`).
+All tunables are documented in `env.example` under `SMC_*`.
+
 ## 🤖 Telegram Bot Commands
 
 - `/start` - Welcome message and bot introduction
@@ -343,6 +379,23 @@ docker-compose -f docker-compose.prod.yml up -d
 # Scale services
 docker-compose up -d --scale app=3
 ```
+
+### Railway Deployment
+
+The app is Railway-ready: Redis and Postgres are **optional** — without them it
+runs with SQLite and no cache. Sync-style URLs (`postgres://`, `redis://`) that
+Railway provides are handled automatically.
+
+1. **Main bot service**: create a service from this repo (Railway detects the
+   Dockerfile). Set variables:
+   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+   - optional Redis: add a Redis service, then set `REDIS_URL = ${{Redis.REDIS_URL}}`
+   - optional Postgres: add a Postgres service, then set `DATABASE_URL = ${{Postgres.DATABASE_URL}}`
+2. **SMC watcher service**: create a second service from the same repo, set the
+   Custom Start Command to `python smc_watcher.py` and add
+   `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (Redis/Postgres not needed).
+
+Set `REDIS_REQUIRED=true` only if you want startup to fail without Redis.
 
 ### Environment-Specific Configurations
 

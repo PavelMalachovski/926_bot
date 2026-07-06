@@ -33,14 +33,34 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def _to_async_url(url: str) -> str:
+    """Normalize a database URL to an async driver (migrations use AsyncEngine).
+
+    Railway/Heroku provide sync-style URLs like postgres://... or
+    postgresql://... — rewrite them to postgresql+asyncpg://.
+    """
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("sqlite://"):
+        return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    return url
+
+
 def get_url():
     """Get database URL from environment or config."""
-    # Try environment variable first
-    database_url = os.getenv("DATABASE_URL")
+    # Full URL from the platform (Railway/Heroku) or app config
+    database_url = os.getenv("DATABASE_URL") or os.getenv("DB_URL")
     if database_url:
-        return database_url
+        return _to_async_url(database_url)
 
-    # Try individual environment variables
+    # No database configured at all: fall back to the app's SQLite default
+    # instead of a localhost Postgres that cannot exist.
+    if not os.getenv("DB_HOST"):
+        return "sqlite+aiosqlite:///./forex_bot.db"
+
+    # Individual environment variables (docker-compose style)
     db_host = os.getenv("DB_HOST", "localhost")
     db_port = os.getenv("DB_PORT", "5432")
     db_name = os.getenv("DB_NAME", "forex_bot")
@@ -49,9 +69,9 @@ def get_url():
 
     # Construct URL
     if db_password:
-        return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        return f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     else:
-        return f"postgresql://{db_user}@{db_host}:{db_port}/{db_name}"
+        return f"postgresql+asyncpg://{db_user}@{db_host}:{db_port}/{db_name}"
 
 
 def run_migrations_offline() -> None:
