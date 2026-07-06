@@ -50,17 +50,15 @@ class CacheService:
                 decode_responses=True,
             )
 
-            # Create main Redis client
+            # Create main Redis client (protocol/RESP3 kwarg needs redis-py 5+,
+            # requirements pin redis 4.x)
             self.redis_client = redis.Redis(
                 connection_pool=self.connection_pool,
-                protocol=3,  # Use RESP3 for better performance
                 retry_on_timeout=True,
             )
 
             # Create separate client for Pub/Sub
-            self.pubsub_client = redis.Redis(
-                connection_pool=self.connection_pool, protocol=3
-            )
+            self.pubsub_client = redis.Redis(connection_pool=self.connection_pool)
 
             # Test connection with timeout
             await asyncio.wait_for(self.redis_client.ping(), timeout=5.0)

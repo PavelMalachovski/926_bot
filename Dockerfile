@@ -26,10 +26,12 @@ RUN pip install --upgrade pip && \
 # Production stage
 FROM python:3.11-slim as production
 
-# Set environment variables
+# Set environment variables (MPLCONFIGDIR: writable matplotlib cache for
+# the non-root user)
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/opt/venv/bin:$PATH"
+    PATH="/opt/venv/bin:$PATH" \
+    MPLCONFIGDIR=/tmp/matplotlib
 
 # Install runtime dependencies including Redis client
 RUN apt-get update && apt-get install -y \

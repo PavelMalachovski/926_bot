@@ -572,14 +572,51 @@ class TelegramService:
             raise
 
     async def send_message(
-        self, chat_id: int, message: str, parse_mode: str = "MarkdownV2"
+        self,
+        chat_id: int,
+        message: str,
+        parse_mode: str = "HTML",
+        reply_markup: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Send a message to a Telegram chat."""
         try:
-            return await self.bot_manager.send_message(chat_id, message, parse_mode)
+            return await self.bot_manager.send_message(
+                chat_id, message, parse_mode, reply_markup
+            )
         except Exception as e:
             logger.error("Failed to send message", chat_id=chat_id, error=str(e))
             return False
+
+    async def answer_callback_query(
+        self,
+        callback_query_id: str,
+        text: Optional[str] = None,
+        show_alert: bool = False,
+    ) -> bool:
+        """Answer a callback query."""
+        try:
+            return await self.bot_manager.answer_callback_query(
+                callback_query_id, text, show_alert
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to answer callback query",
+                callback_query_id=callback_query_id,
+                error=str(e),
+            )
+            return False
+
+    async def set_webhook(self, url: str, secret_token: Optional[str] = None) -> bool:
+        """Set webhook URL."""
+        try:
+            return await self.bot_manager.set_webhook(url, secret_token)
+        except Exception as e:
+            logger.error("Failed to set webhook", url=url, error=str(e))
+            return False
+
+    def validate_webhook_secret(self, received_secret: str) -> bool:
+        """Validate webhook secret token."""
+        return self.bot_manager.validate_webhook_secret(received_secret)
 
     async def send_formatted_message(self, chat_id: int, message: str) -> bool:
         """Send a formatted message to a Telegram chat."""
