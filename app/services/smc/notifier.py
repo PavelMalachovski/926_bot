@@ -12,9 +12,39 @@ logger = structlog.get_logger(__name__)
 TREND_RU = {Trend.UP: "аптренд", Trend.DOWN: "даунтренд", Trend.FLAT: "флет"}
 
 
+URGENT_HEADER = (
+    "🚨🚨🚨 <b>СРОЧНО! НАЙДЕН СЕТАП — МОЖНО ВХОДИТЬ В СДЕЛКУ!</b> 🚨🚨🚨"
+)
+
+
+def format_no_setup(result: AnalysisResult) -> str:
+    """Compact 15-minute heartbeat when there is no setup."""
+    time_str = result.checked_at.strftime("%H:%M UTC")
+    if result.verdict == Verdict.OFF_SESSION:
+        return (
+            f"😴 {result.symbol} {time_str} — вне сессии, входы запрещены. "
+            "Проверю снова через 15 минут."
+        )
+    reason = result.reasons[0] if result.reasons else "условия не выполнены"
+    return f"🔍 {result.symbol} {time_str} — сетапа нет. {reason}."
+
+
+def format_setup_still_active(result: AnalysisResult) -> str:
+    """Short reminder when the previously reported setup is still valid."""
+    time_str = result.checked_at.strftime("%H:%M UTC")
+    return (
+        f"⏳ {result.symbol} {time_str} — сетап, о котором я писал ранее, "
+        "всё ещё активен. Новых сетапов нет."
+    )
+
+
 def format_result(result: AnalysisResult) -> str:
     """Render an AnalysisResult as an HTML Telegram message (Шаблон A/В)."""
-    lines = [f"<b>{result.symbol}</b> — Triple Sync + Imbalance"]
+    lines = []
+    if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
+        lines.append(URGENT_HEADER)
+        lines.append("")
+    lines.append(f"<b>{result.symbol}</b> — Triple Sync + Imbalance")
     lines.append(
         f"🕐 {result.checked_at.strftime('%d.%m.%Y %H:%M UTC')}"
         + (f" | Сессия: {result.session_name}" if result.session_name else "")

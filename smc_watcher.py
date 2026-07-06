@@ -22,7 +22,12 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.models import AnalysisResult, Verdict
-from app.services.smc.notifier import TelegramNotifier, format_result
+from app.services.smc.notifier import (
+    TelegramNotifier,
+    format_no_setup,
+    format_result,
+    format_setup_still_active,
+)
 
 configure_logging()
 logger = structlog.get_logger("smc_watcher")
@@ -101,13 +106,16 @@ async def run_check(
     if approved:
         fingerprint = _setup_fingerprint(result)
         if state.get("last_setup") == fingerprint:
-            logger.info("Setup already reported this session, skipping resend")
+            logger.info("Setup already reported this session")
+            if settings.smc.notify_no_setup:
+                await notifier.send(format_setup_still_active(result))
             return result
         if await notifier.send(format_result(result)):
             state["last_setup"] = fingerprint
             _save_state(state)
-    elif settings.smc.notify_no_setup and result.verdict != Verdict.OFF_SESSION:
-        await notifier.send(format_result(result))
+    elif settings.smc.notify_no_setup:
+        # 15-minute heartbeat: "checked, no setup"
+        await notifier.send(format_no_setup(result))
 
     return result
 
@@ -138,6 +146,22 @@ async def main_loop() -> None:
         await asyncio.sleep(_seconds_until_next_slot(interval))
 
 
+async def run_telegram_test() -> None:
+    """Send sample messages to verify the Telegram wiring end-to-end."""
+    from app.services.smc.notifier import URGENT_HEADER
+
+    notifier = _build_notifier()
+    samples = [
+        "🧪 <b>ТЕСТ SMC-вотчера</b> — связь с Telegram работает.",
+        f"{URGENT_HEADER}\n\n🧪 ТЕСТ: так будет выглядеть срочное сообщение "
+        "о найденном сетапе (это НЕ реальный сигнал).",
+        "🔍 ETHUSD 12:00 UTC — сетапа нет. ТЕСТ: так выглядит 15-минутный отчёт.",
+    ]
+    for text in samples:
+        ok = await notifier.send(text)
+        print(f"Telegram: {'sent' if ok else 'FAILED'} — {text[:50]}...")
+
+
 async def run_once() -> None:
     engine = _build_engine()
     result = await engine.analyze()
@@ -154,8 +178,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--once", action="store_true", help="run a single check and exit"
     )
+    parser.add_argument(
+        "--test-telegram",
+        action="store_true",
+        help="send test messages to verify Telegram wiring and exit",
+    )
     args = parser.parse_args()
     try:
-        asyncio.run(run_once() if args.once else main_loop())
+        if args.test_telegram:
+            asyncio.run(run_telegram_test())
+        elif args.once:
+            asyncio.run(run_once())
+        else:
+            asyncio.run(main_loop())
     except KeyboardInterrupt:
         sys.exit(0)

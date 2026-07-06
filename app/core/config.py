@@ -127,7 +127,7 @@ class SMCSettings(BaseSettings):
         default=True, description="Only look for entries inside session windows"
     )
     notify_no_setup: bool = Field(
-        default=False, description="Also send Telegram messages when no setup is found"
+        default=True, description="Also send Telegram messages when no setup is found"
     )
     chat_id: Optional[str] = Field(
         default=None, description="Telegram chat id override (falls back to TELEGRAM_CHAT_ID)"
