@@ -49,8 +49,9 @@ def format_result(result: AnalysisResult) -> str:
         f"🕐 {result.checked_at.strftime('%d.%m.%Y %H:%M UTC')}"
         + (f" | Сессия: {result.session_name}" if result.session_name else "")
     )
+    d = result.price_decimals
     if result.price:
-        lines.append(f"💵 Цена: {result.price:.2f}")
+        lines.append(f"💵 Цена: {result.price:.{d}f}")
     lines.append("")
     lines.append(f"<b>Диагноз H4:</b> {TREND_RU[result.h4_trend]}")
 
@@ -58,7 +59,7 @@ def format_result(result: AnalysisResult) -> str:
         zone_kind = "Demand" if result.h1_zone.is_demand else "Supply"
         lines.append(
             f"<b>Зона H1 ({zone_kind}):</b> "
-            f"{result.h1_zone.bottom:.2f}–{result.h1_zone.top:.2f}"
+            f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
         )
 
     if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
@@ -66,19 +67,21 @@ def format_result(result: AnalysisResult) -> str:
         side = "Buy" if setup.direction == Direction.LONG else "Sell"
         lines.append(
             f"<b>Triple Sync:</b> Подтверждён ✅ | "
-            f"<b>FVG:</b> ${setup.fvg.size:.2f}, заполнение {setup.fvg.fill_pct * 100:.0f}%"
+            f"<b>FVG:</b> {setup.fvg.size:.{d}f}, заполнение {setup.fvg.fill_pct * 100:.0f}%"
         )
         lines.append("")
         lines.append("<b>Вердикт Бати:</b>")
         if result.verdict == Verdict.APPROVED_MARKET:
             lines.append(
-                f"✅ APPROVED (Market) — {side} сейчас по ~{result.price:.2f} "
-                f"(цена в зоне FVG {setup.fvg.bottom:.2f}–{setup.fvg.top:.2f})"
+                f"✅ APPROVED (Market) — {side} сейчас по ~{result.price:.{d}f} "
+                f"(цена в зоне FVG {setup.fvg.bottom:.{d}f}–{setup.fvg.top:.{d}f})"
             )
-            lines.append(f"   Альтернатива: {side} Limit {setup.entry:.2f}")
+            lines.append(f"   Альтернатива: {side} Limit {setup.entry:.{d}f}")
         else:
-            lines.append(f"✅ APPROVED (Limit) — {side} Limit: {setup.entry:.2f}")
-        lines.append(f"🛑 SL: {setup.stop_loss:.2f} | 🎯 TP: {setup.take_profit:.2f}")
+            lines.append(f"✅ APPROVED (Limit) — {side} Limit: {setup.entry:.{d}f}")
+        lines.append(
+            f"🛑 SL: {setup.stop_loss:.{d}f} | 🎯 TP: {setup.take_profit:.{d}f}"
+        )
         lines.append(f"📐 RR: 1:{setup.rr:.1f}")
         if setup.lot_hint:
             lines.append(f"⚖️ Лот: {setup.lot_hint}")

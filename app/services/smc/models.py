@@ -122,3 +122,4 @@ class AnalysisResult:
     reasons: List[str] = field(default_factory=list)
     watch_notes: List[str] = field(default_factory=list)
     session_name: Optional[str] = None
+    price_decimals: int = 2

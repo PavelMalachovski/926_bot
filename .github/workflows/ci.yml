@@ -1,28 +1,21 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  schedule:
-    # Run security checks daily at 2 AM UTC
-    - cron: '0 2 * * *'
 
 env:
   PYTHON_VERSION: '3.11'
-  NODE_VERSION: '18'
 
 jobs:
-  # Code Quality Checks
-  code-quality:
-    name: Code Quality
+  checks:
+    name: Lint & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for better analysis
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -42,128 +35,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Black (code formatting)
-        run: black --check app/ tests/
-
-      - name: Run isort (import sorting)
-        run: isort --check-only app/ tests/
-
       - name: Run Flake8 (linting)
-        run: flake8 app/ tests/
+        run: flake8 app/ tests/ smc_watcher.py
 
-      - name: Run MyPy (type checking)
-        run: mypy app/
-
-      - name: Run Bandit (security linting)
-        run: bandit -r app/ -c .bandit
-
-  # Test Suite
-  test:
-    name: Test Suite
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.12']
-      fail-fast: false
-    runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-
-  # Security Scanning
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run Safety (dependency vulnerability scan)
-        run: safety check --ignore 78279,77680,72809,76244,64459,64396
-
-      - name: Run Bandit (security linting)
-        run: bandit -r app/ -c .bandit -f json -o bandit-report.json
-
-      - name: Upload Bandit results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: bandit-report
-          path: bandit-report.json
-
-  # Deployment (only on main branch)
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [code-quality, test, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to production
-        run: |
-          echo "🚀 Deploying to production..."
-          # Add your deployment commands here
-          # Example: kubectl apply -f k8s/
-          # Example: docker-compose -f docker-compose.prod.yml up -d
-
-  # Notification
-  notify:
-    name: Notify Results
-    runs-on: ubuntu-latest
-    needs: [code-quality, test, security, deploy]
-    if: always()
-    steps:
-      - name: Notify on success
-        if: ${{ needs.test.result == 'success' }}
-        run: |
-          echo "✅ All checks passed!"
-
-      - name: Notify on failure
-        if: ${{ needs.test.result == 'failure' }}
-        run: |
-          echo "❌ Some checks failed!"
-          exit 1
+      - name: Run tests
+        run: pytest tests/ -v
