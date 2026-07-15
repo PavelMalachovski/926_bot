@@ -48,25 +48,35 @@ def detect_trend(candles: List[Candle]) -> Trend:
     ll = lows[-1].price < lows[-2].price
 
     if hh and hl:
-        # CHoCH check: a body close below the last HL breaks the uptrend.
-        if _body_closed_beyond(candles, lows[-1], below=True):
+        # CHoCH check: a body close below the last HL breaks the uptrend —
+        # but only while price still holds beyond the level. A fakeout that
+        # was reclaimed does not kill the trend forever.
+        if _break_still_holds(candles, lows[-1], below=True):
             return Trend.FLAT
         return Trend.UP
     if lh and ll:
-        if _body_closed_beyond(candles, highs[-1], below=False):
+        if _break_still_holds(candles, highs[-1], below=False):
             return Trend.FLAT
         return Trend.DOWN
     return Trend.FLAT
 
 
-def _body_closed_beyond(candles: List[Candle], pivot: Pivot, below: bool) -> bool:
-    """True if any candle after the pivot closed its body beyond the pivot level."""
+def _break_still_holds(candles: List[Candle], pivot: Pivot, below: bool) -> bool:
+    """True if a body closed beyond the pivot level and price has not
+    reclaimed it since (the structural break is still in force)."""
+    broken = False
     for c in candles[pivot.index + 1 :]:
-        if below and c.body_low < pivot.price and c.close < pivot.price:
-            return True
-        if not below and c.body_high > pivot.price and c.close > pivot.price:
-            return True
-    return False
+        if below:
+            if c.close < pivot.price and c.body_low < pivot.price:
+                broken = True
+            elif broken and c.close > pivot.price:
+                broken = False  # level reclaimed
+        else:
+            if c.close > pivot.price and c.body_high > pivot.price:
+                broken = True
+            elif broken and c.close < pivot.price:
+                broken = False
+    return broken
 
 
 def build_zone(candles: List[Candle], pivot: Pivot) -> Zone:

@@ -30,6 +30,7 @@ from app.core.logging import configure_logging
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
+from app.services.smc.journal import SignalJournal
 from app.services.smc.models import AnalysisResult, Direction, Verdict
 from app.services.smc.notifier import (
     TelegramNotifier,
@@ -50,6 +51,7 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 STATE_FILE = os.getenv("SMC_STATE_FILE", ".smc_watcher_state.json")
+JOURNAL_FILE = os.getenv("SMC_JOURNAL_FILE", ".smc_journal.json")
 
 APPROVED = (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
 
@@ -127,12 +129,14 @@ class Watcher:
         if not chat_id:
             raise RuntimeError("Set TELEGRAM_CHAT_ID (or SMC_CHAT_ID)")
         self.notifier = TelegramNotifier(bot_token=token, chat_id=chat_id)
+        self.journal = SignalJournal(JOURNAL_FILE)
         self.bot = TelegramCommandBot(
             bot_token=token,
             owner_chat_id=chat_id,
             state=self.state,
             run_cycle=self.run_cycle,
             status_text=self.status_text,
+            stats_text=self.journal.stats_text,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply env default on first ever start (state file wins afterwards)
@@ -184,12 +188,15 @@ class Watcher:
                     if await self.notifier.send(format_result(result)):
                         self.state.last_setup[key] = fingerprint
                         self.state.save()
+                    self.journal.record(result)
                     heartbeat_lines.append(f"🚨 {key}: СЕТАП НАЙДЕН — детали выше!")
             else:
                 heartbeat_lines.append(line)
 
         for warning in _correlation_warnings(approved):
             await self.notifier.send(warning)
+
+        await self._track_journal()
 
         time_str = datetime.now(tz=timezone.utc).strftime("%H:%M UTC")
         summary = f"🔍 <b>Проверка {time_str}</b>\n" + "\n".join(heartbeat_lines)
@@ -198,6 +205,17 @@ class Watcher:
         if settings.smc.notify_no_setup and not approved:
             await self.notifier.send(summary)
         return summary
+
+    async def _track_journal(self) -> None:
+        """Advance unresolved journal signals using fresh M5 candles."""
+        for pair in self.journal.unresolved_pairs():
+            try:
+                fetcher = _build_fetcher(get_instrument(pair))
+                candles = await fetcher.fetch_candles("5m", limit=400)
+            except Exception as e:
+                logger.warning("Journal update failed", pair=pair, error=str(e))
+                continue
+            self.journal.update_pair(pair, candles)
 
     # ---------------------------------------------------------------- status
 
@@ -221,16 +239,25 @@ class Watcher:
     # ------------------------------------------------------------- scheduler
 
     async def scheduler_loop(self) -> None:
-        interval = settings.smc.interval_minutes
+        session_interval = settings.smc.session_interval_minutes
+        off_interval = settings.smc.interval_minutes
         logger.info(
-            "SMC watcher started", pairs=self.state.pairs, interval_minutes=interval
+            "SMC watcher started",
+            pairs=self.state.pairs,
+            session_interval_minutes=session_interval,
+            off_session_interval_minutes=off_interval,
         )
         while True:
             try:
                 await self.run_cycle()
             except Exception as e:
                 logger.error("SMC cycle failed", error=str(e), exc_info=True)
-            await asyncio.sleep(_seconds_until_next_slot(interval))
+            # M5 cadence inside sessions, relaxed outside. Session windows
+            # start on the hour, so the coarse grid never misses an open.
+            now = datetime.now(tz=timezone.utc)
+            interval = session_interval if active_session(now) else off_interval
+            # +10s so the just-closed M5 candle is already served by the APIs
+            await asyncio.sleep(_seconds_until_next_slot(interval) + 10)
 
     async def run_forever(self) -> None:
         await asyncio.gather(self.scheduler_loop(), self.bot.run())

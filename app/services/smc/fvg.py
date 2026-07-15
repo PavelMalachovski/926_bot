@@ -3,7 +3,7 @@
 from typing import List, Optional
 
 from app.services.smc.models import Candle, Direction, FVG
-from app.services.smc.sessions import same_session
+from app.services.smc.sessions import same_session, same_trading_day
 
 
 def find_fvgs(
@@ -69,21 +69,26 @@ def select_valid_fvg(
     from_index: int,
     min_size: float,
     max_fill: float = 0.5,
+    same_day_scope: bool = False,
 ) -> Optional[FVG]:
     """Return the first FVG of the impulse passing all Rule 4 validations.
 
     The earliest gap of the impulse leg is the trigger (best entry price).
-    Checks: minimum size, fill < max_fill, not closed through, formed in the
-    same session as the latest candle (no London -> NY carry-over).
+    Checks: minimum size, fill < max_fill, not closed through, session scope.
+
+    Session scope: forex FVGs must be formed in the same session as the
+    latest candle (no London -> NY carry-over); for 24/7 crypto pass
+    same_day_scope=True — the FVG stays valid for the whole Prague day.
     """
     now = candles[-1].timestamp
+    in_scope = same_trading_day if same_day_scope else same_session
     for fvg in find_fvgs(candles, direction, from_index):
         if fvg.size < min_size:
             continue
         fvg = measure_fill(candles, fvg)
         if fvg.closed_through or fvg.fill_pct >= max_fill:
             continue
-        if not same_session(fvg.timestamp, now):
+        if not in_scope(fvg.timestamp, now):
             continue
         return fvg
     return None
