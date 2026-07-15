@@ -18,6 +18,8 @@ class WatcherState:
         self.path = path
         self.pairs: List[str] = list(DEFAULT_PAIRS)
         self.last_setup: Dict[str, str] = {}  # pair -> fingerprint
+        self.last_digest_date: str = ""  # Prague date of the last morning digest
+        self.news_warned: Dict[str, str] = {}  # Rule 0.4 dedup: key -> iso time
         self._load()
 
     def _load(self) -> None:
@@ -30,11 +32,21 @@ class WatcherState:
         if pairs:
             self.pairs = pairs
         self.last_setup = dict(data.get("last_setup", {}))
+        self.last_digest_date = data.get("last_digest_date", "")
+        self.news_warned = dict(data.get("news_warned", {}))
 
     def save(self) -> None:
         try:
             with open(self.path, "w", encoding="utf-8") as f:
-                json.dump({"pairs": self.pairs, "last_setup": self.last_setup}, f)
+                json.dump(
+                    {
+                        "pairs": self.pairs,
+                        "last_setup": self.last_setup,
+                        "last_digest_date": self.last_digest_date,
+                        "news_warned": self.news_warned,
+                    },
+                    f,
+                )
         except OSError as e:
             logger.warning("Failed to persist watcher state", error=str(e))
 

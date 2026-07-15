@@ -59,6 +59,18 @@ class SMCSettings(BaseSettings):
         default=None,
         description="Telegram chat id override (falls back to TELEGRAM_CHAT_ID)",
     )
+    news_enabled: bool = Field(
+        default=True, description="Block entries around Forex Factory red news"
+    )
+    news_digest: bool = Field(
+        default=True, description="Send a morning red-news digest (~07:15 Prague)"
+    )
+    news_blackout_before_min: int = Field(
+        default=60, description="No-entry window before a red news release, minutes"
+    )
+    news_blackout_after_min: int = Field(
+        default=15, description="No-entry window after a red news release, minutes"
+    )
 
     def default_pairs(self) -> list[str]:
         return [p.strip().upper() for p in self.pairs.split(",") if p.strip()]

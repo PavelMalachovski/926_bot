@@ -34,7 +34,19 @@ Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`)
 | `/status` | enabled pairs, current session, last verdicts |
 | `/check` | run the full strategy check right now |
 | `/stats` | signal journal: setups, TP/SL outcomes, winrate per pair |
+| `/news` | today's red news (Forex Factory) and blackout windows |
 | `/help` | command list |
+
+## Red-news filter (Forex Factory)
+
+The official FF weekly JSON feed is fetched every morning (and every ~6h).
+Entries are blocked **60 min before** and **15 min after** every high-impact
+event: forex pairs react to news for either of their currencies, ETHUSD only
+to USD news. A morning digest of today's red news is sent at ~07:15 Prague
+(`SMC_NEWS_DIGEST=false` to disable). Rule 0.4: if a journal signal is active
+(pending/open) and red news is ≤30 min away, the bot sends a "SL to breakeven /
+pull the order" warning. Tunables: `SMC_NEWS_BLACKOUT_BEFORE_MIN` (60),
+`SMC_NEWS_BLACKOUT_AFTER_MIN` (15), `SMC_NEWS_ENABLED` (true).
 
 ## Signal journal
 
