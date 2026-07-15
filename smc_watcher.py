@@ -20,7 +20,7 @@ import argparse
 import asyncio
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 import structlog
@@ -31,6 +31,7 @@ from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
 from app.services.smc.journal import SignalJournal
+from app.services.smc.news import NewsCalendar, relevant_currencies
 from app.services.smc.models import AnalysisResult, Direction, Verdict
 from app.services.smc.notifier import (
     TelegramNotifier,
@@ -39,7 +40,7 @@ from app.services.smc.notifier import (
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.yahoo import YahooDataFetcher
-from app.services.smc.sessions import active_session
+from app.services.smc.sessions import active_session, to_prague
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
 
@@ -130,6 +131,14 @@ class Watcher:
             raise RuntimeError("Set TELEGRAM_CHAT_ID (or SMC_CHAT_ID)")
         self.notifier = TelegramNotifier(bot_token=token, chat_id=chat_id)
         self.journal = SignalJournal(JOURNAL_FILE)
+        self.news = (
+            NewsCalendar(
+                before_minutes=settings.smc.news_blackout_before_min,
+                after_minutes=settings.smc.news_blackout_after_min,
+            )
+            if settings.smc.news_enabled
+            else None
+        )
         self.bot = TelegramCommandBot(
             bot_token=token,
             owner_chat_id=chat_id,
@@ -137,6 +146,7 @@ class Watcher:
             run_cycle=self.run_cycle,
             status_text=self.status_text,
             stats_text=self.journal.stats_text,
+            news_text=self.news_text,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply env default on first ever start (state file wins afterwards)
@@ -172,10 +182,19 @@ class Watcher:
         if not self.state.pairs:
             return "⚠️ Нет активных пар — включи хотя бы одну через /pairs"
 
+        if self.news:
+            await self.news.refresh_if_stale()
+            await self._send_morning_digest()
+            await self._rule_04_warnings()
+
         heartbeat_lines: List[str] = []
         approved: List[AnalysisResult] = []
 
         for key in list(self.state.pairs):
+            blackout = self._news_blackout(key)
+            if blackout:
+                heartbeat_lines.append(blackout)
+                continue
             line, result = await self.check_pair(key)
             if result and result.verdict in APPROVED:
                 fingerprint = _setup_fingerprint(result)
@@ -205,6 +224,83 @@ class Watcher:
         if settings.smc.notify_no_setup and not approved:
             await self.notifier.send(summary)
         return summary
+
+    # ------------------------------------------------------------------ news
+
+    def _news_blackout(self, key: str) -> Optional[str]:
+        """Heartbeat line if the pair is inside a red-news blackout window."""
+        if not self.news:
+            return None
+        instrument = get_instrument(key)
+        event = self.news.blackout(relevant_currencies(instrument))
+        if not event:
+            return None
+        logger.info(
+            "News blackout", pair=key, event=event.title, currency=event.currency
+        )
+        return (
+            f"⛔ {key}: блэкаут — 🔴 {event.title} ({event.currency}) "
+            f"в {event.prague_hhmm()} Праги, входы запрещены"
+        )
+
+    async def _send_morning_digest(self) -> None:
+        """Once a day before the session: today's red news (Правило -1)."""
+        if not settings.smc.news_digest or self.news.fetched_at is None:
+            return
+        local = to_prague(datetime.now(tz=timezone.utc))
+        today = local.date().isoformat()
+        if self.state.last_digest_date == today or local.hour < 7:
+            return
+        currencies = set()
+        for key in self.state.pairs:
+            currencies |= relevant_currencies(get_instrument(key))
+        await self.notifier.send(self.news.digest_text(currencies))
+        self.state.last_digest_date = today
+        self.state.save()
+
+    async def _rule_04_warnings(self) -> None:
+        """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""
+        now = datetime.now(tz=timezone.utc)
+        horizon = timedelta(minutes=30)
+        for signal in self.journal.signals:
+            if signal["status"] not in ("pending", "open"):
+                continue
+            instrument = get_instrument(signal["pair"])
+            for event in self.news.upcoming(relevant_currencies(instrument), horizon):
+                warn_key = f"{signal['id']}:{event.time.isoformat()}"
+                if warn_key in self.state.news_warned:
+                    continue
+                minutes_left = int((event.time - now).total_seconds() // 60)
+                action = (
+                    "переведи SL в безубыток"
+                    if signal["status"] == "open"
+                    else "удали отложенный ордер"
+                )
+                await self.notifier.send(
+                    f"⚠️ <b>ПРАВИЛО 0.4:</b> {signal['pair']} — 🔴 {event.title} "
+                    f"({event.currency}) через {minutes_left} мин "
+                    f"({event.prague_hhmm()} Праги). У тебя "
+                    f"{'открытая позиция' if signal['status'] == 'open' else 'активная лимитка'} "
+                    f"— {action}!"
+                )
+                self.state.news_warned[warn_key] = now.isoformat()
+        # prune dedup keys older than 2 days
+        cutoff = now - timedelta(days=2)
+        self.state.news_warned = {
+            k: v
+            for k, v in self.state.news_warned.items()
+            if datetime.fromisoformat(v) > cutoff
+        }
+        self.state.save()
+
+    def news_text(self) -> str:
+        """/news command."""
+        if not self.news:
+            return "Новостной фильтр выключен (SMC_NEWS_ENABLED=false)."
+        currencies = set()
+        for key in self.state.pairs:
+            currencies |= relevant_currencies(get_instrument(key))
+        return self.news.digest_text(currencies)
 
     async def _track_journal(self) -> None:
         """Advance unresolved journal signals using fresh M5 candles."""
