@@ -23,16 +23,16 @@ logger = structlog.get_logger(__name__)
 
 HELP_TEXT = (
     "<b>SMC Watcher</b> — Triple Sync + Imbalance\n\n"
-    "Каждые 15 минут проверяю выбранные пары и присылаю:\n"
-    "🚨 срочный сигнал, когда найден сетап\n"
-    "🔍 короткий отчёт, когда сетапа нет\n\n"
-    "<b>Команды:</b>\n"
-    "/pairs — выбрать валютные пары\n"
-    "/status — текущие настройки и последние вердикты\n"
-    "/check — проверить сетапы прямо сейчас\n"
-    "/stats — журнал сигналов: сколько сетапов, TP/SL, винрейт\n"
-    "/news — красные новости на сегодня (Forex Factory)\n"
-    "/help — эта справка"
+    "I check the selected pairs every 5 minutes during sessions and send:\n"
+    "🚨 an urgent alert when a setup is found\n"
+    "(no-setup checks go to the logs)\n\n"
+    "<b>Commands:</b>\n"
+    "/pairs — choose currency pairs\n"
+    "/status — current settings and last verdicts\n"
+    "/check — run the strategy check right now\n"
+    "/stats — signal journal: setups, TP/SL, winrate\n"
+    "/news — today's red news (Forex Factory)\n"
+    "/help — this help"
 )
 
 
@@ -132,7 +132,7 @@ class TelegramCommandBot:
             await self.send(HELP_TEXT)
         elif command == "/pairs":
             await self.send(
-                "Выбери пары для отслеживания (жми, чтобы включить/выключить):",
+                "Select pairs to watch (tap to toggle):",
                 reply_markup=self._pairs_keyboard(),
             )
         elif command == "/status":
@@ -141,18 +141,18 @@ class TelegramCommandBot:
             if self.stats_text:
                 await self.send(self.stats_text())
             else:
-                await self.send("Журнал недоступен.")
+                await self.send("Journal is not available.")
         elif command == "/news":
             if self.news_text:
                 await self.send(self.news_text())
             else:
-                await self.send("Новостной фильтр недоступен.")
+                await self.send("News filter is not available.")
         elif command == "/check":
-            await self.send("⏳ Проверяю сетапы, секунду...")
+            await self.send("⏳ Checking setups, one moment...")
             summary = await self.run_cycle()
             await self.send(summary)
         elif command:
-            await self.send("Не знаю такой команды. /help — список команд.")
+            await self.send("Unknown command. /help for the list.")
 
     async def _handle_callback(self, callback: Dict) -> None:
         data = callback.get("data", "")
@@ -161,9 +161,9 @@ class TelegramCommandBot:
             key = data[5:]
             try:
                 enabled = self.state.toggle_pair(key)
-                answer["text"] = f"{key}: {'✅ включена' if enabled else '⛔ выключена'}"
+                answer["text"] = f"{key}: {'✅ enabled' if enabled else '⛔ disabled'}"
             except KeyError:
-                answer["text"] = f"Неизвестная пара {key}"
+                answer["text"] = f"Unknown pair {key}"
             # refresh the keyboard in place
             message = callback.get("message", {})
             if message:

@@ -28,6 +28,7 @@ import structlog
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.services.smc.data import BinanceDataFetcher
+from app.services.smc.db import Database, migrate_legacy_json
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
 from app.services.smc.journal import SignalJournal
@@ -51,6 +52,8 @@ logger = structlog.get_logger("smc_watcher")
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+DB_FILE = os.getenv("SMC_DB_FILE", ".smc_watcher.db")
+# legacy JSON files, imported into SQLite once if present
 STATE_FILE = os.getenv("SMC_STATE_FILE", ".smc_watcher_state.json")
 JOURNAL_FILE = os.getenv("SMC_JOURNAL_FILE", ".smc_journal.json")
 
@@ -106,14 +109,14 @@ def _correlation_warnings(approved: List[AnalysisResult]) -> List[str]:
     )
     if eur and gbp and eur == gbp:
         warnings.append(
-            "❌ ПРАВИЛО 9: EURUSD и GBPUSD в одном направлении — запрещённая "
-            "комбинация (корреляция ~0.90). Выбери ОДНУ из пар."
+            "❌ RULE 9: EURUSD and GBPUSD in the same direction — forbidden "
+            "combination (correlation ~0.90). Pick ONE of the pairs."
         )
     for sym, d in (("EURUSD", eur), ("GBPUSD", gbp)):
         if d and jpy and d != jpy:
             warnings.append(
-                f"❌ ПРАВИЛО 9: {sym} {d.value} + USDJPY {jpy.value} — тройная "
-                "ставка на одну сторону USD. Запрещено."
+                f"❌ RULE 9: {sym} {d.value} + USDJPY {jpy.value} — a triple bet "
+                "on one side of USD. Forbidden."
             )
     return warnings
 
@@ -122,7 +125,9 @@ class Watcher:
     """Owns the state, the 15-minute scheduler and result reporting."""
 
     def __init__(self):
-        self.state = WatcherState(STATE_FILE)
+        self.db = Database(DB_FILE)
+        migrate_legacy_json(self.db, STATE_FILE, JOURNAL_FILE)
+        self.state = WatcherState(self.db)
         chat_id = settings.smc.chat_id or settings.telegram.chat_id
         token = settings.telegram.bot_token
         if not token or token.startswith("your-"):
@@ -130,7 +135,7 @@ class Watcher:
         if not chat_id:
             raise RuntimeError("Set TELEGRAM_CHAT_ID (or SMC_CHAT_ID)")
         self.notifier = TelegramNotifier(bot_token=token, chat_id=chat_id)
-        self.journal = SignalJournal(JOURNAL_FILE)
+        self.journal = SignalJournal(self.db)
         self.news = (
             NewsCalendar(
                 before_minutes=settings.smc.news_blackout_before_min,
@@ -149,8 +154,8 @@ class Watcher:
             news_text=self.news_text,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
-        # apply env default on first ever start (state file wins afterwards)
-        if not os.path.exists(STATE_FILE):
+        # apply the env default on the very first start (DB wins afterwards)
+        if self.db.kv_get("pairs") is None:
             env_pairs = [p for p in settings.smc.default_pairs() if p in INSTRUMENTS]
             if env_pairs:
                 self.state.pairs = env_pairs
@@ -166,7 +171,7 @@ class Watcher:
             result = await engine.analyze()
         except Exception as e:
             logger.error("Pair check failed", pair=key, error=str(e))
-            return f"⚠️ {key}: ошибка данных ({e})", None
+            return f"⚠️ {key}: data error ({e})", None
         self.last_results[key] = result
         logger.info(
             "SMC check finished",
@@ -180,7 +185,7 @@ class Watcher:
     async def run_cycle(self) -> str:
         """Run the strategy for all enabled pairs; send alerts; return summary."""
         if not self.state.pairs:
-            return "⚠️ Нет активных пар — включи хотя бы одну через /pairs"
+            return "⚠️ No active pairs — enable at least one via /pairs"
 
         if self.news:
             await self.news.refresh_if_stale()
@@ -200,7 +205,7 @@ class Watcher:
                 fingerprint = _setup_fingerprint(result)
                 if self.state.last_setup.get(key) == fingerprint:
                     heartbeat_lines.append(
-                        f"⏳ {key}: сетап, о котором писал ранее, всё ещё активен"
+                        f"⏳ {key}: previously reported setup is still active"
                     )
                 else:
                     approved.append(result)
@@ -208,7 +213,7 @@ class Watcher:
                         self.state.last_setup[key] = fingerprint
                         self.state.save()
                     self.journal.record(result)
-                    heartbeat_lines.append(f"🚨 {key}: СЕТАП НАЙДЕН — детали выше!")
+                    heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
             else:
                 heartbeat_lines.append(line)
 
@@ -218,7 +223,7 @@ class Watcher:
         await self._track_journal()
 
         time_str = datetime.now(tz=timezone.utc).strftime("%H:%M UTC")
-        summary = f"🔍 <b>Проверка {time_str}</b>\n" + "\n".join(heartbeat_lines)
+        summary = f"🔍 <b>Check {time_str}</b>\n" + "\n".join(heartbeat_lines)
         logger.info("Cycle summary", summary=" | ".join(heartbeat_lines))
         # By default only setup alerts go to Telegram; the heartbeat is opt-in.
         if settings.smc.notify_no_setup and not approved:
@@ -239,17 +244,24 @@ class Watcher:
             "News blackout", pair=key, event=event.title, currency=event.currency
         )
         return (
-            f"⛔ {key}: блэкаут — 🔴 {event.title} ({event.currency}) "
-            f"в {event.prague_hhmm()} Праги, входы запрещены"
+            f"⛔ {key}: blackout — 🔴 {event.title} ({event.currency}) "
+            f"at {event.prague_hhmm()} Prague, entries blocked"
         )
 
     async def _send_morning_digest(self) -> None:
-        """Once a day before the session: today's red news (Правило -1)."""
+        """Once a day before the session: today's red news (strategy Rule -1)."""
         if not settings.smc.news_digest or self.news.fetched_at is None:
             return
         local = to_prague(datetime.now(tz=timezone.utc))
         today = local.date().isoformat()
-        if self.state.last_digest_date == today or local.hour < 7:
+        try:
+            hh, mm = settings.smc.news_digest_time.split(":")
+            digest_after = local.replace(
+                hour=int(hh), minute=int(mm), second=0, microsecond=0
+            )
+        except ValueError:
+            digest_after = local.replace(hour=7, minute=45, second=0, microsecond=0)
+        if self.state.last_digest_date == today or local < digest_after:
             return
         currencies = set()
         for key in self.state.pairs:
@@ -272,15 +284,15 @@ class Watcher:
                     continue
                 minutes_left = int((event.time - now).total_seconds() // 60)
                 action = (
-                    "переведи SL в безубыток"
+                    "move the SL to breakeven"
                     if signal["status"] == "open"
-                    else "удали отложенный ордер"
+                    else "cancel the pending order"
                 )
                 await self.notifier.send(
-                    f"⚠️ <b>ПРАВИЛО 0.4:</b> {signal['pair']} — 🔴 {event.title} "
-                    f"({event.currency}) через {minutes_left} мин "
-                    f"({event.prague_hhmm()} Праги). У тебя "
-                    f"{'открытая позиция' if signal['status'] == 'open' else 'активная лимитка'} "
+                    f"⚠️ <b>RULE 0.4:</b> {signal['pair']} — 🔴 {event.title} "
+                    f"({event.currency}) in {minutes_left} min "
+                    f"({event.prague_hhmm()} Prague). You have "
+                    f"{'an open position' if signal['status'] == 'open' else 'an active limit order'} "
                     f"— {action}!"
                 )
                 self.state.news_warned[warn_key] = now.isoformat()
@@ -296,7 +308,7 @@ class Watcher:
     def news_text(self) -> str:
         """/news command."""
         if not self.news:
-            return "Новостной фильтр выключен (SMC_NEWS_ENABLED=false)."
+            return "News filter is disabled (SMC_NEWS_ENABLED=false)."
         currencies = set()
         for key in self.state.pairs:
             currencies |= relevant_currencies(get_instrument(key))
@@ -318,16 +330,17 @@ class Watcher:
     def status_text(self) -> str:
         session = active_session(datetime.now(tz=timezone.utc))
         lines = [
-            "<b>SMC Watcher — статус</b>",
-            f"Пары: {', '.join(self.state.pairs) or 'нет'}",
-            f"Сессия сейчас: {session or 'вне сессии'}",
-            f"Интервал: каждые {settings.smc.interval_minutes} мин",
-            f"Депозит для лота: "
-            + (f"${settings.smc.deposit:.0f}" if settings.smc.deposit else "не задан"),
+            "<b>SMC Watcher — status</b>",
+            f"Pairs: {', '.join(self.state.pairs) or 'none'}",
+            f"Session now: {session or 'off session'}",
+            f"Cadence: {settings.smc.session_interval_minutes} min in session / "
+            f"{settings.smc.interval_minutes} min off",
+            "Deposit for sizing: "
+            + (f"${settings.smc.deposit:.0f}" if settings.smc.deposit else "not set"),
         ]
         if self.last_results:
             lines.append("")
-            lines.append("<b>Последняя проверка:</b>")
+            lines.append("<b>Last check:</b>")
             for key, r in self.last_results.items():
                 lines.append(f"• {key}: {r.verdict.value} ({r.checked_at:%H:%M UTC})")
         return "\n".join(lines)
@@ -379,10 +392,10 @@ async def run_telegram_test() -> None:
 
     watcher = Watcher()
     samples = [
-        "🧪 <b>ТЕСТ SMC-вотчера</b> — связь с Telegram работает.",
-        f"{URGENT_HEADER}\n\n🧪 ТЕСТ: так будет выглядеть срочное сообщение "
-        "о найденном сетапе (это НЕ реальный сигнал).",
-        "🔍 ТЕСТ: так выглядит 15-минутный отчёт. Команды: /pairs /status /check",
+        "🧪 <b>SMC watcher TEST</b> — Telegram wiring works.",
+        f"{URGENT_HEADER}\n\n🧪 TEST: this is how an urgent setup alert looks "
+        "(NOT a real signal).",
+        "🔍 TEST: commands available: /pairs /status /check /stats /news",
     ]
     for text in samples:
         ok = await watcher.notifier.send(text)

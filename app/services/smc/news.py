@@ -139,30 +139,32 @@ class NewsCalendar:
     def digest_text(
         self, currencies: Set[str], now: Optional[datetime] = None
     ) -> str:
-        """Morning digest in the spirit of Правило -1."""
+        """Morning digest (strategy Rule -1)."""
         now = now or datetime.now(tz=timezone.utc)
         date_str = to_prague(now).strftime("%d.%m.%Y")
-        header = f"📅 <b>Forex Factory — {date_str}</b> (время Праги)"
+        header = f"📅 <b>Forex Factory — {date_str}</b> (Prague time)"
         if self.fetched_at is None:
-            return header + "\n⚠️ Календарь ещё не загружен" + (
+            return header + "\n⚠️ Calendar not loaded yet" + (
                 f" ({self.fetch_error})" if self.fetch_error else ""
             )
         events = self.todays_events(currencies, now)
         if not events:
             return (
                 header
-                + f"\n✅ Красных новостей по твоим валютам ({', '.join(sorted(currencies))}) сегодня нет."
+                + f"\n✅ No red news for your currencies "
+                f"({', '.join(sorted(currencies))}) today."
             )
-        lines = [header, "🔴 Красные новости сегодня:"]
+        lines = [header, "🔴 Red news today:"]
         for e in events:
             lines.append(f"• {e.prague_hhmm()} — {e.title} ({e.currency})")
         nearest = next((e for e in events if e.time > now), None)
         if nearest:
             lines.append(
-                f"⚠️ Ближайшая: {nearest.prague_hhmm()} — {nearest.title} ({nearest.currency})"
+                f"⚠️ Next up: {nearest.prague_hhmm()} — {nearest.title} "
+                f"({nearest.currency})"
             )
         lines.append(
-            f"⛔ Блэкаут входов: за {int(self.before.total_seconds() // 60)} мин до "
-            f"и {int(self.after.total_seconds() // 60)} мин после каждой."
+            f"⛔ Entry blackout: {int(self.before.total_seconds() // 60)} min "
+            f"before and {int(self.after.total_seconds() // 60)} min after each."
         )
         return "\n".join(lines)
