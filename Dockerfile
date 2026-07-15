@@ -14,8 +14,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY app/ /app/app/
 COPY smc_watcher.py /app/
 
-RUN groupadd -r appuser && useradd -r -g appuser appuser \
-    && chown -R appuser:appuser /app
-USER appuser
+# Run as root: Railway volumes are mounted root-owned, and a non-root user
+# cannot write the SQLite database to them.
 
 CMD ["python", "smc_watcher.py"]
