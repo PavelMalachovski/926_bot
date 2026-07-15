@@ -45,7 +45,9 @@ class SMCSettings(BaseSettings):
         default=True, description="Only look for entries inside session windows"
     )
     notify_no_setup: bool = Field(
-        default=True, description="Also send Telegram messages when no setup is found"
+        default=False,
+        description="Send 15-min heartbeat messages when no setup is found "
+        "(off: only setup alerts go to Telegram, checks are logged)",
     )
     chat_id: Optional[str] = Field(
         default=None,

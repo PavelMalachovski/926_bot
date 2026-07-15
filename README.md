@@ -5,7 +5,9 @@ A Telegram bot that runs the **Triple Sync + Imbalance** SMC strategy every
 setup appears.
 
 - 🚨 **Urgent alert** when a setup is APPROVED (entry / SL / TP / RR / lot size)
-- 🔍 **Heartbeat** every 15 minutes when there is no setup («сетапа нет»)
+- 🤫 **Silent otherwise** — checks without a setup only go to the logs
+  (`/check` shows the current picture on demand; `SMC_NOTIFY_NO_SETUP=true`
+  enables 15-min heartbeat messages)
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
 
 ## Supported pairs
@@ -84,7 +86,7 @@ Key ones:
 | `SMC_PAIRS` | `ETHUSD,USDJPY` | initial pairs (runtime changes via `/pairs`) |
 | `SMC_INTERVAL_MINUTES` | `15` | check cadence |
 | `SMC_DEPOSIT` | — | deposit in USD for lot hints |
-| `SMC_NOTIFY_NO_SETUP` | `true` | 15-min heartbeat messages |
+| `SMC_NOTIFY_NO_SETUP` | `false` | opt-in 15-min heartbeat messages |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
 | `OANDA_API_TOKEN` | — | optional: use OANDA instead of Yahoo for forex |
 | `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |
