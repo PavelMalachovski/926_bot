@@ -1,10 +1,9 @@
 """SMC strategy watcher — Triple Sync + Imbalance for multiple pairs.
 
 The only service of this project. Every 15 minutes (aligned to :00/:15/:30/:45)
-it runs the strategy for each enabled pair and sends Telegram messages:
-
-    🚨 an urgent alert when a valid setup is found
-    🔍 a compact heartbeat when there is none
+it runs the strategy for each enabled pair and sends a Telegram message only
+when a valid setup is found (🚨 urgent alert). Checks without a setup are
+logged; set SMC_NOTIFY_NO_SETUP=true to also receive 15-min heartbeats.
 
 Pairs are chosen at runtime via Telegram commands (/pairs) handled by a
 long-polling loop in the same process. ETHUSD data comes from Binance;
@@ -194,6 +193,8 @@ class Watcher:
 
         time_str = datetime.now(tz=timezone.utc).strftime("%H:%M UTC")
         summary = f"🔍 <b>Проверка {time_str}</b>\n" + "\n".join(heartbeat_lines)
+        logger.info("Cycle summary", summary=" | ".join(heartbeat_lines))
+        # By default only setup alerts go to Telegram; the heartbeat is opt-in.
         if settings.smc.notify_no_setup and not approved:
             await self.notifier.send(summary)
         return summary
