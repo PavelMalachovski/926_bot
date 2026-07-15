@@ -22,11 +22,26 @@ class TestInstruments:
         assert not get_instrument("USDJPY").check_funding
 
     def test_sources(self):
-        assert get_instrument("ETHUSD").source == "binance"
+        assert get_instrument("ETHUSD").source == "crypto"
         assert all(
-            get_instrument(k).source == "oanda"
+            get_instrument(k).source == "forex"
             for k in ("USDJPY", "EURUSD", "GBPUSD", "USDCAD")
         )
+
+    def test_forex_uses_yahoo_without_oanda_token(self, monkeypatch):
+        from smc_watcher import _build_fetcher
+        from app.core.config import settings
+        from app.services.smc.yahoo import YahooDataFetcher
+        from app.services.smc.oanda import OandaDataFetcher
+
+        monkeypatch.setattr(settings.oanda, "api_token", None)
+        fetcher = _build_fetcher(get_instrument("USDJPY"))
+        assert isinstance(fetcher, YahooDataFetcher)
+        assert fetcher.symbol == "USDJPY=X"
+
+        monkeypatch.setattr(settings.oanda, "api_token", "tok")
+        fetcher = _build_fetcher(get_instrument("USDJPY"))
+        assert isinstance(fetcher, OandaDataFetcher)
 
 
 class TestOandaTimeParsing:

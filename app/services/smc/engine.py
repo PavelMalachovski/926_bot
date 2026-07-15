@@ -287,7 +287,7 @@ class TripleSyncEngine:
 
     def _fvg_size_label(self) -> str:
         """Human threshold: '$2.00' for crypto, '5 pips' for forex."""
-        if self.instrument.source == "binance":
+        if self.instrument.source == "crypto":
             return f"${self.min_fvg_size:.2f}"
         return f"{self.min_fvg_size / self.instrument.pip:.0f} pips"
 
@@ -296,7 +296,7 @@ class TripleSyncEngine:
         if not self.deposit:
             return None
         risk_usd = self.deposit * self.risk_pct / 100.0
-        if self.instrument.source == "binance":
+        if self.instrument.source == "crypto":
             qty = risk_usd / risk
             base = self.display_symbol[:3]
             return (

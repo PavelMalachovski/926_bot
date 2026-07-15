@@ -9,8 +9,8 @@ class Instrument:
     """A tradeable pair with its strategy-specific parameters."""
 
     key: str  # canonical name used in commands and state, e.g. "ETHUSD"
-    source: str  # "binance" | "oanda"
-    source_symbol: str  # "ETHUSDT" for Binance, "USD_JPY" for OANDA
+    source: str  # "crypto" (Binance) | "forex" (OANDA if token set, else Yahoo)
+    source_symbol: str  # Binance symbol for crypto, OANDA instrument for forex
     min_fvg: float  # Rule 4: minimal FVG size in price units
     sl_buffer: float  # Rule 6: buffer beyond the M5 pivot in price units
     pip: float  # pip size in price units (for lot math / messages)
@@ -23,7 +23,7 @@ class Instrument:
 INSTRUMENTS: Dict[str, Instrument] = {
     "ETHUSD": Instrument(
         key="ETHUSD",
-        source="binance",
+        source="crypto",
         source_symbol="ETHUSDT",
         min_fvg=2.0,
         sl_buffer=2.0,
@@ -33,7 +33,7 @@ INSTRUMENTS: Dict[str, Instrument] = {
     ),
     "USDJPY": Instrument(
         key="USDJPY",
-        source="oanda",
+        source="forex",
         source_symbol="USD_JPY",
         min_fvg=0.050,  # 5 pips (JPY pip = 0.01)
         sl_buffer=0.015,  # 1.5 pips
@@ -43,7 +43,7 @@ INSTRUMENTS: Dict[str, Instrument] = {
     ),
     "EURUSD": Instrument(
         key="EURUSD",
-        source="oanda",
+        source="forex",
         source_symbol="EUR_USD",
         min_fvg=0.00050,  # 5 pips
         sl_buffer=0.00015,  # 1.5 pips
@@ -53,7 +53,7 @@ INSTRUMENTS: Dict[str, Instrument] = {
     ),
     "GBPUSD": Instrument(
         key="GBPUSD",
-        source="oanda",
+        source="forex",
         source_symbol="GBP_USD",
         min_fvg=0.00050,
         sl_buffer=0.00015,
@@ -63,7 +63,7 @@ INSTRUMENTS: Dict[str, Instrument] = {
     ),
     "USDCAD": Instrument(
         key="USDCAD",
-        source="oanda",
+        source="forex",
         source_symbol="USD_CAD",
         min_fvg=0.00050,
         sl_buffer=0.00015,

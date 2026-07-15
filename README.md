@@ -13,10 +13,14 @@ setup appears.
 | Pair | Data source | Min FVG | Notes |
 |---|---|---|---|
 | ETHUSD | Binance (no key needed) | $2.00 | 24/7, funding-rate advisory |
-| USDJPY | OANDA v20 | 5 pips | needs `OANDA_API_TOKEN` |
-| EURUSD | OANDA v20 | 5 pips | needs `OANDA_API_TOKEN` |
-| GBPUSD | OANDA v20 | 5 pips | needs `OANDA_API_TOKEN` |
-| USDCAD | OANDA v20 | 5 pips | needs `OANDA_API_TOKEN` |
+| USDJPY | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+| EURUSD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+| GBPUSD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+| USDCAD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+
+Forex candles come from the keyless Yahoo Finance feed by default (5m/1h
+native, H4 resampled from 1h). If `OANDA_API_TOKEN` is set, OANDA v20 is used
+instead — slightly better data, same functionality.
 
 Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
 
@@ -58,16 +62,17 @@ One service, no database, no Redis, no public domain needed:
 
 1. Create a service from this repo (Dockerfile is picked up automatically;
    the default command runs the watcher).
-2. Variables: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `OANDA_API_TOKEN`
-   (+ optionally `SMC_DEPOSIT`, `OANDA_ENVIRONMENT=live`).
+2. Variables: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+   (+ optionally `SMC_DEPOSIT`; `OANDA_API_TOKEN` only if you want OANDA data).
 
 The bot uses Telegram long polling — any old webhook is removed automatically
 at startup.
 
-### Getting an OANDA API token
+### Optional: OANDA API token
 
-OANDA account → **Manage API Access** (My Services) → Generate. Use
-`OANDA_ENVIRONMENT=practice` for a demo account token, `live` for a real one.
+Forex works out of the box via Yahoo. To switch to OANDA data: OANDA account →
+**Manage API Access** (My Services) → Generate, then set `OANDA_API_TOKEN` and
+`OANDA_ENVIRONMENT` (`practice` for a demo token, `live` for a real one).
 
 ## Configuration
 
@@ -81,6 +86,7 @@ Key ones:
 | `SMC_DEPOSIT` | — | deposit in USD for lot hints |
 | `SMC_NOTIFY_NO_SETUP` | `true` | 15-min heartbeat messages |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
+| `OANDA_API_TOKEN` | — | optional: use OANDA instead of Yahoo for forex |
 | `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |
 
 ## Tests
@@ -101,7 +107,8 @@ app/services/smc/
 ├── sessions.py             # Prague session windows
 ├── instruments.py          # per-pair parameters & data source registry
 ├── data.py                 # Binance fetcher (ETHUSD)
-├── oanda.py                # OANDA v20 fetcher (forex)
+├── yahoo.py                # Yahoo Finance fetcher (forex default, no key)
+├── oanda.py                # OANDA v20 fetcher (forex, optional)
 ├── telegram_bot.py         # long-polling commands: /pairs /status /check
 ├── notifier.py             # message formatting & delivery
 ├── state.py                # persisted pairs & reported setups

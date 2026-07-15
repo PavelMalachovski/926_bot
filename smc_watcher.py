@@ -7,8 +7,9 @@ it runs the strategy for each enabled pair and sends Telegram messages:
     🔍 a compact heartbeat when there is none
 
 Pairs are chosen at runtime via Telegram commands (/pairs) handled by a
-long-polling loop in the same process. ETHUSD data comes from Binance,
-forex pairs (USDJPY, EURUSD, GBPUSD, USDCAD) from OANDA v20.
+long-polling loop in the same process. ETHUSD data comes from Binance;
+forex pairs (USDJPY, EURUSD, GBPUSD, USDCAD) come from the free Yahoo
+Finance feed by default, or from OANDA v20 when OANDA_API_TOKEN is set.
 
 Usage:
     python smc_watcher.py                  # run forever (scheduler + bot)
@@ -37,6 +38,7 @@ from app.services.smc.notifier import (
     format_result,
 )
 from app.services.smc.oanda import OandaDataFetcher
+from app.services.smc.yahoo import YahooDataFetcher
 from app.services.smc.sessions import active_session
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
@@ -54,21 +56,21 @@ APPROVED = (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
 
 
 def _build_fetcher(instrument: Instrument):
-    if instrument.source == "binance":
+    if instrument.source == "crypto":
         return BinanceDataFetcher(instrument.source_symbol)
-    if not settings.oanda.api_token:
-        return None
-    return OandaDataFetcher(
-        symbol=instrument.source_symbol,
-        api_token=settings.oanda.api_token,
-        environment=settings.oanda.environment,
-    )
+    # Forex: OANDA when a token is configured (better data), otherwise the
+    # free keyless Yahoo Finance feed.
+    if settings.oanda.api_token:
+        return OandaDataFetcher(
+            symbol=instrument.source_symbol,
+            api_token=settings.oanda.api_token,
+            environment=settings.oanda.environment,
+        )
+    return YahooDataFetcher(symbol=f"{instrument.key}=X")
 
 
-def _build_engine(instrument: Instrument) -> Optional[TripleSyncEngine]:
+def _build_engine(instrument: Instrument) -> TripleSyncEngine:
     fetcher = _build_fetcher(instrument)
-    if fetcher is None:
-        return None
     smc = settings.smc
     return TripleSyncEngine(
         instrument=instrument,
@@ -147,8 +149,6 @@ class Watcher:
         """Analyze one pair. Returns (heartbeat line, result or None)."""
         instrument = get_instrument(key)
         engine = _build_engine(instrument)
-        if engine is None:
-            return f"⚠️ {key}: пропущен — не задан OANDA_API_TOKEN", None
         try:
             result = await engine.analyze()
         except Exception as e:
