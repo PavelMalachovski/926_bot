@@ -36,9 +36,11 @@ SIGNAL_COLUMNS = [
 class Database:
     """Thin wrapper over sqlite3 with a signals table and a kv store."""
 
+    FALLBACK_PATH = ".smc_watcher.db"
+
     def __init__(self, path: str):
         self.path = path
-        self.conn = sqlite3.connect(path, check_same_thread=False)
+        self.conn = self._connect(path)
         self.conn.row_factory = sqlite3.Row
         with self.conn:
             self.conn.execute(
@@ -64,6 +66,32 @@ class Database:
             self.conn.execute(
                 "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)"
             )
+
+    def _connect(self, path: str) -> sqlite3.Connection:
+        """Open the database, creating parent dirs; fall back instead of dying.
+
+        A crash-looping watcher sends no alerts at all, so if the configured
+        path is unusable (typical case: a root-owned Railway volume and a
+        non-root container) we degrade to a local ephemeral file and log
+        loudly — alerts keep flowing, only persistence is reduced.
+        """
+        try:
+            directory = os.path.dirname(os.path.abspath(path))
+            os.makedirs(directory, exist_ok=True)
+            return sqlite3.connect(path, check_same_thread=False)
+        except (sqlite3.OperationalError, OSError) as e:
+            if path == self.FALLBACK_PATH:
+                raise
+            logger.error(
+                "Cannot open database at configured path — falling back to a "
+                "local ephemeral file (data will NOT survive redeploys). "
+                "Check volume mount and permissions.",
+                configured_path=path,
+                fallback=self.FALLBACK_PATH,
+                error=str(e),
+            )
+            self.path = self.FALLBACK_PATH
+            return sqlite3.connect(self.FALLBACK_PATH, check_same_thread=False)
 
     # ------------------------------------------------------------------- kv
 
