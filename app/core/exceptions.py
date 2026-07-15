@@ -1,10 +1,10 @@
-"""Custom exceptions for the Forex Bot application."""
+"""Application exceptions."""
 
 from typing import Any, Dict, Optional
 
 
 class ForexBotException(Exception):
-    """Base exception for Forex Bot application."""
+    """Base exception with optional error code and details."""
 
     def __init__(
         self,
@@ -19,108 +19,12 @@ class ForexBotException(Exception):
 
 
 class ConfigurationError(ForexBotException):
-    """Configuration-related errors."""
-
-    pass
-
-
-class DatabaseError(ForexBotException):
-    """Database operation errors."""
-
-    pass
+    """Invalid or missing configuration."""
 
 
 class DataFetchError(ForexBotException):
-    """Data fetching errors."""
-
-    pass
-
-
-class ChartGenerationError(ForexBotException):
-    """Chart generation errors."""
-
-    pass
+    """Failed to fetch market data (Binance/OANDA)."""
 
 
 class TelegramError(ForexBotException):
-    """Telegram bot errors."""
-
-    pass
-
-
-class ValidationError(ForexBotException):
-    """Data validation errors."""
-
-    pass
-
-
-class AuthenticationError(ForexBotException):
-    """Authentication errors."""
-
-    pass
-
-
-class AuthorizationError(ForexBotException):
-    """Authorization errors."""
-
-    pass
-
-
-class RateLimitError(ForexBotException):
-    """Rate limiting errors."""
-
-    pass
-
-
-class ExternalAPIError(ForexBotException):
-    """External API errors."""
-
-    pass
-
-
-class ScrapingError(ForexBotException):
-    """Web scraping errors."""
-
-    pass
-
-
-class NotificationError(ForexBotException):
-    """Notification errors."""
-
-    pass
-
-
-class UserSettingsError(ForexBotException):
-    """User settings errors."""
-
-    pass
-
-
-class DigestError(ForexBotException):
-    """Digest errors."""
-
-    pass
-
-
-class VisualizationError(ForexBotException):
-    """Visualization errors."""
-
-    pass
-
-
-class AnalysisError(ForexBotException):
-    """Analysis errors."""
-
-    pass
-
-
-class SchedulerError(ForexBotException):
-    """Scheduler errors."""
-
-    pass
-
-
-class CacheError(ForexBotException):
-    """Cache operation errors."""
-
-    pass
+    """Telegram API operation failed."""

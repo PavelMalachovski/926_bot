@@ -1,521 +1,123 @@
-# Forex News Bot - Modern FastAPI Application
+# SMC Watcher — Triple Sync + Imbalance
 
-A modern, production-ready Telegram bot for Forex news with AI analysis and chart generation, built with FastAPI and following Context7 best practices.
+A Telegram bot that runs the **Triple Sync + Imbalance** SMC strategy every
+15 minutes for the selected currency pairs and alerts you the moment a valid
+setup appears.
 
-## 🚀 Features
+- 🚨 **Urgent alert** when a setup is APPROVED (entry / SL / TP / RR / lot size)
+- 🔍 **Heartbeat** every 15 minutes when there is no setup («сетапа нет»)
+- 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
 
-### Core Functionality
-- **Real-time Forex News**: Scrape and analyze forex news from multiple sources
-- **AI-Powered Analysis**: GPT-4 integration for intelligent market analysis
-- **Interactive Charts**: Generate candlestick charts with event annotations
-- **Smart Notifications**: Customizable notifications based on impact levels
-- **Multi-Currency Support**: Support for major currencies and cryptocurrencies
-- **Timezone Awareness**: Proper timezone handling for global users
+## Supported pairs
 
-### Technical Features
-- **Modern FastAPI Architecture**: High-performance async API
-- **Pydantic V2 Models**: Type-safe data validation and serialization
-- **SQLAlchemy 2.0**: Modern async ORM with proper relationships
-- **Structured Logging**: JSON logging with correlation IDs
-- **Comprehensive Testing**: Unit, integration, and performance tests
-- **Docker Support**: Production-ready containerization
-- **Redis Caching**: High-performance caching layer
-- **Rate Limiting**: Built-in API rate limiting
-- **Health Monitoring**: Comprehensive health checks
+| Pair | Data source | Min FVG | Notes |
+|---|---|---|---|
+| ETHUSD | Binance (no key needed) | $2.00 | 24/7, funding-rate advisory |
+| USDJPY | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+| EURUSD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+| GBPUSD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+| USDCAD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
 
-## 📁 Project Structure
+Forex candles come from the keyless Yahoo Finance feed by default (5m/1h
+native, H4 resampled from 1h). If `OANDA_API_TOKEN` is set, OANDA v20 is used
+instead — slightly better data, same functionality.
 
-```
-forex_to_telegram/
-├── app/                          # Main application package
-│   ├── __init__.py
-│   ├── main.py                   # FastAPI application entry point
-│   ├── core/                     # Core application modules
-│   │   ├── __init__.py
-│   │   ├── config.py             # Pydantic settings
-│   │   ├── exceptions.py         # Custom exceptions
-│   │   └── logging.py            # Structured logging
-│   ├── database/                 # Database layer
-│   │   ├── __init__.py
-│   │   ├── connection.py         # Database connection management
-│   │   └── models.py             # SQLAlchemy models
-│   ├── models/                   # Pydantic models
-│   │   ├── __init__.py
-│   │   ├── user.py               # User models
-│   │   ├── forex_news.py         # Forex news models
-│   │   ├── chart.py              # Chart models
-│   │   ├── notification.py       # Notification models
-│   │   └── telegram.py           # Telegram models
-│   ├── services/                 # Business logic layer
-│   │   ├── __init__.py
-│   │   ├── base.py               # Base service class
-│   │   ├── user_service.py       # User business logic
-│   │   ├── forex_service.py      # Forex news logic
-│   │   ├── chart_service.py      # Chart generation
-│   │   ├── notification_service.py # Notification logic
-│   │   ├── telegram_service.py   # Telegram bot logic
-│   │   └── scraping_service.py   # Web scraping
-│   └── api/                      # API layer
-│       ├── __init__.py
-│       └── v1/                   # API version 1
-│           ├── __init__.py
-│           ├── router.py         # Main API router
-│           └── endpoints/        # API endpoints
-│               ├── __init__.py
-│               ├── users.py      # User endpoints
-│               ├── forex_news.py # Forex news endpoints
-│               ├── charts.py     # Chart endpoints
-│               ├── notifications.py # Notification endpoints
-│               └── telegram.py   # Telegram webhook endpoints
-├── tests/                        # Test suite
-│   ├── __init__.py
-│   ├── conftest.py               # Pytest configuration
-│   ├── test_core/                # Core module tests
-│   │   ├── test_config.py
-│   │   └── test_exceptions.py
-│   └── test_api/                 # API tests
-│       └── test_users.py
-├── migrations/                   # Database migrations
-├── scripts/                      # Utility scripts
-├── requirements.txt              # Python dependencies
-├── pytest.ini                   # Pytest configuration
-├── docker-compose.yml           # Docker Compose setup
-├── Dockerfile                   # Docker configuration
-├── env.example                  # Environment variables template
-└── README.md                    # This file
-```
+Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
 
-## 🛠️ Installation
+## Telegram commands
 
-### Prerequisites
-- Python 3.11+
-- PostgreSQL 14+ (or SQLite for development)
-- Redis 6+ (optional, for caching)
-- Docker & Docker Compose (optional)
+| Command | What it does |
+|---|---|
+| `/pairs` | inline keyboard — toggle watched pairs on/off |
+| `/status` | enabled pairs, current session, last verdicts |
+| `/check` | run the full strategy check right now |
+| `/help` | command list |
 
-### Local Development
+## Strategy checklist (per pair, every 15 min)
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd forex_to_telegram
-   ```
+1. **Session filter** — entries only inside Frankfurt/London & NY windows
+   (Prague time, DST-aware). Closed forex market is detected automatically.
+2. **H4 trend** — HH+HL / LH+LL with 2-closed-body pivot confirmation.
+3. **H1 zone** — latest untested Demand/Supply zone; invalidation by body close.
+4. **M5 trigger** — pullback into the zone → CHoCH in trend direction.
+5. **FVG validation** — min size per instrument, fill < 50%, same session only.
+6. **SL** — behind the confirmed M5 pivot + buffer; **TP** — nearest untested
+   opposite zone; **RR ≥ 1:2** or SKIP.
+7. **Position size** — from `SMC_DEPOSIT` at 2% risk (crypto qty / forex lots).
+8. **Rule 9 correlation guard** — warns about forbidden USD combinations
+   (e.g. EURUSD + GBPUSD in the same direction).
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**
-   ```bash
-   cp env.example .env
-   # Edit .env with your configuration
-   ```
-
-5. **Initialize database**
-   ```bash
-   # For SQLite (development)
-   python -c "from app.database.connection import db_manager; import asyncio; asyncio.run(db_manager.initialize())"
-
-   # For PostgreSQL (production)
-   alembic upgrade head
-   ```
-
-6. **Run the application**
-   ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-### Docker Deployment
-
-1. **Build and run with Docker Compose**
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **View logs**
-   ```bash
-   docker-compose logs -f app
-   ```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file based on `env.example`:
+## Running
 
 ```bash
-# Application
-ENVIRONMENT=development
-DEBUG=true
-APP_NAME=Forex News Bot
-APP_VERSION=2.0.0
-
-# Server
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8000
-
-# Database
-DB_URL=sqlite+aiosqlite:///./forex_bot.db
-# DB_URL=postgresql+asyncpg://user:password@localhost/forex_bot
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Telegram
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_WEBHOOK_URL=https://yourdomain.com/api/v1/telegram/webhook
-TELEGRAM_WEBHOOK_SECRET=your_secret_token
-
-# API Keys
-API_OPENAI_API_KEY=your_openai_api_key
-API_ALPHA_VANTAGE_KEY=your_alpha_vantage_key
-
-# Security
-SECURITY_SECRET_KEY=your_secret_key_minimum_32_characters
+cp env.example .env          # fill in TELEGRAM_* and OANDA_API_TOKEN
+python smc_watcher.py                  # run forever (scheduler + command bot)
+python smc_watcher.py --once           # single check, prints the summary
+python smc_watcher.py --test-telegram  # verify Telegram wiring
 ```
 
-### Configuration Classes
+### Railway deployment
 
-The application uses Pydantic Settings for type-safe configuration:
+One service, no database, no Redis, no public domain needed:
 
-- **DatabaseSettings**: Database connection and pool settings
-- **RedisSettings**: Redis connection and caching settings
-- **TelegramSettings**: Telegram bot configuration
-- **APISettings**: External API keys and settings
-- **ChartSettings**: Chart generation settings
-- **SecuritySettings**: Security and authentication settings
-- **LoggingSettings**: Logging configuration
-- **ServerSettings**: Server and deployment settings
+1. Create a service from this repo (Dockerfile is picked up automatically;
+   the default command runs the watcher).
+2. Variables: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+   (+ optionally `SMC_DEPOSIT`; `OANDA_API_TOKEN` only if you want OANDA data).
 
-## 🧪 Testing
+The bot uses Telegram long polling — any old webhook is removed automatically
+at startup.
 
-### Running Tests
+### Optional: OANDA API token
+
+Forex works out of the box via Yahoo. To switch to OANDA data: OANDA account →
+**Manage API Access** (My Services) → Generate, then set `OANDA_API_TOKEN` and
+`OANDA_ENVIRONMENT` (`practice` for a demo token, `live` for a real one).
+
+## Configuration
+
+All settings are environment variables — see [env.example](env.example).
+Key ones:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SMC_PAIRS` | `ETHUSD,USDJPY` | initial pairs (runtime changes via `/pairs`) |
+| `SMC_INTERVAL_MINUTES` | `15` | check cadence |
+| `SMC_DEPOSIT` | — | deposit in USD for lot hints |
+| `SMC_NOTIFY_NO_SETUP` | `true` | 15-min heartbeat messages |
+| `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
+| `OANDA_API_TOKEN` | — | optional: use OANDA instead of Yahoo for forex |
+| `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |
+
+## Tests
 
 ```bash
-# Run all tests
-pytest
-
-# Run specific test categories
-pytest tests/test_core/          # Unit tests
-pytest tests/test_api/           # API tests
-pytest -m integration            # Integration tests
-pytest -m "not slow"            # Skip slow tests
-
-# Run with coverage
-pytest --cov=app --cov-report=html
-
-# Run specific test file
-pytest tests/test_api/test_users.py -v
+pytest tests/ -v
 ```
 
-### Test Structure
-
-- **Unit Tests**: Test individual components in isolation
-- **Integration Tests**: Test component interactions
-- **API Tests**: Test HTTP endpoints and responses
-- **Performance Tests**: Test response times and load handling
-
-### Test Fixtures
-
-- **Database**: In-memory SQLite for fast testing
-- **HTTP Client**: Async HTTP client for API testing
-- **Sample Data**: Predefined test data fixtures
-- **Mocks**: External service mocks
-
-## 📊 API Documentation
-
-### Interactive Documentation
-
-Once the application is running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-### API Endpoints
-
-#### Users
-- `POST /api/v1/users/` - Create user
-- `GET /api/v1/users/{telegram_id}` - Get user
-- `PUT /api/v1/users/{telegram_id}` - Update user
-- `PUT /api/v1/users/{telegram_id}/preferences` - Update preferences
-- `GET /api/v1/users/` - List users
-- `GET /api/v1/users/by-currency/{currency}` - Get users by currency
-- `GET /api/v1/users/by-impact/{impact_level}` - Get users by impact level
-
-#### Forex News
-- `POST /api/v1/forex-news/` - Create news
-- `GET /api/v1/forex-news/{news_id}` - Get news
-- `PUT /api/v1/forex-news/{news_id}` - Update news
-- `GET /api/v1/forex-news/` - List news
-- `GET /api/v1/forex-news/by-date/{date}` - Get news by date
-- `GET /api/v1/forex-news/by-currency/{currency}` - Get news by currency
-- `GET /api/v1/forex-news/upcoming/` - Get upcoming news
-- `GET /api/v1/forex-news/search/` - Search news
-
-#### Charts
-- `POST /api/v1/charts/generate` - Generate chart
-- `POST /api/v1/charts/generate/image` - Generate chart image
-- `GET /api/v1/charts/currencies/` - Get supported currencies
-- `GET /api/v1/charts/health` - Chart service health
-
-#### Notifications
-- `POST /api/v1/notifications/` - Create notification
-- `GET /api/v1/notifications/{notification_id}` - Get notification
-- `GET /api/v1/notifications/` - List notifications
-- `GET /api/v1/notifications/pending/` - Get pending notifications
-- `GET /api/v1/notifications/due/` - Get due notifications
-- `POST /api/v1/notifications/{notification_id}/mark-sent` - Mark as sent
-- `POST /api/v1/notifications/{notification_id}/mark-failed` - Mark as failed
-
-#### Telegram
-- `POST /api/v1/telegram/webhook` - Telegram webhook
-- `GET /api/v1/telegram/webhook-info` - Get webhook info
-- `POST /api/v1/telegram/setup-webhook` - Setup webhook
-- `DELETE /api/v1/telegram/webhook` - Delete webhook
-- `POST /api/v1/telegram/test-message` - Send test message
-
-## 📉 SMC Strategy Watcher (Triple Sync + Imbalance)
-
-A standalone watcher that runs the **Triple Sync + Imbalance** SMC strategy for
-**ETHUSD** every 15 minutes and sends a Telegram alert when a valid setup is found.
-
-### How it works
-
-Every 15 minutes (aligned to :00/:15/:30/:45) the watcher:
-
-1. Checks the session filter (Prague time windows; entries only during
-   Frankfurt/London and NY sessions).
-2. Fetches H4 / H1 / M5 candles from Binance (no API key needed).
-3. Runs the rule checklist: H4 trend (HH+HL / LH+LL), H1 untested Demand/Supply
-   zone, M5 pullback → CHoCH trigger, FVG validation (≥ $2, fill < 50%,
-   same-session), SL behind the confirmed M5 pivot (+$2 buffer), TP at the
-   nearest untested opposite zone, RR ≥ 1:2, funding rate advisory.
-4. If everything passes — sends a Telegram message with entry / SL / TP / RR
-   (and a position size hint if `SMC_DEPOSIT` is set). The same setup is never
-   reported twice in one session.
-
-### Running
-
-```bash
-# single check (prints the analysis, sends Telegram only if a setup is found)
-python smc_watcher.py --once
-
-# run forever (every 15 minutes)
-python smc_watcher.py
-
-# or via Docker Compose
-docker-compose up -d smc-watcher
-```
-
-Required environment: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (or `SMC_CHAT_ID`).
-All tunables are documented in `env.example` under `SMC_*`.
-
-## 🤖 Telegram Bot Commands
-
-- `/start` - Welcome message and bot introduction
-- `/help` - Show available commands
-- `/settings` - Configure user preferences
-- `/news` - Get latest forex news
-- `/currencies` - Manage currency preferences
-- `/impact` - Set impact level preferences
-- `/digest` - Configure daily digest
-- `/charts` - Enable/disable charts
-- `/status` - Check current settings
-- `/support` - Get support information
-
-## 🏗️ Architecture
-
-### Design Patterns
-
-- **Service Layer Pattern**: Business logic separated from API layer
-- **Repository Pattern**: Data access abstraction
-- **Dependency Injection**: FastAPI's built-in DI system
-- **Factory Pattern**: Service instantiation
-- **Observer Pattern**: Event-driven notifications
-
-### Data Flow
-
-1. **Telegram Webhook** → **API Endpoint** → **Service Layer** → **Database**
-2. **External APIs** → **Scraping Service** → **Forex Service** → **Database**
-3. **Scheduled Tasks** → **Notification Service** → **Telegram Service** → **Users**
-
-### Error Handling
-
-- **Custom Exceptions**: Domain-specific error types
-- **Global Exception Handlers**: Centralized error processing
-- **Structured Logging**: Comprehensive error tracking
-- **Graceful Degradation**: Fallback mechanisms
-
-## 🚀 Deployment
-
-### Production Checklist
-
-- [ ] Set `ENVIRONMENT=production`
-- [ ] Set `DEBUG=false`
-- [ ] Configure production database
-- [ ] Set up Redis caching
-- [ ] Configure Telegram webhook
-- [ ] Set up monitoring and logging
-- [ ] Configure SSL/TLS
-- [ ] Set up backup strategy
-- [ ] Configure rate limiting
-- [ ] Set up health checks
-
-### Docker Deployment
-
-```bash
-# Build production image
-docker build -t forex-bot:latest .
-
-# Run with Docker Compose
-docker-compose -f docker-compose.prod.yml up -d
-
-# Scale services
-docker-compose up -d --scale app=3
-```
-
-### Railway Deployment
-
-The app is Railway-ready: Redis and Postgres are **optional** — without them it
-runs with SQLite and no cache. Sync-style URLs (`postgres://`, `redis://`) that
-Railway provides are handled automatically.
-
-1. **Main bot service**: create a service from this repo (Railway detects the
-   Dockerfile). Set variables:
-   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-   - optional Redis: add a Redis service, then set `REDIS_URL = ${{Redis.REDIS_URL}}`
-   - optional Postgres: add a Postgres service, then set `DATABASE_URL = ${{Postgres.DATABASE_URL}}`
-2. **SMC watcher service**: create a second service from the same repo, set the
-   Custom Start Command to `python smc_watcher.py` and add
-   `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (Redis/Postgres not needed).
-
-Set `REDIS_REQUIRED=true` only if you want startup to fail without Redis.
-
-### Environment-Specific Configurations
-
-- **Development**: SQLite, debug enabled, detailed logging
-- **Staging**: PostgreSQL, limited debug, structured logging
-- **Production**: PostgreSQL, no debug, JSON logging, monitoring
-
-## 📈 Monitoring & Observability
-
-### Health Checks
-
-- `GET /health` - Application health status
-- `GET /api/v1/charts/health` - Chart service health
-- Database connection health
-- Redis connection health
-- External API health
-
-### Logging
-
-- **Structured Logging**: JSON format for production
-- **Correlation IDs**: Request tracing across services
-- **Log Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
-- **Log Rotation**: Automatic log file rotation
-
-### Metrics
-
-- Request/response times
-- Error rates
-- Database query performance
-- External API response times
-- Memory and CPU usage
-
-## 🔒 Security
-
-### Authentication & Authorization
-
-- JWT token-based authentication
-- Role-based access control
-- API key authentication for internal services
-- Telegram webhook secret validation
-
-### Data Protection
-
-- Input validation with Pydantic
-- SQL injection prevention with SQLAlchemy
-- XSS protection with proper escaping
-- CSRF protection for web endpoints
-- Rate limiting to prevent abuse
-
-### Secrets Management
-
-- Environment variables for sensitive data
-- Docker secrets for containerized deployments
-- Separate configuration for different environments
-- Regular secret rotation
-
-## 🤝 Contributing
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
-
-### Code Standards
-
-- **Black**: Code formatting
-- **isort**: Import sorting
-- **flake8**: Linting
-- **mypy**: Type checking
-- **pytest**: Testing
-
-### Commit Convention
+## Project layout
 
 ```
-feat: add new feature
-fix: bug fix
-docs: documentation changes
-style: formatting changes
-refactor: code refactoring
-test: test additions/changes
-chore: maintenance tasks
+smc_watcher.py              # entry point: scheduler + Telegram command bot
+app/core/                   # config, logging, exceptions
+app/services/smc/
+├── engine.py               # rules 0-8 orchestration
+├── structure.py            # pivots, trend, zones, BOS/CHoCH
+├── fvg.py                  # FVG detection & validation
+├── sessions.py             # Prague session windows
+├── instruments.py          # per-pair parameters & data source registry
+├── data.py                 # Binance fetcher (ETHUSD)
+├── yahoo.py                # Yahoo Finance fetcher (forex default, no key)
+├── oanda.py                # OANDA v20 fetcher (forex, optional)
+├── telegram_bot.py         # long-polling commands: /pairs /status /check
+├── notifier.py             # message formatting & delivery
+├── state.py                # persisted pairs & reported setups
+└── models.py               # Candle, Zone, FVG, TradeSetup, AnalysisResult
+tests/test_smc/             # unit + end-to-end strategy tests
 ```
 
-## 📄 License
+## Risk disclaimer
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-- **Documentation**: Check this README and API docs
-- **Issues**: Create GitHub issues for bugs and feature requests
-- **Discussions**: Use GitHub Discussions for questions
-- **Email**: support@forexbot.com
-
-## 🎯 Roadmap
-
-### Upcoming Features
-
-- [ ] Advanced chart analysis
-- [ ] Machine learning predictions
-- [ ] Multi-language support
-- [ ] Mobile app integration
-- [ ] Advanced notification scheduling
-- [ ] Social trading features
-- [ ] Portfolio tracking
-- [ ] Risk management tools
-
-### Performance Improvements
-
-- [ ] Database query optimization
-- [ ] Caching layer enhancement
-- [ ] Async processing improvements
-- [ ] CDN integration for charts
-- [ ] Database sharding
-- [ ] Microservices architecture
-
----
-
-**Built with ❤️ using FastAPI, Pydantic, SQLAlchemy, and modern Python practices.**
+The bot only **detects** setups by the strategy rules. Daily/weekly loss
+limits, max trades per day and actual order execution remain the trader's
+responsibility.

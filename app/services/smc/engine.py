@@ -1,12 +1,13 @@
 """Triple Sync + Imbalance strategy engine (rules 0-8 orchestration)."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import structlog
 
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.fvg import select_valid_fvg
+from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.models import (
     AnalysisResult,
     Candle,
@@ -32,48 +33,72 @@ FUNDING_WARN = 0.0005  # 0.05%
 FUNDING_DANGER = 0.001  # 0.1%
 
 
+# A market whose newest M5 candle is older than this is considered closed
+# (forex weekend); crypto trades 24/7 and never triggers it.
+MARKET_STALE_AFTER = timedelta(minutes=30)
+
+
 class TripleSyncEngine:
-    """Runs one full strategy pass for a single symbol."""
+    """Runs one full strategy pass for a single instrument."""
 
     def __init__(
         self,
-        symbol: str = "ETHUSDT",
-        display_symbol: str = "ETHUSD",
-        min_fvg_size: float = 2.0,
-        sl_buffer: float = 2.0,
+        instrument: Optional[Instrument] = None,
+        min_fvg_size: Optional[float] = None,
+        sl_buffer: Optional[float] = None,
         min_rr: float = 2.0,
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
-        fetcher: Optional[BinanceDataFetcher] = None,
+        fetcher=None,
     ):
-        self.symbol = symbol
-        self.display_symbol = display_symbol
-        self.min_fvg_size = min_fvg_size
-        self.sl_buffer = sl_buffer
+        self.instrument = instrument or get_instrument("ETHUSD")
+        self.display_symbol = self.instrument.key
+        self.min_fvg_size = (
+            min_fvg_size if min_fvg_size is not None else self.instrument.min_fvg
+        )
+        self.sl_buffer = (
+            sl_buffer if sl_buffer is not None else self.instrument.sl_buffer
+        )
         self.min_rr = min_rr
         self.risk_pct = risk_pct
         self.deposit = deposit
         self.enforce_sessions = enforce_sessions
-        self.fetcher = fetcher or BinanceDataFetcher(symbol)
+        self.fetcher = fetcher or BinanceDataFetcher(self.instrument.source_symbol)
 
     async def analyze(self) -> AnalysisResult:
         """Fetch fresh data and evaluate the full checklist."""
         now = datetime.now(tz=timezone.utc)
         result = AnalysisResult(
-            symbol=self.display_symbol, verdict=Verdict.SKIP, checked_at=now
+            symbol=self.display_symbol,
+            verdict=Verdict.SKIP,
+            checked_at=now,
+            price_decimals=self.instrument.price_decimals,
         )
 
-        # Rule 0.1 — session filter (ETHUSD entries only inside session windows)
+        # Rule 0.1 — session filter (entries only inside session windows)
         result.session_name = active_session(now)
         if self.enforce_sessions and result.session_name is None:
             result.verdict = Verdict.OFF_SESSION
-            result.reasons.append("Вне сессионных окон — входы по ETHUSD запрещены")
+            result.reasons.append(
+                f"Вне сессионных окон — входы по {self.display_symbol} запрещены"
+            )
             return result
 
         data = await self.fetcher.fetch_all_timeframes()
         result.price = data["m5"][-1].close
-        result.funding_rate = await self.fetcher.fetch_funding_rate()
+
+        # Closed market (forex weekend): the newest M5 candle is stale.
+        age = now - data["m5"][-1].timestamp
+        if age > MARKET_STALE_AFTER:
+            result.verdict = Verdict.OFF_SESSION
+            result.reasons.append(
+                f"Рынок закрыт — последняя M5-свеча {int(age.total_seconds() // 60)} мин назад"
+            )
+            return result
+
+        if self.instrument.check_funding:
+            result.funding_rate = await self.fetcher.fetch_funding_rate()
 
         return self.evaluate(
             h4=data["h4"],
@@ -162,7 +187,7 @@ class TripleSyncEngine:
             )
             result.watch_notes.append(
                 f"Ждать {'бычий' if direction == Direction.LONG else 'медвежий'} CHoCH на M5 "
-                f"+ FVG ≥ ${self.min_fvg_size:.2f} внутри зоны"
+                f"+ FVG ≥ {self._fvg_size_label()} внутри зоны"
             )
             return result
 
@@ -175,7 +200,7 @@ class TripleSyncEngine:
         if fvg is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                f"CHoCH на M5 есть, но валидного FVG нет (размер ≥ ${self.min_fvg_size:.2f}, "
+                f"CHoCH на M5 есть, но валидного FVG нет (размер ≥ {self._fvg_size_label()}, "
                 "заполнение < 50%, текущая сессия)"
             )
             result.watch_notes.append("Ждать формирования импульсного FVG на M5")
@@ -224,24 +249,18 @@ class TripleSyncEngine:
             return result
 
         # Rule 8 — position size hint
-        lot_hint = None
-        if self.deposit:
-            risk_usd = self.deposit * self.risk_pct / 100.0
-            qty = risk_usd / risk
-            lot_hint = (
-                f"{qty:.4f} ETH (риск ${risk_usd:.2f} = {self.risk_pct:.1f}% "
-                f"от депозита ${self.deposit:.0f})"
-            )
+        lot_hint = self._lot_hint(entry, risk)
 
         # Market entry allowed only if price is inside the FVG right now
         price = result.price or m5[-1].close
         entry_is_market = fvg.bottom <= price <= fvg.top
 
+        d = self.instrument.price_decimals
         result.setup = TradeSetup(
             direction=direction,
-            entry=round(entry, 2),
-            stop_loss=round(stop_loss, 2),
-            take_profit=round(take_profit, 2),
+            entry=round(entry, d),
+            stop_loss=round(stop_loss, d),
+            take_profit=round(take_profit, d),
             rr=round(rr, 2),
             fvg=fvg,
             entry_is_market=entry_is_market,
@@ -251,7 +270,7 @@ class TripleSyncEngine:
             Verdict.APPROVED_MARKET if entry_is_market else Verdict.APPROVED_LIMIT
         )
 
-        # Rule 9.3 — funding rate advisory
+        # Rule 9.3 — funding rate advisory (crypto only)
         if result.funding_rate is not None:
             rate = result.funding_rate
             if direction == Direction.LONG and rate > FUNDING_DANGER:
@@ -265,3 +284,35 @@ class TripleSyncEngine:
                 )
 
         return result
+
+    def _fvg_size_label(self) -> str:
+        """Human threshold: '$2.00' for crypto, '5 pips' for forex."""
+        if self.instrument.source == "crypto":
+            return f"${self.min_fvg_size:.2f}"
+        return f"{self.min_fvg_size / self.instrument.pip:.0f} pips"
+
+    def _lot_hint(self, entry: float, risk: float) -> Optional[str]:
+        """Rule 8: position size from deposit and SL distance."""
+        if not self.deposit:
+            return None
+        risk_usd = self.deposit * self.risk_pct / 100.0
+        if self.instrument.source == "crypto":
+            qty = risk_usd / risk
+            base = self.display_symbol[:3]
+            return (
+                f"{qty:.4f} {base} (риск ${risk_usd:.2f} = {self.risk_pct:.1f}% "
+                f"от депозита ${self.deposit:.0f})"
+            )
+        # Forex: pip value per standard lot (100k); non-USD quote converts by price
+        sl_pips = risk / self.instrument.pip
+        quote = self.display_symbol[3:]
+        pip_value = (
+            self.instrument.pip * 100_000
+            if quote == "USD"
+            else self.instrument.pip * 100_000 / entry
+        )
+        lots = risk_usd / (sl_pips * pip_value)
+        return (
+            f"≈{lots:.2f} лота (SL {sl_pips:.0f} pips, риск ${risk_usd:.2f} "
+            f"= {self.risk_pct:.1f}% от депозита ${self.deposit:.0f})"
+        )
