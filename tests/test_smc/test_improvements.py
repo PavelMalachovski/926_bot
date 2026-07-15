@@ -184,7 +184,10 @@ class TestJournal:
         assert signal["checked_until"] is not None
 
     def test_journal_records_and_reports(self, tmp_path):
-        journal = SignalJournal(str(tmp_path / "journal.json"))
+        from app.services.smc.db import Database
+
+        db = Database(str(tmp_path / "smc.db"))
+        journal = SignalJournal(db)
         result = _fresh_result()
         result.session_name = "New York"
         engine = TripleSyncEngine(min_rr=2.0)
@@ -196,7 +199,7 @@ class TestJournal:
         )
         signal = journal.record(result)
         assert signal["status"] == "pending"
-        assert "Всего сетапов: 1" in journal.stats_text()
+        assert "Total setups: 1" in journal.stats_text()
 
-        reloaded = SignalJournal(str(tmp_path / "journal.json"))
+        reloaded = SignalJournal(Database(str(tmp_path / "smc.db")))
         assert len(reloaded.signals) == 1

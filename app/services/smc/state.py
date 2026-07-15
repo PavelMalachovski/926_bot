@@ -1,54 +1,33 @@
-"""Persistent watcher state: enabled pairs and reported setups."""
+"""Persistent watcher state (pairs, dedup keys) backed by SQLite."""
 
-import json
-import os
 from typing import Dict, List
 
 import structlog
 
+from app.services.smc.db import Database
 from app.services.smc.instruments import DEFAULT_PAIRS, INSTRUMENTS
 
 logger = structlog.get_logger(__name__)
 
 
 class WatcherState:
-    """Small JSON-backed state shared by the scheduler and the command bot."""
+    """Runtime state shared by the scheduler and the command bot."""
 
-    def __init__(self, path: str):
-        self.path = path
-        self.pairs: List[str] = list(DEFAULT_PAIRS)
-        self.last_setup: Dict[str, str] = {}  # pair -> fingerprint
-        self.last_digest_date: str = ""  # Prague date of the last morning digest
-        self.news_warned: Dict[str, str] = {}  # Rule 0.4 dedup: key -> iso time
-        self._load()
-
-    def _load(self) -> None:
-        try:
-            with open(self.path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, ValueError):
-            return
-        pairs = [p for p in data.get("pairs", []) if p in INSTRUMENTS]
-        if pairs:
-            self.pairs = pairs
-        self.last_setup = dict(data.get("last_setup", {}))
-        self.last_digest_date = data.get("last_digest_date", "")
-        self.news_warned = dict(data.get("news_warned", {}))
+    def __init__(self, db: Database):
+        self.db = db
+        pairs = db.kv_get("pairs") or []
+        self.pairs: List[str] = [p for p in pairs if p in INSTRUMENTS] or list(
+            DEFAULT_PAIRS
+        )
+        self.last_setup: Dict[str, str] = db.kv_get("last_setup") or {}
+        self.last_digest_date: str = db.kv_get("last_digest_date") or ""
+        self.news_warned: Dict[str, str] = db.kv_get("news_warned") or {}
 
     def save(self) -> None:
-        try:
-            with open(self.path, "w", encoding="utf-8") as f:
-                json.dump(
-                    {
-                        "pairs": self.pairs,
-                        "last_setup": self.last_setup,
-                        "last_digest_date": self.last_digest_date,
-                        "news_warned": self.news_warned,
-                    },
-                    f,
-                )
-        except OSError as e:
-            logger.warning("Failed to persist watcher state", error=str(e))
+        self.db.kv_set("pairs", self.pairs)
+        self.db.kv_set("last_setup", self.last_setup)
+        self.db.kv_set("last_digest_date", self.last_digest_date)
+        self.db.kv_set("news_warned", self.news_warned)
 
     def toggle_pair(self, key: str) -> bool:
         """Toggle a pair on/off. Returns True if the pair is now enabled."""

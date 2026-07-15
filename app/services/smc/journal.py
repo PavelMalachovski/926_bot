@@ -10,18 +10,17 @@ Lifecycle of a signal:
                a pending order does not survive its session)
     timeout  — open too long without resolution (safety valve)
 
-Everything is stored in one JSON file; outcomes are evaluated from closed M5
-candles, incrementally per cycle.
+Signals live in the SQLite database (see db.py); outcomes are evaluated from
+closed M5 candles, incrementally per cycle.
 """
 
-import json
-import os
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import structlog
 
+from app.services.smc.db import Database
 from app.services.smc.models import AnalysisResult, Candle, Direction
 from app.services.smc.sessions import session_end_utc
 
@@ -89,26 +88,15 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
 
 
 class SignalJournal:
-    """JSON-backed list of signals with summary statistics."""
+    """SQLite-backed list of signals with summary statistics."""
 
-    def __init__(self, path: str):
-        self.path = path
-        self.signals: List[Dict] = []
-        self._load()
-
-    def _load(self) -> None:
-        try:
-            with open(self.path, "r", encoding="utf-8") as f:
-                self.signals = json.load(f)
-        except (OSError, ValueError):
-            self.signals = []
+    def __init__(self, db: Database):
+        self.db = db
+        self.signals: List[Dict] = db.signals_all()
 
     def save(self) -> None:
-        try:
-            with open(self.path, "w", encoding="utf-8") as f:
-                json.dump(self.signals, f, ensure_ascii=False, indent=1)
-        except OSError as e:
-            logger.warning("Failed to persist journal", error=str(e))
+        for signal in self.signals:
+            self.db.signal_upsert(signal)
 
     def record(self, result: AnalysisResult) -> Dict:
         """Store a freshly approved setup."""
@@ -176,10 +164,7 @@ class SignalJournal:
         cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
         recent = [s for s in self.signals if _parse(s["created_at"]) >= cutoff]
         if not recent:
-            return (
-                f"📒 Журнал пуст за последние {days} дн. — "
-                "ни одного сетапа ещё не было."
-            )
+            return f"📒 Journal is empty for the last {days} days — no setups yet."
 
         def count(status):
             return sum(1 for s in recent if s["status"] == status)
@@ -188,24 +173,24 @@ class SignalJournal:
         closed = tp + sl
         winrate = f"{tp / closed * 100:.0f}%" if closed else "—"
         lines = [
-            f"📒 <b>Журнал сигналов за {days} дн.</b>",
-            f"Всего сетапов: {len(recent)}",
-            f"🎯 TP: {tp} | 🛑 SL: {sl} | винрейт: {winrate}",
-            f"⏳ Активных: {count('pending') + count('open')} "
-            f"(ждут входа: {count('pending')}, в позиции: {count('open')})",
-            f"🗑 Не исполнились (сессия истекла): {count('expired')}",
+            f"📒 <b>Signal journal — last {days} days</b>",
+            f"Total setups: {len(recent)}",
+            f"🎯 TP: {tp} | 🛑 SL: {sl} | winrate: {winrate}",
+            f"⏳ Active: {count('pending') + count('open')} "
+            f"(awaiting fill: {count('pending')}, in position: {count('open')})",
+            f"🗑 Expired unfilled (session ended): {count('expired')}",
         ]
         by_pair: Dict[str, List[Dict]] = {}
         for s in recent:
             by_pair.setdefault(s["pair"], []).append(s)
         lines.append("")
-        lines.append("<b>По парам:</b>")
+        lines.append("<b>By pair:</b>")
         for pair in sorted(by_pair):
             group = by_pair[pair]
             g_tp = sum(1 for s in group if s["status"] == "tp")
             g_sl = sum(1 for s in group if s["status"] == "sl")
-            lines.append(f"• {pair}: {len(group)} сетапов, TP {g_tp} / SL {g_sl}")
+            lines.append(f"• {pair}: {len(group)} setups, TP {g_tp} / SL {g_sl}")
         avg_rr = sum(s["rr"] for s in recent) / len(recent)
         lines.append("")
-        lines.append(f"Средний плановый RR: 1:{avg_rr:.1f}")
+        lines.append(f"Average planned RR: 1:{avg_rr:.1f}")
         return "\n".join(lines)

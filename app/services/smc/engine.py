@@ -81,7 +81,7 @@ class TripleSyncEngine:
         if self.enforce_sessions and result.session_name is None:
             result.verdict = Verdict.OFF_SESSION
             result.reasons.append(
-                f"Вне сессионных окон — входы по {self.display_symbol} запрещены"
+                f"Outside session windows — no entries for {self.display_symbol}"
             )
             return result
 
@@ -93,7 +93,7 @@ class TripleSyncEngine:
         if age > MARKET_STALE_AFTER:
             result.verdict = Verdict.OFF_SESSION
             result.reasons.append(
-                f"Рынок закрыт — последняя M5-свеча {int(age.total_seconds() // 60)} мин назад"
+                f"Market closed — last M5 candle {int(age.total_seconds() // 60)} min ago"
             )
             return result
 
@@ -119,9 +119,10 @@ class TripleSyncEngine:
         result.h4_trend = detect_trend(h4)
         if result.h4_trend == Trend.FLAT:
             result.verdict = Verdict.SKIP
-            result.reasons.append("H4 во флете или CHoCH против тренда — нет направления")
+            result.reasons.append("H4 is flat or CHoCH against the trend — no direction")
             result.watch_notes.append(
-                "Ждать чёткой структуры HH+HL или LH+LL на H4 (2 закрытых тела за экстремумом)"
+                "Wait for a clear HH+HL or LH+LL structure on H4 "
+                "(2 closed bodies beyond the extreme)"
             )
             return result
 
@@ -134,12 +135,12 @@ class TripleSyncEngine:
         if zone is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                f"H4 {'бычий' if direction == Direction.LONG else 'медвежий'}, "
-                "но на H1 нет валидной непротестированной зоны "
-                f"{'Demand' if direction == Direction.LONG else 'Supply'}"
+                f"H4 is {'bullish' if direction == Direction.LONG else 'bearish'}, "
+                "but H1 has no valid untested "
+                f"{'Demand' if direction == Direction.LONG else 'Supply'} zone"
             )
             result.watch_notes.append(
-                "Ждать формирования свежей зоны на H1 (непротестированный "
+                "Wait for a fresh H1 zone to form (an untested "
                 f"{'HL' if direction == Direction.LONG else 'LH'})"
             )
             return result
@@ -150,16 +151,16 @@ class TripleSyncEngine:
         if touch is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                f"Цена ещё не дошла до зоны {'Demand' if zone.is_demand else 'Supply'} H1 "
-                f"({zone.bottom:.2f}–{zone.top:.2f}) — фаза пуллбэка"
+                f"Price has not reached the H1 {'Demand' if zone.is_demand else 'Supply'} "
+                f"zone ({zone.bottom:.2f}–{zone.top:.2f}) yet — pullback phase"
             )
             result.watch_notes.append(
-                f"Алерт на {zone.top if zone.is_demand else zone.bottom:.2f} — "
-                "при касании зоны проверить M5 на CHoCH + FVG"
+                f"Set an alert at {zone.top if zone.is_demand else zone.bottom:.2f} — "
+                "on zone touch, check M5 for a CHoCH + FVG"
             )
             result.watch_notes.append(
-                f"Инвалидация: закрытие тела H1 "
-                f"{'ниже ' + format(zone.bottom, '.2f') if zone.is_demand else 'выше ' + format(zone.top, '.2f')}"
+                f"Invalidation: H1 body close "
+                f"{'below ' + format(zone.bottom, '.2f') if zone.is_demand else 'above ' + format(zone.top, '.2f')}"
             )
             return result
 
@@ -168,13 +169,13 @@ class TripleSyncEngine:
             if zone.is_demand and c.close < zone.bottom and c.body_low < zone.bottom:
                 result.verdict = Verdict.SKIP
                 result.reasons.append(
-                    f"Цена закрылась ниже зоны Demand H1 ({zone.bottom:.2f}) — зона инвалидирована"
+                    f"Price closed below the H1 Demand zone ({zone.bottom:.2f}) — invalidated"
                 )
                 return result
             if not zone.is_demand and c.close > zone.top and c.body_high > zone.top:
                 result.verdict = Verdict.SKIP
                 result.reasons.append(
-                    f"Цена закрылась выше зоны Supply H1 ({zone.top:.2f}) — зона инвалидирована"
+                    f"Price closed above the H1 Supply zone ({zone.top:.2f}) — invalidated"
                 )
                 return result
 
@@ -183,11 +184,11 @@ class TripleSyncEngine:
         if choch is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                "Цена в зоне H1, но M5 ещё не сформировал CHoCH в сторону тренда"
+                "Price is in the H1 zone, but M5 has not printed a CHoCH in the trend direction yet"
             )
             result.watch_notes.append(
-                f"Ждать {'бычий' if direction == Direction.LONG else 'медвежий'} CHoCH на M5 "
-                f"+ FVG ≥ {self._fvg_size_label()} внутри зоны"
+                f"Wait for a {'bullish' if direction == Direction.LONG else 'bearish'} "
+                f"M5 CHoCH + FVG ≥ {self._fvg_size_label()} inside the zone"
             )
             return result
 
@@ -204,10 +205,10 @@ class TripleSyncEngine:
         if fvg is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                f"CHoCH на M5 есть, но валидного FVG нет (размер ≥ {self._fvg_size_label()}, "
-                "заполнение < 50%, текущая сессия)"
+                f"M5 CHoCH is there, but no valid FVG (size ≥ {self._fvg_size_label()}, "
+                "fill < 50%, current session)"
             )
-            result.watch_notes.append("Ждать формирования импульсного FVG на M5")
+            result.watch_notes.append("Wait for an impulse FVG to form on M5")
             return result
 
         # Rule 5 — entry level: proximal FVG boundary
@@ -218,7 +219,7 @@ class TripleSyncEngine:
         if pivot is None:
             result.verdict = Verdict.SKIP
             result.reasons.append(
-                "Нет подтверждённого экстремума M5 для стопа (2 закрытых тела) — SL не ставить"
+                "No confirmed M5 pivot for the stop (2 closed bodies) — no SL, no trade"
             )
             return result
         if direction == Direction.LONG:
@@ -229,7 +230,7 @@ class TripleSyncEngine:
         risk = abs(entry - stop_loss)
         if risk <= 0:
             result.verdict = Verdict.SKIP
-            result.reasons.append("Некорректная геометрия сделки: SL на уровне входа")
+            result.reasons.append("Invalid trade geometry: SL at the entry level")
             return result
 
         # Rule 7 — TP at the nearest untested opposite zone. The rule allows
@@ -254,12 +255,12 @@ class TripleSyncEngine:
             result.verdict = Verdict.SKIP
             if best_rr > 0:
                 result.reasons.append(
-                    f"RR 1:{best_rr:.1f} < минимума 1:{self.min_rr:.0f} "
-                    "до ближайших зон H1/H4 — сделка математически невыгодна"
+                    f"RR 1:{best_rr:.1f} < minimum 1:{self.min_rr:.0f} to the "
+                    "nearest H1/H4 zones — the math does not work"
                 )
             else:
                 result.reasons.append(
-                    "Нет непротестированной противоположной зоны H1/H4 для тейк-профита"
+                    "No untested opposite H1/H4 zone for a take-profit"
                 )
             return result
 
@@ -290,12 +291,12 @@ class TripleSyncEngine:
             rate = result.funding_rate
             if direction == Direction.LONG and rate > FUNDING_DANGER:
                 result.funding_warning = (
-                    f"Фандинг {rate * 100:.3f}%/8h > 0.1% — Long под повышенным риском "
-                    "принудительного разворота. Рассмотри SKIP или уменьшение лота."
+                    f"Funding {rate * 100:.3f}%/8h > 0.1% — longs are at elevated "
+                    "squeeze risk. Consider SKIP or a smaller size."
                 )
             elif abs(rate) > FUNDING_WARN:
                 result.funding_warning = (
-                    f"Фандинг {rate * 100:.3f}%/8h в зоне 0.05–0.1% — вход на твоё усмотрение."
+                    f"Funding {rate * 100:.3f}%/8h is in the 0.05–0.1% zone — your call."
                 )
 
         return result
@@ -315,8 +316,8 @@ class TripleSyncEngine:
             qty = risk_usd / risk
             base = self.display_symbol[:3]
             return (
-                f"{qty:.4f} {base} (риск ${risk_usd:.2f} = {self.risk_pct:.1f}% "
-                f"от депозита ${self.deposit:.0f})"
+                f"{qty:.4f} {base} (risk ${risk_usd:.2f} = {self.risk_pct:.1f}% "
+                f"of ${self.deposit:.0f} deposit)"
             )
         # Forex: pip value per standard lot (100k); non-USD quote converts by price
         sl_pips = risk / self.instrument.pip
@@ -328,6 +329,6 @@ class TripleSyncEngine:
         )
         lots = risk_usd / (sl_pips * pip_value)
         return (
-            f"≈{lots:.2f} лота (SL {sl_pips:.0f} pips, риск ${risk_usd:.2f} "
-            f"= {self.risk_pct:.1f}% от депозита ${self.deposit:.0f})"
+            f"≈{lots:.2f} lots (SL {sl_pips:.0f} pips, risk ${risk_usd:.2f} "
+            f"= {self.risk_pct:.1f}% of ${self.deposit:.0f} deposit)"
         )

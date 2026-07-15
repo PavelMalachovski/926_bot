@@ -97,9 +97,9 @@ class TestUpcomingAndDigest:
         text = cal.digest_text({"USD", "GBP", "JPY"}, now)
         assert "CPI m/m" in text and "14:30" in text  # 12:30 UTC = 14:30 Prague
         assert "BOE Gov Speaks" in text and "22:00" in text
-        assert "Блэкаут" in text
+        assert "blackout" in text.lower()
 
     def test_digest_when_quiet_day(self):
         cal = _calendar()
         now = datetime(2026, 7, 16, 5, 30, tzinfo=timezone.utc)  # next day
-        assert "нет" in cal.digest_text({"USD"}, now)
+        assert "No red news" in cal.digest_text({"USD"}, now)

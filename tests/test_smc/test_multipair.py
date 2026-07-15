@@ -56,25 +56,68 @@ class TestOandaTimeParsing:
 
 
 class TestWatcherState:
-    def test_defaults_when_no_file(self, tmp_path):
-        state = WatcherState(str(tmp_path / "state.json"))
+    @staticmethod
+    def _db(tmp_path):
+        from app.services.smc.db import Database
+
+        return Database(str(tmp_path / "smc.db"))
+
+    def test_defaults_when_no_data(self, tmp_path):
+        state = WatcherState(self._db(tmp_path))
         assert state.pairs == ["ETHUSD", "USDJPY"]
 
     def test_toggle_and_persist(self, tmp_path):
-        path = str(tmp_path / "state.json")
-        state = WatcherState(path)
+        db = self._db(tmp_path)
+        state = WatcherState(db)
         assert state.toggle_pair("EURUSD") is True
         assert state.toggle_pair("USDJPY") is False
         assert state.pairs == ["ETHUSD", "EURUSD"]
 
-        reloaded = WatcherState(path)
+        reloaded = WatcherState(db)
         assert reloaded.pairs == ["ETHUSD", "EURUSD"]
 
-    def test_unknown_pairs_in_file_are_dropped(self, tmp_path):
-        path = tmp_path / "state.json"
-        path.write_text(json.dumps({"pairs": ["ETHUSD", "DOGEUSD"]}))
-        state = WatcherState(str(path))
+    def test_unknown_pairs_in_db_are_dropped(self, tmp_path):
+        db = self._db(tmp_path)
+        db.kv_set("pairs", ["ETHUSD", "DOGEUSD"])
+        state = WatcherState(db)
         assert state.pairs == ["ETHUSD"]
+
+    def test_legacy_json_migration(self, tmp_path):
+        from app.services.smc.db import Database, migrate_legacy_json
+
+        state_file = tmp_path / "state.json"
+        journal_file = tmp_path / "journal.json"
+        state_file.write_text(
+            json.dumps({"pairs": ["ETHUSD", "GBPUSD"], "last_setup": {"ETHUSD": "x"}})
+        )
+        journal_file.write_text(
+            json.dumps(
+                [
+                    {
+                        "id": "legacy1",
+                        "pair": "ETHUSD",
+                        "direction": "long",
+                        "entry": 100.0,
+                        "stop_loss": 95.0,
+                        "take_profit": 110.0,
+                        "rr": 2.0,
+                        "session": "New York",
+                        "created_at": "2026-07-15T14:00:00+00:00",
+                        "expires_at": None,
+                        "status": "tp",
+                        "filled_at": None,
+                        "resolved_at": None,
+                        "checked_until": None,
+                    }
+                ]
+            )
+        )
+        db = Database(str(tmp_path / "smc.db"))
+        migrate_legacy_json(db, str(state_file), str(journal_file))
+        assert db.kv_get("pairs") == ["ETHUSD", "GBPUSD"]
+        assert db.signals_all()[0]["id"] == "legacy1"
+        assert not state_file.exists()  # renamed to .bak
+        assert (tmp_path / "state.json.bak").exists()
 
 
 class TestCorrelationGuard:
@@ -111,7 +154,7 @@ class TestCorrelationGuard:
         warnings = _correlation_warnings(
             [self._approved("EURUSD", "long"), self._approved("GBPUSD", "long")]
         )
-        assert any("EURUSD и GBPUSD" in w for w in warnings)
+        assert any("EURUSD and GBPUSD" in w for w in warnings)
 
     def test_triple_usd_bet_forbidden(self):
         from smc_watcher import _correlation_warnings
@@ -119,7 +162,7 @@ class TestCorrelationGuard:
         warnings = _correlation_warnings(
             [self._approved("GBPUSD", "long"), self._approved("USDJPY", "short")]
         )
-        assert any("тройная" in w for w in warnings)
+        assert any("triple bet" in w for w in warnings)
 
     def test_allowed_combination_is_silent(self):
         from smc_watcher import _correlation_warnings

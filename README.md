@@ -42,8 +42,8 @@ Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`)
 The official FF weekly JSON feed is fetched every morning (and every ~6h).
 Entries are blocked **60 min before** and **15 min after** every high-impact
 event: forex pairs react to news for either of their currencies, ETHUSD only
-to USD news. A morning digest of today's red news is sent at ~07:15 Prague
-(`SMC_NEWS_DIGEST=false` to disable). Rule 0.4: if a journal signal is active
+to USD news. A morning digest of today's red news is sent at **07:45 Prague**
+(`SMC_NEWS_DIGEST_TIME`; `SMC_NEWS_DIGEST=false` to disable). Rule 0.4: if a journal signal is active
 (pending/open) and red news is ≤30 min away, the bot sends a "SL to breakeven /
 pull the order" warning. Tunables: `SMC_NEWS_BLACKOUT_BEFORE_MIN` (60),
 `SMC_NEWS_BLACKOUT_AFTER_MIN` (15), `SMC_NEWS_ENABLED` (true).
@@ -55,8 +55,12 @@ pending (limit not reached) → open (entry touched) → **tp / sl** (whichever 
 first; both in one candle counts as sl, conservative). A pending order that
 outlives its session becomes **expired** (Rule 10). `/stats` shows counts,
 winrate and per-pair breakdown — the data basis for tuning the strategy.
-On Railway attach a volume and set `SMC_JOURNAL_FILE=/data/journal.json` if you
-want the journal to survive redeploys.
+
+Signals and runtime state (selected pairs, dedup keys) live in one **SQLite
+database** (`SMC_DB_FILE`, default `.smc_watcher.db`; legacy JSON files are
+imported automatically). On Railway attach a volume (e.g. mounted at `/data`)
+and set `SMC_DB_FILE=/data/smc.db` so entries and pair selection survive
+redeploys.
 
 ## Strategy checklist (per pair, every 5 min in session)
 
@@ -111,6 +115,8 @@ Key ones:
 | `SMC_INTERVAL_MINUTES` | `15` | check cadence outside sessions |
 | `SMC_DEPOSIT` | — | deposit in USD for lot hints |
 | `SMC_NOTIFY_NO_SETUP` | `false` | opt-in 15-min heartbeat messages |
+| `SMC_DB_FILE` | `.smc_watcher.db` | SQLite path (put on a volume for persistence) |
+| `SMC_NEWS_DIGEST_TIME` | `07:45` | Prague time of the morning news digest |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
 | `OANDA_API_TOKEN` | — | optional: use OANDA instead of Yahoo for forex |
 | `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |

@@ -6,7 +6,7 @@ from app.services.smc.models import Candle, Direction, Pivot, Trend, Zone
 
 # A pivot needs `PIVOT_WING` candles on each side and at least
 # `CONFIRMATION_CANDLES` closed candles after it to be considered confirmed
-# ("экстремум подтверждён 2 закрытыми телами свечей").
+# (an extreme is confirmed by 2 closed candle bodies).
 PIVOT_WING = 2
 CONFIRMATION_CANDLES = 2
 

@@ -9,11 +9,11 @@ from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 
 logger = structlog.get_logger(__name__)
 
-TREND_RU = {Trend.UP: "аптренд", Trend.DOWN: "даунтренд", Trend.FLAT: "флет"}
+TREND_LABEL = {Trend.UP: "uptrend", Trend.DOWN: "downtrend", Trend.FLAT: "flat"}
 
 
 URGENT_HEADER = (
-    "🚨🚨🚨 <b>СРОЧНО! НАЙДЕН СЕТАП — МОЖНО ВХОДИТЬ В СДЕЛКУ!</b> 🚨🚨🚨"
+    "🚨🚨🚨 <b>URGENT! SETUP FOUND — READY TO TRADE!</b> 🚨🚨🚨"
 )
 
 
@@ -22,24 +22,24 @@ def format_no_setup(result: AnalysisResult) -> str:
     time_str = result.checked_at.strftime("%H:%M UTC")
     if result.verdict == Verdict.OFF_SESSION:
         return (
-            f"😴 {result.symbol} {time_str} — вне сессии, входы запрещены. "
-            "Проверю снова через 15 минут."
+            f"😴 {result.symbol} {time_str} — off session, entries are not "
+            "allowed. Will check again on schedule."
         )
-    reason = result.reasons[0] if result.reasons else "условия не выполнены"
-    return f"🔍 {result.symbol} {time_str} — сетапа нет. {reason}."
+    reason = result.reasons[0] if result.reasons else "conditions not met"
+    return f"🔍 {result.symbol} {time_str} — no setup. {reason}."
 
 
 def format_setup_still_active(result: AnalysisResult) -> str:
     """Short reminder when the previously reported setup is still valid."""
     time_str = result.checked_at.strftime("%H:%M UTC")
     return (
-        f"⏳ {result.symbol} {time_str} — сетап, о котором я писал ранее, "
-        "всё ещё активен. Новых сетапов нет."
+        f"⏳ {result.symbol} {time_str} — the setup reported earlier is still "
+        "active. Nothing new."
     )
 
 
 def format_result(result: AnalysisResult) -> str:
-    """Render an AnalysisResult as an HTML Telegram message (Шаблон A/В)."""
+    """Render an AnalysisResult as an HTML Telegram message (templates A/B)."""
     lines = []
     if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
         lines.append(URGENT_HEADER)
@@ -47,18 +47,18 @@ def format_result(result: AnalysisResult) -> str:
     lines.append(f"<b>{result.symbol}</b> — Triple Sync + Imbalance")
     lines.append(
         f"🕐 {result.checked_at.strftime('%d.%m.%Y %H:%M UTC')}"
-        + (f" | Сессия: {result.session_name}" if result.session_name else "")
+        + (f" | Session: {result.session_name}" if result.session_name else "")
     )
     d = result.price_decimals
     if result.price:
-        lines.append(f"💵 Цена: {result.price:.{d}f}")
+        lines.append(f"💵 Price: {result.price:.{d}f}")
     lines.append("")
-    lines.append(f"<b>Диагноз H4:</b> {TREND_RU[result.h4_trend]}")
+    lines.append(f"<b>H4 bias:</b> {TREND_LABEL[result.h4_trend]}")
 
     if result.h1_zone:
         zone_kind = "Demand" if result.h1_zone.is_demand else "Supply"
         lines.append(
-            f"<b>Зона H1 ({zone_kind}):</b> "
+            f"<b>H1 zone ({zone_kind}):</b> "
             f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
         )
 
@@ -66,17 +66,17 @@ def format_result(result: AnalysisResult) -> str:
         setup = result.setup
         side = "Buy" if setup.direction == Direction.LONG else "Sell"
         lines.append(
-            f"<b>Triple Sync:</b> Подтверждён ✅ | "
-            f"<b>FVG:</b> {setup.fvg.size:.{d}f}, заполнение {setup.fvg.fill_pct * 100:.0f}%"
+            f"<b>Triple Sync:</b> confirmed ✅ | "
+            f"<b>FVG:</b> {setup.fvg.size:.{d}f}, fill {setup.fvg.fill_pct * 100:.0f}%"
         )
         lines.append("")
-        lines.append("<b>Вердикт Бати:</b>")
+        lines.append("<b>Verdict:</b>")
         if result.verdict == Verdict.APPROVED_MARKET:
             lines.append(
-                f"✅ APPROVED (Market) — {side} сейчас по ~{result.price:.{d}f} "
-                f"(цена в зоне FVG {setup.fvg.bottom:.{d}f}–{setup.fvg.top:.{d}f})"
+                f"✅ APPROVED (Market) — {side} now at ~{result.price:.{d}f} "
+                f"(price is inside the FVG {setup.fvg.bottom:.{d}f}–{setup.fvg.top:.{d}f})"
             )
-            lines.append(f"   Альтернатива: {side} Limit {setup.entry:.{d}f}")
+            lines.append(f"   Alternative: {side} Limit {setup.entry:.{d}f}")
         else:
             lines.append(f"✅ APPROVED (Limit) — {side} Limit: {setup.entry:.{d}f}")
         lines.append(
@@ -84,31 +84,31 @@ def format_result(result: AnalysisResult) -> str:
         )
         lines.append(f"📐 RR: 1:{setup.rr:.1f}")
         if setup.lot_hint:
-            lines.append(f"⚖️ Лот: {setup.lot_hint}")
+            lines.append(f"⚖️ Size: {setup.lot_hint}")
         else:
-            lines.append("⚖️ Лот: рассчитай под 1.5–2% риска от депозита")
+            lines.append("⚖️ Size: calculate for 1.5–2% account risk")
         if result.funding_warning:
             lines.append(f"⚠️ {result.funding_warning}")
         elif result.funding_rate is not None:
-            lines.append(f"💸 Фандинг: {result.funding_rate * 100:.3f}%/8h — норма")
+            lines.append(f"💸 Funding: {result.funding_rate * 100:.3f}%/8h — normal")
         lines.append("")
         lines.append(
-            "⏳ Лимитный ордер действует только в рамках текущей сессии — "
-            "не сработал до конца сессии, удали."
+            "⏳ The limit order is valid only within the current session — "
+            "cancel it if unfilled by session end."
         )
     elif result.verdict == Verdict.WATCH:
         lines.append("")
-        lines.append("<b>Сетапа пока нет (Setup Watch):</b>")
+        lines.append("<b>No setup yet (Setup Watch):</b>")
         for reason in result.reasons:
             lines.append(f"• {reason}")
         if result.watch_notes:
             lines.append("")
-            lines.append("<b>Что нужно для входа:</b>")
+            lines.append("<b>What is needed for an entry:</b>")
             for note in result.watch_notes:
                 lines.append(f"→ {note}")
     else:
         lines.append("")
-        lines.append("<b>Вердикт:</b> ❌ SKIP")
+        lines.append("<b>Verdict:</b> ❌ SKIP")
         for reason in result.reasons:
             lines.append(f"• {reason}")
 

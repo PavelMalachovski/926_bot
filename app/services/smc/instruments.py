@@ -18,7 +18,7 @@ class Instrument:
     check_funding: bool  # Rule 9.3: funding rate advisory (crypto only)
 
 
-# Strategy universe (Rule "Торгуемые инструменты").
+# Strategy universe (the "Tradeable instruments" rule).
 # FVG minimums per Rule 4: forex pairs 5 pips, ETHUSD $2.
 INSTRUMENTS: Dict[str, Instrument] = {
     "ETHUSD": Instrument(

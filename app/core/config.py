@@ -63,7 +63,10 @@ class SMCSettings(BaseSettings):
         default=True, description="Block entries around Forex Factory red news"
     )
     news_digest: bool = Field(
-        default=True, description="Send a morning red-news digest (~07:15 Prague)"
+        default=True, description="Send a morning red-news digest before trading"
+    )
+    news_digest_time: str = Field(
+        default="07:45", description="Prague local time (HH:MM) for the digest"
     )
     news_blackout_before_min: int = Field(
         default=60, description="No-entry window before a red news release, minutes"
