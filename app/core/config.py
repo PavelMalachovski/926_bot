@@ -35,7 +35,13 @@ class SMCSettings(BaseSettings):
         default="ETHUSD,USDJPY",
         description="Comma-separated default pairs (runtime changes via /pairs)",
     )
-    interval_minutes: int = Field(default=15, description="Check interval in minutes")
+    interval_minutes: int = Field(
+        default=15, description="Check interval outside sessions, minutes"
+    )
+    session_interval_minutes: int = Field(
+        default=5,
+        description="Check interval inside session windows (M5 cadence), minutes",
+    )
     min_rr: float = Field(default=2.0, description="Minimum risk/reward ratio")
     risk_pct: float = Field(default=2.0, description="Risk percent per trade")
     deposit: Optional[float] = Field(

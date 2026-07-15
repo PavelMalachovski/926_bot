@@ -33,9 +33,20 @@ Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`)
 | `/pairs` | inline keyboard — toggle watched pairs on/off |
 | `/status` | enabled pairs, current session, last verdicts |
 | `/check` | run the full strategy check right now |
+| `/stats` | signal journal: setups, TP/SL outcomes, winrate per pair |
 | `/help` | command list |
 
-## Strategy checklist (per pair, every 15 min)
+## Signal journal
+
+Every approved setup is recorded and tracked automatically against M5 candles:
+pending (limit not reached) → open (entry touched) → **tp / sl** (whichever hit
+first; both in one candle counts as sl, conservative). A pending order that
+outlives its session becomes **expired** (Rule 10). `/stats` shows counts,
+winrate and per-pair breakdown — the data basis for tuning the strategy.
+On Railway attach a volume and set `SMC_JOURNAL_FILE=/data/journal.json` if you
+want the journal to survive redeploys.
+
+## Strategy checklist (per pair, every 5 min in session)
 
 1. **Session filter** — entries only inside Frankfurt/London & NY windows
    (Prague time, DST-aware). Closed forex market is detected automatically.
@@ -84,7 +95,8 @@ Key ones:
 | Variable | Default | Meaning |
 |---|---|---|
 | `SMC_PAIRS` | `ETHUSD,USDJPY` | initial pairs (runtime changes via `/pairs`) |
-| `SMC_INTERVAL_MINUTES` | `15` | check cadence |
+| `SMC_SESSION_INTERVAL_MINUTES` | `5` | check cadence inside sessions (M5 close) |
+| `SMC_INTERVAL_MINUTES` | `15` | check cadence outside sessions |
 | `SMC_DEPOSIT` | — | deposit in USD for lot hints |
 | `SMC_NOTIFY_NO_SETUP` | `false` | opt-in 15-min heartbeat messages |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |

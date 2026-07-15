@@ -30,6 +30,7 @@ HELP_TEXT = (
     "/pairs — выбрать валютные пары\n"
     "/status — текущие настройки и последние вердикты\n"
     "/check — проверить сетапы прямо сейчас\n"
+    "/stats — журнал сигналов: сколько сетапов, TP/SL, винрейт\n"
     "/help — эта справка"
 )
 
@@ -44,12 +45,14 @@ class TelegramCommandBot:
         state: WatcherState,
         run_cycle: Callable[[], Awaitable[str]],
         status_text: Callable[[], str],
+        stats_text: Optional[Callable[[], str]] = None,
     ):
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
         self.owner_chat_id = str(owner_chat_id)
         self.state = state
         self.run_cycle = run_cycle
         self.status_text = status_text
+        self.stats_text = stats_text
         self._offset: Optional[int] = None
 
     # ------------------------------------------------------------- transport
@@ -131,6 +134,11 @@ class TelegramCommandBot:
             )
         elif command == "/status":
             await self.send(self.status_text())
+        elif command == "/stats":
+            if self.stats_text:
+                await self.send(self.stats_text())
+            else:
+                await self.send("Журнал недоступен.")
         elif command == "/check":
             await self.send("⏳ Проверяю сетапы, секунду...")
             summary = await self.run_cycle()

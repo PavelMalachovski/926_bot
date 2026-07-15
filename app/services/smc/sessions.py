@@ -44,6 +44,32 @@ def active_session(utc_dt: datetime) -> Optional[str]:
     return None
 
 
+def same_trading_day(utc_a: datetime, utc_b: datetime) -> bool:
+    """True if both instants fall on the same Prague calendar day.
+
+    Used as the FVG session scope for crypto: 24/7 markets have no
+    London/NY liquidity reset, so an FVG stays valid for the whole day.
+    """
+    return to_prague(utc_a).date() == to_prague(utc_b).date()
+
+
+def session_end_utc(utc_dt: datetime) -> Optional[datetime]:
+    """End (UTC) of the session window containing utc_dt, or None if outside.
+
+    Used for pending-order expiry: a limit order lives only until the end of
+    the session it was created in.
+    """
+    local = to_prague(utc_dt)
+    now = local.time()
+    for start, end, _ in _windows_for(local):
+        if start <= now < end:
+            end_local = PRAGUE.localize(
+                datetime.combine(local.date(), end), is_dst=None
+            )
+            return end_local.astimezone(pytz.UTC)
+    return None
+
+
 def same_session(utc_a: datetime, utc_b: datetime) -> bool:
     """True if both instants fall inside the same session window on the same day.
 

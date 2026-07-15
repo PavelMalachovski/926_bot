@@ -195,7 +195,11 @@ class TripleSyncEngine:
         # impulse leg that breaks structure, so the 3-candle window may end on
         # the CHoCH candle itself (hence choch - 2), but never before the touch.
         fvg = select_valid_fvg(
-            m5, direction, max(touch, choch - 2), self.min_fvg_size
+            m5,
+            direction,
+            max(touch, choch - 2),
+            self.min_fvg_size,
+            same_day_scope=self.instrument.source == "crypto",
         )
         if fvg is None:
             result.verdict = Verdict.WATCH
@@ -228,24 +232,35 @@ class TripleSyncEngine:
             result.reasons.append("Некорректная геометрия сделки: SL на уровне входа")
             return result
 
-        # Rule 7 — TP at the nearest untested opposite zone (H1, fallback H4)
-        target = find_target_zone(h1, direction, entry) or find_target_zone(
-            h4, direction, entry
-        )
-        if target is None:
-            result.verdict = Verdict.SKIP
-            result.reasons.append(
-                "Нет непротестированной противоположной зоны H1/H4 для тейк-профита"
-            )
-            return result
-        take_profit = target.bottom if direction == Direction.LONG else target.top
+        # Rule 7 — TP at the nearest untested opposite zone. The rule allows
+        # both H1 and H4 targets: if the nearest H1 zone is too close for the
+        # minimum RR, the H4 zone behind it is still a valid target.
+        take_profit = None
+        rr = 0.0
+        best_rr = 0.0
+        for tf_candles in (h1, h4):
+            target = find_target_zone(tf_candles, direction, entry)
+            if target is None:
+                continue
+            tp = target.bottom if direction == Direction.LONG else target.top
+            candidate_rr = abs(tp - entry) / risk
+            best_rr = max(best_rr, candidate_rr)
+            if candidate_rr >= self.min_rr:
+                take_profit = tp
+                rr = candidate_rr
+                break
 
-        rr = abs(take_profit - entry) / risk
-        if rr < self.min_rr:
+        if take_profit is None:
             result.verdict = Verdict.SKIP
-            result.reasons.append(
-                f"RR 1:{rr:.1f} < минимума 1:{self.min_rr:.0f} — сделка математически невыгодна"
-            )
+            if best_rr > 0:
+                result.reasons.append(
+                    f"RR 1:{best_rr:.1f} < минимума 1:{self.min_rr:.0f} "
+                    "до ближайших зон H1/H4 — сделка математически невыгодна"
+                )
+            else:
+                result.reasons.append(
+                    "Нет непротестированной противоположной зоны H1/H4 для тейк-профита"
+                )
             return result
 
         # Rule 8 — position size hint
