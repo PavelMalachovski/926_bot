@@ -22,12 +22,14 @@ class WatcherState:
         self.last_setup: Dict[str, str] = db.kv_get("last_setup") or {}
         self.last_digest_date: str = db.kv_get("last_digest_date") or ""
         self.news_warned: Dict[str, str] = db.kv_get("news_warned") or {}
+        self.day_stop_notified: str = db.kv_get("day_stop_notified") or ""
 
     def save(self) -> None:
         self.db.kv_set("pairs", self.pairs)
         self.db.kv_set("last_setup", self.last_setup)
         self.db.kv_set("last_digest_date", self.last_digest_date)
         self.db.kv_set("news_warned", self.news_warned)
+        self.db.kv_set("day_stop_notified", self.day_stop_notified)
 
     def toggle_pair(self, key: str) -> bool:
         """Toggle a pair on/off. Returns True if the pair is now enabled."""

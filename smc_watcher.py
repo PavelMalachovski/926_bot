@@ -97,6 +97,33 @@ def _setup_fingerprint(result: AnalysisResult) -> str:
     )
 
 
+def _card_footer(signal: Dict) -> str:
+    """Status history appended to the alert message (live setup card)."""
+
+    def hhmm(iso: Optional[str]) -> str:
+        if not iso:
+            return ""
+        local = to_prague(datetime.fromisoformat(iso))
+        return f" ({local:%H:%M} Prague)"
+
+    lines = ["", "──────────────"]
+    if signal.get("filled_at"):
+        lines.append(f"📈 Filled @ {signal['entry']}{hhmm(signal['filled_at'])}")
+    status = signal["status"]
+    when = hhmm(signal.get("resolved_at"))
+    if status == "tp":
+        lines.append(f"🎯 <b>TP HIT</b>{when} — planned +{signal['rr']:.1f}R")
+    elif status == "sl":
+        lines.append(f"🛑 <b>SL HIT</b>{when} — −1R")
+    elif status == "expired":
+        lines.append("🗑 Expired unfilled — order dies with its session (Rule 10)")
+    elif status == "timeout":
+        lines.append("⌛ Timed out — untracked after 5 days")
+    elif status == "open":
+        lines.append("⏳ Position live — tracking TP/SL")
+    return "\n".join(lines)
+
+
 def _correlation_warnings(approved: List[AnalysisResult]) -> List[str]:
     """Rule 9.2: warn about forbidden simultaneous USD combinations."""
     warnings = []
@@ -153,6 +180,7 @@ class Watcher:
             status_text=self.status_text,
             stats_text=self.journal.stats_text,
             news_text=self.news_text,
+            on_trade_mark=self.mark_trade,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply the env default on the very first start (DB wins afterwards)
@@ -208,13 +236,20 @@ class Watcher:
                     heartbeat_lines.append(
                         f"⏳ {key}: previously reported setup is still active"
                     )
-                else:
-                    approved.append(result)
-                    if await self.notifier.send(format_result(result)):
-                        self.state.last_setup[key] = fingerprint
-                        self.state.save()
-                    self.journal.record(result)
-                    heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
+                    continue
+                block = self.journal.discipline_block(
+                    key,
+                    result.setup.direction.value,
+                    result.session_name,
+                    result.checked_at,
+                )
+                if block:
+                    logger.info("Alert suppressed", pair=key, rule=block)
+                    heartbeat_lines.append(f"⛔ {key}: alert suppressed — {block}")
+                    continue
+                approved.append(result)
+                await self._send_alert(key, result, fingerprint)
+                heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
             else:
                 heartbeat_lines.append(line)
 
@@ -230,6 +265,98 @@ class Watcher:
         if settings.smc.notify_no_setup and not approved:
             await self.notifier.send(summary)
         return summary
+
+    # ---------------------------------------------------------------- alerts
+
+    async def _send_alert(
+        self, key: str, result: AnalysisResult, fingerprint: str
+    ) -> None:
+        """Urgent alert: message with Took/Skipped buttons + setup chart."""
+        signal = self.journal.record(result)
+        text = format_result(result)
+        keyboard = {
+            "inline_keyboard": [
+                [
+                    {"text": "✅ Took it", "callback_data": f"take_{signal['id']}"},
+                    {"text": "❌ Skipped", "callback_data": f"skip_{signal['id']}"},
+                ]
+            ]
+        }
+        message_id = await self.notifier.send(text, reply_markup=keyboard)
+        if message_id:
+            self.state.last_setup[key] = fingerprint
+            self.state.save()
+            self.journal.attach_message(signal["id"], message_id, text)
+            await self.notifier.pin(message_id)
+            await self._send_chart(result, message_id)
+
+    async def _send_chart(self, result: AnalysisResult, reply_to: int) -> None:
+        """Attach the setup chart PNG (must never block the alert)."""
+        try:
+            from app.services.smc.chart import render_setup_chart
+
+            png = render_setup_chart(result)
+            if png:
+                await self.notifier.send_photo(png, reply_to=reply_to)
+        except Exception as e:
+            logger.warning("Chart rendering failed", pair=result.symbol, error=str(e))
+
+    async def mark_trade(self, signal_id: str, taken: bool) -> str:
+        """Callback for the Took/Skipped buttons on alerts."""
+        signal = self.journal.mark_taken(signal_id, taken)
+        if not signal:
+            return "Signal not found (journal may have been reset)"
+        if taken:
+            return f"{signal['pair']} marked as taken — tracking your stats"
+        return f"{signal['pair']} marked as skipped"
+
+    async def _handle_journal_events(self, events) -> None:
+        """Live-update alert cards and enforce the daily stop notification."""
+        now = datetime.now(tz=timezone.utc)
+        for signal, event in events:
+            if signal.get("message_id") and signal.get("alert_text"):
+                footer = _card_footer(signal)
+                keep_buttons = signal.get("taken") is None
+                keyboard = (
+                    {
+                        "inline_keyboard": [
+                            [
+                                {
+                                    "text": "✅ Took it",
+                                    "callback_data": f"take_{signal['id']}",
+                                },
+                                {
+                                    "text": "❌ Skipped",
+                                    "callback_data": f"skip_{signal['id']}",
+                                },
+                            ]
+                        ]
+                    }
+                    if keep_buttons
+                    else None
+                )
+                await self.notifier.edit_message(
+                    signal["message_id"],
+                    signal["alert_text"] + footer,
+                    reply_markup=keyboard,
+                )
+                if event in ("tp", "sl", "expired", "timeout"):
+                    await self.notifier.unpin(signal["message_id"])
+            # Rule 0.2 proxy: the second taken stop of the day closes trading
+            if (
+                event == "sl"
+                and signal.get("taken") == 1
+                and self.journal.taken_sl_count_today(now) == 2
+            ):
+                today = to_prague(now).date().isoformat()
+                if self.state.day_stop_notified != today:
+                    self.state.day_stop_notified = today
+                    self.state.save()
+                    await self.notifier.send(
+                        "🛑 <b>RULE 0.2:</b> two taken stop-losses today — "
+                        "the trading day is CLOSED. No more alerts until "
+                        "tomorrow. A skipped bad day is a win."
+                    )
 
     # ------------------------------------------------------------------ news
 
@@ -324,7 +451,9 @@ class Watcher:
             except Exception as e:
                 logger.warning("Journal update failed", pair=pair, error=str(e))
                 continue
-            self.journal.update_pair(pair, candles)
+            events = self.journal.update_pair(pair, candles)
+            if events:
+                await self._handle_journal_events(events)
 
     # ---------------------------------------------------------------- status
 

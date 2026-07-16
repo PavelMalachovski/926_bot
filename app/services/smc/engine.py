@@ -92,6 +92,7 @@ class TripleSyncEngine:
 
         data = await self.fetcher.fetch_all_timeframes()
         result.price = data["m5"][-1].close
+        result.m5_candles = data["m5"]  # kept for chart rendering
 
         # Closed market (forex weekend): the newest M5 candle is stale.
         age = now - data["m5"][-1].timestamp

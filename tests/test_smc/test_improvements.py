@@ -221,7 +221,7 @@ class TestJournal:
         )
         signal = journal.record(result)
         assert signal["status"] == "pending"
-        assert "Total setups: 1" in journal.stats_text()
+        assert "Signals: 1" in journal.stats_text()
 
         reloaded = SignalJournal(Database(str(tmp_path / "smc.db")))
         assert len(reloaded.signals) == 1
