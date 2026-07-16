@@ -12,6 +12,17 @@ logger = structlog.get_logger(__name__)
 TREND_LABEL = {Trend.UP: "uptrend", Trend.DOWN: "downtrend", Trend.FLAT: "flat"}
 
 
+def escape_html(text: str) -> str:
+    """Escape <, > and & for Telegram parse_mode=HTML.
+
+    Plain strings (engine reasons like "fill < 50%", news titles like
+    "S&P Global PMI") would otherwise be rejected by Telegram as broken tags.
+    """
+    return (
+        str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    )
+
+
 URGENT_HEADER = (
     "🚨🚨🚨 <b>URGENT! SETUP FOUND — READY TO TRADE!</b> 🚨🚨🚨"
 )
@@ -25,7 +36,7 @@ def format_no_setup(result: AnalysisResult) -> str:
             f"😴 {result.symbol} {time_str} — off session, entries are not "
             "allowed. Will check again on schedule."
         )
-    reason = result.reasons[0] if result.reasons else "conditions not met"
+    reason = escape_html(result.reasons[0] if result.reasons else "conditions not met")
     return f"🔍 {result.symbol} {time_str} — no setup. {reason}."
 
 
@@ -100,17 +111,17 @@ def format_result(result: AnalysisResult) -> str:
         lines.append("")
         lines.append("<b>No setup yet (Setup Watch):</b>")
         for reason in result.reasons:
-            lines.append(f"• {reason}")
+            lines.append(f"• {escape_html(reason)}")
         if result.watch_notes:
             lines.append("")
             lines.append("<b>What is needed for an entry:</b>")
             for note in result.watch_notes:
-                lines.append(f"→ {note}")
+                lines.append(f"→ {escape_html(note)}")
     else:
         lines.append("")
         lines.append("<b>Verdict:</b> ❌ SKIP")
         for reason in result.reasons:
-            lines.append(f"• {reason}")
+            lines.append(f"• {escape_html(reason)}")
 
     return "\n".join(lines)
 

@@ -154,13 +154,15 @@ class NewsCalendar:
                 + f"\n✅ No red news for your currencies "
                 f"({', '.join(sorted(currencies))}) today."
             )
+        from app.services.smc.notifier import escape_html
+
         lines = [header, "🔴 Red news today:"]
         for e in events:
-            lines.append(f"• {e.prague_hhmm()} — {e.title} ({e.currency})")
+            lines.append(f"• {e.prague_hhmm()} — {escape_html(e.title)} ({e.currency})")
         nearest = next((e for e in events if e.time > now), None)
         if nearest:
             lines.append(
-                f"⚠️ Next up: {nearest.prague_hhmm()} — {nearest.title} "
+                f"⚠️ Next up: {nearest.prague_hhmm()} — {escape_html(nearest.title)} "
                 f"({nearest.currency})"
             )
         lines.append(

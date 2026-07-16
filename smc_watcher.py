@@ -36,6 +36,7 @@ from app.services.smc.news import NewsCalendar, relevant_currencies
 from app.services.smc.models import AnalysisResult, Direction, Verdict
 from app.services.smc.notifier import (
     TelegramNotifier,
+    escape_html,
     format_no_setup,
     format_result,
 )
@@ -244,7 +245,7 @@ class Watcher:
             "News blackout", pair=key, event=event.title, currency=event.currency
         )
         return (
-            f"⛔ {key}: blackout — 🔴 {event.title} ({event.currency}) "
+            f"⛔ {key}: blackout — 🔴 {escape_html(event.title)} ({event.currency}) "
             f"at {event.prague_hhmm()} Prague, entries blocked"
         )
 
@@ -289,7 +290,7 @@ class Watcher:
                     else "cancel the pending order"
                 )
                 await self.notifier.send(
-                    f"⚠️ <b>RULE 0.4:</b> {signal['pair']} — 🔴 {event.title} "
+                    f"⚠️ <b>RULE 0.4:</b> {signal['pair']} — 🔴 {escape_html(event.title)} "
                     f"({event.currency}) in {minutes_left} min "
                     f"({event.prague_hhmm()} Prague). You have "
                     f"{'an open position' if signal['status'] == 'open' else 'an active limit order'} "
