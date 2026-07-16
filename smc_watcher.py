@@ -223,8 +223,8 @@ class Watcher:
 
         await self._track_journal()
 
-        time_str = datetime.now(tz=timezone.utc).strftime("%H:%M UTC")
-        summary = f"🔍 <b>Check {time_str}</b>\n" + "\n".join(heartbeat_lines)
+        time_str = to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M")
+        summary = f"🔍 <b>Check {time_str} Prague</b>\n" + "\n".join(heartbeat_lines)
         logger.info("Cycle summary", summary=" | ".join(heartbeat_lines))
         # By default only setup alerts go to Telegram; the heartbeat is opt-in.
         if settings.smc.notify_no_setup and not approved:
@@ -343,7 +343,8 @@ class Watcher:
             lines.append("")
             lines.append("<b>Last check:</b>")
             for key, r in self.last_results.items():
-                lines.append(f"• {key}: {r.verdict.value} ({r.checked_at:%H:%M UTC})")
+                local = to_prague(r.checked_at)
+                lines.append(f"• {key}: {r.verdict.value} ({local:%H:%M} Prague)")
         return "\n".join(lines)
 
     # ------------------------------------------------------------- scheduler

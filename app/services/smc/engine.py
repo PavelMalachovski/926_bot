@@ -76,12 +76,17 @@ class TripleSyncEngine:
             price_decimals=self.instrument.price_decimals,
         )
 
-        # Rule 0.1 — session filter (entries only inside session windows)
-        result.session_name = active_session(now)
+        # Rule 0.1 — session filter: 08:00-20:00 Prague; forex only Mon-Fri,
+        # crypto every day
+        result.session_name = active_session(
+            now, require_weekday=self.instrument.source == "forex"
+        )
         if self.enforce_sessions and result.session_name is None:
             result.verdict = Verdict.OFF_SESSION
             result.reasons.append(
-                f"Outside session windows — no entries for {self.display_symbol}"
+                f"Outside trading hours (08-20 Prague"
+                f"{', Mon-Fri' if self.instrument.source == 'forex' else ''}) "
+                f"— no entries for {self.display_symbol}"
             )
             return result
 

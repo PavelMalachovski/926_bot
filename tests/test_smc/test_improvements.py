@@ -104,16 +104,38 @@ class TestCryptoSessionScope:
 class TestSessions:
     def test_same_trading_day(self):
         a = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
-        b = datetime(2026, 7, 6, 19, 0, tzinfo=timezone.utc)
+        b = datetime(2026, 7, 6, 17, 0, tzinfo=timezone.utc)
         c = datetime(2026, 7, 6, 23, 0, tzinfo=timezone.utc)  # 01:00 Prague next day
         assert same_trading_day(a, b)
         assert not same_trading_day(b, c)
 
     def test_session_end_utc(self):
-        # 16:00 Prague summer (14:00 UTC) is in the NY window ending 22:00 CEST
+        # 16:00 Prague summer (14:00 UTC) is in the NY window ending 20:00 Prague
         dt = datetime(2026, 7, 6, 14, 0, tzinfo=timezone.utc)
         end = session_end_utc(dt)
-        assert end == datetime(2026, 7, 6, 20, 0, tzinfo=timezone.utc)
+        assert end == datetime(2026, 7, 6, 18, 0, tzinfo=timezone.utc)
+
+    def test_trading_hours_08_20_prague(self):
+        from app.services.smc.sessions import active_session
+
+        def at(hour, minute=0, day=8):  # Wed 2026-07-08, CEST = UTC+2
+            return datetime(2026, 7, day, hour - 2, minute, tzinfo=timezone.utc)
+
+        assert active_session(at(7, 59)) is None
+        assert active_session(at(8, 0)) == "Frankfurt/London"
+        assert active_session(at(13, 59)) == "Frankfurt/London"
+        assert active_session(at(14, 0)) == "New York"
+        assert active_session(at(19, 59)) == "New York"
+        assert active_session(at(20, 0)) is None
+
+    def test_forex_weekends_off_crypto_on(self):
+        from app.services.smc.sessions import active_session
+
+        saturday = datetime(2026, 7, 11, 8, 0, tzinfo=timezone.utc)  # 10:00 Prague
+        assert active_session(saturday) == "Frankfurt/London"  # crypto: every day
+        assert active_session(saturday, require_weekday=True) is None  # forex: off
+        friday = datetime(2026, 7, 10, 8, 0, tzinfo=timezone.utc)
+        assert active_session(friday, require_weekday=True) == "Frankfurt/London"
 
 
 class TestJournal:
