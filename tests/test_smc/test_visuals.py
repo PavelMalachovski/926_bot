@@ -158,8 +158,8 @@ class TestPrettyStats:
         assert "marked taken: 2" in text
 
 
-class TestDigestTimeline:
-    def test_timeline_marks_news_hours(self):
+class TestDigestBlocks:
+    def test_digest_shows_session_block_and_no_entry_window(self):
         from app.services.smc.news import NewsCalendar, parse_feed
 
         cal = NewsCalendar()
@@ -174,5 +174,9 @@ class TestDigestTimeline:
             ]
         )
         cal.fetched_at = datetime(2026, 7, 16, 5, 0, tzinfo=timezone.utc)
-        text = cal.digest_text({"USD"}, datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc))
-        assert "🕗 08 " in text and "🔴" in text and "│" in text
+        text = cal.digest_text(
+            ["ETHUSD"], datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc)
+        )
+        assert "New York 14–20" in text
+        assert "🔴 14:30 CPI m/m (USD) → ETHUSD" in text
+        assert "⛔ no entries 13:30–14:45" in text

@@ -15,7 +15,7 @@ from typing import List, Optional, Set
 import httpx
 import structlog
 
-from app.services.smc.instruments import Instrument
+from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.sessions import to_prague
 
 logger = structlog.get_logger(__name__)
@@ -60,20 +60,6 @@ def parse_feed(raw: List[dict]) -> List[NewsEvent]:
         )
     events.sort(key=lambda e: e.time)
     return events
-
-
-def _day_timeline(events: List[NewsEvent]) -> str:
-    """One-glance map of the trading day: 08→20 Prague, 🔴 marks news hours.
-
-    Example: 🕗 08 ······🔴 │ ·🔴···· 20  (│ = London→NY handover at 14:00)
-    """
-    hours_with_news = {to_prague(e.time).hour for e in events}
-    cells = []
-    for hour in range(8, 20):
-        if hour == 14:
-            cells.append(" │ ")
-        cells.append("🔴" if hour in hours_with_news else "·")
-    return "🕗 08 " + "".join(cells) + " 20"
 
 
 class NewsCalendar:
@@ -151,9 +137,15 @@ class NewsCalendar:
         ]
 
     def digest_text(
-        self, currencies: Set[str], now: Optional[datetime] = None
+        self, pairs: List[str], now: Optional[datetime] = None
     ) -> str:
-        """Morning digest (strategy Rule -1)."""
+        """Morning digest (strategy Rule -1), grouped by session block.
+
+        For every red event: Prague time, title, the watched pairs it hits
+        and the exact no-entry window — no abstract rulers to decode.
+        """
+        from app.services.smc.notifier import escape_html
+
         now = now or datetime.now(tz=timezone.utc)
         date_str = to_prague(now).strftime("%d.%m.%Y")
         header = f"📅 <b>Forex Factory — {date_str}</b> (Prague time)"
@@ -161,27 +153,57 @@ class NewsCalendar:
             return header + "\n⚠️ Calendar not loaded yet" + (
                 f" ({self.fetch_error})" if self.fetch_error else ""
             )
+
+        by_pair = {p: relevant_currencies(get_instrument(p)) for p in pairs}
+        currencies: Set[str] = set().union(*by_pair.values()) if by_pair else set()
         events = self.todays_events(currencies, now)
         if not events:
             return (
                 header
-                + f"\n✅ No red news for your currencies "
-                f"({', '.join(sorted(currencies))}) today."
+                + f"\n✅ No red news for your pairs "
+                f"({', '.join(pairs) if pairs else '—'}) today. Clean hunting."
             )
-        from app.services.smc.notifier import escape_html
 
-        lines = [header, "🔴 Red news today:"]
-        for e in events:
-            lines.append(f"• {e.prague_hhmm()} — {escape_html(e.title)} ({e.currency})")
-        nearest = next((e for e in events if e.time > now), None)
-        if nearest:
-            lines.append(
-                f"⚠️ Next up: {nearest.prague_hhmm()} — {escape_html(nearest.title)} "
-                f"({nearest.currency})"
-            )
-        lines.append(_day_timeline(events))
+        def block_of(event: NewsEvent) -> str:
+            hour = to_prague(event.time).hour
+            if 8 <= hour < 14:
+                return "london"
+            if 14 <= hour < 20:
+                return "ny"
+            return "off"
+
+        def event_lines(event: NewsEvent) -> List[str]:
+            hits = ", ".join(p for p, cur in by_pair.items() if event.currency in cur)
+            start = to_prague(event.time - self.before).strftime("%H:%M")
+            end = to_prague(event.time + self.after).strftime("%H:%M")
+            return [
+                f"🔴 {event.prague_hhmm()} {escape_html(event.title)} "
+                f"({event.currency}) → {hits or '—'}",
+                f"    ⛔ no entries {start}–{end}",
+            ]
+
+        lines = [header, ""]
+        for title, key in (
+            ("🌅 <b>London 08–14</b>", "london"),
+            ("🌇 <b>New York 14–20</b>", "ny"),
+        ):
+            lines.append(title)
+            block_events = [e for e in events if block_of(e) == key]
+            if block_events:
+                for event in block_events:
+                    lines.extend(event_lines(event))
+            else:
+                lines.append("✅ clear")
+        off_hours = [e for e in events if block_of(e) == "off"]
+        if off_hours:
+            lines.append("🌙 <b>Outside trading hours</b>")
+            for event in off_hours:
+                lines.extend(event_lines(event))
+
+        lines.append("")
         lines.append(
-            f"⛔ Entry blackout: {int(self.before.total_seconds() // 60)} min "
-            f"before and {int(self.after.total_seconds() // 60)} min after each."
+            f"⛔ Blackout rule: {int(self.before.total_seconds() // 60)} min "
+            f"before / {int(self.after.total_seconds() // 60)} min after "
+            "each release."
         )
         return "\n".join(lines)
