@@ -65,6 +65,8 @@ class TestEscaping:
             ]
         )
         cal.fetched_at = datetime(2026, 7, 16, 5, 0, tzinfo=timezone.utc)
-        text = cal.digest_text({"USD"})
+        text = cal.digest_text(
+            ["ETHUSD"], datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc)
+        )
         _assert_valid_telegram_html(text)
         assert "S&amp;P" in text

@@ -391,10 +391,7 @@ class Watcher:
             digest_after = local.replace(hour=7, minute=45, second=0, microsecond=0)
         if self.state.last_digest_date == today or local < digest_after:
             return
-        currencies = set()
-        for key in self.state.pairs:
-            currencies |= relevant_currencies(get_instrument(key))
-        await self.notifier.send(self.news.digest_text(currencies))
+        await self.notifier.send(self.news.digest_text(self.state.pairs))
         self.state.last_digest_date = today
         self.state.save()
 
@@ -437,10 +434,7 @@ class Watcher:
         """/news command."""
         if not self.news:
             return "News filter is disabled (SMC_NEWS_ENABLED=false)."
-        currencies = set()
-        for key in self.state.pairs:
-            currencies |= relevant_currencies(get_instrument(key))
-        return self.news.digest_text(currencies)
+        return self.news.digest_text(self.state.pairs)
 
     async def _track_journal(self) -> None:
         """Advance unresolved journal signals using fresh M5 candles."""

@@ -91,15 +91,31 @@ class TestUpcomingAndDigest:
         soon = cal.upcoming({"USD", "GBP"}, timedelta(minutes=30), now)
         assert [e.title for e in soon] == ["CPI m/m"]
 
-    def test_digest_lists_todays_events_in_prague_time(self):
+    def test_digest_groups_by_session_block(self):
         cal = _calendar()
         now = datetime(2026, 7, 15, 5, 30, tzinfo=timezone.utc)
-        text = cal.digest_text({"USD", "GBP", "JPY"}, now)
-        assert "CPI m/m" in text and "14:30" in text  # 12:30 UTC = 14:30 Prague
-        assert "BOE Gov Speaks" in text and "22:00" in text
-        assert "blackout" in text.lower()
+        text = cal.digest_text(["GBPUSD", "USDJPY", "ETHUSD"], now)
+        # CPI 12:30 UTC = 14:30 Prague -> New York block, hits all USD pairs
+        assert "New York 14–20" in text
+        assert "🔴 14:30 CPI m/m (USD)" in text
+        assert "GBPUSD" in text and "USDJPY" in text and "ETHUSD" in text
+        # exact no-entry window: 60 min before, 15 after
+        assert "⛔ no entries 13:30–14:45" in text
+        # London block has nothing that day
+        assert "London 08–14" in text and "✅ clear" in text
+        # BOE speech 20:00 UTC = 22:00 Prague -> outside trading hours
+        assert "Outside trading hours" in text and "22:00 BOE Gov Speaks" in text
+        assert "Blackout rule" in text
+
+    def test_digest_hits_only_affected_pairs(self):
+        cal = _calendar()
+        now = datetime(2026, 7, 15, 5, 30, tzinfo=timezone.utc)
+        text = cal.digest_text(["USDJPY"], now)
+        # GBP-only event is not in USDJPY's currencies -> not listed at all
+        assert "BOE Gov Speaks" not in text
+        assert "CPI m/m" in text  # USD hits USDJPY
 
     def test_digest_when_quiet_day(self):
         cal = _calendar()
         now = datetime(2026, 7, 16, 5, 30, tzinfo=timezone.utc)  # next day
-        assert "No red news" in cal.digest_text({"USD"}, now)
+        assert "No red news" in cal.digest_text(["ETHUSD"], now)
