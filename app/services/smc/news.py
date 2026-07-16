@@ -62,6 +62,20 @@ def parse_feed(raw: List[dict]) -> List[NewsEvent]:
     return events
 
 
+def _day_timeline(events: List[NewsEvent]) -> str:
+    """One-glance map of the trading day: 08→20 Prague, 🔴 marks news hours.
+
+    Example: 🕗 08 ······🔴 │ ·🔴···· 20  (│ = London→NY handover at 14:00)
+    """
+    hours_with_news = {to_prague(e.time).hour for e in events}
+    cells = []
+    for hour in range(8, 20):
+        if hour == 14:
+            cells.append(" │ ")
+        cells.append("🔴" if hour in hours_with_news else "·")
+    return "🕗 08 " + "".join(cells) + " 20"
+
+
 class NewsCalendar:
     """Cached red-news calendar with blackout checks."""
 
@@ -165,6 +179,7 @@ class NewsCalendar:
                 f"⚠️ Next up: {nearest.prague_hhmm()} — {escape_html(nearest.title)} "
                 f"({nearest.currency})"
             )
+        lines.append(_day_timeline(events))
         lines.append(
             f"⛔ Entry blackout: {int(self.before.total_seconds() // 60)} min "
             f"before and {int(self.after.total_seconds() // 60)} min after each."

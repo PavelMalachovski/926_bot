@@ -6,7 +6,7 @@ from typing import List, Optional
 import structlog
 
 from app.services.smc.data import BinanceDataFetcher
-from app.services.smc.fvg import select_valid_fvg
+from app.services.smc.fvg import best_rejected_fvg, select_valid_fvg
 from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.models import (
     AnalysisResult,
@@ -92,6 +92,7 @@ class TripleSyncEngine:
 
         data = await self.fetcher.fetch_all_timeframes()
         result.price = data["m5"][-1].close
+        result.m5_candles = data["m5"]  # kept for chart rendering
 
         # Closed market (forex weekend): the newest M5 candle is stale.
         age = now - data["m5"][-1].timestamp
@@ -200,18 +201,19 @@ class TripleSyncEngine:
         # Rule 4 — valid FVG on/after the CHoCH. The imbalance belongs to the
         # impulse leg that breaks structure, so the 3-candle window may end on
         # the CHoCH candle itself (hence choch - 2), but never before the touch.
+        same_day = self.instrument.source == "crypto"
         fvg = select_valid_fvg(
             m5,
             direction,
             max(touch, choch - 2),
             self.min_fvg_size,
-            same_day_scope=self.instrument.source == "crypto",
+            same_day_scope=same_day,
         )
         if fvg is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                f"M5 CHoCH is there, but no valid FVG (size ≥ {self._fvg_size_label()}, "
-                "fill < 50%, current session)"
+                "M5 CHoCH is there, but no valid FVG — "
+                + self._fvg_rejection_detail(m5, direction, max(touch, choch - 2), same_day)
             )
             result.watch_notes.append("Wait for an impulse FVG to form on M5")
             return result
@@ -308,9 +310,38 @@ class TripleSyncEngine:
 
     def _fvg_size_label(self) -> str:
         """Human threshold: '$2.00' for crypto, '5 pips' for forex."""
+        return self._fmt_size(self.min_fvg_size, precise=False)
+
+    def _fmt_size(self, value: float, precise: bool = True) -> str:
+        """Format a price distance: dollars for crypto, pips for forex."""
         if self.instrument.source == "crypto":
-            return f"${self.min_fvg_size:.2f}"
-        return f"{self.min_fvg_size / self.instrument.pip:.0f} pips"
+            return f"${value:.2f}"
+        pips = value / self.instrument.pip
+        return f"{pips:.1f} pips" if precise else f"{pips:.0f} pips"
+
+    def _fvg_rejection_detail(
+        self, m5, direction: Direction, from_index: int, same_day: bool
+    ) -> str:
+        """Explain why Rule 4 rejected the impulse (for logs and /check)."""
+        rejected = best_rejected_fvg(
+            m5, direction, from_index, self.min_fvg_size, same_day_scope=same_day
+        )
+        if rejected is None:
+            return "no FVG has formed in the impulse yet"
+        candidate, problems = rejected
+        parts = []
+        if "size" in problems:
+            parts.append(
+                f"size {self._fmt_size(candidate.size)} < required "
+                f"{self._fvg_size_label()}"
+            )
+        if "closed" in problems:
+            parts.append("invalidated (body closed through the gap)")
+        elif "fill" in problems:
+            parts.append(f"{candidate.fill_pct * 100:.0f}% filled (max 50%)")
+        if "session" in problems:
+            parts.append("formed in a previous session")
+        return "best candidate: " + ", ".join(parts)
 
     def _lot_hint(self, entry: float, risk: float) -> Optional[str]:
         """Rule 8: position size from deposit and SL distance."""

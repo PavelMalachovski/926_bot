@@ -134,19 +134,84 @@ class TelegramNotifier:
         self.chat_id = chat_id
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
 
-    async def send(self, text: str) -> bool:
-        payload = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"}
+    async def _api(self, method: str, **payload) -> Optional[dict]:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(f"{self.base_url}/sendMessage", json=payload)
-                if response.status_code == 200:
-                    return True
+                response = await client.post(f"{self.base_url}/{method}", json=payload)
+                data = response.json()
+                if response.status_code == 200 and data.get("ok"):
+                    return data.get("result")
                 logger.error(
-                    "Telegram send failed",
+                    "Telegram API call failed",
+                    method=method,
                     status_code=response.status_code,
-                    response=response.text,
+                    response=response.text[:300],
                 )
-                return False
-        except httpx.HTTPError as e:
-            logger.error("Telegram send error", error=str(e))
-            return False
+                return None
+        except (httpx.HTTPError, ValueError) as e:
+            logger.error("Telegram API error", method=method, error=str(e))
+            return None
+
+    async def send(
+        self, text: str, reply_markup: Optional[dict] = None
+    ) -> Optional[int]:
+        """Send a message; returns its message_id or None on failure."""
+        payload = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        result = await self._api("sendMessage", **payload)
+        return result.get("message_id") if result else None
+
+    async def edit_message(
+        self, message_id: int, text: str, reply_markup: Optional[dict] = None
+    ) -> bool:
+        payload = {
+            "chat_id": self.chat_id,
+            "message_id": message_id,
+            "text": text,
+            "parse_mode": "HTML",
+        }
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        return await self._api("editMessageText", **payload) is not None
+
+    async def send_photo(
+        self,
+        photo: bytes,
+        caption: Optional[str] = None,
+        reply_to: Optional[int] = None,
+    ) -> Optional[int]:
+        """Send a PNG photo (multipart); returns message_id or None."""
+        data = {"chat_id": self.chat_id}
+        if caption:
+            data["caption"] = caption
+        if reply_to:
+            data["reply_to_message_id"] = str(reply_to)
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/sendPhoto",
+                    data=data,
+                    files={"photo": ("setup.png", photo, "image/png")},
+                )
+                payload = response.json()
+                if response.status_code == 200 and payload.get("ok"):
+                    return payload["result"].get("message_id")
+                logger.error("Telegram sendPhoto failed", response=response.text[:300])
+                return None
+        except (httpx.HTTPError, ValueError) as e:
+            logger.error("Telegram sendPhoto error", error=str(e))
+            return None
+
+    async def pin(self, message_id: int) -> None:
+        await self._api(
+            "pinChatMessage",
+            chat_id=self.chat_id,
+            message_id=message_id,
+            disable_notification=True,
+        )
+
+    async def unpin(self, message_id: int) -> None:
+        await self._api(
+            "unpinChatMessage", chat_id=self.chat_id, message_id=message_id
+        )

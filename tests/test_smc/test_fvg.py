@@ -1,6 +1,11 @@
 """Tests for FVG detection and validation (Rule 4)."""
 
-from app.services.smc.fvg import find_fvgs, measure_fill, select_valid_fvg
+from app.services.smc.fvg import (
+    best_rejected_fvg,
+    find_fvgs,
+    measure_fill,
+    select_valid_fvg,
+)
 from app.services.smc.models import Direction
 from tests.test_smc.helpers import candle, m5_long_trigger
 
@@ -71,3 +76,28 @@ class TestValidation:
         m5 = m5_long_trigger()
         m5.append(candle(3150, 3150.5, 3136.5, 3145, index=len(m5)))  # >50% fill
         assert select_valid_fvg(m5, Direction.LONG, 14, min_size=2.0) is None
+
+
+class TestRejectionDiagnostics:
+    def test_reports_undersized_candidate(self):
+        m5 = m5_long_trigger()
+        rejected = best_rejected_fvg(m5, Direction.LONG, 14, min_size=5.0)
+        assert rejected is not None
+        fvg, problems = rejected
+        assert problems == ["size"]
+        assert fvg.size == 3.5  # the largest gap of the impulse
+
+    def test_reports_fill_when_size_is_fine(self):
+        m5 = m5_long_trigger()
+        m5.append(candle(3150, 3150.5, 3136.5, 3145, index=len(m5)))  # 86% fill
+        rejected = best_rejected_fvg(m5, Direction.LONG, 14, min_size=2.0)
+        fvg, problems = rejected
+        assert "fill" in problems and "size" not in problems
+
+    def test_none_when_no_gap_exists(self):
+        flat = [
+            candle(3130, 3135, 3128, 3134, index=0),
+            candle(3134, 3138, 3132, 3137, index=1),
+            candle(3137, 3140, 3134, 3139, index=2),
+        ]
+        assert best_rejected_fvg(flat, Direction.LONG, 0, min_size=2.0) is None

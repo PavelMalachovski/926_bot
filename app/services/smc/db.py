@@ -30,6 +30,9 @@ SIGNAL_COLUMNS = [
     "filled_at",
     "resolved_at",
     "checked_until",
+    "taken",  # None = unanswered, 1 = user took the trade, 0 = skipped
+    "message_id",  # Telegram message id of the alert (live setup card)
+    "alert_text",  # original alert body, re-used when editing the card
 ]
 
 
@@ -59,13 +62,30 @@ class Database:
                     status TEXT NOT NULL,
                     filled_at TEXT,
                     resolved_at TEXT,
-                    checked_until TEXT
+                    checked_until TEXT,
+                    taken INTEGER,
+                    message_id INTEGER,
+                    alert_text TEXT
                 )
                 """
             )
             self.conn.execute(
                 "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)"
             )
+            # Migrate databases created before these columns existed
+            existing = {
+                row["name"]
+                for row in self.conn.execute("PRAGMA table_info(signals)")
+            }
+            for column, sql_type in (
+                ("taken", "INTEGER"),
+                ("message_id", "INTEGER"),
+                ("alert_text", "TEXT"),
+            ):
+                if column not in existing:
+                    self.conn.execute(
+                        f"ALTER TABLE signals ADD COLUMN {column} {sql_type}"
+                    )
 
     def _connect(self, path: str) -> sqlite3.Connection:
         """Open the database, creating parent dirs; fall back instead of dying.

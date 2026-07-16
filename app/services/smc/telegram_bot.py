@@ -48,6 +48,7 @@ class TelegramCommandBot:
         status_text: Callable[[], str],
         stats_text: Optional[Callable[[], str]] = None,
         news_text: Optional[Callable[[], str]] = None,
+        on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
     ):
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
         self.owner_chat_id = str(owner_chat_id)
@@ -56,6 +57,7 @@ class TelegramCommandBot:
         self.status_text = status_text
         self.stats_text = stats_text
         self.news_text = news_text
+        self.on_trade_mark = on_trade_mark
         self._offset: Optional[int] = None
 
     # ------------------------------------------------------------- transport
@@ -85,6 +87,7 @@ class TelegramCommandBot:
         # The old FastAPI bot registered a webhook; getUpdates conflicts with
         # it, so drop it (and any stale backlog) once at startup.
         await self._api("deleteWebhook", drop_pending_updates=True)
+        await self._setup_bot_profile()
         logger.info("Telegram command bot started (long polling)")
         while True:
             try:
@@ -106,6 +109,33 @@ class TelegramCommandBot:
                     await self._handle_update(update)
                 except Exception as e:
                     logger.error("Failed to handle update", error=str(e), exc_info=True)
+
+    async def _setup_bot_profile(self) -> None:
+        """Register the slash-command menu and profile texts (best effort)."""
+        await self._api(
+            "setMyCommands",
+            commands=[
+                {"command": "pairs", "description": "Choose currency pairs"},
+                {"command": "check", "description": "Run the strategy check now"},
+                {"command": "status", "description": "Settings and last verdicts"},
+                {"command": "stats", "description": "Signal journal and winrate"},
+                {"command": "news", "description": "Today's red news (Forex Factory)"},
+                {"command": "help", "description": "What this bot does"},
+            ],
+        )
+        await self._api(
+            "setMyShortDescription",
+            short_description="SMC Triple Sync + Imbalance setup alerts",
+        )
+        await self._api(
+            "setMyDescription",
+            description=(
+                "Watches ETHUSD and forex pairs for Triple Sync + Imbalance "
+                "setups (H4 trend → H1 zone → M5 CHoCH + FVG) and sends an "
+                "urgent alert with entry/SL/TP when everything lines up. "
+                "Trading hours 08-20 Prague."
+            ),
+        )
 
     # -------------------------------------------------------------- handlers
 
@@ -157,6 +187,27 @@ class TelegramCommandBot:
     async def _handle_callback(self, callback: Dict) -> None:
         data = callback.get("data", "")
         answer: Dict[str, Any] = {"callback_query_id": callback["id"]}
+        if data.startswith(("take_", "skip_")) and self.on_trade_mark:
+            taken = data.startswith("take_")
+            signal_id = data.split("_", 1)[1]
+            answer["text"] = await self.on_trade_mark(signal_id, taken)
+            # replace the buttons with the recorded choice
+            message = callback.get("message", {})
+            if message:
+                chosen = "✅ Taken — tracked in /stats" if taken else "❌ Skipped"
+                await self._api(
+                    "editMessageReplyMarkup",
+                    chat_id=message["chat"]["id"],
+                    message_id=message["message_id"],
+                    reply_markup={
+                        "inline_keyboard": [[{"text": chosen, "callback_data": "noop"}]]
+                    },
+                )
+            await self._api("answerCallbackQuery", **answer)
+            return
+        if data == "noop":
+            await self._api("answerCallbackQuery", **answer)
+            return
         if data.startswith("pair_"):
             key = data[5:]
             try:
