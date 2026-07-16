@@ -64,8 +64,9 @@ redeploys.
 
 ## Strategy checklist (per pair, every 5 min in session)
 
-1. **Session filter** — entries only inside Frankfurt/London & NY windows
-   (Prague time, DST-aware). Closed forex market is detected automatically.
+1. **Session filter** — trading hours 08:00–20:00 Prague (Frankfurt/London
+   08–14, New York 14–20): crypto every day, forex Monday–Friday. A closed
+   forex market is also detected automatically. All message times are Prague.
 2. **H4 trend** — HH+HL / LH+LL with 2-closed-body pivot confirmation.
 3. **H1 zone** — latest untested Demand/Supply zone; invalidation by body close.
 4. **M5 trigger** — pullback into the zone → CHoCH in trend direction.

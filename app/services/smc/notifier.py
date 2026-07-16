@@ -6,6 +6,7 @@ import httpx
 import structlog
 
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
+from app.services.smc.sessions import to_prague
 
 logger = structlog.get_logger(__name__)
 
@@ -29,8 +30,8 @@ URGENT_HEADER = (
 
 
 def format_no_setup(result: AnalysisResult) -> str:
-    """Compact 15-minute heartbeat when there is no setup."""
-    time_str = result.checked_at.strftime("%H:%M UTC")
+    """Compact heartbeat when there is no setup."""
+    time_str = to_prague(result.checked_at).strftime("%H:%M")
     if result.verdict == Verdict.OFF_SESSION:
         return (
             f"😴 {result.symbol} {time_str} — off session, entries are not "
@@ -42,7 +43,7 @@ def format_no_setup(result: AnalysisResult) -> str:
 
 def format_setup_still_active(result: AnalysisResult) -> str:
     """Short reminder when the previously reported setup is still valid."""
-    time_str = result.checked_at.strftime("%H:%M UTC")
+    time_str = to_prague(result.checked_at).strftime("%H:%M")
     return (
         f"⏳ {result.symbol} {time_str} — the setup reported earlier is still "
         "active. Nothing new."
@@ -57,7 +58,7 @@ def format_result(result: AnalysisResult) -> str:
         lines.append("")
     lines.append(f"<b>{result.symbol}</b> — Triple Sync + Imbalance")
     lines.append(
-        f"🕐 {result.checked_at.strftime('%d.%m.%Y %H:%M UTC')}"
+        f"🕐 {to_prague(result.checked_at).strftime('%d.%m.%Y %H:%M')} Prague"
         + (f" | Session: {result.session_name}" if result.session_name else "")
     )
     d = result.price_decimals
