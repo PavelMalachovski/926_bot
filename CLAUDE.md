@@ -34,8 +34,9 @@ nothing.
 
 ```
 smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
-                          off-session), per-pair cycle, alert dedup, morning
-                          news digest, Rule 0.4 warnings, journal tracking
+                          off-session), per-pair cycle, alert dedup, live
+                          setup cards, discipline suppression, morning news
+                          digest, Rule 0.4 warnings, journal tracking
 app/services/smc/
 ├── engine.py             TripleSyncEngine: rules 0-8 checklist; pure
 │                         evaluate() is fully unit-testable on synthetic candles
@@ -50,20 +51,26 @@ app/services/smc/
 ├── data.py / yahoo.py / oanda.py   candle fetchers (same interface):
 │                         crypto=Binance; forex=Yahoo keyless by default,
 │                         OANDA v20 when OANDA_API_TOKEN is set
-├── news.py               Forex Factory red-news calendar, blackout windows
-├── journal.py            signal lifecycle pending→open→tp/sl/expired,
-│                         auto-tracked on M5 candles; /stats source
-├── telegram_bot.py       long-polling commands (/pairs /status /check /stats
-│                         /news); serves ONLY the owner chat id
-├── notifier.py           message formatting + escape_html + sender
+├── news.py               Forex Factory red-news calendar, blackout windows,
+│                         digest day-timeline
+├── journal.py            signal lifecycle pending→open→tp/sl/expired with
+│                         state-change events, taken marks (alert buttons),
+│                         discipline_block (Rule 10 / Rule 0.2), /stats
+├── chart.py              alert chart PNG: M5 candles + zone + FVG + levels
+│                         (matplotlib Agg, NO pandas — keep it that way)
+├── telegram_bot.py       long-polling commands, slash-menu registration,
+│                         Took/Skipped callbacks; serves ONLY the owner chat
+├── notifier.py           send/edit_message/pin/send_photo + escape_html
 ├── state.py              runtime state (pairs, dedup keys) on SQLite kv
-└── db.py                 SQLite wrapper (signals + kv), legacy JSON migration,
-                          fallback to a local file if the volume is unwritable
+└── db.py                 SQLite wrapper (signals + kv), column auto-migration,
+                          legacy JSON import, fallback to a local file if the
+                          volume is unwritable
 ```
 
 Data flow per cycle: news refresh → per enabled pair: blackout check →
-fetch H4/H1/M5 → engine checklist → alert (dedup per session) / log →
-journal outcome tracking.
+fetch H4/H1/M5 → engine checklist → discipline check → alert (buttons +
+pinned card + chart PNG, dedup per session) / log → journal outcome
+tracking → live-card edits on fill/TP/SL events.
 
 ## Conventions and gotchas
 
@@ -85,6 +92,14 @@ journal outcome tracking.
 - Journal outcome semantics: entry fill = candle touch; TP and SL in the same
   candle counts as **SL** (conservative); pending orders expire with their
   session (Rule 10).
+- **Discipline is driven by `taken` marks only** (the ✅/❌ alert buttons):
+  Rule 10 re-entry bans and the Rule 0.2 daily stop count taken stops, never
+  skipped or unanswered signals. Do not weaken this without the owner.
+- **Chart rendering must never block an alert** — `_send_alert` wraps it in
+  try/except; keep `chart.py` matplotlib-only (no pandas/mplfinance, image
+  size matters on Railway).
+- Adding a signal column? Extend `SIGNAL_COLUMNS`, the `CREATE TABLE` and the
+  migration list in `db.py` — existing production DBs are migrated in place.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.

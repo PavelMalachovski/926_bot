@@ -5,13 +5,22 @@ selected currency pairs — every 5 minutes during trading hours (08:00–20:00
 Prague), every 15 minutes outside them — and alerts you the moment a valid
 setup appears.
 
-- 🚨 **Urgent alert** when a setup is APPROVED (entry / SL / TP / RR / lot size)
+- 🚨 **Urgent alert** when a setup is APPROVED — entry / SL / TP / RR / lot
+  size, a **dark-style M5 chart PNG** (H1 zone, FVG box, ENTRY/SL/TP levels)
+  and **✅ Took it / ❌ Skipped buttons**
+- 📌 **Live setup card** — the alert is pinned and edited in place as the
+  signal evolves: `📈 Filled @ … → 🎯 TP HIT (+2.1R)`; unpinned on resolution
+- 🛡 **Discipline on autopilot** — trades you mark as taken enforce Rule 10
+  (no re-entry after a stop in the same session) and Rule 0.2 (two taken
+  stops close the trading day: alerts muted until tomorrow)
 - 🤫 **Silent otherwise** — checks without a setup only go to the logs, with
   precise reasons («best FVG candidate: 3.2 pips < required 5»); `/check`
   shows the current picture on demand
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
 - 📅 **Forex Factory red-news filter** with a morning digest at 07:45 Prague
-- 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome
+  (incl. a one-glance day timeline `🕗 08 ····🔴· │ ·🔴···· 20`)
+- 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;
+  `/stats` shows signal winrate and your personal (taken) winrate separately
 
 ## Supported pairs
 
@@ -31,12 +40,14 @@ Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`)
 
 ## Telegram commands
 
+Commands are registered in the bot's slash menu (type `/` in the chat).
+
 | Command | What it does |
 |---|---|
 | `/pairs` | inline keyboard — toggle watched pairs on/off |
 | `/status` | enabled pairs, current session, last verdicts |
 | `/check` | run the full strategy check right now |
-| `/stats` | signal journal: setups, TP/SL outcomes, winrate per pair |
+| `/stats` | journal: winrate bars, outcome sparkline, personal (taken) stats |
 | `/news` | today's red news (Forex Factory) and blackout windows |
 | `/help` | command list |
 
@@ -58,6 +69,12 @@ pending (limit not reached) → open (entry touched) → **tp / sl** (whichever 
 first; both in one candle counts as sl, conservative). A pending order that
 outlives its session becomes **expired** (Rule 10). `/stats` shows counts,
 winrate and per-pair breakdown — the data basis for tuning the strategy.
+
+Pressing **✅ Took it** on an alert marks the signal as a real trade: `/stats`
+then tracks your personal winrate, and the discipline kill-switches activate —
+a taken stop bans re-entry on that pair+direction for the session (Rule 10),
+and the second taken stop of the day suppresses all further alerts until
+tomorrow (Rule 0.2). Skipped signals never count against the limits.
 
 Signals and runtime state (selected pairs, dedup keys) live in one **SQLite
 database** (`SMC_DB_FILE`, default `.smc_watcher.db`; legacy JSON files are
@@ -138,7 +155,8 @@ pytest tests/ -v
 ## Project layout
 
 ```
-smc_watcher.py              # entry point: scheduler + alerts + news + journal
+smc_watcher.py              # entry point: scheduler, alerts, live cards,
+                            # news, journal tracking, discipline
 app/core/                   # config (pydantic-settings), logging, exceptions
 app/services/smc/
 ├── engine.py               # rules 0-8 orchestration (pure, testable)
@@ -149,19 +167,20 @@ app/services/smc/
 ├── data.py                 # Binance fetcher (ETHUSD)
 ├── yahoo.py                # Yahoo Finance fetcher (forex default, no key)
 ├── oanda.py                # OANDA v20 fetcher (forex, optional)
-├── news.py                 # Forex Factory red-news calendar & blackouts
-├── journal.py              # signal lifecycle & outcome tracking (/stats)
-├── telegram_bot.py         # long-polling commands (owner chat only)
-├── notifier.py             # message formatting, HTML escaping, delivery
+├── news.py                 # Forex Factory calendar, blackouts, day timeline
+├── journal.py              # signal lifecycle, taken marks, discipline, /stats
+├── chart.py                # setup chart PNG for alerts (matplotlib, no pandas)
+├── telegram_bot.py         # long-polling commands, slash menu, alert buttons
+├── notifier.py             # send/edit/pin/photo, HTML escaping, formatting
 ├── state.py                # runtime state on SQLite (pairs, dedup keys)
-├── db.py                   # SQLite wrapper + legacy JSON migration
+├── db.py                   # SQLite wrapper, column migrations, JSON import
 └── models.py               # Candle, Zone, FVG, TradeSetup, AnalysisResult
-tests/test_smc/             # 83 unit + end-to-end strategy tests
+tests/test_smc/             # 93 unit + end-to-end strategy tests
 CLAUDE.md                   # guidance for AI-assisted development
 ```
 
 ## Risk disclaimer
 
-The bot only **detects** setups by the strategy rules. Daily/weekly loss
-limits, max trades per day and actual order execution remain the trader's
-responsibility.
+The bot **detects** setups by the strategy rules and tracks discipline for
+trades you mark as taken. Actual order execution, weekly loss limits and
+final risk decisions remain the trader's responsibility.
