@@ -1,6 +1,6 @@
 """FVG detection and validation (Rule 4)."""
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from app.services.smc.models import Candle, Direction, FVG
 from app.services.smc.sessions import same_session, same_trading_day
@@ -92,3 +92,38 @@ def select_valid_fvg(
             continue
         return fvg
     return None
+
+
+def best_rejected_fvg(
+    candles: List[Candle],
+    direction: Direction,
+    from_index: int,
+    min_size: float,
+    max_fill: float = 0.5,
+    same_day_scope: bool = False,
+) -> Optional[Tuple[FVG, List[str]]]:
+    """Diagnostics: the candidate that came closest to passing Rule 4.
+
+    Returns (fvg, problems) where problems is a subset of
+    {"size", "fill", "closed", "session"}, or None when no gap formed at all.
+    Used to explain WATCH verdicts ("best candidate was 3.2 pips of 5").
+    """
+    now = candles[-1].timestamp
+    in_scope = same_trading_day if same_day_scope else same_session
+    best: Optional[Tuple[FVG, List[str]]] = None
+    best_key = None
+    for fvg in find_fvgs(candles, direction, from_index):
+        fvg = measure_fill(candles, fvg)
+        problems = []
+        if fvg.size < min_size:
+            problems.append("size")
+        if fvg.closed_through:
+            problems.append("closed")
+        elif fvg.fill_pct >= max_fill:
+            problems.append("fill")
+        if not in_scope(fvg.timestamp, now):
+            problems.append("session")
+        key = (len(problems), -fvg.size)  # fewest problems, then largest gap
+        if best_key is None or key < best_key:
+            best, best_key = (fvg, problems), key
+    return best
