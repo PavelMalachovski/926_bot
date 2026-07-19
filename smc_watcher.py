@@ -381,6 +381,8 @@ class Watcher:
         if not settings.smc.news_digest or self.news.fetched_at is None:
             return
         local = to_prague(datetime.now(tz=timezone.utc))
+        if local.weekday() >= 5:
+            return  # Forex Factory has no weekend releases — nothing to digest
         today = local.date().isoformat()
         try:
             hh, mm = settings.smc.news_digest_time.split(":")
