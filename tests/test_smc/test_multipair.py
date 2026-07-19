@@ -1,6 +1,7 @@
 """Tests for instruments registry, OANDA parsing, state and correlation guard."""
 
 import json
+from datetime import datetime, timezone
 
 from app.services.smc.instruments import DEFAULT_PAIRS, INSTRUMENTS, get_instrument
 from app.services.smc.oanda import _parse_time
@@ -171,3 +172,74 @@ class TestCorrelationGuard:
             [self._approved("ETHUSD", "long"), self._approved("USDJPY", "long")]
         )
         assert warnings == []
+
+
+class TestMorningDigestSkipsWeekends:
+    """Forex Factory has no Saturday/Sunday releases — the 07:45 digest must
+    stay silent then instead of sending an empty 'no red news' message."""
+
+    class _FakeState:
+        def __init__(self):
+            self.last_digest_date = ""
+            self.pairs = ["ETHUSD", "USDJPY"]
+
+        def save(self):
+            pass
+
+    class _FakeNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, **kwargs):
+            self.sent.append(text)
+            return 1
+
+    def _watcher_stub(self):
+        from smc_watcher import Watcher
+        from app.services.smc.news import NewsCalendar
+
+        stub = Watcher.__new__(Watcher)
+        stub.state = self._FakeState()
+        stub.notifier = self._FakeNotifier()
+        stub.news = NewsCalendar()
+        stub.news.fetched_at = datetime(2026, 7, 16, 5, 0, tzinfo=timezone.utc)
+        return stub
+
+    def _freeze(self, monkeypatch, when):
+        import smc_watcher as sw
+
+        class _Frozen(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return when
+
+        monkeypatch.setattr(sw, "datetime", _Frozen)
+
+    def test_no_digest_on_saturday(self, monkeypatch):
+        import asyncio
+
+        # 2026-07-18 07:00 UTC = Saturday 09:00 Prague — well past digest_after
+        self._freeze(monkeypatch, datetime(2026, 7, 18, 7, 0, tzinfo=timezone.utc))
+        stub = self._watcher_stub()
+        asyncio.run(stub._send_morning_digest())
+        assert stub.notifier.sent == []
+        assert stub.state.last_digest_date == ""
+
+    def test_no_digest_on_sunday(self, monkeypatch):
+        import asyncio
+
+        # 2026-07-19 07:00 UTC = Sunday 09:00 Prague
+        self._freeze(monkeypatch, datetime(2026, 7, 19, 7, 0, tzinfo=timezone.utc))
+        stub = self._watcher_stub()
+        asyncio.run(stub._send_morning_digest())
+        assert stub.notifier.sent == []
+
+    def test_digest_still_sent_on_weekday(self, monkeypatch):
+        import asyncio
+
+        # 2026-07-16 07:00 UTC = Thursday 09:00 Prague
+        self._freeze(monkeypatch, datetime(2026, 7, 16, 7, 0, tzinfo=timezone.utc))
+        stub = self._watcher_stub()
+        asyncio.run(stub._send_morning_digest())
+        assert len(stub.notifier.sent) == 1
+        assert stub.state.last_digest_date == "2026-07-16"
