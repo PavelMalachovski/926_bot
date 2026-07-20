@@ -108,6 +108,43 @@ class TestSourceSelection:
         )
 
 
+class TestRateLimiter:
+    @pytest.mark.asyncio
+    async def test_throttles_beyond_limit(self):
+        from app.services.smc.twelvedata import _RateLimiter
+
+        clock = {"t": 1000.0}
+        slept = []
+
+        async def fake_sleep(seconds):
+            slept.append(seconds)
+            clock["t"] += seconds  # advance so the window frees up
+
+        lim = _RateLimiter(
+            limit=8, window=60.0, clock=lambda: clock["t"], sleep=fake_sleep
+        )
+        # 8 immediate acquisitions, no sleep
+        for _ in range(8):
+            await lim.acquire()
+        assert slept == []
+        # the 9th must wait out the window (~60s)
+        await lim.acquire()
+        assert len(slept) == 1 and 59 < slept[0] < 61
+
+    @pytest.mark.asyncio
+    async def test_allows_after_window_passes(self):
+        from app.services.smc.twelvedata import _RateLimiter
+
+        clock = {"t": 0.0}
+        lim = _RateLimiter(
+            limit=2, window=60.0, clock=lambda: clock["t"], sleep=None
+        )
+        await lim.acquire()
+        await lim.acquire()
+        clock["t"] = 61.0  # both earlier calls aged out of the window
+        await lim.acquire()  # should not need to sleep (sleep=None would crash)
+
+
 class TestCache:
     @pytest.mark.asyncio
     async def test_second_call_hits_cache(self, monkeypatch):
