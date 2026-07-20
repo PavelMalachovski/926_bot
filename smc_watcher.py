@@ -41,6 +41,7 @@ from app.services.smc.notifier import (
     format_result,
 )
 from app.services.smc.oanda import OandaDataFetcher
+from app.services.smc.twelvedata import TwelveDataFetcher
 from app.services.smc.yahoo import YahooDataFetcher
 from app.services.smc.sessions import active_session, to_prague
 from app.services.smc.state import WatcherState
@@ -61,17 +62,32 @@ JOURNAL_FILE = os.getenv("SMC_JOURNAL_FILE", ".smc_journal.json")
 APPROVED = (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
 
 
+def _forex_source() -> str:
+    """Resolve the configured forex source, honouring 'auto'."""
+    source = settings.smc.forex_source.strip().lower()
+    if source != "auto":
+        return source
+    if settings.twelvedata.api_key:
+        return "twelvedata"
+    if settings.oanda.api_token:
+        return "oanda"
+    return "yahoo"
+
+
 def _build_fetcher(instrument: Instrument):
     if instrument.source == "crypto":
+        # ETHUSD stays on Binance: unlimited, deep history, funding rate.
         return BinanceDataFetcher(instrument.source_symbol)
-    # Forex: OANDA when a token is configured (better data), otherwise the
-    # free keyless Yahoo Finance feed.
-    if settings.oanda.api_token:
+    source = _forex_source()
+    if source == "twelvedata" and settings.twelvedata.api_key:
+        return TwelveDataFetcher(instrument.key, settings.twelvedata.api_key)
+    if source == "oanda" and settings.oanda.api_token:
         return OandaDataFetcher(
             symbol=instrument.source_symbol,
             api_token=settings.oanda.api_token,
             environment=settings.oanda.environment,
         )
+    # Default / fallback: free keyless Yahoo Finance feed.
     return YahooDataFetcher(symbol=f"{instrument.key}=X")
 
 
@@ -458,6 +474,7 @@ class Watcher:
         lines = [
             "<b>SMC Watcher — status</b>",
             f"Pairs: {', '.join(self.state.pairs) or 'none'}",
+            f"Forex data: {_forex_source()} | crypto: Binance",
             f"Session now: {session or 'off session'}",
             f"Cadence: {settings.smc.session_interval_minutes} min in session / "
             f"{settings.smc.interval_minutes} min off",

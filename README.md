@@ -27,14 +27,18 @@ setup appears.
 | Pair | Data source | Min FVG | Notes |
 |---|---|---|---|
 | ETHUSD | Binance (no key needed) | $2.00 | 24/7, funding-rate advisory |
-| USDJPY | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
-| EURUSD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
-| GBPUSD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
-| USDCAD | Yahoo Finance (free) / OANDA | 5 pips | no key needed by default |
+| USDJPY | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
+| EURUSD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
+| GBPUSD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
+| USDCAD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
 
-Forex candles come from the keyless Yahoo Finance feed by default (5m/1h
-native, H4 resampled from 1h). If `OANDA_API_TOKEN` is set, OANDA v20 is used
-instead — slightly better data, same functionality.
+**Forex data source** (`SMC_FOREX_SOURCE`, default `auto`) resolves in this
+order: **Twelve Data** if `TWELVEDATA_API_KEY` is set → **OANDA** if
+`OANDA_API_TOKEN` is set → **Yahoo Finance** (keyless, always available).
+ETHUSD always uses Binance. Twelve Data is recommended: free 800 req/day,
+native 4h/1h/5min candles, runs on Railway; the higher timeframes are cached
+so 2–3 forex pairs stay comfortably within the free budget (~200 req/day/pair).
+Grab a free key at [twelvedata.com](https://twelvedata.com).
 
 Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
 
@@ -165,7 +169,8 @@ app/services/smc/
 ├── sessions.py             # 08-20 Prague trading hours, London/NY blocks
 ├── instruments.py          # per-pair parameters & data source registry
 ├── data.py                 # Binance fetcher (ETHUSD)
-├── yahoo.py                # Yahoo Finance fetcher (forex default, no key)
+├── twelvedata.py           # Twelve Data fetcher (forex, cached, free tier)
+├── yahoo.py                # Yahoo Finance fetcher (forex fallback, no key)
 ├── oanda.py                # OANDA v20 fetcher (forex, optional)
 ├── news.py                 # Forex Factory calendar, blackouts, day timeline
 ├── journal.py              # signal lifecycle, taken marks, discipline, /stats

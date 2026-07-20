@@ -28,6 +28,14 @@ class OandaSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="OANDA_")
 
 
+class TwelveDataSettings(BaseSettings):
+    """Twelve Data API configuration (forex + crypto market data)."""
+
+    api_key: Optional[str] = Field(default=None, description="Twelve Data API key")
+
+    model_config = SettingsConfigDict(env_prefix="TWELVEDATA_")
+
+
 class SMCSettings(BaseSettings):
     """Triple Sync + Imbalance strategy watcher configuration."""
 
@@ -49,6 +57,12 @@ class SMCSettings(BaseSettings):
     )
     enforce_sessions: bool = Field(
         default=True, description="Only look for entries inside session windows"
+    )
+    forex_source: str = Field(
+        default="auto",
+        description="Forex data source: auto | twelvedata | oanda | yahoo. "
+        "auto = Twelve Data if its key is set, else OANDA if its token is set, "
+        "else keyless Yahoo",
     )
     notify_no_setup: bool = Field(
         default=False,
@@ -106,6 +120,7 @@ class Settings(BaseSettings):
 
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     oanda: OandaSettings = Field(default_factory=OandaSettings)
+    twelvedata: TwelveDataSettings = Field(default_factory=TwelveDataSettings)
     smc: SMCSettings = Field(default_factory=SMCSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
