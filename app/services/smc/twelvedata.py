@@ -7,8 +7,12 @@ every cycle. With 2-3 forex pairs this keeps the daily budget well under 800
 (≈200 credits/day per pair). Native 4h/1h/5min intervals — no resampling.
 """
 
+import asyncio
+import os
+import time
+from collections import deque
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Awaitable, Callable, Deque, Dict, List, Optional, Tuple
 
 import httpx
 import structlog
@@ -19,6 +23,48 @@ from app.services.smc.models import Candle
 logger = structlog.get_logger(__name__)
 
 BASE_URL = "https://api.twelvedata.com/time_series"
+
+# Free tier allows 8 API credits per minute. A cold-start cycle fetches every
+# timeframe of every forex pair at once (3 pairs × 3 TF = 9) and would burst
+# past the limit, so requests pass through a sliding-window rate limiter.
+MAX_PER_MIN = int(os.getenv("TWELVEDATA_MAX_PER_MIN", "8"))
+
+
+class _RateLimiter:
+    """Allow at most `limit` acquisitions per `window` seconds (sliding)."""
+
+    def __init__(
+        self,
+        limit: int,
+        window: float = 60.0,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ):
+        self.limit = max(1, limit)
+        self.window = window
+        self._clock = clock
+        self._sleep = sleep
+        self._times: Deque[float] = deque()
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            while True:
+                now = self._clock()
+                while self._times and now - self._times[0] >= self.window:
+                    self._times.popleft()
+                if len(self._times) < self.limit:
+                    self._times.append(now)
+                    return
+                wait = self.window - (now - self._times[0]) + 0.05
+                logger.info(
+                    "Twelve Data minute limit reached, throttling",
+                    seconds=round(wait, 1),
+                )
+                await self._sleep(wait)
+
+
+_LIMITER = _RateLimiter(MAX_PER_MIN)
 
 # our interval -> Twelve Data interval string
 _INTERVAL = {"4h": "4h", "1h": "1h", "5m": "5min"}
@@ -124,14 +170,7 @@ class TwelveDataFetcher:
             "timezone": "UTC",
             "apikey": self.api_key,
         }
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(BASE_URL, params=params)
-                response.raise_for_status()
-                payload = response.json()
-        except (httpx.HTTPError, ValueError) as e:
-            raise DataFetchError(f"Twelve Data request failed for {self.symbol}: {e}")
-
+        payload = await self._request(params)
         candles = parse_time_series(payload, interval)
         if len(candles) < 2:
             raise DataFetchError(
@@ -139,6 +178,33 @@ class TwelveDataFetcher:
             )
         _CACHE.put(cache_key, candles)
         return candles
+
+    async def _request(self, params: dict) -> dict:
+        """GET with rate limiting and a single 429 back-off retry."""
+        for attempt in range(2):
+            await _LIMITER.acquire()
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.get(BASE_URL, params=params)
+            except httpx.HTTPError as e:
+                raise DataFetchError(
+                    f"Twelve Data request failed for {self.symbol}: {e}"
+                )
+            if response.status_code == 429 and attempt == 0:
+                logger.warning(
+                    "Twelve Data 429 despite throttle, backing off",
+                    symbol=self.symbol,
+                )
+                await asyncio.sleep(20)
+                continue
+            try:
+                response.raise_for_status()
+                return response.json()
+            except (httpx.HTTPError, ValueError) as e:
+                raise DataFetchError(
+                    f"Twelve Data request failed for {self.symbol}: {e}"
+                )
+        raise DataFetchError(f"Twelve Data rate limited for {self.symbol}")
 
     async def fetch_all_timeframes(self) -> Dict[str, List[Candle]]:
         return {
