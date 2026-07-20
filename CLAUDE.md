@@ -48,9 +48,11 @@ app/services/smc/
 ├── sessions.py           trading hours 08:00-20:00 Prague, two blocks split
 │                         at 14:00 (London/NY FVG separation), forex Mon-Fri
 ├── instruments.py        per-pair registry: source, min FVG, SL buffer, pip
-├── data.py / yahoo.py / oanda.py   candle fetchers (same interface):
-│                         crypto=Binance; forex=Yahoo keyless by default,
-│                         OANDA v20 when OANDA_API_TOKEN is set
+├── data.py / twelvedata.py / yahoo.py / oanda.py   candle fetchers (same
+│                         interface): crypto=Binance always; forex source per
+│                         SMC_FOREX_SOURCE (auto = TwelveData key > OANDA token
+│                         > keyless Yahoo). Twelve Data caches H4/H1 to stay
+│                         under the free 800 req/day (see _TF_CACHE_TTL)
 ├── news.py               Forex Factory red-news calendar, blackout windows,
 │                         digest day-timeline
 ├── journal.py            signal lifecycle pending→open→tp/sl/expired with
