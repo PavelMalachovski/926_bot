@@ -80,6 +80,11 @@ a taken stop bans re-entry on that pair+direction for the session (Rule 10),
 and the second taken stop of the day suppresses all further alerts until
 tomorrow (Rule 0.2). Skipped signals never count against the limits.
 
+Pressing **✅ Took it** also **mutes new alerts for that pair for 4 hours**
+(`SMC_TAKEN_COOLDOWN_HOURS`) — you are managing the position, not hunting a
+second one. The live card for the taken trade keeps updating; `/status` shows
+what's muted and for how long.
+
 Signals and runtime state (selected pairs, dedup keys) live in one **SQLite
 database** (`SMC_DB_FILE`, default `.smc_watcher.db`; legacy JSON files are
 imported automatically). On Railway attach a volume (e.g. mounted at `/data`)
