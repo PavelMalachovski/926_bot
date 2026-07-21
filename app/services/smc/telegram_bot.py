@@ -30,6 +30,7 @@ HELP_TEXT = (
     "/pairs — choose currency pairs\n"
     "/status — current settings and last verdicts\n"
     "/check — run the strategy check right now\n"
+    "/plan — pre-market plan for a pair (any time)\n"
     "/stats — signal journal: setups, TP/SL, winrate\n"
     "/news — today's red news (Forex Factory)\n"
     "/help — this help"
@@ -49,6 +50,7 @@ class TelegramCommandBot:
         stats_text: Optional[Callable[[], str]] = None,
         news_text: Optional[Callable[[], str]] = None,
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
+        on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
     ):
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
         self.owner_chat_id = str(owner_chat_id)
@@ -58,6 +60,7 @@ class TelegramCommandBot:
         self.stats_text = stats_text
         self.news_text = news_text
         self.on_trade_mark = on_trade_mark
+        self.on_plan = on_plan
         self._offset: Optional[int] = None
 
     # ------------------------------------------------------------- transport
@@ -117,6 +120,7 @@ class TelegramCommandBot:
             commands=[
                 {"command": "pairs", "description": "Choose currency pairs"},
                 {"command": "check", "description": "Run the strategy check now"},
+                {"command": "plan", "description": "Pre-market plan for a pair"},
                 {"command": "status", "description": "Settings and last verdicts"},
                 {"command": "stats", "description": "Signal journal and winrate"},
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
@@ -181,6 +185,14 @@ class TelegramCommandBot:
             await self.send("⏳ Checking setups, one moment...")
             summary = await self.run_cycle()
             await self.send(summary)
+        elif command == "/plan":
+            if not self.on_plan or not self.state.pairs:
+                await self.send("No pairs enabled — use /pairs first.")
+            else:
+                await self.send(
+                    "📋 Pre-Market Plan — choose a pair:",
+                    reply_markup=self._plan_keyboard(),
+                )
         elif command:
             await self.send("Unknown command. /help for the list.")
 
@@ -208,6 +220,12 @@ class TelegramCommandBot:
         if data == "noop":
             await self._api("answerCallbackQuery", **answer)
             return
+        if data.startswith("plan_") and self.on_plan:
+            key = data[5:]
+            answer["text"] = f"Building {key} plan…"
+            await self._api("answerCallbackQuery", **answer)
+            await self.on_plan(key)
+            return
         if data.startswith("pair_"):
             key = data[5:]
             try:
@@ -231,4 +249,17 @@ class TelegramCommandBot:
         for key in INSTRUMENTS:
             mark = "✅" if key in self.state.pairs else "☐"
             rows.append([{"text": f"{mark} {key}", "callback_data": f"pair_{key}"}])
+        return {"inline_keyboard": rows}
+
+    def _plan_keyboard(self) -> Dict:
+        """One button per enabled pair (two per row) + an 'All pairs' button."""
+        pairs = list(self.state.pairs)
+        rows = [
+            [
+                {"text": k, "callback_data": f"plan_{k}"}
+                for k in pairs[i : i + 2]
+            ]
+            for i in range(0, len(pairs), 2)
+        ]
+        rows.append([{"text": "🌐 All pairs", "callback_data": "plan_ALL"}])
         return {"inline_keyboard": rows}

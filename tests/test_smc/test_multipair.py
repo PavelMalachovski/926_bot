@@ -197,10 +197,7 @@ class TestMorningDigestSkipsWeekends:
     def _watcher_stub(self, monkeypatch):
         from smc_watcher import Watcher
         from app.services.smc.news import NewsCalendar
-        from app.core.config import settings
 
-        # isolate the news digest: disable the per-pair plan part of the briefing
-        monkeypatch.setattr(settings.smc, "morning_plan", False)
         stub = Watcher.__new__(Watcher)
         stub.state = self._FakeState()
         stub.notifier = self._FakeNotifier()

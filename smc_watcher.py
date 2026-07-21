@@ -198,6 +198,7 @@ class Watcher:
             stats_text=self.journal.stats_text,
             news_text=self.news_text,
             on_trade_mark=self.mark_trade,
+            on_plan=self.on_plan,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply the env default on the very first start (DB wins afterwards)
@@ -427,13 +428,13 @@ class Watcher:
         )
 
     async def _morning_briefing(self) -> None:
-        """Once a day before the session (07:45 Prague): red-news digest +
-        a per-pair Pre-Market Plan (strategy Rule -1 / Шаблон B)."""
-        if not (settings.smc.news_digest or settings.smc.morning_plan):
+        """Once a day Mon-Fri at 07:45 Prague: today's red-news digest
+        (strategy Rule -1). The per-pair plan is on demand via /plan."""
+        if not settings.smc.news_digest or not self.news or self.news.fetched_at is None:
             return
         local = to_prague(datetime.now(tz=timezone.utc))
         if local.weekday() >= 5:
-            return  # forex is closed on weekends — no briefing
+            return  # Forex Factory has no weekend releases
         today = local.date().isoformat()
         try:
             hh, mm = settings.smc.news_digest_time.split(":")
@@ -444,15 +445,16 @@ class Watcher:
             after = local.replace(hour=7, minute=45, second=0, microsecond=0)
         if self.state.last_digest_date == today or local < after:
             return
-
-        if settings.smc.news_digest and self.news and self.news.fetched_at:
-            await self.notifier.send(self.news.digest_text(self.state.pairs))
-        if settings.smc.morning_plan:
-            for key in list(self.state.pairs):
-                await self._send_pair_plan(key)
-
+        await self.notifier.send(self.news.digest_text(self.state.pairs))
         self.state.last_digest_date = today
         self.state.save()
+
+    async def on_plan(self, key: str) -> None:
+        """/plan command: send the Pre-Market Plan for a pair (or ALL)."""
+        keys = list(self.state.pairs) if key == "ALL" else [key]
+        for k in keys:
+            if k in INSTRUMENTS:
+                await self._send_pair_plan(k)
 
     async def _send_pair_plan(self, key: str) -> None:
         """Build and send one pair's Pre-Market Plan (text + H1 chart)."""

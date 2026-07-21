@@ -35,9 +35,9 @@ nothing.
 ```
 smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           off-session), per-pair cycle, alert dedup, live
-                          setup cards, discipline suppression, 07:45 morning
-                          briefing (news digest + per-pair Pre-Market Plan),
-                          Rule 0.4 warnings, journal tracking
+                          setup cards, discipline suppression, 07:45 weekday
+                          news digest, on-demand /plan, Rule 0.4 warnings,
+                          journal tracking
 app/services/smc/
 ├── engine.py             TripleSyncEngine: rules 0-8 checklist; pure
 │                         evaluate() is fully unit-testable on synthetic candles
@@ -60,7 +60,8 @@ app/services/smc/
 │                         state-change events, taken marks (alert buttons),
 │                         discipline_block (Rule 10 / Rule 0.2), /stats
 ├── plan.py               Pre-Market Plan (Шаблон B): projected entry/SL/TP/RR
-│                         from H4/H1 structure; both-way brackets when H4 flat
+│                         from H4/H1 structure; both-way brackets when H4 flat;
+│                         on-demand only via /plan (not auto-sent)
 ├── chart.py              alert chart PNG (M5) + plan chart PNG (H1): candles,
 │                         zones, levels (matplotlib Agg, NO pandas — keep it so)
 ├── telegram_bot.py       long-polling commands, slash-menu registration,

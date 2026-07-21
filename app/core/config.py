@@ -84,11 +84,6 @@ class SMCSettings(BaseSettings):
     news_digest: bool = Field(
         default=True, description="Send a morning red-news digest before trading"
     )
-    morning_plan: bool = Field(
-        default=True,
-        description="Send a per-pair Pre-Market Plan (levels + H1 chart) with "
-        "the morning briefing",
-    )
     news_digest_time: str = Field(
         default="07:45", description="Prague local time (HH:MM) for the digest"
     )

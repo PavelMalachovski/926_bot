@@ -86,3 +86,25 @@ class TestFormatAndChart:
         h4, h1, m5 = _uptrend_data(3120.0)
         plan = build_plan(ETH, h4, h1, m5)
         assert render_plan_chart(plan, h1) is None
+
+
+class TestPlanKeyboard:
+    def _bot(self, pairs):
+        from app.services.smc.telegram_bot import TelegramCommandBot
+
+        bot = TelegramCommandBot.__new__(TelegramCommandBot)
+        bot.state = type("S", (), {"pairs": pairs})()
+        return bot
+
+    def test_keyboard_has_each_pair_and_all(self):
+        bot = self._bot(["ETHUSD", "USDJPY", "GBPUSD"])
+        kb = bot._plan_keyboard()["inline_keyboard"]
+        datas = [b["callback_data"] for row in kb for b in row]
+        assert "plan_ETHUSD" in datas and "plan_USDJPY" in datas
+        assert "plan_GBPUSD" in datas and "plan_ALL" in datas
+
+    def test_two_buttons_per_row(self):
+        bot = self._bot(["ETHUSD", "USDJPY", "GBPUSD", "USDCAD"])
+        kb = bot._plan_keyboard()["inline_keyboard"]
+        assert len(kb[0]) == 2 and len(kb[1]) == 2  # pairs paired up
+        assert kb[-1][0]["callback_data"] == "plan_ALL"
