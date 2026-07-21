@@ -17,8 +17,10 @@ setup appears.
   precise reasons («best FVG candidate: 3.2 pips < required 5»); `/check`
   shows the current picture on demand
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
-- 📅 **Forex Factory red-news filter** with a morning digest at 07:45 Prague
-  (incl. a one-glance day timeline `🕗 08 ····🔴· │ ·🔴···· 20`)
+- 📅 **Forex Factory red-news digest** every weekday at 07:45 Prague
+  (incl. a session-block breakdown of today's releases)
+- 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair
+  (conditional entry/SL/TP/RR + H1 chart; both-direction brackets when flat)
 - 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;
   `/stats` shows signal winrate and your personal (taken) winrate separately
 
@@ -51,6 +53,7 @@ Commands are registered in the bot's slash menu (type `/` in the chat).
 | `/pairs` | inline keyboard — toggle watched pairs on/off |
 | `/status` | enabled pairs, current session, last verdicts |
 | `/check` | run the full strategy check right now |
+| `/plan` | pre-market plan for a pair (buttons pick from enabled pairs / all) |
 | `/stats` | journal: winrate bars, outcome sparkline, personal (taken) stats |
 | `/news` | today's red news (Forex Factory) and blackout windows |
 | `/help` | command list |
@@ -188,6 +191,24 @@ app/services/smc/
 tests/test_smc/             # 93 unit + end-to-end strategy tests
 CLAUDE.md                   # guidance for AI-assisted development
 ```
+
+## Roadmap — Aggressive breakout mode (not yet implemented)
+
+An optional, opt-in mode for ranging weeks where the strict trend-following
+rules produce zero forex setups. The standard strategy waits for a **confirmed**
+H4 trend (HH+HL / LH+LL) before hunting — so it sits out the *first* leg of a
+breakout, entering only on the second (see the ETHUSD/GBPUSD breakout days).
+
+**Aggressive breakout mode** would enter earlier: after an **H4 CHoCH** (the
+prior trend is broken), take the entry on the **retest of the impulse FVG**,
+**without** waiting for a confirmed HH+HL. Alerts would be tagged `⚡ aggressive`
+with a recommendation to halve risk (lower-probability-per-trade, catches the
+first leg). Default **off**; enabled per-pair or globally via a flag.
+
+Decision gate: **add it on Saturday if the week's setup count is zero.** Judge
+with `/stats`, not frustration. Keep the standard mode as the default — the
+strict rules protect capital in chop; this is a deliberate trade of win-rate
+for participation.
 
 ## Risk disclaimer
 

@@ -38,6 +38,7 @@ from app.services.smc.notifier import (
     TelegramNotifier,
     escape_html,
     format_no_setup,
+    format_plan,
     format_result,
 )
 from app.services.smc.oanda import OandaDataFetcher
@@ -197,6 +198,7 @@ class Watcher:
             stats_text=self.journal.stats_text,
             news_text=self.news_text,
             on_trade_mark=self.mark_trade,
+            on_plan=self.on_plan,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply the env default on the very first start (DB wins afterwards)
@@ -234,8 +236,8 @@ class Watcher:
 
         if self.news:
             await self.news.refresh_if_stale()
-            await self._send_morning_digest()
             await self._rule_04_warnings()
+        await self._morning_briefing()
 
         heartbeat_lines: List[str] = []
         approved: List[AnalysisResult] = []
@@ -425,26 +427,61 @@ class Watcher:
             f"at {event.prague_hhmm()} Prague, entries blocked"
         )
 
-    async def _send_morning_digest(self) -> None:
-        """Once a day before the session: today's red news (strategy Rule -1)."""
-        if not settings.smc.news_digest or self.news.fetched_at is None:
+    async def _morning_briefing(self) -> None:
+        """Once a day Mon-Fri at 07:45 Prague: today's red-news digest
+        (strategy Rule -1). The per-pair plan is on demand via /plan."""
+        if not settings.smc.news_digest or not self.news or self.news.fetched_at is None:
             return
         local = to_prague(datetime.now(tz=timezone.utc))
         if local.weekday() >= 5:
-            return  # Forex Factory has no weekend releases — nothing to digest
+            return  # Forex Factory has no weekend releases
         today = local.date().isoformat()
         try:
             hh, mm = settings.smc.news_digest_time.split(":")
-            digest_after = local.replace(
+            after = local.replace(
                 hour=int(hh), minute=int(mm), second=0, microsecond=0
             )
         except ValueError:
-            digest_after = local.replace(hour=7, minute=45, second=0, microsecond=0)
-        if self.state.last_digest_date == today or local < digest_after:
+            after = local.replace(hour=7, minute=45, second=0, microsecond=0)
+        if self.state.last_digest_date == today or local < after:
             return
         await self.notifier.send(self.news.digest_text(self.state.pairs))
         self.state.last_digest_date = today
         self.state.save()
+
+    async def on_plan(self, key: str) -> None:
+        """/plan command: send the Pre-Market Plan for a pair (or ALL)."""
+        keys = list(self.state.pairs) if key == "ALL" else [key]
+        for k in keys:
+            if k in INSTRUMENTS:
+                await self._send_pair_plan(k)
+
+    async def _send_pair_plan(self, key: str) -> None:
+        """Build and send one pair's Pre-Market Plan (text + H1 chart)."""
+        from app.services.smc.chart import render_plan_chart
+        from app.services.smc.plan import build_plan
+
+        instrument = get_instrument(key)
+        try:
+            data = await _build_fetcher(instrument).fetch_all_timeframes()
+        except Exception as e:
+            logger.warning("Plan fetch failed", pair=key, error=str(e))
+            return
+        now = datetime.now(tz=timezone.utc)
+        stale = (
+            instrument.source == "forex"
+            and now - data["m5"][-1].timestamp > timedelta(minutes=30)
+        )
+        plan = build_plan(
+            instrument, data["h4"], data["h1"], data["m5"], market_closed=stale
+        )
+        await self.notifier.send(format_plan(plan, min_rr=settings.smc.min_rr))
+        try:
+            png = render_plan_chart(plan, data["h1"])
+            if png:
+                await self.notifier.send_photo(png)
+        except Exception as e:
+            logger.warning("Plan chart failed", pair=key, error=str(e))
 
     async def _rule_04_warnings(self) -> None:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""
