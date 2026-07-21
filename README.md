@@ -17,8 +17,9 @@ setup appears.
   precise reasons («best FVG candidate: 3.2 pips < required 5»); `/check`
   shows the current picture on demand
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
-- 📅 **Forex Factory red-news filter** with a morning digest at 07:45 Prague
-  (incl. a one-glance day timeline `🕗 08 ····🔴· │ ·🔴···· 20`)
+- 📅 **Morning briefing at 07:45 Prague**: Forex Factory red-news digest +
+  a **Pre-Market Plan per pair** — conditional entry/SL/TP/RR levels with an
+  H1 chart (both-direction brackets for flat pairs)
 - 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;
   `/stats` shows signal winrate and your personal (taken) winrate separately
 

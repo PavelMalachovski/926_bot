@@ -127,6 +127,54 @@ def format_result(result: AnalysisResult) -> str:
     return "\n".join(lines)
 
 
+def format_plan(plan, min_rr: float = 2.0) -> str:
+    """Render a PairPlan as an HTML pre-market briefing message (Шаблон B)."""
+    from app.services.smc.plan import PairPlan  # noqa: F401 (type hint only)
+
+    d = plan.price_decimals
+    trend_label = TREND_LABEL[plan.h4_trend]
+    lines = [f"📋 <b>{plan.pair}</b> — Pre-Market Plan (H4 {trend_label})"]
+    if plan.price:
+        lines.append(f"💵 {plan.price:.{d}f}")
+
+    if plan.note and not plan.scenarios:
+        lines.append("")
+        lines.append(f"ℹ️ {escape_html(plan.note)}")
+        return "\n".join(lines)
+
+    for s in plan.scenarios:
+        is_long = s.direction == Direction.LONG
+        arrow = "🔼" if is_long else "🔽"
+        side = "Buy" if is_long else "Sell"
+        head = (
+            f"{arrow} <b>{'LONG' if is_long else 'SHORT'}</b>"
+            + (" (speculative)" if s.speculative else " plan")
+        )
+        lines.append("")
+        lines.append(head)
+        lines.append(
+            f"   Zone {'Demand' if is_long else 'Supply'} "
+            f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f}"
+        )
+        lines.append(
+            f"   {side} Limit {s.entry:.{d}f} | 🛑 SL {s.stop_loss:.{d}f} "
+            f"| 🎯 TP {s.take_profit:.{d}f}"
+        )
+        rr_note = "" if s.rr >= min_rr else "  ⚠️ below 1:2 — likely SKIP"
+        lines.append(f"   📐 RR ~1:{s.rr:.1f} (approx){rr_note}")
+        lines.append(
+            f"   Trigger: M5 {'bullish' if is_long else 'bearish'} CHoCH + "
+            "FVG inside the zone"
+        )
+
+    lines.append("")
+    lines.append(
+        "⚠️ Preliminary plan: SL is beyond the H1 zone; the live 🚨 alert will "
+        "tighten it to the M5 pivot. Order lives only within its session."
+    )
+    return "\n".join(lines)
+
+
 class TelegramNotifier:
     """Minimal standalone Telegram sender (no DB dependencies)."""
 

@@ -194,10 +194,13 @@ class TestMorningDigestSkipsWeekends:
             self.sent.append(text)
             return 1
 
-    def _watcher_stub(self):
+    def _watcher_stub(self, monkeypatch):
         from smc_watcher import Watcher
         from app.services.smc.news import NewsCalendar
+        from app.core.config import settings
 
+        # isolate the news digest: disable the per-pair plan part of the briefing
+        monkeypatch.setattr(settings.smc, "morning_plan", False)
         stub = Watcher.__new__(Watcher)
         stub.state = self._FakeState()
         stub.notifier = self._FakeNotifier()
@@ -220,8 +223,8 @@ class TestMorningDigestSkipsWeekends:
 
         # 2026-07-18 07:00 UTC = Saturday 09:00 Prague — well past digest_after
         self._freeze(monkeypatch, datetime(2026, 7, 18, 7, 0, tzinfo=timezone.utc))
-        stub = self._watcher_stub()
-        asyncio.run(stub._send_morning_digest())
+        stub = self._watcher_stub(monkeypatch)
+        asyncio.run(stub._morning_briefing())
         assert stub.notifier.sent == []
         assert stub.state.last_digest_date == ""
 
@@ -230,8 +233,8 @@ class TestMorningDigestSkipsWeekends:
 
         # 2026-07-19 07:00 UTC = Sunday 09:00 Prague
         self._freeze(monkeypatch, datetime(2026, 7, 19, 7, 0, tzinfo=timezone.utc))
-        stub = self._watcher_stub()
-        asyncio.run(stub._send_morning_digest())
+        stub = self._watcher_stub(monkeypatch)
+        asyncio.run(stub._morning_briefing())
         assert stub.notifier.sent == []
 
     def test_digest_still_sent_on_weekday(self, monkeypatch):
@@ -239,7 +242,7 @@ class TestMorningDigestSkipsWeekends:
 
         # 2026-07-16 07:00 UTC = Thursday 09:00 Prague
         self._freeze(monkeypatch, datetime(2026, 7, 16, 7, 0, tzinfo=timezone.utc))
-        stub = self._watcher_stub()
-        asyncio.run(stub._send_morning_digest())
+        stub = self._watcher_stub(monkeypatch)
+        asyncio.run(stub._morning_briefing())
         assert len(stub.notifier.sent) == 1
         assert stub.state.last_digest_date == "2026-07-16"
