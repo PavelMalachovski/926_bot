@@ -64,6 +64,11 @@ class SMCSettings(BaseSettings):
         "auto = Twelve Data if its key is set, else OANDA if its token is set, "
         "else keyless Yahoo",
     )
+    taken_cooldown_hours: float = Field(
+        default=4.0,
+        description="After you press 'Took it', mute new alerts for that pair "
+        "for this many hours (you are managing the position)",
+    )
     notify_no_setup: bool = Field(
         default=False,
         description="Send 15-min heartbeat messages when no setup is found "

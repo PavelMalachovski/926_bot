@@ -263,6 +263,14 @@ class Watcher:
                     logger.info("Alert suppressed", pair=key, rule=block)
                     heartbeat_lines.append(f"⛔ {key}: alert suppressed — {block}")
                     continue
+                cooldown = self._cooldown_left(key)
+                if cooldown:
+                    logger.info("Alert muted (taken cooldown)", pair=key, left=cooldown)
+                    heartbeat_lines.append(
+                        f"🔕 {key}: setup found but muted — you took a trade "
+                        f"here, {cooldown} left"
+                    )
+                    continue
                 approved.append(result)
                 await self._send_alert(key, result, fingerprint)
                 heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
@@ -322,9 +330,34 @@ class Watcher:
         signal = self.journal.mark_taken(signal_id, taken)
         if not signal:
             return "Signal not found (journal may have been reset)"
-        if taken:
-            return f"{signal['pair']} marked as taken — tracking your stats"
-        return f"{signal['pair']} marked as skipped"
+        if not taken:
+            return f"{signal['pair']} marked as skipped"
+        # You are now managing this position: mute new alerts for the pair.
+        hours = settings.smc.taken_cooldown_hours
+        expiry = datetime.now(tz=timezone.utc) + timedelta(hours=hours)
+        self.state.pair_cooldown[signal["pair"]] = expiry.isoformat()
+        self.state.save()
+        return (
+            f"{signal['pair']} marked as taken — tracking your stats; "
+            f"muted for {hours:.0f}h"
+        )
+
+    def _cooldown_left(self, key: str) -> Optional[str]:
+        """Human 'Nh Mm' remaining on a taken-trade mute, or None if expired."""
+        expiry = self.state.pair_cooldown.get(key)
+        if not expiry:
+            return None
+        now = datetime.now(tz=timezone.utc)
+        try:
+            remaining = datetime.fromisoformat(expiry) - now
+        except ValueError:
+            return None
+        if remaining.total_seconds() <= 0:
+            del self.state.pair_cooldown[key]
+            self.state.save()
+            return None
+        total_min = int(remaining.total_seconds() // 60)
+        return f"{total_min // 60}h {total_min % 60}m"
 
     async def _handle_journal_events(self, events) -> None:
         """Live-update alert cards and enforce the daily stop notification."""
@@ -481,6 +514,13 @@ class Watcher:
             "Deposit for sizing: "
             + (f"${settings.smc.deposit:.0f}" if settings.smc.deposit else "not set"),
         ]
+        muted = [
+            f"{k} ({left})"
+            for k in self.state.pairs
+            if (left := self._cooldown_left(k))
+        ]
+        if muted:
+            lines.append(f"🔕 Muted (taken): {', '.join(muted)}")
         if self.last_results:
             lines.append("")
             lines.append("<b>Last check:</b>")
