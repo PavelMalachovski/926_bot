@@ -5,6 +5,7 @@ urgent alert so the setup is visible at a glance without opening TradingView.
 Rendering failures must never block an alert: callers wrap in try/except.
 """
 
+import os
 from io import BytesIO
 from typing import Optional
 
@@ -25,14 +26,22 @@ FG = "#d1d4dc"
 GRID = "#2a2e39"
 
 
-def render_setup_chart(result: AnalysisResult, candles_back: int = 96) -> Optional[bytes]:
-    """Render the approved setup as a PNG (last ~8h of M5). None if no data."""
+# ~16h of M5 by default: enough to show the swing HH/HL structure behind the
+# setup. Tunable via SMC_CHART_CANDLES.
+CHART_CANDLES = int(os.getenv("SMC_CHART_CANDLES", "192"))
+
+
+def render_setup_chart(
+    result: AnalysisResult, candles_back: int = CHART_CANDLES
+) -> Optional[bytes]:
+    """Render the approved setup as a PNG (last ~16h of M5). None if no data."""
     if not result.m5_candles or not result.setup:
         return None
     candles = result.m5_candles[-candles_back:]
     setup = result.setup
 
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=110)
+    # Wider canvas + thinner wicks so twice as many candles stay legible.
+    fig, ax = plt.subplots(figsize=(13, 6), dpi=110)
     fig.patch.set_facecolor(BG)
     ax.set_facecolor(BG)
 
