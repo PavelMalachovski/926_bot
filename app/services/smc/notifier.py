@@ -127,11 +127,14 @@ def format_result(result: AnalysisResult) -> str:
     return "\n".join(lines)
 
 
-def format_plan(plan, min_rr: float = 2.0, live_line: str = None) -> str:
+def format_plan(
+    plan, min_rr: float = 2.0, live_line: str = None, as_of: str = None
+) -> str:
     """Render a PairPlan as an HTML pre-market briefing message (Шаблон B).
 
     `live_line` (optional) folds in the watcher's live checklist status so the
-    plan and the live view are one picture.
+    plan and the live view are one picture. `as_of` is the Prague time of the
+    last closed M5 candle, shown so data freshness is visible.
     """
     from app.services.smc.plan import PairPlan  # noqa: F401 (type hint only)
 
@@ -139,7 +142,8 @@ def format_plan(plan, min_rr: float = 2.0, live_line: str = None) -> str:
     trend_label = TREND_LABEL[plan.h4_trend]
     lines = [f"📋 <b>{plan.pair}</b> — Pre-Market Plan (H4 {trend_label})"]
     if plan.price:
-        lines.append(f"💵 {plan.price:.{d}f}")
+        suffix = f"  ·  M5 close {as_of} Prague" if as_of else ""
+        lines.append(f"💵 {plan.price:.{d}f}{suffix}")
     if live_line:
         lines.append(f"📍 <b>Live now:</b> {live_line}")
 

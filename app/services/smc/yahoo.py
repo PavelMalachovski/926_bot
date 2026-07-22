@@ -78,7 +78,10 @@ class YahooDataFetcher:
             candles = resample_h4(candles, now=now)
         return candles[-limit:]
 
-    async def fetch_all_timeframes(self) -> Dict[str, List[Candle]]:
+    async def fetch_all_timeframes(
+        self, force_fresh: bool = False
+    ) -> Dict[str, List[Candle]]:
+        # Yahoo is not cached; force_fresh is a no-op (uniform interface).
         return {
             "h4": await self.fetch_candles("4h", limit=300),
             "h1": await self.fetch_candles("1h", limit=400),

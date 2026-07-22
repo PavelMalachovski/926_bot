@@ -153,15 +153,18 @@ class TwelveDataFetcher:
         self.api_key = api_key
         self.timeout = timeout
 
-    async def fetch_candles(self, interval: str, limit: int = 400) -> List[Candle]:
+    async def fetch_candles(
+        self, interval: str, limit: int = 400, force_fresh: bool = False
+    ) -> List[Candle]:
         td_interval = _INTERVAL.get(interval)
         if not td_interval:
             raise DataFetchError(f"Unsupported Twelve Data interval: {interval}")
 
         cache_key = (self.symbol, interval)
-        cached = _CACHE.get(cache_key, _TF_CACHE_TTL[interval])
-        if cached is not None:
-            return cached
+        if not force_fresh:
+            cached = _CACHE.get(cache_key, _TF_CACHE_TTL[interval])
+            if cached is not None:
+                return cached
 
         params = {
             "symbol": self.symbol,
@@ -206,11 +209,13 @@ class TwelveDataFetcher:
                 )
         raise DataFetchError(f"Twelve Data rate limited for {self.symbol}")
 
-    async def fetch_all_timeframes(self) -> Dict[str, List[Candle]]:
+    async def fetch_all_timeframes(
+        self, force_fresh: bool = False
+    ) -> Dict[str, List[Candle]]:
         return {
-            "h4": await self.fetch_candles("4h", limit=300),
-            "h1": await self.fetch_candles("1h", limit=400),
-            "m5": await self.fetch_candles("5m", limit=400),
+            "h4": await self.fetch_candles("4h", 300, force_fresh=force_fresh),
+            "h1": await self.fetch_candles("1h", 400, force_fresh=force_fresh),
+            "m5": await self.fetch_candles("5m", 400, force_fresh=force_fresh),
         }
 
     async def fetch_funding_rate(self) -> Optional[float]:

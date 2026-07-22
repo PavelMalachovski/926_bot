@@ -72,7 +72,10 @@ class OandaDataFetcher:
             raise DataFetchError(f"OANDA returned no data for {self.symbol}")
         return candles
 
-    async def fetch_all_timeframes(self) -> Dict[str, List[Candle]]:
+    async def fetch_all_timeframes(
+        self, force_fresh: bool = False
+    ) -> Dict[str, List[Candle]]:
+        # OANDA is not cached; force_fresh is a no-op (uniform interface).
         return {
             "h4": await self.fetch_candles("4h", limit=300),
             "h1": await self.fetch_candles("1h", limit=400),

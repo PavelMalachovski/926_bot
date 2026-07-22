@@ -464,7 +464,10 @@ class Watcher:
 
         instrument = get_instrument(key)
         try:
-            data = await _build_fetcher(instrument).fetch_all_timeframes()
+            # on-demand -> bypass the Twelve Data cache for the freshest candles
+            data = await _build_fetcher(instrument).fetch_all_timeframes(
+                force_fresh=True
+            )
         except Exception as e:
             logger.warning("Plan fetch failed", pair=key, error=str(e))
             return
@@ -477,8 +480,11 @@ class Watcher:
             instrument, data["h4"], data["h1"], data["m5"], market_closed=stale
         )
         live_line = None if stale else self._live_status(instrument, data, now)
+        as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
         await self.notifier.send(
-            format_plan(plan, min_rr=settings.smc.min_rr, live_line=live_line)
+            format_plan(
+                plan, min_rr=settings.smc.min_rr, live_line=live_line, as_of=as_of
+            )
         )
         try:
             png = render_plan_chart(plan, data["h1"])
