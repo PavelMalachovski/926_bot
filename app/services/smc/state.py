@@ -25,6 +25,9 @@ class WatcherState:
         self.day_stop_notified: str = db.kv_get("day_stop_notified") or ""
         # pair -> ISO expiry: no new alerts for the pair until then (Took it)
         self.pair_cooldown: Dict[str, str] = db.kv_get("pair_cooldown") or {}
+        # pair -> bool: whether the "price reached the zone" ping was sent for
+        # the current in-zone episode (reset when price leaves the zone)
+        self.zone_pinged: Dict[str, bool] = db.kv_get("zone_pinged") or {}
 
     def save(self) -> None:
         self.db.kv_set("pairs", self.pairs)
@@ -33,6 +36,7 @@ class WatcherState:
         self.db.kv_set("news_warned", self.news_warned)
         self.db.kv_set("day_stop_notified", self.day_stop_notified)
         self.db.kv_set("pair_cooldown", self.pair_cooldown)
+        self.db.kv_set("zone_pinged", self.zone_pinged)
 
     def toggle_pair(self, key: str) -> bool:
         """Toggle a pair on/off. Returns True if the pair is now enabled."""

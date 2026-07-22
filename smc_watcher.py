@@ -277,6 +277,7 @@ class Watcher:
                 await self._send_alert(key, result, fingerprint)
                 heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
             else:
+                await self._maybe_zone_ping(key, result)
                 heartbeat_lines.append(line)
 
         for warning in _correlation_warnings(approved):
@@ -475,13 +476,67 @@ class Watcher:
         plan = build_plan(
             instrument, data["h4"], data["h1"], data["m5"], market_closed=stale
         )
-        await self.notifier.send(format_plan(plan, min_rr=settings.smc.min_rr))
+        live_line = None if stale else self._live_status(instrument, data, now)
+        await self.notifier.send(
+            format_plan(plan, min_rr=settings.smc.min_rr, live_line=live_line)
+        )
         try:
             png = render_plan_chart(plan, data["h1"])
             if png:
                 await self.notifier.send_photo(png)
         except Exception as e:
             logger.warning("Plan chart failed", pair=key, error=str(e))
+
+    def _live_status(self, instrument: Instrument, data: dict, now) -> str:
+        """One-line live checklist status of a pair, for the /plan message."""
+        res = AnalysisResult(
+            symbol=instrument.key,
+            verdict=Verdict.SKIP,
+            checked_at=now,
+            price_decimals=instrument.price_decimals,
+        )
+        res.session_name = active_session(
+            now, require_weekday=instrument.source == "forex"
+        )
+        res.price = data["m5"][-1].close
+        res = _build_engine(instrument).evaluate(
+            h4=data["h4"], h1=data["h1"], m5=data["m5"], result=res
+        )
+        d = instrument.price_decimals
+        if res.verdict in APPROVED:
+            s = res.setup
+            return (
+                f"🚨 LIVE SETUP NOW — {s.direction.value} entry {s.entry:.{d}f}, "
+                f"SL {s.stop_loss:.{d}f}, TP {s.take_profit:.{d}f} (RR 1:{s.rr:.1f})"
+            )
+        prefix = "" if res.session_name else "(off session) "
+        icon = "👀" if res.verdict == Verdict.WATCH else "⛔"
+        reason = res.reasons[0] if res.reasons else "no direction"
+        return f"{icon} {prefix}{escape_html(reason)}"
+
+    async def _maybe_zone_ping(self, key: str, result: AnalysisResult) -> None:
+        """Send a one-time 'get ready' ping when price first enters a live zone."""
+        if not settings.smc.zone_ping or result is None:
+            return
+        armed = result.in_zone and result.verdict not in APPROVED and result.h1_zone
+        was_pinged = self.state.zone_pinged.get(key, False)
+        if armed and not was_pinged:
+            if self._cooldown_left(key):  # already managing a position here
+                return
+            zone = result.h1_zone
+            d = result.price_decimals
+            kind = "Demand" if zone.is_demand else "Supply"
+            await self.notifier.send(
+                f"🔔 <b>{key}</b>: price reached the H1 {kind} zone "
+                f"{zone.bottom:.{d}f}–{zone.top:.{d}f} — get ready, watching M5 "
+                f"for a {'bullish' if zone.is_demand else 'bearish'} CHoCH + FVG."
+            )
+            self.state.zone_pinged[key] = True
+            self.state.save()
+            logger.info("Zone-touch ping sent", pair=key)
+        elif not result.in_zone and was_pinged:
+            self.state.zone_pinged[key] = False
+            self.state.save()
 
     async def _rule_04_warnings(self) -> None:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""

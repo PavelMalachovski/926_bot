@@ -127,8 +127,12 @@ def format_result(result: AnalysisResult) -> str:
     return "\n".join(lines)
 
 
-def format_plan(plan, min_rr: float = 2.0) -> str:
-    """Render a PairPlan as an HTML pre-market briefing message (Шаблон B)."""
+def format_plan(plan, min_rr: float = 2.0, live_line: str = None) -> str:
+    """Render a PairPlan as an HTML pre-market briefing message (Шаблон B).
+
+    `live_line` (optional) folds in the watcher's live checklist status so the
+    plan and the live view are one picture.
+    """
     from app.services.smc.plan import PairPlan  # noqa: F401 (type hint only)
 
     d = plan.price_decimals
@@ -136,6 +140,8 @@ def format_plan(plan, min_rr: float = 2.0) -> str:
     lines = [f"📋 <b>{plan.pair}</b> — Pre-Market Plan (H4 {trend_label})"]
     if plan.price:
         lines.append(f"💵 {plan.price:.{d}f}")
+    if live_line:
+        lines.append(f"📍 <b>Live now:</b> {live_line}")
 
     if plan.note and not plan.scenarios:
         lines.append("")

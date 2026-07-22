@@ -69,6 +69,11 @@ class SMCSettings(BaseSettings):
         description="After you press 'Took it', mute new alerts for that pair "
         "for this many hours (you are managing the position)",
     )
+    zone_ping: bool = Field(
+        default=True,
+        description="Send a 'get ready' ping when price first reaches a live "
+        "H1 zone, before the full setup forms",
+    )
     notify_no_setup: bool = Field(
         default=False,
         description="Send 15-min heartbeat messages when no setup is found "

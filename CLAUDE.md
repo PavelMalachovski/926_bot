@@ -61,7 +61,8 @@ app/services/smc/
 │                         discipline_block (Rule 10 / Rule 0.2), /stats
 ├── plan.py               Pre-Market Plan (Шаблон B): projected entry/SL/TP/RR
 │                         from H4/H1 structure; both-way brackets when H4 flat;
-│                         on-demand only via /plan (not auto-sent)
+│                         on-demand via /plan, folded with live engine status.
+│                         Zone-touch ping fires when result.in_zone flips true
 ├── chart.py              alert chart PNG (M5) + plan chart PNG (H1): candles,
 │                         zones, levels (matplotlib Agg, NO pandas — keep it so)
 ├── telegram_bot.py       long-polling commands, slash-menu registration,

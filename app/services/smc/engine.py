@@ -185,6 +185,9 @@ class TripleSyncEngine:
                 )
                 return result
 
+        # Price is in a live (non-invalidated) zone — arm the zone-touch ping
+        result.in_zone = True
+
         # Rule 3 phase 2 — M5 CHoCH in trend direction inside the zone
         choch = find_choch(m5, direction, touch)
         if choch is None:
