@@ -173,3 +173,24 @@ class TestCache:
         await f.fetch_candles("4h")
         await f.fetch_candles("4h")
         assert calls["n"] == 1  # second call served from cache
+
+    @pytest.mark.asyncio
+    async def test_force_fresh_bypasses_cache(self, monkeypatch):
+        from app.services.smc.twelvedata import TwelveDataFetcher, _CACHE
+
+        calls = {"n": 0}
+
+        async def fake_request(self, params):
+            calls["n"] += 1
+            base = "2000-01-01"
+            return _payload(
+                [_row(f"{base} 10:00:00"), _row(f"{base} 11:00:00")]
+            )
+
+        monkeypatch.setattr(TwelveDataFetcher, "_request", fake_request)
+        f = TwelveDataFetcher("USDJPY", "KEY")
+        await f.fetch_candles("4h")  # miss -> 1 request, caches
+        await f.fetch_candles("4h")  # cache hit -> still 1
+        assert calls["n"] == 1
+        await f.fetch_candles("4h", force_fresh=True)  # bypass -> 2
+        assert calls["n"] == 2

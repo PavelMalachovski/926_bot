@@ -58,8 +58,11 @@ class BinanceDataFetcher:
             candles = candles[:-1]
         return candles
 
-    async def fetch_all_timeframes(self) -> Dict[str, List[Candle]]:
-        """Fetch H4 / H1 / M5 candles in one call."""
+    async def fetch_all_timeframes(
+        self, force_fresh: bool = False
+    ) -> Dict[str, List[Candle]]:
+        """Fetch H4 / H1 / M5 candles in one call (Binance is never cached,
+        so force_fresh is a no-op — kept for a uniform fetcher interface)."""
         return {
             "h4": await self.fetch_candles("4h", limit=300),
             "h1": await self.fetch_candles("1h", limit=400),

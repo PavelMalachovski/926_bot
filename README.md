@@ -19,8 +19,11 @@ setup appears.
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
 - 📅 **Forex Factory red-news digest** every weekday at 07:45 Prague
   (incl. a session-block breakdown of today's releases)
-- 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair
-  (conditional entry/SL/TP/RR + H1 chart; both-direction brackets when flat)
+- 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair, folded
+  together with the **live checklist status** (projection + where the pair is
+  right now); conditional entry/SL/TP/RR + H1 chart, both-way brackets when flat
+- 🔔 **Zone-touch ping** — a light "get ready" nudge the moment price reaches a
+  live H1 zone, before the full 🚨 setup forms (`SMC_ZONE_PING`)
 - 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;
   `/stats` shows signal winrate and your personal (taken) winrate separately
 

@@ -123,5 +123,8 @@ class AnalysisResult:
     watch_notes: List[str] = field(default_factory=list)
     session_name: Optional[str] = None
     price_decimals: int = 2
+    # True once price is inside a valid, non-invalidated H1 zone (used for the
+    # "get ready" zone-touch ping before a full setup forms)
+    in_zone: bool = False
     # last fetched M5 candles (in-memory only, used for chart rendering)
     m5_candles: Optional[List[Candle]] = field(default=None, repr=False)
