@@ -32,6 +32,7 @@ HELP_TEXT = (
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
     "/stats — signal journal: setups, TP/SL, winrate\n"
+    "/journal — trade journal: send an MT4 history screenshot to log trades\n"
     "/news — today's red news (Forex Factory)\n"
     "/help — this help"
 )
@@ -51,7 +52,9 @@ class TelegramCommandBot:
         news_text: Optional[Callable[[], str]] = None,
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
+        trade_journal: Optional[Any] = None,
     ):
+        self.bot_token = bot_token
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
         self.owner_chat_id = str(owner_chat_id)
         self.state = state
@@ -61,6 +64,7 @@ class TelegramCommandBot:
         self.news_text = news_text
         self.on_trade_mark = on_trade_mark
         self.on_plan = on_plan
+        self.trade_journal = trade_journal
         self._offset: Optional[int] = None
 
     # ------------------------------------------------------------- transport
@@ -82,6 +86,22 @@ class TelegramCommandBot:
         if reply_markup:
             payload["reply_markup"] = reply_markup
         await self._api("sendMessage", **payload)
+
+    async def _download_file(self, file_id: str) -> Optional[bytes]:
+        """Resolve a file_id via getFile and download its bytes."""
+        try:
+            info = await self._api("getFile", file_id=file_id)
+            file_path = info.get("result", {}).get("file_path")
+            if not file_path:
+                return None
+            url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                return response.content
+        except (httpx.HTTPError, KeyError, ValueError) as e:
+            logger.warning("Failed to download file", file_id=file_id, error=str(e))
+            return None
 
     # ------------------------------------------------------------------ loop
 
@@ -123,6 +143,7 @@ class TelegramCommandBot:
                 {"command": "plan", "description": "Pre-market plan for a pair"},
                 {"command": "status", "description": "Settings and last verdicts"},
                 {"command": "stats", "description": "Signal journal and winrate"},
+                {"command": "journal", "description": "Trade journal from MT4 screenshots"},
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
                 {"command": "help", "description": "What this bot does"},
             ],
@@ -151,6 +172,9 @@ class TelegramCommandBot:
             if chat_id != self.owner_chat_id:
                 logger.warning("Ignoring message from foreign chat", chat_id=chat_id)
                 return
+            if message.get("photo"):
+                await self._handle_screenshot(message)
+                return
             await self._handle_command((message.get("text") or "").strip())
         elif callback:
             chat_id = str(
@@ -171,6 +195,11 @@ class TelegramCommandBot:
             )
         elif command == "/status":
             await self.send(self.status_text())
+        elif command == "/journal":
+            if self.trade_journal:
+                await self.send(self.trade_journal.stats_text())
+            else:
+                await self.send("Trade journal is not available.")
         elif command == "/stats":
             if self.stats_text:
                 await self.send(self.stats_text())
@@ -196,9 +225,56 @@ class TelegramCommandBot:
         elif command:
             await self.send("Unknown command. /help for the list.")
 
+    async def _handle_screenshot(self, message: Dict) -> None:
+        """Parse a MetaTrader history screenshot into the trade journal."""
+        if not self.trade_journal:
+            await self.send("Trade journal is not available.")
+            return
+        if not self.trade_journal.api_key:
+            await self.send(
+                "⚠️ Распознавание недоступно: не настроен OPENAI_API_KEY."
+            )
+            return
+
+        await self.send("🔍 Распознаю сделки со скриншота, подожди пару секунд...")
+        try:
+            # Largest available photo size is the last entry.
+            file_id = message["photo"][-1]["file_id"]
+            image_bytes = await self._download_file(file_id)
+            if not image_bytes:
+                await self.send("❌ Не удалось скачать изображение. Попробуй ещё раз.")
+                return
+
+            trades = await self.trade_journal.parse_screenshot(image_bytes)
+            if not trades:
+                await self.send(self.trade_journal.format_preview(trades))
+                return
+
+            batch_id = self.trade_journal.save_pending_batch(trades)
+            keyboard = {
+                "inline_keyboard": [
+                    [
+                        {"text": "💾 Сохранить", "callback_data": f"jrnl_save_{batch_id}"},
+                        {"text": "❌ Отмена", "callback_data": f"jrnl_cancel_{batch_id}"},
+                    ]
+                ]
+            }
+            await self.send(
+                self.trade_journal.format_preview(trades), reply_markup=keyboard
+            )
+        except Exception as e:
+            logger.error("Failed to process screenshot", error=str(e), exc_info=True)
+            await self.send(
+                "❌ Ошибка при распознавании скриншота. Попробуй прислать более "
+                "чёткое изображение."
+            )
+
     async def _handle_callback(self, callback: Dict) -> None:
         data = callback.get("data", "")
         answer: Dict[str, Any] = {"callback_query_id": callback["id"]}
+        if data.startswith(("jrnl_save_", "jrnl_cancel_")) and self.trade_journal:
+            await self._handle_journal_callback(data, callback, answer)
+            return
         if data.startswith(("take_", "skip_")) and self.on_trade_mark:
             taken = data.startswith("take_")
             signal_id = data.split("_", 1)[1]
@@ -243,6 +319,50 @@ class TelegramCommandBot:
                     reply_markup=self._pairs_keyboard(),
                 )
         await self._api("answerCallbackQuery", **answer)
+
+    async def _handle_journal_callback(
+        self, data: str, callback: Dict, answer: Dict[str, Any]
+    ) -> None:
+        """Save or discard a parsed trade batch."""
+        message = callback.get("message", {})
+        try:
+            if data.startswith("jrnl_save_"):
+                batch_id = data[len("jrnl_save_"):]
+                result = self.trade_journal.confirm_batch(batch_id)
+                saved, dup = result["saved"], result["duplicates"]
+                if saved == 0 and dup == 0:
+                    text = "⚠️ Нечего сохранять (батч не найден или уже обработан)."
+                    chosen = "⚠️ Пусто"
+                else:
+                    text = f"✅ Сохранено сделок: {saved}"
+                    if dup:
+                        text += f"\n♻️ Пропущено дубликатов: {dup}"
+                    chosen = f"💾 Сохранено ({saved})"
+                answer["text"] = "Готово"
+            else:  # jrnl_cancel_
+                batch_id = data[len("jrnl_cancel_"):]
+                removed = self.trade_journal.discard_batch(batch_id)
+                text = f"❌ Отменено. Сделки не сохранены (удалено: {removed})."
+                chosen = "❌ Отменено"
+                answer["text"] = "Отменено"
+
+            if message:
+                await self._api(
+                    "editMessageReplyMarkup",
+                    chat_id=message["chat"]["id"],
+                    message_id=message["message_id"],
+                    reply_markup={
+                        "inline_keyboard": [
+                            [{"text": chosen, "callback_data": "noop"}]
+                        ]
+                    },
+                )
+            await self._api("answerCallbackQuery", **answer)
+            await self.send(text)
+        except Exception as e:
+            logger.error("Journal callback failed", error=str(e), exc_info=True)
+            answer["text"] = "Ошибка при обработке"
+            await self._api("answerCallbackQuery", **answer)
 
     def _pairs_keyboard(self) -> Dict:
         rows = []

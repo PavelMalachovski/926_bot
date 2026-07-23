@@ -58,6 +58,7 @@ Commands are registered in the bot's slash menu (type `/` in the chat).
 | `/check` | run the full strategy check right now |
 | `/plan` | pre-market plan for a pair (buttons pick from enabled pairs / all) |
 | `/stats` | journal: winrate bars, outcome sparkline, personal (taken) stats |
+| `/journal` | manual trade journal — send an MT4 history screenshot to log trades |
 | `/news` | today's red news (Forex Factory) and blackout windows |
 | `/help` | command list |
 
@@ -96,6 +97,28 @@ database** (`SMC_DB_FILE`, default `.smc_watcher.db`; legacy JSON files are
 imported automatically). On Railway attach a volume (e.g. mounted at `/data`)
 and set `SMC_DB_FILE=/data/smc.db` so entries and pair selection survive
 redeploys.
+
+## Trade journal (`/journal`)
+
+A **manual** log of your real trades, separate from the automatic signal
+journal above. Send the bot a **screenshot of your MetaTrader 4/5 history**
+(from the mobile app) and it:
+
+1. Parses **every** closed trade in the image with OpenAI Vision
+   (`OPENAI_MODEL`, default `gpt-4o-mini`): symbol, direction, volume,
+   open/close price and time, S/L, T/P, profit, swap, commission, taxes,
+   ticket, and the `[sl]` marker.
+2. Replies with a **preview** and **💾 Сохранить / ❌ Отмена** buttons —
+   nothing is written until you confirm.
+3. On confirm, stores the trades in the `trades` table (SQLite, same
+   `SMC_DB_FILE`), **de-duplicated by ticket**.
+4. `/journal` shows aggregate stats: total P/L, win rate, profit factor,
+   best/worst trade, a per-symbol breakdown and the most recent trades
+   (net = profit + swap + commission − taxes).
+
+Only the owner's chat is served (same gate as every other command). Requires
+`OPENAI_API_KEY`; without it the bot runs normally but screenshot parsing is
+disabled.
 
 ## Strategy checklist (per pair, every 5 min in session)
 

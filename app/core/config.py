@@ -17,6 +17,17 @@ class TelegramSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TELEGRAM_")
 
 
+class OpenAISettings(BaseSettings):
+    """OpenAI configuration (Vision parsing for the trade journal)."""
+
+    api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    model: str = Field(
+        default="gpt-4o-mini", description="OpenAI model (must support vision)"
+    )
+
+    model_config = SettingsConfigDict(env_prefix="OPENAI_")
+
+
 class OandaSettings(BaseSettings):
     """OANDA v20 API configuration (forex market data)."""
 
@@ -129,6 +140,7 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Debug mode")
 
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
+    openai: OpenAISettings = Field(default_factory=OpenAISettings)
     oanda: OandaSettings = Field(default_factory=OandaSettings)
     twelvedata: TwelveDataSettings = Field(default_factory=TwelveDataSettings)
     smc: SMCSettings = Field(default_factory=SMCSettings)

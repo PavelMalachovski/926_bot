@@ -35,6 +35,29 @@ SIGNAL_COLUMNS = [
     "alert_text",  # original alert body, re-used when editing the card
 ]
 
+# Manual trade journal parsed from MetaTrader screenshots.
+TRADE_COLUMNS = [
+    "id",  # uuid
+    "ticket",  # MT4/MT5 order id (used for de-duplication)
+    "symbol",
+    "direction",  # buy / sell
+    "volume",  # lots
+    "open_price",
+    "close_price",
+    "open_time",  # ISO string
+    "close_time",  # ISO string
+    "sl",
+    "tp",
+    "profit",
+    "swap",
+    "commission",
+    "taxes",
+    "closed_by_sl",  # 1 if the "[sl]" marker was present
+    "status",  # pending / confirmed
+    "batch_id",
+    "created_at",
+]
+
 
 class Database:
     """Thin wrapper over sqlite3 with a signals table and a kv store."""
@@ -71,6 +94,38 @@ class Database:
             )
             self.conn.execute(
                 "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)"
+            )
+            self.conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS trades (
+                    id TEXT PRIMARY KEY,
+                    ticket TEXT,
+                    symbol TEXT NOT NULL,
+                    direction TEXT,
+                    volume REAL,
+                    open_price REAL,
+                    close_price REAL,
+                    open_time TEXT,
+                    close_time TEXT,
+                    sl REAL,
+                    tp REAL,
+                    profit REAL DEFAULT 0,
+                    swap REAL DEFAULT 0,
+                    commission REAL DEFAULT 0,
+                    taxes REAL DEFAULT 0,
+                    closed_by_sl INTEGER DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    batch_id TEXT,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_trades_status "
+                "ON trades(status)"
+            )
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_trades_batch ON trades(batch_id)"
             )
             # Migrate databases created before these columns existed
             existing = {
@@ -155,6 +210,57 @@ class Database:
                 f"ON CONFLICT(id) DO UPDATE SET {assignments}",
                 values,
             )
+
+    # --------------------------------------------------------------- trades
+
+    def trade_insert(self, trade: Dict) -> None:
+        values = [trade.get(col) for col in TRADE_COLUMNS]
+        placeholders = ", ".join("?" for _ in TRADE_COLUMNS)
+        with self.conn:
+            self.conn.execute(
+                f"INSERT INTO trades ({', '.join(TRADE_COLUMNS)}) "
+                f"VALUES ({placeholders})",
+                values,
+            )
+
+    def trades_by_batch(self, batch_id: str, status: str) -> List[Dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM trades WHERE batch_id = ? AND status = ?",
+            (batch_id, status),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def trades_by_status(self, status: str) -> List[Dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM trades WHERE status = ? ORDER BY close_time DESC",
+            (status,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def confirmed_tickets(self) -> set:
+        rows = self.conn.execute(
+            "SELECT ticket FROM trades "
+            "WHERE status = 'confirmed' AND ticket IS NOT NULL"
+        ).fetchall()
+        return {row["ticket"] for row in rows if row["ticket"]}
+
+    def trade_set_status(self, trade_id: str, status: str) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE trades SET status = ? WHERE id = ?", (status, trade_id)
+            )
+
+    def trade_delete(self, trade_id: str) -> None:
+        with self.conn:
+            self.conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+
+    def trades_delete_batch(self, batch_id: str, status: str) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "DELETE FROM trades WHERE batch_id = ? AND status = ?",
+                (batch_id, status),
+            )
+            return cur.rowcount or 0
 
 
 def migrate_legacy_json(
