@@ -72,6 +72,9 @@ _VISION_PROMPT = (
     "- profit is the colored number on the right of the close date (may be negative).\n"
     "- closed_by_sl is true when the '[sl]' marker is present near the open time.\n"
     "- Remove thousands separators/spaces from numbers (e.g. '1 814.32' -> 1814.32).\n"
+    "- ticket is the numeric order id (the 'ID:' field). The compact history view "
+    "does NOT show it — if no numeric id is visible for a trade, set ticket to "
+    "null. Never output the literal word 'TICKET' or any placeholder.\n"
     "- Use null for anything not visible. Do not invent values."
 )
 
@@ -139,7 +142,7 @@ class TradeJournal:
         """Coerce a raw parsed trade into typed values."""
         trade: Dict[str, Any] = {k: raw.get(k) for k in _TRADE_KEYS}
 
-        trade["ticket"] = self._as_str(trade.get("ticket"))
+        trade["ticket"] = self._clean_ticket(trade.get("ticket"))
         trade["symbol"] = (self._as_str(trade.get("symbol")) or "UNKNOWN").upper()
         direction = self._as_str(trade.get("direction"))
         trade["direction"] = direction.lower() if direction else None
@@ -160,6 +163,40 @@ class TradeJournal:
             return None
         text = str(value).strip()
         return text or None
+
+    @staticmethod
+    def _clean_ticket(value: Any) -> Optional[str]:
+        """Keep only a genuine numeric MT order id; drop placeholders/None.
+
+        The compact history view has no ID column, and the vision model tends to
+        echo the literal word 'TICKET' from the prompt — treat anything that is
+        not all-digits as "no ticket".
+        """
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text if text.isdigit() else None
+
+    @classmethod
+    def _dedup_key(cls, trade: Dict[str, Any]) -> str:
+        """Stable identity for a trade, used to skip duplicates on re-upload.
+
+        Prefer the numeric ticket; when absent (compact view), fall back to a
+        signature of the trade's defining fields so distinct trades are kept but
+        the same screenshot sent twice is de-duplicated.
+        """
+        ticket = cls._clean_ticket(trade.get("ticket"))
+        if ticket:
+            return f"t:{ticket}"
+        parts = [
+            str(trade.get("symbol")),
+            str(trade.get("direction")),
+            str(trade.get("volume")),
+            str(trade.get("open_price")),
+            str(trade.get("close_price")),
+            str(trade.get("close_time")),
+        ]
+        return "s:" + "|".join(parts)
 
     @staticmethod
     def _as_float(value: Any) -> Optional[float]:
@@ -229,7 +266,10 @@ class TradeJournal:
         return batch_id
 
     def confirm_batch(self, batch_id: str) -> Dict[str, int]:
-        """Confirm a pending batch, dropping duplicates by ticket.
+        """Confirm a pending batch, dropping duplicates.
+
+        De-duplication uses the numeric ticket when present, otherwise a
+        signature of the trade's fields (compact history views have no ticket).
 
         Returns {"saved": n, "duplicates": m}.
         """
@@ -237,19 +277,20 @@ class TradeJournal:
         if not pending:
             return {"saved": 0, "duplicates": 0}
 
-        existing_tickets = self.db.confirmed_tickets()
+        existing_keys = {
+            self._dedup_key(t) for t in self.db.trades_by_status("confirmed")
+        }
         saved = 0
         duplicates = 0
         seen_in_batch: set = set()
         for trade in pending:
-            ticket = trade.get("ticket")
-            if ticket and (ticket in existing_tickets or ticket in seen_in_batch):
+            key = self._dedup_key(trade)
+            if key in existing_keys or key in seen_in_batch:
                 self.db.trade_delete(trade["id"])
                 duplicates += 1
                 continue
             self.db.trade_set_status(trade["id"], "confirmed")
-            if ticket:
-                seen_in_batch.add(ticket)
+            seen_in_batch.add(key)
             saved += 1
         return {"saved": saved, "duplicates": duplicates}
 
@@ -317,11 +358,11 @@ class TradeJournal:
     def format_preview(self, trades: List[Dict[str, Any]]) -> str:
         if not trades:
             return (
-                "🔍 На скриншоте не удалось распознать ни одной сделки.\n"
-                "Попробуй прислать более чёткий скрин истории MT4."
+                "🔍 No trades could be recognized in the screenshot.\n"
+                "Try sending a clearer screenshot of the MT4 history."
             )
 
-        lines = [f"📸 <b>Распознано сделок: {len(trades)}</b>\n"]
+        lines = [f"📸 <b>Recognized trades: {len(trades)}</b>\n"]
         total = 0.0
         for i, t in enumerate(trades, 1):
             profit = t.get("profit") or 0.0
@@ -335,21 +376,23 @@ class TradeJournal:
             sl_mark = " 🛑SL" if t.get("closed_by_sl") else ""
             ct = self._parse_dt(t.get("close_time"))
             ct_str = ct.strftime("%Y.%m.%d %H:%M") if ct else "—"
+            ticket = t.get("ticket")
+            ticket_str = f"🎫 {ticket} · " if ticket else ""
             lines.append(
                 f"{i}. {emoji} <b>{t.get('symbol')}</b> {direction} {vol_str} "
                 f"| {op} → {cp} | <b>{profit:+.2f}</b>{sl_mark}\n"
-                f"    🎫 {t.get('ticket') or '—'} · {ct_str}"
+                f"    {ticket_str}{ct_str}"
             )
-        lines.append(f"\n💰 <b>Итог по батчу: {total:+.2f}</b>")
-        lines.append("\nСохранить эти сделки в журнал?")
+        lines.append(f"\n💰 <b>Batch total: {total:+.2f}</b>")
+        lines.append("\nSave these trades to the journal?")
         return "\n".join(lines)
 
     def format_journal(self, stats: Dict[str, Any]) -> str:
         if stats.get("total", 0) == 0:
             return (
-                "📓 <b>Журнал сделок пуст</b>\n\n"
-                "Пришли скриншот истории сделок из MetaTrader — "
-                "я распознаю и сохраню их сюда."
+                "📓 <b>Trade journal is empty</b>\n\n"
+                "Send a screenshot of your MetaTrader history — "
+                "I'll recognize the trades and save them here."
             )
 
         pf = stats.get("profit_factor")
@@ -358,21 +401,21 @@ class TradeJournal:
         result_emoji = "🟢" if total_net >= 0 else "🔴"
 
         lines = [
-            "📓 <b>Журнал сделок</b>",
+            "📓 <b>Trade journal</b>",
             "━━━━━━━━━━━━━━━━━━━━",
-            f"{result_emoji} <b>Итоговый P/L:</b> {total_net:+.2f}",
-            f"📊 <b>Всего сделок:</b> {stats['total']}",
-            f"✅ <b>Прибыльных:</b> {stats['wins']}   "
-            f"❌ <b>Убыточных:</b> {stats['losses']}",
+            f"{result_emoji} <b>Total P/L:</b> {total_net:+.2f}",
+            f"📊 <b>Total trades:</b> {stats['total']}",
+            f"✅ <b>Winners:</b> {stats['wins']}   "
+            f"❌ <b>Losers:</b> {stats['losses']}",
             f"🎯 <b>Win rate:</b> {stats['win_rate']:.1f}%",
             f"⚖️ <b>Profit factor:</b> {pf_str}",
-            f"🏆 <b>Лучшая:</b> {stats['best']:+.2f}   "
-            f"💥 <b>Худшая:</b> {stats['worst']:+.2f}",
+            f"🏆 <b>Best:</b> {stats['best']:+.2f}   "
+            f"💥 <b>Worst:</b> {stats['worst']:+.2f}",
         ]
 
         by_symbol = stats.get("by_symbol", {})
         if by_symbol:
-            lines.append("\n<b>По символам:</b>")
+            lines.append("\n<b>By symbol:</b>")
             for sym, s in sorted(
                 by_symbol.items(), key=lambda kv: kv[1]["net"], reverse=True
             ):
@@ -380,12 +423,12 @@ class TradeJournal:
                 se = "🟢" if s["net"] >= 0 else "🔴"
                 lines.append(
                     f"  {se} <b>{sym}</b>: {s['net']:+.2f} "
-                    f"({s['count']} сд., WR {wr:.0f}%)"
+                    f"({s['count']} trades, WR {wr:.0f}%)"
                 )
 
         recent = stats.get("recent", [])
         if recent:
-            lines.append("\n<b>Последние сделки:</b>")
+            lines.append("\n<b>Recent trades:</b>")
             for t in recent:
                 profit = t.get("profit") or 0.0
                 emoji = "🟢" if profit > 0 else ("🔴" if profit < 0 else "⚪️")

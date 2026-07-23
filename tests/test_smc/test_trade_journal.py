@@ -70,6 +70,16 @@ class TestNormalize:
         tj = _journal(tmp_path)
         assert tj._normalize({})["symbol"] == "UNKNOWN"
 
+    def test_numeric_ticket_kept(self, tmp_path):
+        tj = _journal(tmp_path)
+        assert tj._normalize({"symbol": "x", "ticket": "71119736"})["ticket"] == "71119736"
+
+    def test_placeholder_ticket_dropped(self, tmp_path):
+        tj = _journal(tmp_path)
+        # The vision model tends to echo the literal word from the prompt.
+        assert tj._normalize({"symbol": "x", "ticket": "TICKET"})["ticket"] is None
+        assert tj._normalize({"symbol": "x", "ticket": "ID"})["ticket"] is None
+
 
 class TestPersistence:
     def test_save_confirm_and_stats(self, tmp_path):
@@ -107,27 +117,65 @@ class TestPersistence:
         tj.save_pending_batch(norm)  # no confirm
         assert tj.get_stats().get("total", 0) == 0
 
+    def test_ticketless_trades_not_falsely_deduped(self, tmp_path):
+        # Regression: a compact MT4 view has no ID column, so every trade came
+        # back with the same placeholder ticket and all-but-one were dropped.
+        tj = _journal(tmp_path)
+        raw = [
+            {"symbol": "usdjpy", "direction": "sell", "volume": 0.04,
+             "open_price": "143.857", "close_price": "142.298",
+             "close_time": "2025.04.14 10:02:43", "profit": "38.38",
+             "ticket": "TICKET"},
+            {"symbol": "usdjpy", "direction": "sell", "volume": 0.04,
+             "open_price": "141.654", "close_price": "142.416",
+             "close_time": "2025.04.23 16:47:45", "profit": "-18.84",
+             "ticket": "TICKET"},
+            {"symbol": "usdjpy", "direction": "buy", "volume": 0.04,
+             "open_price": "143.603", "close_price": "143.190",
+             "close_time": "2025.04.28 15:25:14", "profit": "-10.15",
+             "ticket": "TICKET"},
+        ]
+        norm = [tj._normalize(t) for t in raw]
+        result = tj.confirm_batch(tj.save_pending_batch(norm))
+        assert result == {"saved": 3, "duplicates": 0}
+        assert tj.get_stats()["total"] == 3
+
+    def test_same_screenshot_resent_is_deduped_without_ticket(self, tmp_path):
+        tj = _journal(tmp_path)
+        raw = [
+            {"symbol": "usdjpy", "direction": "sell", "volume": 0.04,
+             "open_price": "143.857", "close_price": "142.298",
+             "close_time": "2025.04.14 10:02:43", "profit": "38.38"},
+        ]
+        norm = [tj._normalize(t) for t in raw]
+        tj.confirm_batch(tj.save_pending_batch(norm))
+        # Same trade again (no ticket) -> caught by signature.
+        result = tj.confirm_batch(tj.save_pending_batch(norm))
+        assert result == {"saved": 0, "duplicates": 1}
+        assert tj.get_stats()["total"] == 1
+
 
 class TestFormatting:
     def test_empty_preview(self, tmp_path):
-        assert "не удалось распознать" in _journal(tmp_path).format_preview([])
+        assert "No trades could be recognized" in _journal(tmp_path).format_preview([])
 
     def test_preview_has_totals(self, tmp_path):
         tj = _journal(tmp_path)
         norm = [tj._normalize(t) for t in _sample()]
         text = tj.format_preview(norm)
-        assert "Распознано сделок: 2" in text
+        assert "Recognized trades: 2" in text
         assert "USDJPY" in text and "GBPUSD" in text
+        assert "Batch total" in text
 
     def test_journal_empty(self, tmp_path):
-        assert "пуст" in _journal(tmp_path).format_journal({"total": 0})
+        assert "empty" in _journal(tmp_path).format_journal({"total": 0})
 
     def test_stats_text_after_confirm(self, tmp_path):
         tj = _journal(tmp_path)
         norm = [tj._normalize(t) for t in _sample()]
         tj.confirm_batch(tj.save_pending_batch(norm))
         text = tj.stats_text()
-        assert "Журнал сделок" in text
+        assert "Trade journal" in text
         assert "Win rate" in text
 
 

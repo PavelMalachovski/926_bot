@@ -237,13 +237,6 @@ class Database:
         ).fetchall()
         return [dict(row) for row in rows]
 
-    def confirmed_tickets(self) -> set:
-        rows = self.conn.execute(
-            "SELECT ticket FROM trades "
-            "WHERE status = 'confirmed' AND ticket IS NOT NULL"
-        ).fetchall()
-        return {row["ticket"] for row in rows if row["ticket"]}
-
     def trade_set_status(self, trade_id: str, status: str) -> None:
         with self.conn:
             self.conn.execute(

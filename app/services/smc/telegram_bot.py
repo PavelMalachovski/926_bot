@@ -232,17 +232,17 @@ class TelegramCommandBot:
             return
         if not self.trade_journal.api_key:
             await self.send(
-                "⚠️ Распознавание недоступно: не настроен OPENAI_API_KEY."
+                "⚠️ Recognition unavailable: OPENAI_API_KEY is not configured."
             )
             return
 
-        await self.send("🔍 Распознаю сделки со скриншота, подожди пару секунд...")
+        await self.send("🔍 Recognizing trades from the screenshot, one moment...")
         try:
             # Largest available photo size is the last entry.
             file_id = message["photo"][-1]["file_id"]
             image_bytes = await self._download_file(file_id)
             if not image_bytes:
-                await self.send("❌ Не удалось скачать изображение. Попробуй ещё раз.")
+                await self.send("❌ Could not download the image. Please try again.")
                 return
 
             trades = await self.trade_journal.parse_screenshot(image_bytes)
@@ -254,8 +254,8 @@ class TelegramCommandBot:
             keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "💾 Сохранить", "callback_data": f"jrnl_save_{batch_id}"},
-                        {"text": "❌ Отмена", "callback_data": f"jrnl_cancel_{batch_id}"},
+                        {"text": "💾 Save", "callback_data": f"jrnl_save_{batch_id}"},
+                        {"text": "❌ Cancel", "callback_data": f"jrnl_cancel_{batch_id}"},
                     ]
                 ]
             }
@@ -265,8 +265,8 @@ class TelegramCommandBot:
         except Exception as e:
             logger.error("Failed to process screenshot", error=str(e), exc_info=True)
             await self.send(
-                "❌ Ошибка при распознавании скриншота. Попробуй прислать более "
-                "чёткое изображение."
+                "❌ Error while recognizing the screenshot. "
+                "Please send a clearer image."
             )
 
     async def _handle_callback(self, callback: Dict) -> None:
@@ -331,20 +331,20 @@ class TelegramCommandBot:
                 result = self.trade_journal.confirm_batch(batch_id)
                 saved, dup = result["saved"], result["duplicates"]
                 if saved == 0 and dup == 0:
-                    text = "⚠️ Нечего сохранять (батч не найден или уже обработан)."
-                    chosen = "⚠️ Пусто"
+                    text = "⚠️ Nothing to save (batch not found or already processed)."
+                    chosen = "⚠️ Empty"
                 else:
-                    text = f"✅ Сохранено сделок: {saved}"
+                    text = f"✅ Saved trades: {saved}"
                     if dup:
-                        text += f"\n♻️ Пропущено дубликатов: {dup}"
-                    chosen = f"💾 Сохранено ({saved})"
-                answer["text"] = "Готово"
+                        text += f"\n♻️ Skipped duplicates: {dup}"
+                    chosen = f"💾 Saved ({saved})"
+                answer["text"] = "Done"
             else:  # jrnl_cancel_
                 batch_id = data[len("jrnl_cancel_"):]
                 removed = self.trade_journal.discard_batch(batch_id)
-                text = f"❌ Отменено. Сделки не сохранены (удалено: {removed})."
-                chosen = "❌ Отменено"
-                answer["text"] = "Отменено"
+                text = f"❌ Cancelled. Trades were not saved (removed: {removed})."
+                chosen = "❌ Cancelled"
+                answer["text"] = "Cancelled"
 
             if message:
                 await self._api(
@@ -361,7 +361,7 @@ class TelegramCommandBot:
             await self.send(text)
         except Exception as e:
             logger.error("Journal callback failed", error=str(e), exc_info=True)
-            answer["text"] = "Ошибка при обработке"
+            answer["text"] = "Error while processing"
             await self._api("answerCallbackQuery", **answer)
 
     def _pairs_keyboard(self) -> Dict:
