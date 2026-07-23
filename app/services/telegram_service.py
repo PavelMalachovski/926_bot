@@ -341,12 +341,18 @@ class TelegramBotManager:
         return text
 
     async def send_message(
-        self, chat_id: int, message: str, parse_mode: str = "MarkdownV2"
+        self,
+        chat_id: int,
+        message: str,
+        parse_mode: str = "MarkdownV2",
+        reply_markup: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Send a message to a Telegram chat."""
         try:
             url = f"{self.base_url}/sendMessage"
             data = {"chat_id": chat_id, "text": message, "parse_mode": parse_mode}
+            if reply_markup:
+                data["reply_markup"] = reply_markup
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, json=data)
@@ -358,6 +364,42 @@ class TelegramBotManager:
         except httpx.HTTPError as e:
             logger.error("Failed to send message", chat_id=chat_id, error=str(e))
             raise TelegramError(f"Failed to send message: {e}")
+
+    async def get_file(self, file_id: str) -> Optional[str]:
+        """Resolve a file_id to a downloadable file path via getFile."""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/getFile",
+                    params={"file_id": file_id},
+                    timeout=15.0,
+                )
+                response.raise_for_status()
+                result = response.json()
+                if result.get("ok"):
+                    return result["result"].get("file_path")
+                logger.error("getFile returned not ok", result=result)
+                return None
+        except Exception as e:
+            logger.error("Failed to get file", file_id=file_id, error=str(e))
+            return None
+
+    async def download_file(self, file_id: str) -> Optional[bytes]:
+        """Download a Telegram file's bytes by file_id."""
+        try:
+            file_path = await self.get_file(file_id)
+            if not file_path:
+                return None
+            download_url = (
+                f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
+            )
+            async with httpx.AsyncClient() as client:
+                response = await client.get(download_url, timeout=30.0)
+                response.raise_for_status()
+                return response.content
+        except Exception as e:
+            logger.error("Failed to download file", file_id=file_id, error=str(e))
+            return None
 
     async def get_webhook_info(self) -> Dict[str, Any]:
         """Get webhook information."""
@@ -591,14 +633,43 @@ class TelegramService:
             raise
 
     async def send_message(
-        self, chat_id: int, message: str, parse_mode: str = "MarkdownV2"
+        self,
+        chat_id: int,
+        message: str,
+        parse_mode: str = "MarkdownV2",
+        reply_markup: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Send a message to a Telegram chat."""
         try:
-            return await self.bot_manager.send_message(chat_id, message, parse_mode)
+            return await self.bot_manager.send_message(
+                chat_id, message, parse_mode, reply_markup
+            )
         except Exception as e:
             logger.error("Failed to send message", chat_id=chat_id, error=str(e))
             return False
+
+    async def answer_callback_query(
+        self,
+        callback_query_id: str,
+        text: Optional[str] = None,
+        show_alert: bool = False,
+    ) -> bool:
+        """Answer a callback query."""
+        try:
+            return await self.bot_manager.answer_callback_query(
+                callback_query_id, text, show_alert
+            )
+        except Exception as e:
+            logger.error("Failed to answer callback query", error=str(e))
+            return False
+
+    async def download_file(self, file_id: str) -> Optional[bytes]:
+        """Download a Telegram file's bytes by file_id."""
+        try:
+            return await self.bot_manager.download_file(file_id)
+        except Exception as e:
+            logger.error("Failed to download file", file_id=file_id, error=str(e))
+            return None
 
     async def send_formatted_message(self, chat_id: int, message: str) -> bool:
         """Send a formatted message to a Telegram chat."""

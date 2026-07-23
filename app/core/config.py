@@ -50,6 +50,10 @@ class TelegramSettings(BaseSettings):
     webhook_url: Optional[str] = Field(default=None, description="Webhook URL")
     webhook_secret: Optional[str] = Field(default=None, description="Webhook secret")
     chat_id: Optional[str] = Field(default=None, description="Default chat ID")
+    owner_id: Optional[int] = Field(
+        default=540529430,
+        description="Telegram user id allowed to use the private trade journal",
+    )
 
     model_config = SettingsConfigDict(env_prefix="TELEGRAM_")
 

@@ -156,6 +156,47 @@ class ChartModel(Base):
     )
 
 
+class TradeModel(Base):
+    """Trade journal entry parsed from a MetaTrader screenshot."""
+
+    __tablename__ = "trades"
+
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(Integer, nullable=False, index=True)  # owner of the trade
+
+    # MetaTrader order identity (used for de-duplication per user)
+    ticket = Column(String(50), nullable=True, index=True)
+
+    symbol = Column(String(20), nullable=False, index=True)
+    direction = Column(String(10), nullable=True)  # buy / sell
+    volume = Column(Float, nullable=True)  # lots
+
+    open_price = Column(Float, nullable=True)
+    close_price = Column(Float, nullable=True)
+    open_time = Column(DateTime(timezone=True), nullable=True)
+    close_time = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    sl = Column(Float, nullable=True)  # Stop Loss level
+    tp = Column(Float, nullable=True)  # Take Profit level
+
+    profit = Column(Float, default=0.0)  # net result in account currency
+    swap = Column(Float, default=0.0)
+    commission = Column(Float, default=0.0)
+    taxes = Column(Float, default=0.0)
+
+    closed_by_sl = Column(Boolean, default=False)  # the "[sl]" marker in MT4
+
+    # Confirmation workflow: pending -> confirmed (or row deleted on cancel)
+    status = Column(String(20), default="pending", index=True)
+    batch_id = Column(String(40), nullable=True, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class APILogModel(Base):
     """API request logging model."""
 

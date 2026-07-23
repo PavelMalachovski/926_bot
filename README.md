@@ -291,7 +291,27 @@ Once the application is running, visit:
 - `/digest` - Configure daily digest
 - `/charts` - Enable/disable charts
 - `/status` - Check current settings
+- `/journal` - 📓 Personal trade journal (see below)
 - `/support` - Get support information
+
+## 📓 Trade Journal
+
+Track your MetaTrader trades by sending screenshots of the MT4/MT5 history to the bot.
+
+**How it works:**
+
+1. Send a screenshot of your MetaTrader trade history to the bot.
+2. The screenshot is parsed with OpenAI Vision (`API_OPENAI_MODEL`, default `gpt-4o-mini`),
+   extracting every closed trade (symbol, direction, volume, open/close price and time,
+   S/L, T/P, profit, swap, commission, taxes, ticket, and the `[sl]` marker).
+3. The bot replies with a preview of the recognized trades plus **💾 Сохранить / ❌ Отмена**
+   buttons. Nothing is written until you confirm.
+4. On confirm, trades are stored (de-duplicated by ticket) in the `trades` table.
+5. `/journal` shows aggregate stats: total P/L, win rate, profit factor, best/worst trade,
+   a per-symbol breakdown, and the most recent trades.
+
+**Access control:** set `TELEGRAM_OWNER_ID` to your numeric Telegram user id so only you
+can use the journal. Leave it empty to allow all users. Requires `API_OPENAI_API_KEY`.
 
 ## 🏗️ Architecture
 

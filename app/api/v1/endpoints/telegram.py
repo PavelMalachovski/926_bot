@@ -1,5 +1,7 @@
 """Telegram webhook API endpoints."""
 
+from typing import Optional
+
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,11 +11,25 @@ from app.core.exceptions import TelegramError, ValidationError
 from app.database.connection import get_database
 from app.models.telegram import TelegramUpdate
 from app.models.user import UserCreate, UserPreferences
+from app.services.journal_service import JournalService
 from app.services.telegram_service import TelegramService
 from app.services.user_service import UserService
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
+
+journal_service = JournalService()
+
+
+def _is_journal_owner(telegram_id: Optional[int]) -> bool:
+    """Whether the given user may use the private trade journal.
+
+    When TELEGRAM_OWNER_ID is unset, the journal is open to everyone.
+    """
+    owner_id = settings.telegram.owner_id
+    if owner_id is None:
+        return True
+    return telegram_id == owner_id
 
 
 def get_telegram_service() -> TelegramService:
@@ -84,6 +100,11 @@ async def _process_message(
 ):
     """Process incoming message."""
     try:
+        # A screenshot of MetaTrader history -> parse into the trade journal.
+        if message.photo:
+            await _handle_journal_screenshot(message, telegram_service, db)
+            return
+
         # Get or create user
         user = await _get_or_create_user(message.from_user, user_service, db)
 
@@ -151,7 +172,8 @@ async def _process_command(
             "/impact - Set impact level preferences\n"
             "/digest - Configure daily digest\n"
             "/charts - Enable/disable charts\n"
-            "/status - Check your current settings",
+            "/status - Check your current settings\n"
+            "/journal - 📓 Дневник сделок (пришли скриншот истории MT4)",
         )
 
     elif command == "/help":
@@ -167,6 +189,7 @@ async def _process_command(
             "/digest - Daily digest settings\n"
             "/charts - Chart preferences\n"
             "/status - Current settings\n"
+            "/journal - 📓 Дневник сделок (скриншот истории MT4)\n"
             "/support - Get support",
         )
 
@@ -190,6 +213,9 @@ async def _process_command(
 
     elif command == "/status":
         await _show_status(message, telegram_service, user_service, db)
+
+    elif command == "/journal":
+        await _show_journal(message, telegram_service, db)
 
     elif command == "/support":
         await telegram_service.send_message(
@@ -444,6 +470,155 @@ async def _show_status(
         )
 
 
+async def _handle_journal_screenshot(
+    message,
+    telegram_service: TelegramService,
+    db: AsyncSession,
+):
+    """Parse a MetaTrader history screenshot and offer to save the trades."""
+    chat_id = message.chat.id
+    user_id = message.from_user.id if message.from_user else chat_id
+
+    if not _is_journal_owner(user_id):
+        await telegram_service.send_message(
+            chat_id, "🔒 Журнал сделок доступен только владельцу бота."
+        )
+        return
+
+    if not settings.api.openai_api_key:
+        await telegram_service.send_message(
+            chat_id,
+            "⚠️ Распознавание недоступно: не настроен OpenAI API ключ "
+            "(API_OPENAI_API_KEY).",
+        )
+        return
+
+    await telegram_service.send_message(
+        chat_id, "🔍 Распознаю сделки со скриншота, подожди пару секунд..."
+    )
+
+    try:
+        # Largest available photo size is the last one.
+        file_id = message.photo[-1].file_id
+        image_bytes = await telegram_service.download_file(file_id)
+        if not image_bytes:
+            await telegram_service.send_message(
+                chat_id, "❌ Не удалось скачать изображение. Попробуй ещё раз."
+            )
+            return
+
+        trades = await journal_service.parse_screenshot(image_bytes)
+
+        if not trades:
+            await telegram_service.send_message(
+                chat_id, journal_service.format_preview(trades), parse_mode="HTML"
+            )
+            return
+
+        batch_id = await journal_service.save_pending_batch(db, user_id, trades)
+        keyboard = {
+            "inline_keyboard": [
+                [
+                    {"text": "💾 Сохранить", "callback_data": f"jrnl_save_{batch_id}"},
+                    {"text": "❌ Отмена", "callback_data": f"jrnl_cancel_{batch_id}"},
+                ]
+            ]
+        }
+        await telegram_service.send_message(
+            chat_id,
+            journal_service.format_preview(trades),
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+
+    except Exception as e:
+        logger.error("Failed to process journal screenshot", error=str(e), exc_info=True)
+        await telegram_service.send_message(
+            chat_id,
+            "❌ Ошибка при распознавании скриншота. Попробуй прислать более "
+            "чёткое изображение.",
+        )
+
+
+async def _show_journal(
+    message,
+    telegram_service: TelegramService,
+    db: AsyncSession,
+):
+    """Show the /journal statistics."""
+    chat_id = message.chat.id
+    user_id = message.from_user.id if message.from_user else chat_id
+
+    if not _is_journal_owner(user_id):
+        await telegram_service.send_message(
+            chat_id, "🔒 Журнал сделок доступен только владельцу бота."
+        )
+        return
+
+    try:
+        stats = await journal_service.get_stats(db, user_id)
+        await telegram_service.send_message(
+            chat_id, journal_service.format_journal(stats), parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error("Failed to show journal", error=str(e), exc_info=True)
+        await telegram_service.send_message(
+            chat_id, "❌ Не удалось получить статистику журнала."
+        )
+
+
+async def _handle_journal_callback(
+    callback_query,
+    telegram_service: TelegramService,
+    db: AsyncSession,
+):
+    """Handle Save / Cancel buttons on a parsed trade batch."""
+    data = callback_query.data
+    chat_id = callback_query.message.chat.id if callback_query.message else None
+    user_id = callback_query.from_user.id
+
+    if not _is_journal_owner(user_id):
+        await telegram_service.answer_callback_query(
+            callback_query.id, "🔒 Недоступно", show_alert=True
+        )
+        return
+
+    try:
+        if data.startswith("jrnl_save_"):
+            batch_id = data.replace("jrnl_save_", "")
+            result = await journal_service.confirm_batch(db, user_id, batch_id)
+            saved = result["saved"]
+            dup = result["duplicates"]
+            if saved == 0 and dup == 0:
+                text = "⚠️ Нечего сохранять (батч не найден или уже обработан)."
+            else:
+                text = f"✅ Сохранено сделок: {saved}"
+                if dup:
+                    text += f"\n♻️ Пропущено дубликатов: {dup}"
+            await telegram_service.answer_callback_query(
+                callback_query.id, "Готово"
+            )
+            if chat_id:
+                await telegram_service.send_message(chat_id, text, parse_mode="HTML")
+
+        elif data.startswith("jrnl_cancel_"):
+            batch_id = data.replace("jrnl_cancel_", "")
+            removed = await journal_service.discard_batch(db, user_id, batch_id)
+            await telegram_service.answer_callback_query(
+                callback_query.id, "Отменено"
+            )
+            if chat_id:
+                await telegram_service.send_message(
+                    chat_id,
+                    f"❌ Отменено. Сделки не сохранены (удалено: {removed}).",
+                )
+    except Exception as e:
+        logger.error("Failed to handle journal callback", error=str(e), exc_info=True)
+        await telegram_service.answer_callback_query(
+            callback_query.id, "Ошибка при обработке"
+        )
+
+
 async def _process_callback_data(
     callback_query,
     telegram_service: TelegramService,
@@ -452,6 +627,10 @@ async def _process_callback_data(
 ):
     """Process callback data."""
     data = callback_query.data
+
+    if data.startswith("jrnl_"):
+        await _handle_journal_callback(callback_query, telegram_service, db)
+        return
 
     if data.startswith("currency_"):
         currency = data.replace("currency_", "")
