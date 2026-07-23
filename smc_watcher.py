@@ -47,6 +47,7 @@ from app.services.smc.yahoo import YahooDataFetcher
 from app.services.smc.sessions import active_session, to_prague
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
+from app.services.smc.trade_journal import TradeJournal
 
 configure_logging()
 logger = structlog.get_logger("smc_watcher")
@@ -181,6 +182,7 @@ class Watcher:
             raise RuntimeError("Set TELEGRAM_CHAT_ID (or SMC_CHAT_ID)")
         self.notifier = TelegramNotifier(bot_token=token, chat_id=chat_id)
         self.journal = SignalJournal(self.db)
+        self.trade_journal = TradeJournal(self.db)
         self.news = (
             NewsCalendar(
                 before_minutes=settings.smc.news_blackout_before_min,
@@ -199,6 +201,7 @@ class Watcher:
             news_text=self.news_text,
             on_trade_mark=self.mark_trade,
             on_plan=self.on_plan,
+            trade_journal=self.trade_journal,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply the env default on the very first start (DB wins afterwards)
