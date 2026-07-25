@@ -37,6 +37,12 @@ def configure_logging(
             stream=sys.stdout,
         )
 
+    # HTTP client libraries log full request URLs at INFO, which can include
+    # API keys passed as query params (e.g. TwelveData apikey=...). Silence
+    # their request-line logging so secrets never reach stdout / Railway logs.
+    for noisy in ("httpx", "httpcore"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
     # Configure structlog
     structlog.configure(
         processors=[
