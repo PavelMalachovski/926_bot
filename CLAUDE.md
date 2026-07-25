@@ -107,6 +107,14 @@ tracking → live-card edits on fill/TP/SL events.
   size matters on Railway).
 - Adding a signal column? Extend `SIGNAL_COLUMNS`, the `CREATE TABLE` and the
   migration list in `db.py` — existing production DBs are migrated in place.
+- **Strategy profiles** (`profiles.py`) are read by the engine at exactly four
+  points: direction (H4 CHoCH on FLAT trend), FVG size, H1 zone selection
+  (`max_zone_touches`), and FVG scope. `fvg_size_factor` is a **multiplier** on
+  the per-instrument minimum FVG — per-instrument thresholds stay in
+  `instruments.py`, never hardcode a profile-specific size elsewhere. Changing
+  a pair's profile (`/strategy`, `WatcherState.set_profile`) clears that pair's
+  dedup keys (`last_setup`, `zone_pinged`) so the new profile's first alert
+  isn't suppressed by a stale fingerprint.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.

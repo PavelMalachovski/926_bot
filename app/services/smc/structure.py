@@ -61,6 +61,23 @@ def detect_trend(candles: List[Candle]) -> Trend:
     return Trend.FLAT
 
 
+def h4_choch_direction(candles: List[Candle]) -> Optional[Direction]:
+    """Aggressive entry: direction implied by an unreclaimed H4 CHoCH.
+
+    Consulted only when detect_trend() is FLAT. Returns SHORT if the last
+    confirmed higher-low was broken down and not reclaimed, LONG if the last
+    confirmed lower-high was broken up and not reclaimed, else None.
+    """
+    pivots = find_pivots(candles)
+    highs = [p for p in pivots if p.is_high]
+    lows = [p for p in pivots if not p.is_high]
+    if lows and _break_still_holds(candles, lows[-1], below=True):
+        return Direction.SHORT
+    if highs and _break_still_holds(candles, highs[-1], below=False):
+        return Direction.LONG
+    return None
+
+
 def _break_still_holds(candles: List[Candle], pivot: Pivot, below: bool) -> bool:
     """True if a body closed beyond the pivot level and price has not
     reclaimed it since (the structural break is still in force)."""
@@ -100,14 +117,10 @@ def build_zone(candles: List[Candle], pivot: Pivot) -> Zone:
 
 
 def _mark_zone_state(candles: List[Candle], zone: Zone) -> Zone:
-    """Mark whether the zone was already tested or invalidated after forming.
-
-    The candles that confirm the pivot are excluded; a later excursion into the
-    zone that price has since left counts as a test. A body close through the
-    far edge invalidates the zone.
-    """
+    """Mark whether the zone was tested/invalidated after forming, and count
+    completed touches (entered-and-left excursions)."""
     start = zone.pivot_index + PIVOT_WING + 1
-    touched_and_left = False
+    touches = 0
     in_zone_prev = False
     for c in candles[start:]:
         if zone.is_demand:
@@ -120,44 +133,55 @@ def _mark_zone_state(candles: List[Candle], zone: Zone) -> Zone:
                 return zone
         in_zone = c.low <= zone.top and c.high >= zone.bottom
         if in_zone_prev and not in_zone:
-            touched_and_left = True
+            touches += 1
         in_zone_prev = in_zone
-    # Only a completed touch (entered and left) counts as a test; an ongoing
-    # first touch is the entry opportunity, not a test.
-    zone.tested = touched_and_left
+    zone.touches = touches
+    zone.tested = touches > 0
     return zone
 
 
-def find_h1_zone(candles: List[Candle], direction: Direction) -> Optional[Zone]:
-    """Rule 2: latest valid untested H1 Demand (long) / Supply (short) zone."""
+def find_h1_zone(
+    candles: List[Candle], direction: Direction, max_touches: int = 0
+) -> Optional[Zone]:
+    """Rule 2: latest valid H1 Demand (long)/Supply (short) zone with at most
+    `max_touches` completed retests (0 = untested only, conservative)."""
     pivots = find_pivots(candles)
     want_high = direction == Direction.SHORT
     candidates = [p for p in pivots if p.is_high == want_high]
     for pivot in reversed(candidates):
         zone = _mark_zone_state(candles, build_zone(candles, pivot))
-        if not zone.invalidated and not zone.tested:
+        if not zone.invalidated and zone.touches <= max_touches:
             return zone
     return None
 
 
-def find_target_zone(
+def find_target_zones(
     candles: List[Candle], direction: Direction, entry: float
-) -> Optional[Zone]:
-    """Rule 7: nearest untested opposite zone beyond entry (TP target)."""
+) -> List[Zone]:
+    """Rule 7: all untested opposite zones beyond entry, nearest first."""
     pivots = find_pivots(candles)
     want_high = direction == Direction.LONG
-    best: Optional[Zone] = None
+    out: List[Zone] = []
     for pivot in (p for p in pivots if p.is_high == want_high):
         zone = _mark_zone_state(candles, build_zone(candles, pivot))
         if zone.invalidated or zone.tested:
             continue
         if direction == Direction.LONG and zone.bottom > entry:
-            if best is None or zone.bottom < best.bottom:
-                best = zone
+            out.append(zone)
         elif direction == Direction.SHORT and zone.top < entry:
-            if best is None or zone.top > best.top:
-                best = zone
-    return best
+            out.append(zone)
+    if direction == Direction.LONG:
+        out.sort(key=lambda z: z.bottom)          # nearest above entry first
+    else:
+        out.sort(key=lambda z: z.top, reverse=True)  # nearest below entry first
+    return out
+
+
+def find_target_zone(
+    candles: List[Candle], direction: Direction, entry: float
+) -> Optional[Zone]:
+    """Nearest untested opposite zone beyond entry (back-compat wrapper)."""
+    return next(iter(find_target_zones(candles, direction, entry)), None)
 
 
 def find_choch(
@@ -200,15 +224,23 @@ def last_protective_pivot(
     return candidates[-1] if candidates else None
 
 
-def zone_touch_index(candles: List[Candle], zone: Zone) -> Optional[int]:
-    """Index of the most recent candle that entered the zone, or None.
+def zone_touch_span(
+    candles: List[Candle], zone: Zone
+) -> Optional[Tuple[int, int]]:
+    """Inclusive (start, end) indices of the LAST contiguous excursion into
+    the zone, or None if price never entered.
 
-    Intended for M5 candles against an H1 zone, so indices are unrelated to
-    the zone's own pivot index.
+    Intended for M5 candles against an H1 zone. `start` is the origin for the
+    CHoCH/FVG search (the bug this replaces returned only the last candle, so
+    the M5 CHoCH inside the zone was invisible while price sat in the zone).
     """
-    touch = None
-    for i in range(len(candles)):
-        c = candles[i]
-        if c.low <= zone.top and c.high >= zone.bottom:
-            touch = i
-    return touch
+    start = end = None
+    for i, c in enumerate(candles):
+        in_zone = c.low <= zone.top and c.high >= zone.bottom
+        if in_zone:
+            if start is None or (end is not None and i > end + 1):
+                start = i  # begin a new run
+            end = i
+    if start is None:
+        return None
+    return start, end

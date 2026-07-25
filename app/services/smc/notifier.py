@@ -57,6 +57,8 @@ def format_result(result: AnalysisResult) -> str:
         lines.append(URGENT_HEADER)
         lines.append("")
     lines.append(f"<b>{result.symbol}</b> — Triple Sync + Imbalance")
+    if getattr(result, "profile_key", "conservative") == "aggressive":
+        lines.append("⚡ <b>Aggressive profile</b> — first-leg entry, lower-probability")
     lines.append(
         f"🕐 {to_prague(result.checked_at).strftime('%d.%m.%Y %H:%M')} Prague"
         + (f" | Session: {result.session_name}" if result.session_name else "")
@@ -170,8 +172,7 @@ def format_plan(
             f"   {side} Limit {s.entry:.{d}f} | 🛑 SL {s.stop_loss:.{d}f} "
             f"| 🎯 TP {s.take_profit:.{d}f}"
         )
-        rr_note = "" if s.rr >= min_rr else "  ⚠️ below 1:2 — likely SKIP"
-        lines.append(f"   📐 RR ~1:{s.rr:.1f} (approx){rr_note}")
+        lines.append(f"   📐 RR ~1:{s.rr:.1f} (approx)")
         lines.append(
             f"   Trigger: M5 {'bullish' if is_long else 'bearish'} CHoCH + "
             "FVG inside the zone"

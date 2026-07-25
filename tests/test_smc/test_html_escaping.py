@@ -52,6 +52,17 @@ class TestEscaping:
             text = format_result(_result_with_reason(reason, verdict))
             _assert_valid_telegram_html(text)
 
+    def test_aggressive_profile_tag_shown_only_for_aggressive(self):
+        result = _result_with_reason("no direction")
+        result.profile_key = "aggressive"
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "⚡ <b>Aggressive profile</b>" in text
+
+        result.profile_key = "conservative"
+        text = format_result(result)
+        assert "Aggressive profile" not in text
+
     def test_news_digest_titles_escaped(self):
         cal = NewsCalendar()
         cal.events = parse_feed(

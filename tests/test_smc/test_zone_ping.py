@@ -58,6 +58,7 @@ class _State:
     def __init__(self):
         self.zone_pinged = {}
         self.pair_cooldown = {}
+        self.pair_profile = {}
 
     def save(self):
         pass

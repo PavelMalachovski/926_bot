@@ -123,6 +123,7 @@ class SignalJournal:
             "taken": None,
             "message_id": None,
             "alert_text": None,
+            "profile_key": getattr(result, "profile_key", "conservative"),
         }
         self.signals.append(signal)
         self.save()

@@ -108,3 +108,26 @@ def m5_long_trigger() -> List[Candle]:
         (3151.0, 3152.0, 3149.0, 3150.0),
     ]
     return [candle(*row, index=i) for i, row in enumerate(spec)]
+
+
+def m5_choch_still_in_zone() -> List[Candle]:
+    """M5 where the bullish CHoCH forms and price STAYS inside the demand zone
+    to the end of the series — the exact case the touch-span fix targets.
+
+    Against a demand zone of 3130-3140:
+    - a high pivot at index 2 (high 3149) sits ABOVE the zone (indices 0-4
+      never enter it), so it is a valid CHoCH reference level
+    - price declines into the zone at index 5; the contiguous excursion runs
+      indices 5-10 with no exit before the series ends
+    - the CHoCH candle at index 8 dips into the zone (low 3137.6) while its
+      body closes at 3151, breaking the 3149 pivot
+    - price then hovers in the zone at indices 9-10
+
+    The old `zone_touch_index` returned the LAST in-zone candle (index 10,
+    after the CHoCH), collapsing `find_choch`'s window to nothing → no trigger.
+    `zone_touch_span` returns the excursion START (index 5), so the CHoCH at
+    index 8 is inside the search window.
+    """
+    return make_candles(
+        [3143, 3146, 3148, 3145, 3143, 3140, 3138, 3138, 3151, 3140, 3138]
+    )

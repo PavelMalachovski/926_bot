@@ -17,6 +17,8 @@ setup appears.
   precise reasons («best FVG candidate: 3.2 pips < required 5»); `/check`
   shows the current picture on demand
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
+- ⚡ **Strategy profile per pair** via Telegram: `/strategy` (🛡 Conservative /
+  ⚡ Aggressive)
 - 📅 **Forex Factory red-news digest** every weekday at 07:45 Prague
   (incl. a session-block breakdown of today's releases)
 - 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair, folded
@@ -54,6 +56,7 @@ Commands are registered in the bot's slash menu (type `/` in the chat).
 | Command | What it does |
 |---|---|
 | `/pairs` | inline keyboard — toggle watched pairs on/off |
+| `/strategy` | inline keyboard — switch a pair's strategy profile (🛡 Conservative / ⚡ Aggressive), or all pairs at once |
 | `/status` | enabled pairs, current session, last verdicts |
 | `/check` | run the full strategy check right now |
 | `/plan` | pre-market plan for a pair (buttons pick from enabled pairs / all) |
@@ -181,6 +184,7 @@ Key ones:
 | `SMC_DB_FILE` | `.smc_watcher.db` | SQLite path (put on a volume for persistence) |
 | `SMC_NEWS_DIGEST_TIME` | `07:45` | Prague time of the morning news digest |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
+| `SMC_DEFAULT_PROFILE` | `conservative` | strategy profile for a pair with no explicit `/strategy` choice: `conservative` \| `aggressive` |
 | `OANDA_API_TOKEN` | — | optional: use OANDA instead of Yahoo for forex |
 | `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |
 
@@ -215,26 +219,50 @@ app/services/smc/
 ├── db.py                   # SQLite wrapper, column migrations, JSON import
 └── models.py               # Candle, Zone, FVG, TradeSetup, AnalysisResult
 tests/test_smc/             # 93 unit + end-to-end strategy tests
+scripts/funnel.py           # offline calibration: replays the engine over
+                            # historical candles per profile to size fvg_size_factor
 CLAUDE.md                   # guidance for AI-assisted development
 ```
 
-## Roadmap — Aggressive breakout mode (not yet implemented)
+## Strategy profiles
 
-An optional, opt-in mode for ranging weeks where the strict trend-following
-rules produce zero forex setups. The standard strategy waits for a **confirmed**
-H4 trend (HH+HL / LH+LL) before hunting — so it sits out the *first* leg of a
-breakout, entering only on the second (see the ETHUSD/GBPUSD breakout days).
+Each watched pair runs under one of two **strategy profiles**. Both share the
+same rulebook (H4 trend → H1 zone → M5 CHoCH + FVG, RR ≥ 1:2, sessions, news,
+correlation); a profile only scales strictness — it never bends a rule.
 
-**Aggressive breakout mode** would enter earlier: after an **H4 CHoCH** (the
-prior trend is broken), take the entry on the **retest of the impulse FVG**,
-**without** waiting for a confirmed HH+HL. Alerts would be tagged `⚡ aggressive`
-with a recommendation to halve risk (lower-probability-per-trade, catches the
-first leg). Default **off**; enabled per-pair or globally via a flag.
+| Profile | Label | Behaviour |
+|---|---|---|
+| **Conservative** (default) | 🛡 Conservative | today's behaviour, unchanged: waits for a **confirmed** H4 trend, untested-only H1 zones, per-session FVG scope, full min FVG size |
+| **Aggressive** (opt-in) | ⚡ Aggressive | relaxes four things (below); alerts are tagged `⚡ aggressive` |
 
-Decision gate: **add it on Saturday if the week's setup count is zero.** Judge
-with `/stats`, not frustration. Keep the standard mode as the default — the
-strict rules protect capital in chop; this is a deliberate trade of win-rate
-for participation.
+The aggressive profile relaxes:
+
+1. **Direction on H4 CHoCH** — when the H4 trend is FLAT, it takes trade
+   direction from an H4 CHoCH instead of waiting for a confirmed HH+HL/LH+LL,
+   catching the first leg of a breakout (the standard profile sits it out and
+   only catches the second leg — see the ETHUSD/GBPUSD breakout days).
+2. **Smaller minimum FVG** — the per-instrument minimum FVG size
+   (`instruments.py`) is scaled by `AGGRESSIVE.fvg_size_factor`, calibrated to
+   `0.6` via `scripts/funnel.py` (45 days of ETHUSD M5, point-in-time replay):
+   ~4.9 setups/week vs ~1.0 for conservative. Re-run the funnel to recalibrate.
+3. **One retest allowed on H1 zones** — accepts a zone with up to one prior
+   retest (`max_zone_touches=1`) instead of untested-only.
+4. **Whole-day FVG scope** — an FVG stays valid for the entire Prague trading
+   day instead of resetting at the London/NY session split.
+
+Switch a pair's profile with **`/strategy`** (per-pair buttons, plus "All
+conservative" / "All aggressive"). The choice persists in SQLite and is shown
+in `/status`. Switching a pair clears its dedup keys, so the new profile's
+first alert is not suppressed by a stale fingerprint from the old one.
+
+`SMC_DEFAULT_PROFILE` (default `conservative`) sets the profile used for a
+pair with no explicit `/strategy` choice — deploying this feature changes
+nothing on its own until a button is pressed.
+
+`scripts/funnel.py` is an offline calibration tool (run by hand, not part of
+the worker): `python -m scripts.funnel --all --days 45` replays the engine
+over historical candles per profile and reports where setups die in the rule
+funnel plus the near-miss FVG size spread, used to pick `fvg_size_factor`.
 
 ## Risk disclaimer
 

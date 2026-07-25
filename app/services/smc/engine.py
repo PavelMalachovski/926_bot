@@ -16,14 +16,16 @@ from app.services.smc.models import (
     Trend,
     Verdict,
 )
+from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
 from app.services.smc.sessions import active_session
 from app.services.smc.structure import (
     detect_trend,
     find_choch,
     find_h1_zone,
     find_target_zone,
+    h4_choch_direction,
     last_protective_pivot,
-    zone_touch_index,
+    zone_touch_span,
 )
 
 logger = structlog.get_logger(__name__)
@@ -50,13 +52,16 @@ class TripleSyncEngine:
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
+        profile: Optional[StrategyProfile] = None,
         fetcher=None,
     ):
         self.instrument = instrument or get_instrument("ETHUSD")
         self.display_symbol = self.instrument.key
+        self.profile = profile or CONSERVATIVE
         self.min_fvg_size = (
             min_fvg_size if min_fvg_size is not None else self.instrument.min_fvg
         )
+        self._effective_min_fvg = self.min_fvg_size * self.profile.fvg_size_factor
         self.sl_buffer = (
             sl_buffer if sl_buffer is not None else self.instrument.sl_buffer
         )
@@ -121,9 +126,18 @@ class TripleSyncEngine:
         result: AnalysisResult,
     ) -> AnalysisResult:
         """Evaluate rules 1-8 on the given candles (pure, testable)."""
+        result.profile_key = self.profile.key
+
         # Rule 1 — H4 global trend
         result.h4_trend = detect_trend(h4)
-        if result.h4_trend == Trend.FLAT:
+        direction = None
+        if result.h4_trend == Trend.UP:
+            direction = Direction.LONG
+        elif result.h4_trend == Trend.DOWN:
+            direction = Direction.SHORT
+        elif self.profile.allow_h4_choch_entry:
+            direction = h4_choch_direction(h4)  # aggressive: catch the first leg
+        if direction is None:
             result.verdict = Verdict.SKIP
             result.reasons.append("H4 is flat or CHoCH against the trend — no direction")
             result.watch_notes.append(
@@ -132,12 +146,8 @@ class TripleSyncEngine:
             )
             return result
 
-        direction = (
-            Direction.LONG if result.h4_trend == Trend.UP else Direction.SHORT
-        )
-
         # Rule 2 — H1 zone
-        zone = find_h1_zone(h1, direction)
+        zone = find_h1_zone(h1, direction, max_touches=self.profile.max_zone_touches)
         if zone is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
@@ -153,8 +163,8 @@ class TripleSyncEngine:
         result.h1_zone = zone
 
         # Rule 3 phase 1/2 — has price pulled back into the zone?
-        touch = zone_touch_index(m5, zone)
-        if touch is None:
+        span = zone_touch_span(m5, zone)
+        if span is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
                 f"Price has not reached the H1 {'Demand' if zone.is_demand else 'Supply'} "
@@ -169,6 +179,7 @@ class TripleSyncEngine:
                 f"{'below ' + format(zone.bottom, '.2f') if zone.is_demand else 'above ' + format(zone.top, '.2f')}"
             )
             return result
+        touch = span[0]
 
         # Zone still valid on M5? (body close through the far edge = invalidated)
         for c in m5[touch:]:
@@ -204,12 +215,12 @@ class TripleSyncEngine:
         # Rule 4 — valid FVG on/after the CHoCH. The imbalance belongs to the
         # impulse leg that breaks structure, so the 3-candle window may end on
         # the CHoCH candle itself (hence choch - 2), but never before the touch.
-        same_day = self.instrument.source == "crypto"
+        same_day = self.profile.fvg_day_scope or self.instrument.source == "crypto"
         fvg = select_valid_fvg(
             m5,
             direction,
             max(touch, choch - 2),
-            self.min_fvg_size,
+            self._effective_min_fvg,
             same_day_scope=same_day,
         )
         if fvg is None:
@@ -313,7 +324,7 @@ class TripleSyncEngine:
 
     def _fvg_size_label(self) -> str:
         """Human threshold: '$2.00' for crypto, '5 pips' for forex."""
-        return self._fmt_size(self.min_fvg_size, precise=False)
+        return self._fmt_size(self._effective_min_fvg, precise=False)
 
     def _fmt_size(self, value: float, precise: bool = True) -> str:
         """Format a price distance: dollars for crypto, pips for forex."""
@@ -327,7 +338,7 @@ class TripleSyncEngine:
     ) -> str:
         """Explain why Rule 4 rejected the impulse (for logs and /check)."""
         rejected = best_rejected_fvg(
-            m5, direction, from_index, self.min_fvg_size, same_day_scope=same_day
+            m5, direction, from_index, self._effective_min_fvg, same_day_scope=same_day
         )
         if rejected is None:
             return "no FVG has formed in the impulse yet"
