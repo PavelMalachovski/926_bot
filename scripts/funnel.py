@@ -17,7 +17,7 @@ from typing import Dict, List
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
 from app.services.smc.models import AnalysisResult, Candle, Trend, Verdict
-from app.services.smc.profiles import PROFILES, StrategyProfile, get_profile
+from app.services.smc.profiles import PROFILES, StrategyProfile
 from app.services.smc.sessions import active_session
 
 
