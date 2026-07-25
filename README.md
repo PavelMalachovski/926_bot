@@ -242,9 +242,9 @@ The aggressive profile relaxes:
    catching the first leg of a breakout (the standard profile sits it out and
    only catches the second leg — see the ETHUSD/GBPUSD breakout days).
 2. **Smaller minimum FVG** — the per-instrument minimum FVG size
-   (`instruments.py`) is scaled by `AGGRESSIVE.fvg_size_factor`. **This factor
-   is currently a provisional placeholder (`0.4`) pending calibration** against
-   historical data with `scripts/funnel.py` — do not treat it as final.
+   (`instruments.py`) is scaled by `AGGRESSIVE.fvg_size_factor`, calibrated to
+   `0.6` via `scripts/funnel.py` (45 days of ETHUSD M5, point-in-time replay):
+   ~4.9 setups/week vs ~1.0 for conservative. Re-run the funnel to recalibrate.
 3. **One retest allowed on H1 zones** — accepts a zone with up to one prior
    retest (`max_zone_touches=1`) instead of untested-only.
 4. **Whole-day FVG scope** — an FVG stays valid for the entire Prague trading
