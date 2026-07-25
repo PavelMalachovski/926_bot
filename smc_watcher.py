@@ -474,6 +474,7 @@ class Watcher:
         """Build and send one pair's Pre-Market Plan (text + H1 chart)."""
         from app.services.smc.chart import render_plan_chart
         from app.services.smc.plan import build_plan
+        from app.services.smc.profiles import get_profile
 
         instrument = get_instrument(key)
         try:
@@ -489,8 +490,12 @@ class Watcher:
             instrument.source == "forex"
             and now - data["m5"][-1].timestamp > timedelta(minutes=30)
         )
+        profile = get_profile(
+            self.state.pair_profile.get(key, settings.smc.default_profile)
+        )
         plan = build_plan(
-            instrument, data["h4"], data["h1"], data["m5"], market_closed=stale
+            instrument, data["h4"], data["h1"], data["m5"],
+            min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
         )
         live_line = None if stale else self._live_status(instrument, data, now)
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
