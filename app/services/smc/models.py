@@ -124,6 +124,7 @@ class AnalysisResult:
     watch_notes: List[str] = field(default_factory=list)
     session_name: Optional[str] = None
     price_decimals: int = 2
+    profile_key: str = "conservative"
     # True once price is inside a valid, non-invalidated H1 zone (used for the
     # "get ready" zone-touch ping before a full setup forms)
     in_zone: bool = False
