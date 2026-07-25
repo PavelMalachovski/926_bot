@@ -16,6 +16,7 @@ from app.services.smc.models import (
     Trend,
     Verdict,
 )
+from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
 from app.services.smc.sessions import active_session
 from app.services.smc.structure import (
     detect_trend,
@@ -50,13 +51,16 @@ class TripleSyncEngine:
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
+        profile: Optional[StrategyProfile] = None,
         fetcher=None,
     ):
         self.instrument = instrument or get_instrument("ETHUSD")
         self.display_symbol = self.instrument.key
-        self.min_fvg_size = (
+        self.profile = profile or CONSERVATIVE
+        base_fvg_size = (
             min_fvg_size if min_fvg_size is not None else self.instrument.min_fvg
         )
+        self.min_fvg_size = base_fvg_size * self.profile.fvg_size_factor
         self.sl_buffer = (
             sl_buffer if sl_buffer is not None else self.instrument.sl_buffer
         )
@@ -205,7 +209,7 @@ class TripleSyncEngine:
         # Rule 4 — valid FVG on/after the CHoCH. The imbalance belongs to the
         # impulse leg that breaks structure, so the 3-candle window may end on
         # the CHoCH candle itself (hence choch - 2), but never before the touch.
-        same_day = self.instrument.source == "crypto"
+        same_day = self.profile.fvg_day_scope
         fvg = select_valid_fvg(
             m5,
             direction,
