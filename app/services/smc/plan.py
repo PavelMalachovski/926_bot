@@ -156,6 +156,6 @@ def build_plan(
 
     if not plan.scenarios:
         plan.note = reasons[0] if reasons else (
-            "No clean zone with RR >= 1:2 yet — wait for structure to form"
+            f"No clean zone with RR >= 1:{min_rr:.0f} yet — wait for structure to form"
         )
     return plan

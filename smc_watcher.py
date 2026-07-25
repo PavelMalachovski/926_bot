@@ -207,6 +207,8 @@ class Watcher:
             trade_journal=self.trade_journal,
             on_set_profile=self.state.set_profile,
             pair_profiles=lambda: dict(self.state.pair_profile),
+            default_profile=settings.smc.default_profile,
+            on_set_all_profiles=self.state.set_all_profiles,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply the env default on the very first start (DB wins afterwards)

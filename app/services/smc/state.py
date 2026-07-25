@@ -49,6 +49,14 @@ class WatcherState:
         self.zone_pinged.pop(key, None)
         self.save()
 
+    def set_all_profiles(self, profile_key: str) -> None:
+        """Set every known pair's profile in one save (used by 'all pairs')."""
+        for key in INSTRUMENTS:
+            self.pair_profile[key] = profile_key
+            self.last_setup.pop(key, None)
+            self.zone_pinged.pop(key, None)
+        self.save()
+
     def toggle_pair(self, key: str) -> bool:
         """Toggle a pair on/off. Returns True if the pair is now enabled."""
         key = key.upper()

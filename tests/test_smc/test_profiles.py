@@ -21,3 +21,8 @@ def test_get_profile_falls_back_to_conservative():
     assert get_profile("nonsense") is CONSERVATIVE
     assert get_profile("aggressive") is AGGRESSIVE
     assert set(PROFILES) == {"conservative", "aggressive"}
+
+
+def test_get_profile_handles_empty_and_none():
+    assert get_profile("") is CONSERVATIVE
+    assert get_profile(None) is CONSERVATIVE

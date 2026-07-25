@@ -56,6 +56,8 @@ class TelegramCommandBot:
         trade_journal: Optional[Any] = None,
         on_set_profile: Optional[Callable[[str, str], None]] = None,
         pair_profiles: Optional[Callable[[], Dict[str, str]]] = None,
+        default_profile: str = "conservative",
+        on_set_all_profiles: Optional[Callable[[str], None]] = None,
     ):
         self.bot_token = bot_token
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
@@ -70,6 +72,8 @@ class TelegramCommandBot:
         self.trade_journal = trade_journal
         self.on_set_profile = on_set_profile
         self.pair_profiles = pair_profiles
+        self.default_profile = default_profile
+        self.on_set_all_profiles = on_set_all_profiles
         self._offset: Optional[int] = None
 
     # ------------------------------------------------------------- transport
@@ -340,7 +344,7 @@ class TelegramCommandBot:
         if data.startswith("strat_") and self.on_set_profile:
             key = data[len("strat_"):]
             profiles = self.pair_profiles() if self.pair_profiles else {}
-            current = profiles.get(key, "conservative")
+            current = profiles.get(key, self.default_profile)
             new = "aggressive" if current == "conservative" else "conservative"
             self.on_set_profile(key, new)
             answer["text"] = f"{key}: {new}"
@@ -356,8 +360,11 @@ class TelegramCommandBot:
             return
         if data.startswith("stratall_") and self.on_set_profile:
             profile_key = data[len("stratall_"):]
-            for key in INSTRUMENTS:
-                self.on_set_profile(key, profile_key)
+            if self.on_set_all_profiles:
+                self.on_set_all_profiles(profile_key)
+            else:
+                for key in INSTRUMENTS:
+                    self.on_set_profile(key, profile_key)
             answer["text"] = f"All pairs: {profile_key}"
             message = callback.get("message", {})
             if message:
@@ -421,7 +428,7 @@ class TelegramCommandBot:
         profiles = self.pair_profiles() if self.pair_profiles else {}
         rows = []
         for key in INSTRUMENTS:
-            current = get_profile(profiles.get(key, "conservative"))
+            current = get_profile(profiles.get(key, self.default_profile))
             rows.append([{
                 "text": f"{current.label} {key}",
                 "callback_data": f"strat_{key}",

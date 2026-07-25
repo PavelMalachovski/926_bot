@@ -10,7 +10,7 @@ produces the near-miss size distribution — do not treat 0.4 as final.
 """
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,6 @@ PROFILES: Dict[str, StrategyProfile] = {
 }
 
 
-def get_profile(key: str) -> StrategyProfile:
+def get_profile(key: Optional[str]) -> StrategyProfile:
     """Look up a profile by key; unknown keys fall back to conservative."""
     return PROFILES.get((key or "").lower(), CONSERVATIVE)
