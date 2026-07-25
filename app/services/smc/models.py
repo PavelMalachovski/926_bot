@@ -69,6 +69,7 @@ class Zone:
     pivot_index: int
     timestamp: datetime
     tested: bool = False
+    touches: int = 0
     invalidated: bool = False
 
     def contains(self, price: float) -> bool:

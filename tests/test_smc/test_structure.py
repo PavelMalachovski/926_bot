@@ -9,6 +9,8 @@ from app.services.smc.structure import (
     find_h1_zone,
     find_pivots,
     find_target_zone,
+    find_target_zones,
+    h4_choch_direction,
     last_protective_pivot,
     zone_touch_span,
 )
@@ -19,6 +21,33 @@ from tests.test_smc.helpers import (
     m5_long_trigger,
     make_candles,
 )
+
+
+def test_find_h1_zone_untested_only_by_default():
+    h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+    zone = find_h1_zone(h1, Direction.LONG)  # max_touches=0
+    assert zone is not None
+    assert zone.touches == 0
+
+
+def test_find_target_zones_sorted_nearest_first():
+    h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+    zones = find_target_zones(h1, Direction.LONG, entry=3138.0)
+    tops = [z.bottom for z in zones]
+    assert tops == sorted(tops)  # nearest (smallest bottom above entry) first
+
+
+def test_h4_choch_direction_none_on_clean_uptrend():
+    # a confirmed HH+HL uptrend has no unreclaimed break -> no CHoCH signal
+    h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+    assert h4_choch_direction(h4) is None
+
+
+def test_h4_choch_direction_short_after_break_of_last_hl():
+    # uptrend then a decisive body close below the last higher-low, held
+    closes = H4_UPTREND_CLOSES + [3200, 3100, 3050, 3000, 2990]
+    h4 = make_candles(closes, step_minutes=240)
+    assert h4_choch_direction(h4) == Direction.SHORT
 
 
 def _zone(bottom, top, is_demand=True):
