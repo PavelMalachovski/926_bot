@@ -1,9 +1,19 @@
-from scripts.funnel import replay_funnel, classify_result
+from datetime import timedelta
+
+from scripts.funnel import (
+    build_factor_profile,
+    classify_result,
+    parse_factors,
+    replay_funnel,
+    session_day_span,
+)
+import scripts.funnel as funnel_mod
 from app.services.smc.models import AnalysisResult, Verdict, Trend
 from app.services.smc.profiles import get_profile
 from app.services.smc.instruments import get_instrument
 from tests.test_smc.helpers import (
-    H1_PULLBACK_CLOSES, H4_UPTREND_CLOSES, m5_long_trigger, make_candles,
+    SESSION_BASE, H1_PULLBACK_CLOSES, H4_UPTREND_CLOSES, candle,
+    m5_long_trigger, make_candles,
 )
 
 
@@ -21,12 +31,116 @@ def test_classify_flat_h4():
 
 
 def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
+    # H4/H1 are shifted so their history is fully closed at/before
+    # SESSION_BASE (the m5 fixture's start) — a realistic point-in-time
+    # snapshot, rather than the old same-origin fixture whose H4/H1 extended
+    # chronologically *past* the m5 replay window and got excluded entirely
+    # once replay_funnel started point-in-time slicing h4/h1 by timestamp.
+    h4 = make_candles(
+        H4_UPTREND_CLOSES,
+        start=SESSION_BASE - timedelta(minutes=240 * (len(H4_UPTREND_CLOSES) - 1)),
+        step_minutes=240,
+    )
+    h1 = make_candles(
+        H1_PULLBACK_CLOSES,
+        start=SESSION_BASE - timedelta(minutes=60 * (len(H1_PULLBACK_CLOSES) - 1)),
+        step_minutes=60,
+    )
     counts = replay_funnel(
         get_instrument("ETHUSD"),
-        make_candles(H4_UPTREND_CLOSES, step_minutes=240),
-        make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+        h4,
+        h1,
         m5_long_trigger(),
         profile=get_profile("conservative"),
         min_rr=2.0,
     )
     assert counts["approved"] >= 1
+
+
+def test_replay_uses_point_in_time_h4h1():
+    """The final up-leg of H4_UPTREND_CLOSES (indices 19-24) is timestamped
+    *after* the entire m5 replay window closes — i.e. it has not printed yet
+    at any replay step. Point-in-time slicing must not let the engine see it:
+    only 1 confirmed low exists in the visible (past) H4 candles, so the
+    trend reads FLAT and (with the conservative profile, which does not take
+    an H4-CHoCH entry) nothing is ever approved. Without the point-in-time
+    fix, the full 25-candle H4 array (which the *existing* test above proves
+    resolves to a clean uptrend) would be fed at every step and this fixture
+    would approve — so an "approved" count of 0 here demonstrates no future
+    H4 leaked into the replay."""
+    past_closes = H4_UPTREND_CLOSES[:19]
+    future_closes = H4_UPTREND_CLOSES[19:]
+    h4 = make_candles(
+        past_closes,
+        start=SESSION_BASE - timedelta(minutes=240 * (len(past_closes) - 1)),
+        step_minutes=240,
+    ) + make_candles(
+        future_closes,
+        start=SESSION_BASE + timedelta(minutes=200),
+        step_minutes=240,
+    )
+    h1 = make_candles(
+        H1_PULLBACK_CLOSES,
+        start=SESSION_BASE - timedelta(minutes=60 * (len(H1_PULLBACK_CLOSES) - 1)),
+        step_minutes=60,
+    )
+    m5 = m5_long_trigger()
+
+    counts = replay_funnel(
+        get_instrument("ETHUSD"), h4, h1, m5,
+        profile=get_profile("conservative"), min_rr=2.0,
+    )
+
+    assert counts.get("approved", 0) == 0
+    assert counts.get("h4_flat", 0) >= 1
+    assert counts["session_days"] >= 1
+
+
+def test_distinct_setups_collapses_persisting_approved(monkeypatch):
+    # classify_result is patched to always report "approved" so a run of
+    # consecutive M5 closes simulates a setup that persists across several
+    # candles (as a real approved zone/FVG does) without needing an engine
+    # fixture that stays approved for many bars.
+    monkeypatch.setattr(funnel_mod, "classify_result", lambda result: "approved")
+
+    n_h4h1 = 20
+    h4 = make_candles(
+        [3000.0] * n_h4h1,
+        start=SESSION_BASE - timedelta(minutes=240 * (n_h4h1 - 1)),
+        step_minutes=240,
+    )
+    h1 = make_candles(
+        [3000.0] * n_h4h1,
+        start=SESSION_BASE - timedelta(minutes=60 * (n_h4h1 - 1)),
+        step_minutes=60,
+    )
+    m5 = make_candles([3000.0] * 7, step_minutes=5)
+
+    counts = funnel_mod.replay_funnel(
+        get_instrument("ETHUSD"), h4, h1, m5,
+        profile=get_profile("conservative"), min_rr=2.0, warmup=2,
+    )
+
+    assert counts["approved"] >= 3
+    assert counts["distinct_setups"] == 1
+
+
+def test_session_day_span_counts_distinct_prague_days():
+    same_day = make_candles([3000.0, 3010.0], start=SESSION_BASE, step_minutes=5)
+    assert session_day_span(same_day) == 1
+
+    two_days = [
+        candle(3000.0, 3001.0, 2999.0, 3000.0, index=0, start=SESSION_BASE),
+        candle(
+            3000.0, 3001.0, 2999.0, 3000.0, index=0,
+            start=SESSION_BASE + timedelta(days=1),
+        ),
+    ]
+    assert session_day_span(two_days) == 2
+
+
+def test_factor_sweep_runs_each_factor():
+    profile = build_factor_profile(0.6)
+    assert profile.fvg_size_factor == 0.6
+
+    assert parse_factors("0.4,0.6") == [0.4, 0.6]
