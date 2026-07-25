@@ -198,11 +198,20 @@ async def _run(pairs: List[str], days: int, factors: List[float], legacy: bool) 
             h4 = await fetch_binance_history(symbol, "4h", days)
             h1 = await fetch_binance_history(symbol, "1h", days)
             m5 = await fetch_binance_history(symbol, "5m", days)
-        else:
-            print(f"  note: {key} is forex — Yahoo caps 5m history, depth is feed-limited")
+        else:  # forex
+            from smc_watcher import _forex_source
             fetcher = _build_fetcher(instrument)
-            data = await fetcher.fetch_all_timeframes()
-            h4, h1, m5 = data["h4"], data["h1"], data["m5"]
+            src = _forex_source()
+            if src == "twelvedata":
+                # TwelveData: outputsize up to 5000 in one request — deep M5.
+                m5 = await fetcher.fetch_candles("5m", limit=5000)
+                h1 = await fetcher.fetch_candles("1h", limit=min(5000, days * 24 + 100))
+                h4 = await fetcher.fetch_candles("4h", limit=min(5000, days * 6 + 50))
+                print(f"  note: {key} via TwelveData — deep M5 (outputsize up to 5000)")
+            else:
+                data = await fetcher.fetch_all_timeframes()
+                h4, h1, m5 = data["h4"], data["h1"], data["m5"]
+                print(f"  note: {key} via {src} — 5m history is feed-limited (~1.5d)")
 
         print(f"\n=== {key} — {len(m5)} M5 candles ===")
 
