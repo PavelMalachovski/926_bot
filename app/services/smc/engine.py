@@ -23,7 +23,7 @@ from app.services.smc.structure import (
     find_h1_zone,
     find_target_zone,
     last_protective_pivot,
-    zone_touch_index,
+    zone_touch_span,
 )
 
 logger = structlog.get_logger(__name__)
@@ -153,8 +153,8 @@ class TripleSyncEngine:
         result.h1_zone = zone
 
         # Rule 3 phase 1/2 — has price pulled back into the zone?
-        touch = zone_touch_index(m5, zone)
-        if touch is None:
+        span = zone_touch_span(m5, zone)
+        if span is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
                 f"Price has not reached the H1 {'Demand' if zone.is_demand else 'Supply'} "
@@ -169,6 +169,7 @@ class TripleSyncEngine:
                 f"{'below ' + format(zone.bottom, '.2f') if zone.is_demand else 'above ' + format(zone.top, '.2f')}"
             )
             return result
+        touch = span[0]
 
         # Zone still valid on M5? (body close through the far edge = invalidated)
         for c in m5[touch:]:

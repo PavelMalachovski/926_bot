@@ -1,6 +1,8 @@
 """Tests for market structure analysis (pivots, trend, zones, CHoCH)."""
 
-from app.services.smc.models import Direction, Trend
+from datetime import datetime, timezone
+
+from app.services.smc.models import Direction, Trend, Zone
 from app.services.smc.structure import (
     detect_trend,
     find_choch,
@@ -8,7 +10,7 @@ from app.services.smc.structure import (
     find_pivots,
     find_target_zone,
     last_protective_pivot,
-    zone_touch_index,
+    zone_touch_span,
 )
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
@@ -16,6 +18,29 @@ from tests.test_smc.helpers import (
     m5_long_trigger,
     make_candles,
 )
+
+
+def _zone(bottom, top, is_demand=True):
+    return Zone(bottom=bottom, top=top, is_demand=is_demand, pivot_index=0,
+                timestamp=datetime(2026, 7, 6, tzinfo=timezone.utc))
+
+
+def test_zone_touch_span_returns_first_and_last_of_last_excursion():
+    # closes: above zone, then 8 candles inside 3130-3140, then back above
+    closes = [3150, 3145, 3135, 3134, 3133, 3136, 3138, 3137, 3135, 3134, 3160]
+    candles = make_candles(closes)
+    span = zone_touch_span(candles, _zone(3130, 3140))
+    assert span is not None
+    start, end = span
+    # the excursion starts at the first candle whose range enters the zone
+    assert start < end
+    # all candles in [start, end] intersect the zone; start-1 does not sit fully inside
+    assert candles[start].low <= 3140 and candles[start].high >= 3130
+
+
+def test_zone_touch_span_none_when_never_touched():
+    candles = make_candles([3200, 3205, 3210, 3208])
+    assert zone_touch_span(candles, _zone(3130, 3140)) is None
 
 
 class TestPivots:
@@ -77,15 +102,16 @@ class TestM5Trigger:
     def test_zone_touch_and_choch(self):
         h1_zone = find_h1_zone(make_candles(H1_PULLBACK_CLOSES), Direction.LONG)
         m5 = m5_long_trigger()
-        touch = zone_touch_index(m5, h1_zone)
-        assert touch == 14
+        span = zone_touch_span(m5, h1_zone)
+        assert span == (8, 14)  # first-to-last of the one contiguous excursion
+        touch = span[0]
         choch = find_choch(m5, Direction.LONG, touch)
         assert choch == 16  # body close above the 3148 lower-high
 
     def test_no_choch_without_break(self):
         m5 = m5_long_trigger()[:16]  # cut off before the breaking candle
         h1_zone = find_h1_zone(make_candles(H1_PULLBACK_CLOSES), Direction.LONG)
-        touch = zone_touch_index(m5, h1_zone)
+        touch = zone_touch_span(m5, h1_zone)[0]
         assert find_choch(m5, Direction.LONG, touch) is None
 
     def test_protective_pivot_for_stop_loss(self):

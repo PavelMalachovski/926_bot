@@ -44,6 +44,20 @@ class TestApprovedSetup:
         assert setup.rr >= 2.0
         assert not setup.entry_is_market  # last close 3150 is above the FVG
 
+    def test_choch_inside_zone_is_seen_while_price_still_in_zone(self):
+        # m5_long_trigger ends with the CHoCH candle (index 16) and price
+        # still hovering in/around the zone at the tail. Before the span fix
+        # the search window was a single candle and this returned WATCH.
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger(),
+            result=_fresh_result(),
+        )
+        assert result.verdict in (
+            Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET
+        )
+
     def test_lot_hint_computed_from_deposit(self):
         result = _engine(deposit=1000.0, risk_pct=2.0).evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),

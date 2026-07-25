@@ -200,15 +200,23 @@ def last_protective_pivot(
     return candidates[-1] if candidates else None
 
 
-def zone_touch_index(candles: List[Candle], zone: Zone) -> Optional[int]:
-    """Index of the most recent candle that entered the zone, or None.
+def zone_touch_span(
+    candles: List[Candle], zone: Zone
+) -> Optional[Tuple[int, int]]:
+    """Inclusive (start, end) indices of the LAST contiguous excursion into
+    the zone, or None if price never entered.
 
-    Intended for M5 candles against an H1 zone, so indices are unrelated to
-    the zone's own pivot index.
+    Intended for M5 candles against an H1 zone. `start` is the origin for the
+    CHoCH/FVG search (the bug this replaces returned only the last candle, so
+    the M5 CHoCH inside the zone was invisible while price sat in the zone).
     """
-    touch = None
-    for i in range(len(candles)):
-        c = candles[i]
-        if c.low <= zone.top and c.high >= zone.bottom:
-            touch = i
-    return touch
+    start = end = None
+    for i, c in enumerate(candles):
+        in_zone = c.low <= zone.top and c.high >= zone.bottom
+        if in_zone:
+            if start is None or (end is not None and i > end + 1):
+                start = i  # begin a new run
+            end = i
+    if start is None:
+        return None
+    return start, end
