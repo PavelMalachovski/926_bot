@@ -109,6 +109,11 @@ class SMCSettings(BaseSettings):
     news_blackout_after_min: int = Field(
         default=15, description="No-entry window after a red news release, minutes"
     )
+    default_profile: str = Field(
+        default="conservative",
+        description="Default strategy profile for a pair with no explicit "
+        "choice: conservative | aggressive",
+    )
 
     def default_pairs(self) -> list[str]:
         return [p.strip().upper() for p in self.pairs.split(",") if p.strip()]

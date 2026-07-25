@@ -33,6 +33,7 @@ SIGNAL_COLUMNS = [
     "taken",  # None = unanswered, 1 = user took the trade, 0 = skipped
     "message_id",  # Telegram message id of the alert (live setup card)
     "alert_text",  # original alert body, re-used when editing the card
+    "profile_key",  # conservative | aggressive
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -88,7 +89,8 @@ class Database:
                     checked_until TEXT,
                     taken INTEGER,
                     message_id INTEGER,
-                    alert_text TEXT
+                    alert_text TEXT,
+                    profile_key TEXT
                 )
                 """
             )
@@ -136,6 +138,7 @@ class Database:
                 ("taken", "INTEGER"),
                 ("message_id", "INTEGER"),
                 ("alert_text", "TEXT"),
+                ("profile_key", "TEXT"),
             ):
                 if column not in existing:
                     self.conn.execute(

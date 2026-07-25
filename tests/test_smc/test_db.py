@@ -3,6 +3,14 @@
 from app.services.smc.db import Database
 
 
+def test_signal_profile_key_column(tmp_path):
+    from app.services.smc.db import Database, SIGNAL_COLUMNS
+    assert "profile_key" in SIGNAL_COLUMNS
+    db = Database(str(tmp_path / "t.db"))
+    cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(signals)")}
+    assert "profile_key" in cols
+
+
 class TestDatabaseOpen:
     def test_creates_missing_parent_directories(self, tmp_path):
         path = tmp_path / "nested" / "dirs" / "smc.db"

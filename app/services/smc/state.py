@@ -28,6 +28,7 @@ class WatcherState:
         # pair -> bool: whether the "price reached the zone" ping was sent for
         # the current in-zone episode (reset when price leaves the zone)
         self.zone_pinged: Dict[str, bool] = db.kv_get("zone_pinged") or {}
+        self.pair_profile: Dict[str, str] = db.kv_get("pair_profile") or {}
 
     def save(self) -> None:
         self.db.kv_set("pairs", self.pairs)
@@ -37,6 +38,16 @@ class WatcherState:
         self.db.kv_set("day_stop_notified", self.day_stop_notified)
         self.db.kv_set("pair_cooldown", self.pair_cooldown)
         self.db.kv_set("zone_pinged", self.zone_pinged)
+        self.db.kv_set("pair_profile", self.pair_profile)
+
+    def set_profile(self, key: str, profile_key: str) -> None:
+        """Set a pair's strategy profile and clear its dedup so the new
+        profile's first alert is not suppressed by a stale fingerprint."""
+        key = key.upper()
+        self.pair_profile[key] = profile_key
+        self.last_setup.pop(key, None)
+        self.zone_pinged.pop(key, None)
+        self.save()
 
     def toggle_pair(self, key: str) -> bool:
         """Toggle a pair on/off. Returns True if the pair is now enabled."""

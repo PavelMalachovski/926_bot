@@ -93,7 +93,9 @@ def _build_fetcher(instrument: Instrument):
     return YahooDataFetcher(symbol=f"{instrument.key}=X")
 
 
-def _build_engine(instrument: Instrument) -> TripleSyncEngine:
+def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
+    from app.services.smc.profiles import CONSERVATIVE
+
     fetcher = _build_fetcher(instrument)
     smc = settings.smc
     return TripleSyncEngine(
@@ -102,6 +104,7 @@ def _build_engine(instrument: Instrument) -> TripleSyncEngine:
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,
+        profile=profile or CONSERVATIVE,
         fetcher=fetcher,
     )
 
@@ -202,6 +205,8 @@ class Watcher:
             on_trade_mark=self.mark_trade,
             on_plan=self.on_plan,
             trade_journal=self.trade_journal,
+            on_set_profile=self.state.set_profile,
+            pair_profiles=lambda: dict(self.state.pair_profile),
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         # apply the env default on the very first start (DB wins afterwards)
@@ -216,7 +221,12 @@ class Watcher:
     async def check_pair(self, key: str) -> Tuple[str, Optional[AnalysisResult]]:
         """Analyze one pair. Returns (heartbeat line, result or None)."""
         instrument = get_instrument(key)
-        engine = _build_engine(instrument)
+        from app.services.smc.profiles import get_profile
+
+        profile = get_profile(
+            self.state.pair_profile.get(key, settings.smc.default_profile)
+        )
+        engine = _build_engine(instrument, profile)
         try:
             result = await engine.analyze()
         except Exception as e:
@@ -508,7 +518,14 @@ class Watcher:
             now, require_weekday=instrument.source == "forex"
         )
         res.price = data["m5"][-1].close
-        res = _build_engine(instrument).evaluate(
+        from app.services.smc.profiles import get_profile
+
+        profile = get_profile(
+            self.state.pair_profile.get(
+                instrument.key, settings.smc.default_profile
+            )
+        )
+        res = _build_engine(instrument, profile).evaluate(
             h4=data["h4"], h1=data["h1"], m5=data["m5"], result=res
         )
         d = instrument.price_decimals
@@ -608,13 +625,23 @@ class Watcher:
         lines = [
             "<b>SMC Watcher — status</b>",
             f"Pairs: {', '.join(self.state.pairs) or 'none'}",
+        ]
+        from app.services.smc.profiles import get_profile
+
+        profiles_line = ", ".join(
+            f"{k} {get_profile(self.state.pair_profile.get(k, settings.smc.default_profile)).label}"
+            for k in self.state.pairs
+        )
+        if profiles_line:
+            lines.append(f"Profiles: {profiles_line}")
+        lines.extend([
             f"Forex data: {_forex_source()} | crypto: Binance",
             f"Session now: {session or 'off session'}",
             f"Cadence: {settings.smc.session_interval_minutes} min in session / "
             f"{settings.smc.interval_minutes} min off",
             "Deposit for sizing: "
             + (f"${settings.smc.deposit:.0f}" if settings.smc.deposit else "not set"),
-        ]
+        ])
         muted = [
             f"{k} ({left})"
             for k in self.state.pairs

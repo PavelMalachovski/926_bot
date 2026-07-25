@@ -28,6 +28,7 @@ HELP_TEXT = (
     "(no-setup checks go to the logs)\n\n"
     "<b>Commands:</b>\n"
     "/pairs — choose currency pairs\n"
+    "/strategy — switch a pair between 🛡 Conservative and ⚡ Aggressive\n"
     "/status — current settings and last verdicts\n"
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
@@ -53,6 +54,8 @@ class TelegramCommandBot:
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         trade_journal: Optional[Any] = None,
+        on_set_profile: Optional[Callable[[str, str], None]] = None,
+        pair_profiles: Optional[Callable[[], Dict[str, str]]] = None,
     ):
         self.bot_token = bot_token
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
@@ -65,6 +68,8 @@ class TelegramCommandBot:
         self.on_trade_mark = on_trade_mark
         self.on_plan = on_plan
         self.trade_journal = trade_journal
+        self.on_set_profile = on_set_profile
+        self.pair_profiles = pair_profiles
         self._offset: Optional[int] = None
 
     # ------------------------------------------------------------- transport
@@ -139,6 +144,10 @@ class TelegramCommandBot:
             "setMyCommands",
             commands=[
                 {"command": "pairs", "description": "Choose currency pairs"},
+                {
+                    "command": "strategy",
+                    "description": "Conservative / Aggressive per pair",
+                },
                 {"command": "check", "description": "Run the strategy check now"},
                 {"command": "plan", "description": "Pre-market plan for a pair"},
                 {"command": "status", "description": "Settings and last verdicts"},
@@ -193,6 +202,14 @@ class TelegramCommandBot:
                 "Select pairs to watch (tap to toggle):",
                 reply_markup=self._pairs_keyboard(),
             )
+        elif command == "/strategy":
+            if not self.on_set_profile:
+                await self.send("Strategy switch is not available.")
+            else:
+                await self.send(
+                    "Strategy per pair (tap to toggle):",
+                    reply_markup=self._strategy_keyboard(),
+                )
         elif command == "/status":
             await self.send(self.status_text())
         elif command == "/journal":
@@ -318,6 +335,40 @@ class TelegramCommandBot:
                     message_id=message["message_id"],
                     reply_markup=self._pairs_keyboard(),
                 )
+            await self._api("answerCallbackQuery", **answer)
+            return
+        if data.startswith("strat_") and self.on_set_profile:
+            key = data[len("strat_"):]
+            profiles = self.pair_profiles() if self.pair_profiles else {}
+            current = profiles.get(key, "conservative")
+            new = "aggressive" if current == "conservative" else "conservative"
+            self.on_set_profile(key, new)
+            answer["text"] = f"{key}: {new}"
+            message = callback.get("message", {})
+            if message:
+                await self._api(
+                    "editMessageReplyMarkup",
+                    chat_id=message["chat"]["id"],
+                    message_id=message["message_id"],
+                    reply_markup=self._strategy_keyboard(),
+                )
+            await self._api("answerCallbackQuery", **answer)
+            return
+        if data.startswith("stratall_") and self.on_set_profile:
+            profile_key = data[len("stratall_"):]
+            for key in INSTRUMENTS:
+                self.on_set_profile(key, profile_key)
+            answer["text"] = f"All pairs: {profile_key}"
+            message = callback.get("message", {})
+            if message:
+                await self._api(
+                    "editMessageReplyMarkup",
+                    chat_id=message["chat"]["id"],
+                    message_id=message["message_id"],
+                    reply_markup=self._strategy_keyboard(),
+                )
+            await self._api("answerCallbackQuery", **answer)
+            return
         await self._api("answerCallbackQuery", **answer)
 
     async def _handle_journal_callback(
@@ -363,6 +414,23 @@ class TelegramCommandBot:
             logger.error("Journal callback failed", error=str(e), exc_info=True)
             answer["text"] = "Error while processing"
             await self._api("answerCallbackQuery", **answer)
+
+    def _strategy_keyboard(self) -> Dict:
+        from app.services.smc.profiles import get_profile
+
+        profiles = self.pair_profiles() if self.pair_profiles else {}
+        rows = []
+        for key in INSTRUMENTS:
+            current = get_profile(profiles.get(key, "conservative"))
+            rows.append([{
+                "text": f"{current.label} {key}",
+                "callback_data": f"strat_{key}",
+            }])
+        rows.append([
+            {"text": "🛡 All conservative", "callback_data": "stratall_conservative"},
+            {"text": "⚡ All aggressive", "callback_data": "stratall_aggressive"},
+        ])
+        return {"inline_keyboard": rows}
 
     def _pairs_keyboard(self) -> Dict:
         rows = []
