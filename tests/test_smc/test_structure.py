@@ -15,6 +15,7 @@ from app.services.smc.structure import (
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
     H4_UPTREND_CLOSES,
+    m5_choch_still_in_zone,
     m5_long_trigger,
     make_candles,
 )
@@ -113,6 +114,21 @@ class TestM5Trigger:
         h1_zone = find_h1_zone(make_candles(H1_PULLBACK_CLOSES), Direction.LONG)
         touch = zone_touch_span(m5, h1_zone)[0]
         assert find_choch(m5, Direction.LONG, touch) is None
+
+    def test_span_start_surfaces_choch_that_last_touch_hides(self):
+        # Regression for the zone-touch bug: the CHoCH forms and price stays
+        # inside the zone to the end of the series. span[1] is exactly what the
+        # old zone_touch_index returned (the LAST in-zone candle) — using it as
+        # the search origin collapses find_choch's window past the CHoCH and
+        # returns None. span[0] (the excursion START) keeps the CHoCH visible.
+        m5 = m5_choch_still_in_zone()
+        zone = _zone(3130, 3140)
+        span = zone_touch_span(m5, zone)
+        assert span == (5, 10)
+        # OLD behaviour (last in-zone candle == span[1]): trigger invisible.
+        assert find_choch(m5, Direction.LONG, span[1]) is None
+        # NEW behaviour (excursion start): CHoCH at index 8 is found.
+        assert find_choch(m5, Direction.LONG, span[0]) == 8
 
     def test_protective_pivot_for_stop_loss(self):
         m5 = m5_long_trigger()
