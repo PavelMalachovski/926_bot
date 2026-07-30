@@ -25,7 +25,9 @@ setup appears.
   together with the **live checklist status** (projection + where the pair is
   right now); conditional entry/SL/TP/RR + H1 chart, both-way brackets when flat
 - 🔔 **Zone-touch ping** — a light "get ready" nudge the moment price reaches a
-  live H1 zone, before the full 🚨 setup forms (`SMC_ZONE_PING`)
+  live H1 zone, before the full 🚨 setup forms (opt-in via `SMC_ZONE_PING=true`)
+- ⏸ **`/pause` / `/resume`** — mute everything (alerts, digest, warnings)
+  until you switch it back on; survives restarts
 - 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;
   `/stats` shows signal winrate and your personal (taken) winrate separately
 

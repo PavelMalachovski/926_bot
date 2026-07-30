@@ -29,6 +29,8 @@ class WatcherState:
         # the current in-zone episode (reset when price leaves the zone)
         self.zone_pinged: Dict[str, bool] = db.kv_get("zone_pinged") or {}
         self.pair_profile: Dict[str, str] = db.kv_get("pair_profile") or {}
+        # global mute: scheduler cycles are no-ops until /resume
+        self.paused: bool = bool(db.kv_get("paused") or False)
 
     def save(self) -> None:
         self.db.kv_set("pairs", self.pairs)
@@ -39,6 +41,11 @@ class WatcherState:
         self.db.kv_set("pair_cooldown", self.pair_cooldown)
         self.db.kv_set("zone_pinged", self.zone_pinged)
         self.db.kv_set("pair_profile", self.pair_profile)
+        self.db.kv_set("paused", self.paused)
+
+    def set_paused(self, paused: bool) -> None:
+        self.paused = paused
+        self.save()
 
     def set_profile(self, key: str, profile_key: str) -> None:
         """Set a pair's strategy profile and clear its dedup so the new
