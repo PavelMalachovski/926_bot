@@ -57,8 +57,8 @@ def classify_result(result: AnalysisResult) -> str:
         return "no_choch"
     if "no valid fvg" in reason:
         return "fvg_small"
-    if "rr 1:" in reason:
-        return "rr_low"
+    if "no room" in reason:
+        return "no_room"
     return "other"
 
 
@@ -78,14 +78,15 @@ def replay_funnel(
     h1: List[Candle],
     m5: List[Candle],
     profile: StrategyProfile,
-    min_rr: float,
+    tp_rr: float = 2.5,
     warmup: int = 60,
 ) -> Dict[str, int]:
     """Replay evaluate() at each M5 close (after `warmup` candles).
 
     Off-session candles are skipped. At each step h4/h1 are sliced to only
-    the candles that had closed by the current M5 close time (point-in-time —
-    replaying an old M5 close must not see H4/H1 candles from the future).
+    the candles that had CLOSED by the current M5 close time (open + timeframe
+    duration, point-in-time — replaying an old M5 close must not see the
+    still-in-progress H4/H1 bar, whose OHLC contains future prices).
     Steps with too little point-in-time history are counted as "warmup".
 
     Returns a Counter of funnel-stage labels, plus "distinct_setups" (a
@@ -96,7 +97,7 @@ def replay_funnel(
     turning distinct_setups into a setups-per-week rate).
     """
     engine = TripleSyncEngine(
-        instrument=instrument, min_rr=min_rr, enforce_sessions=True,
+        instrument=instrument, tp_rr=tp_rr, enforce_sessions=True,
         profile=profile, fetcher=None,
     )
     counts: Counter = Counter()
@@ -110,9 +111,10 @@ def replay_funnel(
         if active_session(now, require_weekday=instrument.source == "forex") is None:
             counts["off_session"] += 1
             continue
+        # A bar is visible only once fully closed: open + timeframe <= cutoff.
         cutoff = window[-1].timestamp
-        h4_pit = [c for c in h4 if c.timestamp <= cutoff]
-        h1_pit = [c for c in h1 if c.timestamp <= cutoff]
+        h4_pit = [c for c in h4 if c.timestamp + timedelta(hours=4) <= cutoff]
+        h1_pit = [c for c in h1 if c.timestamp + timedelta(hours=1) <= cutoff]
         if len(h4_pit) < PIT_FLOOR or len(h1_pit) < PIT_FLOOR:
             counts["warmup"] += 1
             continue
@@ -217,7 +219,7 @@ async def _run(pairs: List[str], days: int, factors: List[float], legacy: bool) 
 
         if legacy:
             for profile in PROFILES.values():
-                counts = replay_funnel(instrument, h4, h1, m5, profile, min_rr=2.0)
+                counts = replay_funnel(instrument, h4, h1, m5, profile)
                 in_session = sum(v for k, v in counts.items() if k != "off_session")
                 print(f"  {profile.label}: {counts}")
                 print(
@@ -232,7 +234,7 @@ async def _run(pairs: List[str], days: int, factors: List[float], legacy: bool) 
         ]
         print(f"  {'factor':<10}{'distinct':>10}{'setups/wk':>12}{'approved':>10}  died")
         for label, profile in rows:
-            counts = replay_funnel(instrument, h4, h1, m5, profile, min_rr=2.0)
+            counts = replay_funnel(instrument, h4, h1, m5, profile)
             session_days = max(counts.get("session_days", 0), 1)
             setups_per_week = counts.get("distinct_setups", 0) / session_days * 5
             died = {

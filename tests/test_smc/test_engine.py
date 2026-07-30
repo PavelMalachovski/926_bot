@@ -24,13 +24,13 @@ def _fresh_result() -> AnalysisResult:
 
 
 def _engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, min_rr=2.0)
+    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, tp_rr=2.5)
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
 
 def _agg_engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, min_rr=2.0, profile=AGGRESSIVE)
+    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, tp_rr=2.5, profile=AGGRESSIVE)
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
@@ -49,8 +49,9 @@ class TestApprovedSetup:
         assert setup.direction == Direction.LONG
         assert setup.entry == 3139.5  # top of the bullish FVG
         assert setup.stop_loss == 3128.0  # pivot low 3130 - $2 buffer
-        assert setup.take_profit == 3200.0  # proximal edge of H1 supply
-        assert setup.rr >= 2.0
+        # fixed TP: entry + 2.5 × risk (risk = 3139.5 - 3128.0 = 11.5)
+        assert setup.take_profit == 3168.25
+        assert setup.rr == 2.5
         assert not setup.entry_is_market  # last close 3150 is above the FVG
 
     def test_lot_hint_computed_from_deposit(self):
@@ -98,15 +99,30 @@ class TestSkipsAndWatch:
         )
         assert result.verdict == Verdict.WATCH
 
-    def test_skip_when_rr_too_low(self):
-        result = _engine(min_rr=10.0).evaluate(
+    def test_tp_scales_with_configured_tp_rr(self):
+        # tp_rr=4: TP 3139.5 + 4 × 11.5 = 3185.5, still inside the H1 supply
+        # at 3200 -> the room check passes and the TP scales.
+        result = _engine(tp_rr=4.0).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger(),
+            result=_fresh_result(),
+        )
+        setup = result.setup
+        assert setup.rr == 4.0
+        assert setup.take_profit == 3185.5
+
+    def test_skip_when_no_room_to_the_opposite_zone(self):
+        # tp_rr=10: TP 3254.5 lies beyond both the H1 supply (3200) and the
+        # H4 supply (3250) -> no untested zone at/beyond the TP, SKIP.
+        result = _engine(tp_rr=10.0).evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
             m5=m5_long_trigger(),
             result=_fresh_result(),
         )
         assert result.verdict == Verdict.SKIP
-        assert any("RR" in r for r in result.reasons)
+        assert any("no room" in r for r in result.reasons)
 
 
 class TestProfiles:

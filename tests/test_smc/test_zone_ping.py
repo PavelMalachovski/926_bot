@@ -26,7 +26,7 @@ def _fresh():
 
 
 def _eval(m5, h4=None):
-    return TripleSyncEngine(min_rr=2.0).evaluate(
+    return TripleSyncEngine().evaluate(
         h4=h4 or make_candles(H4_UPTREND_CLOSES, step_minutes=240),
         h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
         m5=m5,

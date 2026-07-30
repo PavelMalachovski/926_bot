@@ -10,7 +10,10 @@ one is found. There is no web server, no Redis, no Postgres — one worker
 (`smc_watcher.py`) with a SQLite file. It runs on Railway.
 
 The **strategy specification is law**: rules −1 through 11 (H4 trend → H1 zone
-→ M5 CHoCH + FVG, RR ≥ 1:2, session windows, news blackouts, correlation
+→ M5 CHoCH + FVG, fixed TP at 1:2.5 (`SMC_TP_RR`) with an untested opposite
+zone required at/beyond the TP — owner decision 2026-07-30 after the outcome
+replay showed zone-chain targets were unreachable, session
+windows, news blackouts, correlation
 limits) come from the owner's written trading system. Never relax or "improve"
 a strategy rule without the owner's explicit decision — implementation
 over-strictness may be fixed, the rules themselves may not. "Almost valid"
