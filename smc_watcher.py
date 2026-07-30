@@ -100,7 +100,7 @@ def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
     smc = settings.smc
     return TripleSyncEngine(
         instrument=instrument,
-        min_rr=smc.min_rr,
+        tp_rr=smc.tp_rr,
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,
@@ -497,14 +497,12 @@ class Watcher:
         )
         plan = build_plan(
             instrument, data["h4"], data["h1"], data["m5"],
-            min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
+            tp_rr=settings.smc.tp_rr, profile=profile, market_closed=stale,
         )
         live_line = None if stale else self._live_status(instrument, data, now)
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
         await self.notifier.send(
-            format_plan(
-                plan, min_rr=settings.smc.min_rr, live_line=live_line, as_of=as_of
-            )
+            format_plan(plan, live_line=live_line, as_of=as_of)
         )
         try:
             png = render_plan_chart(plan, data["h1"])

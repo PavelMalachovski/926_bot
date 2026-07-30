@@ -129,9 +129,7 @@ def format_result(result: AnalysisResult) -> str:
     return "\n".join(lines)
 
 
-def format_plan(
-    plan, min_rr: float = 2.0, live_line: str = None, as_of: str = None
-) -> str:
+def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
     """Render a PairPlan as an HTML pre-market briefing message (Шаблон B).
 
     `live_line` (optional) folds in the watcher's live checklist status so the

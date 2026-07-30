@@ -36,14 +36,16 @@ def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
     # snapshot, rather than the old same-origin fixture whose H4/H1 extended
     # chronologically *past* the m5 replay window and got excluded entirely
     # once replay_funnel started point-in-time slicing h4/h1 by timestamp.
+    # ... - shifted by one extra step so the LAST bar has fully closed by
+    # SESSION_BASE (replay_funnel slices by close time, not open time).
     h4 = make_candles(
         H4_UPTREND_CLOSES,
-        start=SESSION_BASE - timedelta(minutes=240 * (len(H4_UPTREND_CLOSES) - 1)),
+        start=SESSION_BASE - timedelta(minutes=240 * len(H4_UPTREND_CLOSES)),
         step_minutes=240,
     )
     h1 = make_candles(
         H1_PULLBACK_CLOSES,
-        start=SESSION_BASE - timedelta(minutes=60 * (len(H1_PULLBACK_CLOSES) - 1)),
+        start=SESSION_BASE - timedelta(minutes=60 * len(H1_PULLBACK_CLOSES)),
         step_minutes=60,
     )
     counts = replay_funnel(
@@ -52,7 +54,6 @@ def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
         h1,
         m5_long_trigger(),
         profile=get_profile("conservative"),
-        min_rr=2.0,
     )
     assert counts["approved"] >= 1
 
@@ -72,7 +73,7 @@ def test_replay_uses_point_in_time_h4h1():
     future_closes = H4_UPTREND_CLOSES[19:]
     h4 = make_candles(
         past_closes,
-        start=SESSION_BASE - timedelta(minutes=240 * (len(past_closes) - 1)),
+        start=SESSION_BASE - timedelta(minutes=240 * len(past_closes)),
         step_minutes=240,
     ) + make_candles(
         future_closes,
@@ -81,14 +82,14 @@ def test_replay_uses_point_in_time_h4h1():
     )
     h1 = make_candles(
         H1_PULLBACK_CLOSES,
-        start=SESSION_BASE - timedelta(minutes=60 * (len(H1_PULLBACK_CLOSES) - 1)),
+        start=SESSION_BASE - timedelta(minutes=60 * len(H1_PULLBACK_CLOSES)),
         step_minutes=60,
     )
     m5 = m5_long_trigger()
 
     counts = replay_funnel(
         get_instrument("ETHUSD"), h4, h1, m5,
-        profile=get_profile("conservative"), min_rr=2.0,
+        profile=get_profile("conservative"),
     )
 
     assert counts.get("approved", 0) == 0
@@ -118,11 +119,51 @@ def test_distinct_setups_collapses_persisting_approved(monkeypatch):
 
     counts = funnel_mod.replay_funnel(
         get_instrument("ETHUSD"), h4, h1, m5,
-        profile=get_profile("conservative"), min_rr=2.0, warmup=2,
+        profile=get_profile("conservative"), warmup=2,
     )
 
     assert counts["approved"] >= 3
     assert counts["distinct_setups"] == 1
+
+
+def test_in_progress_h4_bar_is_excluded(monkeypatch):
+    """Regression: a bar that OPENED before the replay step but had not yet
+    CLOSED must be invisible to the engine (its OHLC contains future prices).
+    The old open-time filter leaked it into every point-in-time slice."""
+    seen_h4_opens = []
+
+    def spy(self, h4, h1, m5, result):
+        seen_h4_opens.append(max(c.timestamp for c in h4))
+        result.verdict = Verdict.SKIP
+        return result
+
+    monkeypatch.setattr(funnel_mod.TripleSyncEngine, "evaluate", spy)
+
+    n = 20
+    h4 = make_candles(
+        [3000.0] * n,
+        start=SESSION_BASE - timedelta(minutes=240 * n),
+        step_minutes=240,
+    )
+    in_progress = candle(
+        3000.0, 3500.0, 2900.0, 3400.0, index=0,
+        start=SESSION_BASE - timedelta(minutes=5),
+    )
+    h4.append(in_progress)
+    h1 = make_candles(
+        [3000.0] * n,
+        start=SESSION_BASE - timedelta(minutes=60 * n),
+        step_minutes=60,
+    )
+    m5 = make_candles([3000.0] * 7, step_minutes=5)
+
+    funnel_mod.replay_funnel(
+        get_instrument("ETHUSD"), h4, h1, m5,
+        profile=get_profile("conservative"), warmup=2,
+    )
+
+    assert seen_h4_opens  # the engine did run
+    assert all(ts < in_progress.timestamp for ts in seen_h4_opens)
 
 
 def test_session_day_span_counts_distinct_prague_days():

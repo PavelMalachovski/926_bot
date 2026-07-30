@@ -23,7 +23,7 @@ class TestBuildPlan:
     def test_uptrend_projects_long(self):
         # price above the H1 demand zone (top 3138) so the plan is a pullback long
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
         assert plan.h4_trend == Trend.UP
         assert len(plan.scenarios) == 1
         s = plan.scenarios[0]
@@ -37,7 +37,7 @@ class TestBuildPlan:
         h4 = make_candles(flat, step_minutes=240)
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
         m5 = make_candles([3165.0], step_minutes=5)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
         assert plan.h4_trend == Trend.FLAT
         # a demand zone below and a supply zone above -> up to two brackets
         assert all(s.speculative for s in plan.scenarios)
@@ -46,81 +46,57 @@ class TestBuildPlan:
 
     def test_market_closed_note(self):
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0, market_closed=True)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5, market_closed=True)
         assert plan.scenarios == [] and "closed" in plan.note.lower()
 
     def test_long_skipped_when_zone_above_price(self):
         # price below the demand zone -> not a clean pullback-long plan
         h4, h1, m5 = _uptrend_data(3120.0)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
         assert plan.scenarios == [] and plan.note
 
 
 class TestFormatAndChart:
     def test_format_plan_html(self):
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0)
-        text = format_plan(plan, min_rr=2.0)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        text = format_plan(plan)
         assert "Pre-Market Plan" in text and "LONG" in text
         assert "Buy Limit" in text and "SL" in text and "TP" in text
         assert "<" not in text.replace("<b>", "").replace("</b>", "")
 
-    def test_no_qualifying_scenario_shows_reason_note(self):
-        # min_rr so high that even the uptrend pullback zone can't reach it:
-        # build_plan drops the scenario and format_plan renders the reason.
-        h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)  # force the RR filter
-        assert plan.scenarios == []
-        text = format_plan(plan, min_rr=99.0)
-        assert "ℹ️" in text
-
     def test_note_only_message(self):
         h4, h1, m5 = _uptrend_data(3120.0)  # produces a note, no scenarios
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
         text = format_plan(plan)
         assert "ℹ️" in text
 
     def test_render_plan_chart_png(self):
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
         png = render_plan_chart(plan, h1)
         assert png is not None and png[:4] == b"\x89PNG"
 
     def test_chart_none_without_scenarios(self):
         h4, h1, m5 = _uptrend_data(3120.0)
-        plan = build_plan(ETH, h4, h1, m5, min_rr=2.0)
+        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
         assert render_plan_chart(plan, h1) is None
 
 
-class TestRRFilterAndProfile:
-    def test_plan_skips_scenario_below_min_rr_with_reason(self):
-        # NOTE: the brief's original fixture used m5=[3140, 3138, 3136] (last
-        # close 3136), which sits BELOW the H1 demand zone top (3138). That
-        # makes _scenario's "zone.top >= price" guard fire before the RR walk
-        # ever runs, so build_plan falls back to the generic
-        # "No clean zone with RR >= 1:2 yet" note -- which happens to also
-        # contain "1:" and would pass the assertion for the wrong reason.
-        # Using an ascending m5 (last close 3145, above the zone) makes the
-        # zone live so _scenario actually walks targets and the note states
-        # the real achievable RR (see hand-trace in task-7-report.md).
+class TestFixedTpAndProfile:
+    def test_plan_tp_is_fixed_multiple_of_risk(self):
         inst = get_instrument("ETHUSD")
         h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
         m5 = make_candles([3140, 3142, 3145])
-        plan = build_plan(inst, h4, h1, m5, min_rr=99.0, profile=CONSERVATIVE)
-        assert plan.scenarios == []
-        assert plan.note is not None
-        assert "live" in plan.note and "1:" in plan.note  # achievable RR stated
-
-    def test_plan_scenario_meets_min_rr_when_target_exists(self):
-        inst = get_instrument("ETHUSD")
-        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
-        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
-        m5 = make_candles([3140, 3142, 3145])
-        plan = build_plan(inst, h4, h1, m5, min_rr=1.5, profile=CONSERVATIVE)
-        assert plan.scenarios  # a target reaching RR 1.5 exists for this fixture
+        plan = build_plan(inst, h4, h1, m5, tp_rr=2.5, profile=CONSERVATIVE)
+        assert plan.scenarios
         for s in plan.scenarios:
-            assert s.rr >= 1.5
+            risk = abs(s.entry - s.stop_loss)
+            assert s.rr == 2.5
+            assert s.take_profit == round(
+                s.entry + (2.5 if s.direction == Direction.LONG else -2.5) * risk, 2
+            )
 
     def test_aggressive_profile_takes_h4_choch_direction_when_flat(self):
         # H4 uptrend then a decisive, unreclaimed break of the last HL: trend
@@ -132,7 +108,7 @@ class TestRRFilterAndProfile:
         m5 = make_candles([3150.0], step_minutes=5)
 
         plan = build_plan(
-            get_instrument("ETHUSD"), h4, h1, m5, min_rr=2.0, profile=AGGRESSIVE
+            get_instrument("ETHUSD"), h4, h1, m5, tp_rr=2.5, profile=AGGRESSIVE
         )
         assert plan.h4_trend == Trend.FLAT
         assert len(plan.scenarios) == 1
@@ -150,7 +126,7 @@ class TestRRFilterAndProfile:
         m5 = make_candles([3150.0], step_minutes=5)
 
         plan = build_plan(
-            get_instrument("ETHUSD"), h4, h1, m5, min_rr=2.0, profile=CONSERVATIVE
+            get_instrument("ETHUSD"), h4, h1, m5, tp_rr=2.5, profile=CONSERVATIVE
         )
         assert plan.h4_trend == Trend.FLAT
         assert all(s.speculative for s in plan.scenarios)

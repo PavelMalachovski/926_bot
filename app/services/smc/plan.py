@@ -16,7 +16,6 @@ from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
 from app.services.smc.structure import (
     detect_trend,
     find_h1_zone,
-    find_target_zones,
     h4_choch_direction,
 )
 
@@ -47,65 +46,43 @@ class PairPlan:
 def _scenario(
     instrument: Instrument,
     h1: List[Candle],
-    h4: List[Candle],
     direction: Direction,
     price: float,
     speculative: bool,
-    min_rr: float,
+    tp_rr: float,
     profile: StrategyProfile,
-) -> Tuple[Optional[PlanScenario], Optional[str]]:
-    """Project a conditional setup; walk targets outward until RR >= min_rr.
-
-    Returns `(scenario, reason)` — exactly one is non-None. `reason` is only
-    set when a live zone exists but no target reaches `min_rr`, so the caller
-    can show an honest explanation instead of a misleading TP.
-    """
+) -> Optional[PlanScenario]:
+    """Project a conditional setup with the fixed take-profit (tp_rr × risk)."""
     zone = find_h1_zone(h1, direction, max_touches=profile.max_zone_touches)
     if zone is None:
-        return None, None
+        return None
 
     if direction == Direction.LONG:
         # a pullback-to-demand plan: the zone must sit at/below current price
         if zone.top >= price:
-            return None, None
+            return None
         entry, stop = zone.top, zone.bottom - instrument.sl_buffer
     else:
         if zone.bottom <= price:
-            return None, None
+            return None
         entry, stop = zone.bottom, zone.top + instrument.sl_buffer
 
     risk = abs(entry - stop)
     if risk <= 0:
-        return None, None
+        return None
 
-    targets = find_target_zones(h1, direction, entry) + find_target_zones(
-        h4, direction, entry
+    sign = 1 if direction == Direction.LONG else -1
+    d = instrument.price_decimals
+    return PlanScenario(
+        direction=direction,
+        entry=round(entry, d),
+        stop_loss=round(stop, d),
+        take_profit=round(entry + sign * tp_rr * risk, d),
+        rr=round(tp_rr, 2),
+        zone_bottom=round(zone.bottom, d),
+        zone_top=round(zone.top, d),
+        speculative=speculative,
     )
-    best_rr = 0.0
-    for target in targets:
-        tp = target.bottom if direction == Direction.LONG else target.top
-        rr = abs(tp - entry) / risk
-        best_rr = max(best_rr, rr)
-        if rr >= min_rr:
-            d = instrument.price_decimals
-            return PlanScenario(
-                direction=direction,
-                entry=round(entry, d),
-                stop_loss=round(stop, d),
-                take_profit=round(tp, d),
-                rr=round(rr, 2),
-                zone_bottom=round(zone.bottom, d),
-                zone_top=round(zone.top, d),
-                speculative=speculative,
-            ), None
-
-    reason = (
-        f"Zone {'Demand' if direction == Direction.LONG else 'Supply'} "
-        f"{zone.bottom:.{instrument.price_decimals}f}–"
-        f"{zone.top:.{instrument.price_decimals}f} is live, but the nearest "
-        f"target gives 1:{best_rr:.1f} — waiting for other structure"
-    ) if best_rr > 0 else None
-    return None, reason
 
 
 def build_plan(
@@ -113,11 +90,11 @@ def build_plan(
     h4: List[Candle],
     h1: List[Candle],
     m5: List[Candle],
-    min_rr: float,
+    tp_rr: float = 2.5,
     profile: Optional[StrategyProfile] = None,
     market_closed: bool = False,
 ) -> PairPlan:
-    """Build the pre-market plan; only scenarios with RR >= min_rr are shown."""
+    """Build the pre-market plan; TP is projected at the fixed tp_rr × risk."""
     profile = profile or CONSERVATIVE
     price = round(m5[-1].close, instrument.price_decimals) if m5 else 0.0
     trend = detect_trend(h4)
@@ -144,18 +121,13 @@ def build_plan(
     if not directions and trend == Trend.FLAT:
         directions = [(Direction.LONG, True), (Direction.SHORT, True)]
 
-    reasons = []
     for direction, speculative in directions:
-        scenario, reason = _scenario(
-            instrument, h1, h4, direction, price, speculative, min_rr, profile,
+        scenario = _scenario(
+            instrument, h1, direction, price, speculative, tp_rr, profile,
         )
         if scenario:
             plan.scenarios.append(scenario)
-        elif reason:
-            reasons.append(reason)
 
     if not plan.scenarios:
-        plan.note = reasons[0] if reasons else (
-            f"No clean zone with RR >= 1:{min_rr:.0f} yet — wait for structure to form"
-        )
+        plan.note = "No clean H1 zone for a plan yet — wait for structure to form"
     return plan

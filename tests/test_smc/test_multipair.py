@@ -35,7 +35,9 @@ class TestInstruments:
         from app.services.smc.yahoo import YahooDataFetcher
         from app.services.smc.oanda import OandaDataFetcher
 
+        monkeypatch.setattr(settings.smc, "forex_source", "auto")
         monkeypatch.setattr(settings.oanda, "api_token", None)
+        monkeypatch.setattr(settings.twelvedata, "api_key", None)
         fetcher = _build_fetcher(get_instrument("USDJPY"))
         assert isinstance(fetcher, YahooDataFetcher)
         assert fetcher.symbol == "USDJPY=X"

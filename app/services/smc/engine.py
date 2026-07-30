@@ -48,7 +48,7 @@ class TripleSyncEngine:
         instrument: Optional[Instrument] = None,
         min_fvg_size: Optional[float] = None,
         sl_buffer: Optional[float] = None,
-        min_rr: float = 2.0,
+        tp_rr: float = 2.5,
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
@@ -65,7 +65,7 @@ class TripleSyncEngine:
         self.sl_buffer = (
             sl_buffer if sl_buffer is not None else self.instrument.sl_buffer
         )
-        self.min_rr = min_rr
+        self.tp_rr = tp_rr
         self.risk_pct = risk_pct
         self.deposit = deposit
         self.enforce_sessions = enforce_sessions
@@ -254,35 +254,35 @@ class TripleSyncEngine:
             result.reasons.append("Invalid trade geometry: SL at the entry level")
             return result
 
-        # Rule 7 — TP at the nearest untested opposite zone. The rule allows
-        # both H1 and H4 targets: if the nearest H1 zone is too close for the
-        # minimum RR, the H4 zone behind it is still a valid target.
-        take_profit = None
-        rr = 0.0
-        best_rr = 0.0
+        # Rule 7 (owner decision 2026-07-30) — fixed take-profit at
+        # tp_rr × risk. The old zone-chain TARGETS averaged 1:6–1:18 planned
+        # RR and were almost never reached, but the zone requirement itself
+        # is a proven quality filter (replay: +14R with it vs +1R without),
+        # so an untested opposite zone must still sit at/beyond the TP —
+        # the trade needs room to run before opposing liquidity.
+        if direction == Direction.LONG:
+            take_profit = entry + self.tp_rr * risk
+        else:
+            take_profit = entry - self.tp_rr * risk
+        rr = self.tp_rr
+
+        has_room = False
         for tf_candles in (h1, h4):
             target = find_target_zone(tf_candles, direction, entry)
             if target is None:
                 continue
-            tp = target.bottom if direction == Direction.LONG else target.top
-            candidate_rr = abs(tp - entry) / risk
-            best_rr = max(best_rr, candidate_rr)
-            if candidate_rr >= self.min_rr:
-                take_profit = tp
-                rr = candidate_rr
+            edge = target.bottom if direction == Direction.LONG else target.top
+            if (direction == Direction.LONG and edge >= take_profit) or (
+                direction == Direction.SHORT and edge <= take_profit
+            ):
+                has_room = True
                 break
-
-        if take_profit is None:
+        if not has_room:
             result.verdict = Verdict.SKIP
-            if best_rr > 0:
-                result.reasons.append(
-                    f"RR 1:{best_rr:.1f} < minimum 1:{self.min_rr:.0f} to the "
-                    "nearest H1/H4 zones — the math does not work"
-                )
-            else:
-                result.reasons.append(
-                    "No untested opposite H1/H4 zone for a take-profit"
-                )
+            result.reasons.append(
+                f"No untested opposite H1/H4 zone at/beyond the 1:{self.tp_rr:g} "
+                "take-profit — no room to run"
+            )
             return result
 
         # Rule 8 — position size hint

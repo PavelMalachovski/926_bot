@@ -45,29 +45,21 @@ class TestH4Reclaim:
         assert detect_trend(make_candles(closes)) == Trend.FLAT
 
 
-class TestTpFallback:
-    """Item 2: if the H1 target fails min RR, the H4 target is still valid."""
+class TestFixedTp:
+    """Rule 7 (2026-07-30): TP is fixed at tp_rr × risk beyond the entry."""
 
-    def test_h4_target_used_when_h1_rr_too_low(self):
-        # min_rr=7: H1 supply at 3200 gives RR ~5.3 (fails), H4 zone at 3250
-        # gives RR ~9.6 (passes) -> trade approved with the H4 target.
-        result = TripleSyncEngine(min_rr=7.0).evaluate(
+    def test_tp_is_fixed_multiple_of_risk(self):
+        result = TripleSyncEngine(tp_rr=2.5).evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
             m5=m5_long_trigger(),
             result=_fresh_result(),
         )
         assert result.verdict == Verdict.APPROVED_LIMIT
-        assert result.setup.take_profit == 3250.0
-
-    def test_h1_target_still_preferred_when_valid(self):
-        result = TripleSyncEngine(min_rr=2.0).evaluate(
-            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
-            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
-            m5=m5_long_trigger(),
-            result=_fresh_result(),
-        )
-        assert result.setup.take_profit == 3200.0
+        setup = result.setup
+        risk = setup.entry - setup.stop_loss
+        assert setup.take_profit == round(setup.entry + 2.5 * risk, 2)
+        assert setup.rr == 2.5
 
 
 class TestCryptoSessionScope:
@@ -212,7 +204,7 @@ class TestJournal:
         journal = SignalJournal(db)
         result = _fresh_result()
         result.session_name = "New York"
-        engine = TripleSyncEngine(min_rr=2.0)
+        engine = TripleSyncEngine()
         result = engine.evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),

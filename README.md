@@ -135,9 +135,9 @@ disabled.
 5. **FVG validation** — min size per instrument, fill < 50%; session scope:
    forex per London/NY block, crypto per whole Prague day. Rejections are
    explained in logs (best candidate size / fill / session).
-6. **SL** — behind the confirmed M5 pivot + buffer; **TP** — nearest untested
-   opposite zone (H1, falling back to H4 if the H1 target fails min RR);
-   **RR ≥ 1:2** or SKIP.
+6. **SL** — behind the confirmed M5 pivot + buffer; **TP** — fixed at
+   **1:2.5** (`SMC_TP_RR`): entry ± 2.5 × risk, and an untested opposite
+   H1/H4 zone must sit at/beyond the TP (room to run) or SKIP.
 7. **Position size** — from `SMC_DEPOSIT` at 2% risk (crypto qty / forex lots).
 8. **Rule 9 correlation guard** — warns about forbidden USD combinations
    (e.g. EURUSD + GBPUSD in the same direction).
@@ -227,7 +227,7 @@ CLAUDE.md                   # guidance for AI-assisted development
 ## Strategy profiles
 
 Each watched pair runs under one of two **strategy profiles**. Both share the
-same rulebook (H4 trend → H1 zone → M5 CHoCH + FVG, RR ≥ 1:2, sessions, news,
+same rulebook (H4 trend → H1 zone → M5 CHoCH + FVG, fixed 1:2.5 TP, sessions, news,
 correlation); a profile only scales strictness — it never bends a rule.
 
 | Profile | Label | Behaviour |
