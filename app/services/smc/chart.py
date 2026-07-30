@@ -71,9 +71,9 @@ def _level(ax, price: float, color: str, label: str, x_right: int) -> None:
     )
 
 
-# ~16h of M5 by default: enough to show the swing HH/HL structure behind the
-# setup. Tunable via SMC_CHART_CANDLES.
-CHART_CANDLES = int(os.getenv("SMC_CHART_CANDLES", "192"))
+# ~32h of M5 by default: enough context to see the swing HH/HL structure and
+# the move into the zone behind the setup. Tunable via SMC_CHART_CANDLES.
+CHART_CANDLES = int(os.getenv("SMC_CHART_CANDLES", "384"))
 
 
 def render_setup_chart(
@@ -85,15 +85,15 @@ def render_setup_chart(
     candles = result.m5_candles[-candles_back:]
     setup = result.setup
 
-    # Wider canvas + thinner wicks so twice as many candles stay legible.
-    fig, ax = plt.subplots(figsize=(13, 6), dpi=110)
+    # Wide canvas + thin wicks so ~384 candles stay legible.
+    fig, ax = plt.subplots(figsize=(20, 6), dpi=110)
     fig.patch.set_facecolor(BG)
     ax.set_facecolor(BG)
 
     # Candles
     for i, c in enumerate(candles):
         color = UP_COLOR if c.close >= c.open else DOWN_COLOR
-        ax.plot([i, i], [c.low, c.high], color=color, linewidth=0.7, zorder=2)
+        ax.plot([i, i], [c.low, c.high], color=color, linewidth=0.6, zorder=2)
         body_bottom = min(c.open, c.close)
         body_height = max(abs(c.close - c.open), (c.high - c.low) * 0.02 or 1e-9)
         ax.add_patch(

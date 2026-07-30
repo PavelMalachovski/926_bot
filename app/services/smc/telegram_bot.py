@@ -7,6 +7,7 @@ Commands:
     /pairs  — toggle watched pairs with inline buttons
     /status — enabled pairs, session, last verdicts
     /check  — run the strategy cycle right now
+    /pause, /resume — global mute of all watcher messages
     /start, /help — description
 """
 
@@ -35,6 +36,8 @@ HELP_TEXT = (
     "/stats — signal journal: setups, TP/SL, winrate\n"
     "/journal — trade journal: send an MT4 history screenshot to log trades\n"
     "/news — today's red news (Forex Factory)\n"
+    "/pause — mute all alerts until /resume\n"
+    "/resume — resume alerts\n"
     "/help — this help"
 )
 
@@ -158,6 +161,8 @@ class TelegramCommandBot:
                 {"command": "stats", "description": "Signal journal and winrate"},
                 {"command": "journal", "description": "Trade journal from MT4 screenshots"},
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
+                {"command": "pause", "description": "Mute all alerts until /resume"},
+                {"command": "resume", "description": "Resume alerts"},
                 {"command": "help", "description": "What this bot does"},
             ],
         )
@@ -216,6 +221,19 @@ class TelegramCommandBot:
                 )
         elif command == "/status":
             await self.send(self.status_text())
+        elif command == "/pause":
+            self.state.set_paused(True)
+            await self.send(
+                "⏸ <b>Paused</b> — no alerts or messages until you resume.",
+                reply_markup={
+                    "inline_keyboard": [
+                        [{"text": "▶️ Resume", "callback_data": "resume"}]
+                    ]
+                },
+            )
+        elif command == "/resume":
+            self.state.set_paused(False)
+            await self.send("▶️ <b>Resumed</b> — watching pairs again.")
         elif command == "/journal":
             if self.trade_journal:
                 await self.send(self.trade_journal.stats_text())
@@ -316,6 +334,24 @@ class TelegramCommandBot:
             return
         if data == "noop":
             await self._api("answerCallbackQuery", **answer)
+            return
+        if data == "resume":
+            self.state.set_paused(False)
+            answer["text"] = "Resumed"
+            message = callback.get("message", {})
+            if message:
+                await self._api(
+                    "editMessageReplyMarkup",
+                    chat_id=message["chat"]["id"],
+                    message_id=message["message_id"],
+                    reply_markup={
+                        "inline_keyboard": [
+                            [{"text": "▶️ Resumed", "callback_data": "noop"}]
+                        ]
+                    },
+                )
+            await self._api("answerCallbackQuery", **answer)
+            await self.send("▶️ <b>Resumed</b> — watching pairs again.")
             return
         if data.startswith("plan_") and self.on_plan:
             key = data[5:]

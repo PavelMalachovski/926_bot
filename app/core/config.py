@@ -81,9 +81,10 @@ class SMCSettings(BaseSettings):
         "for this many hours (you are managing the position)",
     )
     zone_ping: bool = Field(
-        default=True,
+        default=False,
         description="Send a 'get ready' ping when price first reaches a live "
-        "H1 zone, before the full setup forms",
+        "H1 zone, before the full setup forms (off by default — the owner "
+        "found it noisy)",
     )
     notify_no_setup: bool = Field(
         default=False,

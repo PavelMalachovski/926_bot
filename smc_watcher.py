@@ -246,6 +246,8 @@ class Watcher:
 
     async def run_cycle(self) -> str:
         """Run the strategy for all enabled pairs; send alerts; return summary."""
+        if self.state.paused:
+            return "⏸ Bot is paused — /resume to continue"
         if not self.state.pairs:
             return "⚠️ No active pairs — enable at least one via /pairs"
 
@@ -631,8 +633,10 @@ class Watcher:
         session = active_session(datetime.now(tz=timezone.utc))
         lines = [
             "<b>SMC Watcher — status</b>",
-            f"Pairs: {', '.join(self.state.pairs) or 'none'}",
         ]
+        if self.state.paused:
+            lines.append("⏸ <b>PAUSED</b> — no alerts, /resume to continue")
+        lines.append(f"Pairs: {', '.join(self.state.pairs) or 'none'}")
         from app.services.smc.profiles import get_profile
 
         profiles_line = ", ".join(
