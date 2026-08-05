@@ -8,9 +8,10 @@ start tag` because `<` was sent unescaped in parse_mode=HTML.
 import re
 from datetime import datetime, timezone
 
+from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import AnalysisResult, Verdict
 from app.services.smc.news import NewsCalendar, parse_feed
-from app.services.smc.notifier import escape_html, format_no_setup, format_result
+from app.services.smc.notifier import escape_html, format_no_setup, format_result, format_target
 
 
 def _assert_valid_telegram_html(text: str):
@@ -81,3 +82,26 @@ class TestEscaping:
         )
         _assert_valid_telegram_html(text)
         assert "S&amp;P" in text
+
+
+class TestTargetLine:
+    def test_rr_line_names_the_liquidity(self):
+        level = LiquidityLevel(
+            price=3221.0, is_high=True, timeframe="H1",
+            equal_count=1, timestamp=None,
+        )
+        assert format_target(level, 2) == "H1 swing high 3221.00"
+
+    def test_pool_size_is_shown(self):
+        level = LiquidityLevel(
+            price=3221.0, is_high=True, timeframe="H1",
+            equal_count=3, timestamp=None,
+        )
+        assert format_target(level, 2) == "H1 swing high 3221.00 (EQH x3)"
+
+    def test_low_pool_uses_eql(self):
+        level = LiquidityLevel(
+            price=3050.0, is_high=False, timeframe="H4",
+            equal_count=2, timestamp=None,
+        )
+        assert format_target(level, 2) == "H4 swing low 3050.00 (EQL x2)"
