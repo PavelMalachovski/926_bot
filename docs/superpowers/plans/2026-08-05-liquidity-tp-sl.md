@@ -966,3 +966,231 @@ Append the findings to `C:\Users\Dell\.claude\projects\C--Git-926-bot\memory\str
 - **`make_candles` wick convention:** bullish candles get `high = max(o,c) + 1.0`, `low = min(o,c) - 0.4`; bearish the mirror. Every pivot price in the H1/H4 fixtures comes from that rule, not from the close.
 - **`find_pivots` eligibility:** index range is `range(2, min(n - 2, n - 2))`, so the last two candles can never be pivots. A fixture must leave confirmation room after the extreme it wants detected.
 - **Do not touch** session windows, news blackouts, discipline rules, journal semantics, or the strategy profiles' four decision points. If a change seems to require it, stop and ask.
+
+---
+
+### Task 7: Rule 5.1 — the entry staleness gate
+
+Added 2026-08-05 after the Task 6 replay. See the spec's "Addendum — Rule 5.1"
+section for the reasoning and the measured numbers behind it.
+
+**Files:**
+- Modify: `app/core/config.py` (new `max_entry_gap_r` field)
+- Modify: `app/services/smc/engine.py` (constructor + a new gate between Rule 6 and Rule 7)
+- Modify: `smc_watcher.py:103` (`_build_engine` passes it)
+- Modify: `scripts/funnel.py` `classify_result` (new `entry_stale` stage)
+- Modify: `env.example`
+- Modify: `CLAUDE.md` (the strategy summary names the rules)
+- Test: `tests/test_smc/test_engine.py`, `tests/test_smc/test_funnel.py`
+
+**Interfaces:**
+- Consumes: `risk` and `entry` as computed by Rules 5 and 6; `result.price or m5[-1].close`.
+- Produces: `TripleSyncEngine(..., max_entry_gap_r: float = 0.5, ...)`; `SMCSettings.max_entry_gap_r: float = 0.5` (env `SMC_MAX_ENTRY_GAP_R`).
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `tests/test_smc/test_engine.py`. `_engine`, `_agg_engine` and
+`_fresh_result` are the existing module-level helpers; add
+`max_entry_gap_r=99.0` to BOTH helper `defaults` dicts so every pre-existing
+test keeps its current behaviour and only the new tests exercise the gate.
+
+```python
+class TestEntryStalenessGate:
+    """Rule 5.1 (2026-08-05): a limit far below market never fills, so it is
+    not worth alerting on."""
+
+    def _long(self, price, **kwargs):
+        result = _fresh_result()
+        result.price = price
+        return _engine(**kwargs).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(),
+            result=result,
+        )
+
+    def test_long_skipped_when_price_has_run_past_the_entry(self):
+        # entry 3140.5, risk 16.5 -> at 0.5R the limit may sit at most
+        # 8.25 above market; 3160.0 is 19.5 away (1.18R).
+        result = self._long(3160.0, max_entry_gap_r=0.5)
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
+        assert "1.2R" in result.reasons[0]
+
+    def test_long_approved_when_price_is_still_near_the_entry(self):
+        result = self._long(3145.0, max_entry_gap_r=0.5)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+
+    def test_gate_is_silent_for_a_market_entry(self):
+        # price inside the FVG (3138.0-3140.5) is at or below the entry, so
+        # the gap is never positive and the tightest gate cannot fire.
+        result = self._long(3139.0, max_entry_gap_r=0.0)
+        assert result.verdict == Verdict.APPROVED_MARKET
+
+    def test_threshold_is_configurable(self):
+        assert self._long(3160.0, max_entry_gap_r=2.0).verdict == (
+            Verdict.APPROVED_LIMIT
+        )
+
+    def test_short_gate_measures_the_other_direction(self):
+        # Mirror of the long case on the K=6270 reflected fixture: entry
+        # 3129.5, risk 16.5. Price BELOW the entry is the run-away side.
+        result = _fresh_result()
+        result.price = 3110.0
+        out = _engine(max_entry_gap_r=0.5).evaluate(
+            h4=make_candles(H4_DOWNTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_RALLY_INTO_SUPPLY_CLOSES, step_minutes=60),
+            m5=m5_short_trigger_deep_sweep(),
+            result=result,
+        )
+        assert out.verdict == Verdict.SKIP
+        assert out.setup is None
+```
+
+Import `H4_DOWNTREND_CLOSES`, `H1_RALLY_INTO_SUPPLY_CLOSES` and
+`m5_short_trigger_deep_sweep` from `tests.test_smc.helpers` — they exist
+already, added in Task 3's fix round. Use whichever engine helper
+(`_engine` or `_agg_engine`) the existing
+`test_short_tp_is_on_the_correct_side_of_entry` uses; do not assume.
+
+Add to `tests/test_smc/test_funnel.py`:
+
+```python
+def test_classify_result_labels_a_stale_entry():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "Price has run 1.2R past the entry 3140.50 (max 0.5R) — the limit "
+        "would sit too far from market"
+    )
+    assert classify_result(result) == "entry_stale"
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `pytest tests/test_smc/test_engine.py::TestEntryStalenessGate tests/test_smc/test_funnel.py -v`
+Expected: FAIL — `TypeError: __init__() got an unexpected keyword argument 'max_entry_gap_r'`
+
+- [ ] **Step 3: Add the config field**
+
+In `app/core/config.py`, after `min_rr`:
+
+```python
+    max_entry_gap_r: float = Field(
+        default=0.5,
+        description="Skip a setup once price has run this many R past the "
+        "entry — the limit would sit too far from market to fill "
+        "(owner decision 2026-08-05). 0 = market entries only; a large "
+        "value disables the gate",
+    )
+```
+
+- [ ] **Step 4: Add the gate to the engine**
+
+Constructor: add `max_entry_gap_r: float = 0.5` beside `min_rr`, and
+`self.max_entry_gap_r = max_entry_gap_r`.
+
+Insert between the `risk <= 0` guard (currently `engine.py:246-249`) and the
+Rule 7 comment block:
+
+```python
+        # Rule 5.1 (owner decision 2026-08-05) — entry staleness. The Rule 7
+        # gate below can only pass once the near liquidity has been swept,
+        # which is to say once price has already left the entry; the entry
+        # itself stays anchored to an FVG formed hours earlier. Replaying the
+        # rule without this check, 80-90% of the limit orders never filled.
+        # A negative gap means price has not run past the entry (for a long
+        # that includes sitting inside the FVG), so market entries are never
+        # affected.
+        price = result.price or m5[-1].close
+        gap = price - entry if direction == Direction.LONG else entry - price
+        if gap > self.max_entry_gap_r * risk:
+            result.verdict = Verdict.SKIP
+            result.reasons.append(
+                f"Price has run {gap / risk:.1f}R past the entry "
+                f"{entry:.{self.instrument.price_decimals}f} "
+                f"(max {self.max_entry_gap_r:g}R) — the limit would sit too "
+                "far from market"
+            )
+            return result
+```
+
+Rule 8's market-entry test below already computes `price` the same way —
+reuse the variable you just bound rather than recomputing it, and delete the
+now-duplicate assignment there.
+
+- [ ] **Step 5: Wire the watcher**
+
+`smc_watcher.py:103` region, inside `_build_engine`'s `TripleSyncEngine(...)`
+call, beside `min_rr=smc.min_rr`:
+
+```python
+        max_entry_gap_r=smc.max_entry_gap_r,
+```
+
+- [ ] **Step 6: Add the funnel stage**
+
+In `scripts/funnel.py` `classify_result`, beside the other reason branches:
+
+```python
+    if "has run" in reason and "past the entry" in reason:
+        return "entry_stale"
+```
+
+Place it so it cannot shadow an existing branch, and confirm no existing
+branch shadows it.
+
+- [ ] **Step 7: Docs**
+
+`env.example` — beside `SMC_MIN_RR`:
+
+```
+SMC_MAX_ENTRY_GAP_R=0.5           # skip once price has run this many R past the entry (0 = market only)
+```
+
+`CLAUDE.md` — the "What this project is" paragraph lists the rule chain; add
+Rule 5.1 to it in the same terse style.
+
+- [ ] **Step 8: Verify**
+
+Run: `pytest tests/ -q && flake8 app/ tests/ smc_watcher.py scripts/`
+Expected: all green (222 existing + 6 new = 228).
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add -A
+git commit -m "Rule 5.1: skip setups whose limit has run too far from market"
+```
+
+The default of 0.5 is provisional — Task 8 sweeps it and may change it.
+
+---
+
+### Task 8: Sweep the gate and pick the default
+
+**Files:** none in the repo. Scratch scripts go in the session scratchpad.
+
+- [ ] **Step 1: Re-run the outcome replay with the gate at several thresholds**
+
+Same methodology as Task 6 (point-in-time slicing by candle CLOSE time,
+rising-edge distinct-setup counting, production journal outcome semantics),
+same 59-day ETHUSD window, both profiles, at
+`max_entry_gap_r` in {0.25, 0.5, 0.75, 1.0, 99 (disabled)}.
+
+Report per threshold and profile: alerts, filled, unfilled share, win rate,
+total R, average R per closed trade, and median gap from market to the entry.
+
+- [ ] **Step 2: Pick the default**
+
+Choose the threshold on fill rate and alert count, not on total R — the
+sample is far too small for R to select a parameter, and picking the
+best-R threshold on the same window that produced it is overfitting. Say so
+explicitly when reporting. If the sweep does not support 0.5, change the
+default in `config.py` and `env.example` and commit that change.
+
+- [ ] **Step 3: Report to the owner**
+
+Numbers first, then the recommendation, then the caveat about sample size.

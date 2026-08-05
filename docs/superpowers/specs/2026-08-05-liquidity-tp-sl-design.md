@@ -216,6 +216,69 @@ not block the deploy — but the owner should see how the new rule scores on the
 same ETHUSD window that produced −9.3R for the old structural TP, before
 sizing up.
 
+## Addendum, 2026-08-05 — Rule 5.1, the entry staleness gate
+
+The outcome replay of the rule above (ETHUSD, 59 days ending 2026-08-05, a
++14.1% window; the shipped fixed-2.5R rule re-run on the same candles as a
+control) found the planned-RR problem fixed — median 1:1.2 conservative /
+1:1.9 aggressive against roughly 1:6 before, and 57–67% of filled trades
+reaching their target — but **80–90% of the limit orders never filled**,
+against 21–25% under the fixed rule.
+
+The cause is structural, not a defect. The gate "is there RR ≥ 1:1 left to the
+*nearest* unswept pool?" can only pass once the near pools have been swept —
+which is to say, once price has already left the entry. The entry meanwhile
+stays anchored to an FVG formed hours earlier. Median distance from market
+price to the limit entry at alert time: **$19.60–23.40, against $1.50–5.30**
+under the fixed rule.
+
+Owner decision: keep the liquidity rule, remove the dead-limit mechanism.
+
+### The gate
+
+After Rule 6 has produced `risk`, and before Rule 7 spends anything on the
+liquidity scan:
+
+```
+gap = price - entry   (long)   /   entry - price   (short)
+gap > max_entry_gap_r * risk  ->  SKIP
+```
+
+`price` is the same close Rule 8 already uses for the market-entry test
+(`result.price or m5[-1].close`). A negative or zero gap means price has not
+run past the entry — for a long that includes every case where price is still
+inside or below the FVG — so the gate is silent there and market entries are
+never affected.
+
+`SMCSettings.max_entry_gap_r`, env `SMC_MAX_ENTRY_GAP_R`. Every value is
+meaningful: `0` admits market entries only, a large value disables the gate.
+There is no off sentinel. The default is chosen by a replay sweep (see below),
+not by intuition.
+
+### What the gate does NOT apply to
+
+`plan.py` keeps no such gate, and this asymmetry is deliberate — do not
+"fix" it later. The pre-market plan projects a pullback that has not happened
+yet: `_scenario` returns `None` unless the zone sits below current price for a
+long, so its entry is *always* far below market by construction. That is a
+plan, not a stale limit. The gate exists only for a live setup whose FVG has
+already formed and which price has since abandoned.
+
+### Choosing the default
+
+Implement the gate with the threshold configurable, then sweep it over the
+same 59-day ETHUSD window at 0.25 / 0.5 / 0.75 / 1.0 / disabled, for both
+profiles, reporting alert count, fill rate, win rate and total R at each. The
+default ships as whatever that sweep supports. Prior expectation from the
+replay: the fixed rule's median gap was 0.13–0.47R with a 75–79% fill rate,
+so something near 0.5R is the plausible region — but the sweep decides.
+
+A tighter gate trades alert count for fill rate and cannot create edge on its
+own. The honest framing is that it stops the bot from posting orders it has
+no reason to believe will fill; whether the surviving trades are profitable is
+a separate question this window is far too small to answer — every per-trade
+mean measured, under either rule, sits within ~1.5 standard errors of zero.
+
 ## Out of scope
 
 - Session windows, news blackouts, discipline rules, journal semantics.
