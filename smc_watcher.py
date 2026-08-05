@@ -101,6 +101,7 @@ def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
     return TripleSyncEngine(
         instrument=instrument,
         min_rr=smc.min_rr,
+        max_entry_gap_r=smc.max_entry_gap_r,
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,

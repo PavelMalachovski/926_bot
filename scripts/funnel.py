@@ -61,6 +61,8 @@ def classify_result(result: AnalysisResult) -> str:
         return "no_liquidity"
     if "inside the sl buffer" in reason:
         return "no_liquidity"
+    if "has run" in reason and "past the entry" in reason:
+        return "entry_stale"
     if reason.startswith("rr 1:"):
         return "rr_low"
     return "other"
@@ -83,6 +85,7 @@ def replay_funnel(
     m5: List[Candle],
     profile: StrategyProfile,
     min_rr: float = 1.0,
+    max_entry_gap_r: float = 99.0,
     warmup: int = 60,
 ) -> Dict[str, int]:
     """Replay evaluate() at each M5 close (after `warmup` candles).
@@ -99,9 +102,14 @@ def replay_funnel(
     persisting setup was re-counted on) and "session_days" (the number of
     distinct Prague trading days spanned by the replayed M5 candles, for
     turning distinct_setups into a setups-per-week rate).
+
+    `max_entry_gap_r` defaults to 99.0 (Rule 5.1 effectively disabled) so
+    existing callers replay unaffected; pass the real threshold to measure
+    its effect on fill rate (see the spec's addendum sweep).
     """
     engine = TripleSyncEngine(
-        instrument=instrument, min_rr=min_rr, enforce_sessions=True,
+        instrument=instrument, min_rr=min_rr,
+        max_entry_gap_r=max_entry_gap_r, enforce_sessions=True,
         profile=profile, fetcher=None,
     )
     counts: Counter = Counter()

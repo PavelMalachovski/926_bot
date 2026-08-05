@@ -49,6 +49,7 @@ class TripleSyncEngine:
         min_fvg_size: Optional[float] = None,
         sl_buffer: Optional[float] = None,
         min_rr: float = 1.0,
+        max_entry_gap_r: float = 0.5,
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
@@ -66,6 +67,7 @@ class TripleSyncEngine:
             sl_buffer if sl_buffer is not None else self.instrument.sl_buffer
         )
         self.min_rr = min_rr
+        self.max_entry_gap_r = max_entry_gap_r
         self.risk_pct = risk_pct
         self.deposit = deposit
         self.enforce_sessions = enforce_sessions
@@ -248,6 +250,26 @@ class TripleSyncEngine:
             result.reasons.append("Invalid trade geometry: SL at the entry level")
             return result
 
+        # Rule 5.1 (owner decision 2026-08-05) — entry staleness. The Rule 7
+        # gate below can only pass once the near liquidity has been swept,
+        # which is to say once price has already left the entry; the entry
+        # itself stays anchored to an FVG formed hours earlier. Replaying the
+        # rule without this check, 80-90% of the limit orders never filled.
+        # A negative gap means price has not run past the entry (for a long
+        # that includes sitting inside the FVG), so market entries are never
+        # affected.
+        price = result.price or m5[-1].close
+        gap = price - entry if direction == Direction.LONG else entry - price
+        if gap > self.max_entry_gap_r * risk:
+            result.verdict = Verdict.SKIP
+            result.reasons.append(
+                f"Price has run {gap / risk:.1f}R past the entry "
+                f"{entry:.{self.instrument.price_decimals}f} "
+                f"(max {self.max_entry_gap_r:g}R) — the limit would sit too "
+                "far from market"
+            )
+            return result
+
         # Rule 7 (owner decision 2026-08-05) — take-profit at the nearest
         # unswept liquidity: the pool the move is actually reaching for. The
         # TP sits one buffer short of the level so the trade is out before
@@ -303,7 +325,7 @@ class TripleSyncEngine:
         lot_hint = self._lot_hint(entry, risk)
 
         # Market entry allowed only if price is inside the FVG right now
-        price = result.price or m5[-1].close
+        # (`price` was already bound by the Rule 5.1 gate above)
         entry_is_market = fvg.bottom <= price <= fvg.top
 
         d = self.instrument.price_decimals

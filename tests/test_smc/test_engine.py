@@ -28,13 +28,18 @@ def _fresh_result() -> AnalysisResult:
 
 
 def _engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0)
+    defaults = dict(
+        min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, max_entry_gap_r=99.0
+    )
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
 
 def _agg_engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, profile=AGGRESSIVE)
+    defaults = dict(
+        min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, max_entry_gap_r=99.0,
+        profile=AGGRESSIVE,
+    )
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
@@ -293,3 +298,56 @@ class TestLiquidityTarget:
         assert result.verdict == Verdict.SKIP
         assert result.setup is None
         assert "no positive reward" in result.reasons[0]
+
+
+class TestEntryStalenessGate:
+    """Rule 5.1 (2026-08-05): a limit far below market never fills, so it is
+    not worth alerting on."""
+
+    def _long(self, price, **kwargs):
+        result = _fresh_result()
+        result.price = price
+        return _engine(**kwargs).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(),
+            result=result,
+        )
+
+    def test_long_skipped_when_price_has_run_past_the_entry(self):
+        # entry 3140.5, risk 16.5 -> at 0.5R the limit may sit at most
+        # 8.25 above market; 3160.0 is 19.5 away (1.18R).
+        result = self._long(3160.0, max_entry_gap_r=0.5)
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
+        assert "1.2R" in result.reasons[0]
+
+    def test_long_approved_when_price_is_still_near_the_entry(self):
+        result = self._long(3145.0, max_entry_gap_r=0.5)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+
+    def test_gate_is_silent_for_a_market_entry(self):
+        # price inside the FVG (3138.0-3140.5) is at or below the entry, so
+        # the gap is never positive and the tightest gate cannot fire.
+        result = self._long(3139.0, max_entry_gap_r=0.0)
+        assert result.verdict == Verdict.APPROVED_MARKET
+
+    def test_threshold_is_configurable(self):
+        assert self._long(3160.0, max_entry_gap_r=2.0).verdict == (
+            Verdict.APPROVED_LIMIT
+        )
+
+    def test_short_gate_measures_the_other_direction(self):
+        # Mirror of the long case on the K=6270 reflected fixture: entry
+        # 3129.5, risk 16.5. Price BELOW the entry is the run-away side.
+        result = _fresh_result()
+        result.price = 3110.0
+        out = _engine(max_entry_gap_r=0.5).evaluate(
+            h4=make_candles(H4_DOWNTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_RALLY_INTO_SUPPLY_CLOSES, step_minutes=60),
+            m5=m5_short_trigger_deep_sweep(),
+            result=result,
+        )
+        assert out.verdict == Verdict.SKIP
+        assert out.setup is None

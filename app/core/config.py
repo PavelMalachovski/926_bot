@@ -66,6 +66,13 @@ class SMCSettings(BaseSettings):
         description="Minimum risk/reward to the nearest unswept liquidity; "
         "setups below it are skipped (owner decision 2026-08-05)",
     )
+    max_entry_gap_r: float = Field(
+        default=0.5,
+        description="Skip a setup once price has run this many R past the "
+        "entry — the limit would sit too far from market to fill "
+        "(owner decision 2026-08-05). 0 = market entries only; a large "
+        "value disables the gate",
+    )
     risk_pct: float = Field(default=2.0, description="Risk percent per trade")
     deposit: Optional[float] = Field(
         default=None, description="Deposit size in USD for lot calculation"

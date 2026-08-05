@@ -26,7 +26,7 @@ def _approved_result() -> AnalysisResult:
         checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
     )
     result.session_name = "New York"
-    result = TripleSyncEngine().evaluate(
+    result = TripleSyncEngine(max_entry_gap_r=99.0).evaluate(
         h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
         h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
         m5=m5_long_trigger(),

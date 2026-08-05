@@ -51,6 +51,17 @@ def test_classify_result_labels_reward_inside_sl_buffer_as_no_liquidity():
     assert classify_result(result) == "no_liquidity"
 
 
+def test_classify_result_labels_a_stale_entry():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "Price has run 1.2R past the entry 3140.50 (max 0.5R) — the limit "
+        "would sit too far from market"
+    )
+    assert classify_result(result) == "entry_stale"
+
+
 def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
     # H4/H1 are shifted so their history is fully closed at/before
     # SESSION_BASE (the m5 fixture's start) — a realistic point-in-time

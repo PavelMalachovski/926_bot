@@ -50,7 +50,7 @@ class TestLiquidityTp:
     multiple of risk."""
 
     def test_tp_targets_nearest_liquidity(self):
-        result = TripleSyncEngine().evaluate(
+        result = TripleSyncEngine(max_entry_gap_r=99.0).evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
             m5=m5_long_trigger(),
@@ -202,7 +202,7 @@ class TestJournal:
         journal = SignalJournal(db)
         result = _fresh_result()
         result.session_name = "New York"
-        engine = TripleSyncEngine()
+        engine = TripleSyncEngine(max_entry_gap_r=99.0)
         result = engine.evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
