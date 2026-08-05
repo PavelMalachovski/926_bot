@@ -86,6 +86,10 @@ def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
         h1,
         m5_long_trigger(),
         profile=get_profile("conservative"),
+        # m5_long_trigger's live price sits further than the shipped 0.5R
+        # from its FVG entry (see task-7-report.md); this test is about
+        # point-in-time h4/h1 slicing, not Rule 5.1, so disable the gate.
+        max_entry_gap_r=99.0,
     )
     assert counts["approved"] >= 1
 

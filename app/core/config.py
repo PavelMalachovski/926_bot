@@ -70,8 +70,9 @@ class SMCSettings(BaseSettings):
         default=0.5,
         description="Skip a setup once price has run this many R past the "
         "entry — the limit would sit too far from market to fill "
-        "(owner decision 2026-08-05). 0 = market entries only; a large "
-        "value disables the gate",
+        "(owner decision 2026-08-05). 0 = price may not have moved past the "
+        "entry at all (a limit further from the entry, i.e. not yet reached, "
+        "still passes); a large value disables the gate",
     )
     risk_pct: float = Field(default=2.0, description="Risk percent per trade")
     deposit: Optional[float] = Field(

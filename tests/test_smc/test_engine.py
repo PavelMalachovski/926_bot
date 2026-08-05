@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 
+from app.core.config import SMCSettings
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import get_instrument
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
@@ -341,6 +342,8 @@ class TestEntryStalenessGate:
     def test_short_gate_measures_the_other_direction(self):
         # Mirror of the long case on the K=6270 reflected fixture: entry
         # 3129.5, risk 16.5. Price BELOW the entry is the run-away side.
+        # gap = 3129.5 - 3110.0 = 19.5 -> 19.5 / 16.5 = 1.18 -> "1.2R",
+        # same arithmetic as the long case above.
         result = _fresh_result()
         result.price = 3110.0
         out = _engine(max_entry_gap_r=0.5).evaluate(
@@ -351,3 +354,12 @@ class TestEntryStalenessGate:
         )
         assert out.verdict == Verdict.SKIP
         assert out.setup is None
+        assert "1.2R" in out.reasons[0]
+
+    def test_shipped_default_is_0_5r(self):
+        # Pins the production default (config.py's SMCSettings and the
+        # engine constructor both ship 0.5) against a future edit silently
+        # moving it — every other test in this class passes an explicit
+        # value, so nothing else would catch that.
+        assert TripleSyncEngine().max_entry_gap_r == 0.5
+        assert SMCSettings().max_entry_gap_r == 0.5

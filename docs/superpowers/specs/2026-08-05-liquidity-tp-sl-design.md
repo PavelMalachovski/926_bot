@@ -251,9 +251,11 @@ inside or below the FVG — so the gate is silent there and market entries are
 never affected.
 
 `SMCSettings.max_entry_gap_r`, env `SMC_MAX_ENTRY_GAP_R`. Every value is
-meaningful: `0` admits market entries only, a large value disables the gate.
-There is no off sentinel. The default is chosen by a replay sweep (see below),
-not by intuition.
+meaningful: `0` forbids price from having run past the entry at all (a limit
+price has not yet reached — long: not above the FVG top; short: not below
+the FVG bottom — still passes, since its gap is zero or negative), a large
+value disables the gate. There is no off sentinel. The default is chosen by
+a replay sweep (see below), not by intuition.
 
 ### What the gate does NOT apply to
 

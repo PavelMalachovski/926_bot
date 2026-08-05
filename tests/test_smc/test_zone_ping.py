@@ -77,10 +77,6 @@ def _watcher(monkeypatch):
     from smc_watcher import Watcher
 
     monkeypatch.setattr(settings.smc, "zone_ping", True)
-    # Rule 5.1's default gate (0.5R) is unrelated to what these tests cover
-    # and m5_long_trigger's live price sits further than that from its
-    # entry; disable it so _live_status keeps reporting the setup.
-    monkeypatch.setattr(settings.smc, "max_entry_gap_r", 99.0)
     w = Watcher.__new__(Watcher)
     w.state = _State()
     w.notifier = _Notifier()
@@ -150,6 +146,12 @@ class TestZonePing:
 class TestLiveStatus:
     def test_reports_live_setup(self, monkeypatch):
         w = _watcher(monkeypatch)
+        # Rule 5.1's default gate (0.5R) is unrelated to what this test
+        # covers and m5_long_trigger's live price sits further than that
+        # from its entry; disable it so _live_status keeps reporting the
+        # setup. Only this test runs the engine through _build_engine, so
+        # only it needs the override.
+        monkeypatch.setattr(settings.smc, "max_entry_gap_r", 99.0)
         data = {
             "h4": make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             "h1": make_candles(H1_PULLBACK_CLOSES, step_minutes=60),

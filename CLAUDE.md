@@ -9,16 +9,15 @@ Imbalance** SMC (Smart Money Concepts) setups and sends an urgent alert when
 one is found. There is no web server, no Redis, no Postgres — one worker
 (`smc_watcher.py`) with a SQLite file. It runs on Railway.
 
-The **strategy specification is law**: rules −1 through 11 (H4 trend → H1 zone
-→ M5 CHoCH + FVG, entry skipped once price has run more than
-`SMC_MAX_ENTRY_GAP_R` past it — Rule 5.1, owner decision 2026-08-05 — TP at
-the nearest unswept liquidity level with RR ≥ `SMC_MIN_RR` — owner decision
-2026-08-05 replacing the fixed 1:2.5 multiple, session windows, news
-blackouts, correlation limits) come from the owner's
-written trading system. Never relax or "improve"
-a strategy rule without the owner's explicit decision — implementation
-over-strictness may be fixed, the rules themselves may not. "Almost valid"
-does not exist in this system.
+The **strategy specification is law**: rules −1 through 11 (H4 trend → H1
+zone → M5 CHoCH + FVG → entry skipped once price has run more than
+`SMC_MAX_ENTRY_GAP_R` past it, Rule 5.1, owner decision 2026-08-05 → TP at
+the nearest unswept liquidity level with RR ≥ `SMC_MIN_RR`, owner decision
+2026-08-05 replacing the fixed 1:2.5 multiple → session windows → news
+blackouts → correlation limits) come from the owner's written trading
+system. Never relax or "improve" a strategy rule without the owner's
+explicit decision — implementation over-strictness may be fixed, the rules
+themselves may not. "Almost valid" does not exist in this system.
 
 ## Commands
 
