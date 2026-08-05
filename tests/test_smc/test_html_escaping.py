@@ -9,7 +9,9 @@ import re
 from datetime import datetime, timezone
 
 from app.services.smc.liquidity import LiquidityLevel
-from app.services.smc.models import AnalysisResult, Verdict
+from app.services.smc.models import (
+    AnalysisResult, Direction, FVG, TradeSetup, Trend, Verdict,
+)
 from app.services.smc.news import NewsCalendar, parse_feed
 from app.services.smc.notifier import escape_html, format_no_setup, format_result, format_target
 
@@ -105,3 +107,65 @@ class TestTargetLine:
             equal_count=2, timestamp=None,
         )
         assert format_target(level, 2) == "H4 swing low 3050.00 (EQL x2)"
+
+    def test_format_result_rr_line_without_target(self):
+        """RR line with target=None stays unchanged (backward compat for old signals)."""
+        result = AnalysisResult(
+            symbol="ETHUSD",
+            verdict=Verdict.APPROVED_LIMIT,
+            checked_at=datetime(2026, 7, 16, 7, 12, tzinfo=timezone.utc),
+            price=3200.0,
+            h4_trend=Trend.UP,
+            price_decimals=2,
+        )
+        fvg = FVG(
+            index=10, bottom=3100.0, top=3150.0, is_bullish=True,
+            timestamp=datetime(2026, 7, 16, 7, 5, tzinfo=timezone.utc),
+        )
+        result.setup = TradeSetup(
+            direction=Direction.LONG,
+            entry=3125.0,
+            stop_loss=3050.0,
+            take_profit=3300.0,
+            rr=2.0,
+            fvg=fvg,
+            target=None,
+        )
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "📐 RR: 1:2.0" in text
+        # Should NOT have the arrow or target info
+        assert "→" not in text
+
+    def test_format_result_rr_line_with_target(self):
+        """RR line with target shows the liquidity objective."""
+        result = AnalysisResult(
+            symbol="ETHUSD",
+            verdict=Verdict.APPROVED_LIMIT,
+            checked_at=datetime(2026, 7, 16, 7, 12, tzinfo=timezone.utc),
+            price=3200.0,
+            h4_trend=Trend.UP,
+            price_decimals=2,
+        )
+        fvg = FVG(
+            index=10, bottom=3100.0, top=3150.0, is_bullish=True,
+            timestamp=datetime(2026, 7, 16, 7, 5, tzinfo=timezone.utc),
+        )
+        target_level = LiquidityLevel(
+            price=3221.0, is_high=True, timeframe="H1",
+            equal_count=3, timestamp=None,
+        )
+        result.setup = TradeSetup(
+            direction=Direction.LONG,
+            entry=3125.0,
+            stop_loss=3050.0,
+            take_profit=3300.0,
+            rr=2.0,
+            fvg=fvg,
+            target=target_level,
+        )
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "📐 RR: 1:2.0" in text
+        assert "→" in text
+        assert "H1 swing high 3221.00 (EQH x3)" in text

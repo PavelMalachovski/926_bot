@@ -5,6 +5,7 @@ from typing import Optional
 import httpx
 import structlog
 
+from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.sessions import to_prague
 
@@ -24,7 +25,7 @@ def escape_html(text: str) -> str:
     )
 
 
-def format_target(level, decimals: int) -> str:
+def format_target(level: LiquidityLevel, decimals: int) -> str:
     """Name a liquidity objective: 'H1 swing high 3221.00 (EQH x2)'."""
     kind = "swing high" if level.is_high else "swing low"
     pool = ""
