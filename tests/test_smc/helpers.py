@@ -110,6 +110,45 @@ def m5_long_trigger() -> List[Candle]:
     return [candle(*row, index=i) for i, row in enumerate(spec)]
 
 
+def m5_long_trigger_deep_sweep() -> List[Candle]:
+    """M5 where the sweep low and the last fractal pivot DISAGREE.
+
+    Against the H1 demand zone 3131.0-3138.0 (built from H1_PULLBACK_CLOSES):
+    - lower-high pivot at index 6 (3148) is the CHoCH reference
+    - the excursion into the zone starts at index 8 and runs to index 14
+    - index 9 spikes down to 3126 — the real swept low
+    - a shallower fractal low forms later at index 12 (3132.5)
+    - bullish FVG between high[13]=3138.0 and low[15]=3140.5 (size 2.5)
+    - CHoCH at index 16 (close 3149 > 3148)
+
+    `last_protective_pivot` returned the LAST pivot at/before the CHoCH —
+    3132.5, above the sweep. `sweep_extreme` returns 3126.0.
+    """
+    spec = [
+        (3160.0, 3161.0, 3155.0, 3156.0),
+        (3156.0, 3157.0, 3151.0, 3152.0),
+        (3152.0, 3153.0, 3147.0, 3148.0),
+        (3148.0, 3149.0, 3143.0, 3144.0),
+        (3144.0, 3145.0, 3140.0, 3142.0),
+        (3142.0, 3146.0, 3141.0, 3145.0),
+        (3145.0, 3148.0, 3144.0, 3147.0),
+        (3147.0, 3147.5, 3141.0, 3142.0),
+        (3142.0, 3143.0, 3134.0, 3136.0),
+        (3136.0, 3137.0, 3126.0, 3135.0),
+        (3135.0, 3136.0, 3133.5, 3134.5),
+        (3134.5, 3135.5, 3133.0, 3135.0),
+        (3135.0, 3136.0, 3132.5, 3135.5),
+        (3135.5, 3138.0, 3135.0, 3137.5),
+        (3137.5, 3141.0, 3137.0, 3140.8),
+        (3140.8, 3144.0, 3140.5, 3143.5),
+        (3143.5, 3149.5, 3143.0, 3149.0),
+        (3149.0, 3151.0, 3147.0, 3150.0),
+        (3150.0, 3152.0, 3148.0, 3151.0),
+        (3151.0, 3152.0, 3149.0, 3150.0),
+    ]
+    return [candle(*row, index=i) for i, row in enumerate(spec)]
+
+
 def m5_choch_still_in_zone() -> List[Candle]:
     """M5 where the bullish CHoCH forms and price STAYS inside the demand zone
     to the end of the series — the exact case the touch-span fix targets.

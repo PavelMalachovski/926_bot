@@ -24,7 +24,7 @@ from app.services.smc.structure import (
     find_h1_zone,
     find_target_zone,
     h4_choch_direction,
-    last_protective_pivot,
+    sweep_extreme,
     zone_touch_span,
 )
 
@@ -235,18 +235,12 @@ class TripleSyncEngine:
         # Rule 5 — entry level: proximal FVG boundary
         entry = fvg.top if direction == Direction.LONG else fvg.bottom
 
-        # Rule 6 — stop loss behind the last confirmed M5 pivot + buffer
-        pivot = last_protective_pivot(m5, direction, choch)
-        if pivot is None:
-            result.verdict = Verdict.SKIP
-            result.reasons.append(
-                "No confirmed M5 pivot for the stop (2 closed bodies) — no SL, no trade"
-            )
-            return result
+        # Rule 6 — stop behind the swept extreme of the zone excursion
+        extreme = sweep_extreme(m5, direction, touch, choch)
         if direction == Direction.LONG:
-            stop_loss = pivot.price - self.sl_buffer
+            stop_loss = extreme - self.sl_buffer
         else:
-            stop_loss = pivot.price + self.sl_buffer
+            stop_loss = extreme + self.sl_buffer
 
         risk = abs(entry - stop_loss)
         if risk <= 0:

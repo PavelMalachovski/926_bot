@@ -11,7 +11,6 @@ from app.services.smc.structure import (
     find_target_zone,
     find_target_zones,
     h4_choch_direction,
-    last_protective_pivot,
     zone_touch_span,
 )
 from tests.test_smc.helpers import (
@@ -158,9 +157,3 @@ class TestM5Trigger:
         assert find_choch(m5, Direction.LONG, span[1]) is None
         # NEW behaviour (excursion start): CHoCH at index 8 is found.
         assert find_choch(m5, Direction.LONG, span[0]) == 8
-
-    def test_protective_pivot_for_stop_loss(self):
-        m5 = m5_long_trigger()
-        pivot = last_protective_pivot(m5, Direction.LONG, before_index=16)
-        assert pivot is not None
-        assert pivot.price == 3130.0

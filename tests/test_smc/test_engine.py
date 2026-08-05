@@ -11,6 +11,7 @@ from tests.test_smc.helpers import (
     H4_UPTREND_CLOSES,
     candle,
     m5_long_trigger,
+    m5_long_trigger_deep_sweep,
     make_candles,
 )
 
@@ -224,3 +225,18 @@ class TestCryptoSameDayFallbackSurvivesProfileWiring:
         assert result.verdict == Verdict.APPROVED_LIMIT
         assert result.setup.entry == 3139.5  # earliest FVG (index 15), only
         # reachable via same_trading_day scope, not same_session
+
+
+class TestSweepStop:
+    """Rule 6 (2026-08-05): SL sits behind the swept extreme, not behind the
+    last fractal pivot."""
+
+    def test_stop_is_below_the_sweep_not_the_later_pivot(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        result = _engine().evaluate(
+            h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
+        )
+        assert result.setup is not None, result.reasons
+        # sweep low 3126.0 minus the $2 buffer, NOT 3132.5 - 2 = 3130.5
+        assert result.setup.stop_loss == 3124.0
