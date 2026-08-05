@@ -30,6 +30,16 @@ def test_classify_flat_h4():
     assert classify_result(r) == "h4_flat"
 
 
+def test_classify_result_labels_low_rr():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "RR 1:0.6 < minimum 1:1 to the nearest liquidity (H1 swing high 3221.00)"
+    )
+    assert classify_result(result) == "rr_low"
+
+
 def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
     # H4/H1 are shifted so their history is fully closed at/before
     # SESSION_BASE (the m5 fixture's start) — a realistic point-in-time

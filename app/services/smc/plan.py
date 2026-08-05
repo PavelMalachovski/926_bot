@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 from app.services.smc.instruments import Instrument
+from app.services.smc.liquidity import find_liquidity, nearest_liquidity
 from app.services.smc.models import Candle, Direction, Trend
 from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
 from app.services.smc.structure import (
@@ -46,43 +47,69 @@ class PairPlan:
 def _scenario(
     instrument: Instrument,
     h1: List[Candle],
+    h4: List[Candle],
     direction: Direction,
     price: float,
     speculative: bool,
-    tp_rr: float,
+    min_rr: float,
     profile: StrategyProfile,
-) -> Optional[PlanScenario]:
-    """Project a conditional setup with the fixed take-profit (tp_rr × risk)."""
+) -> Tuple[Optional[PlanScenario], Optional[str]]:
+    """Project a conditional setup aimed at the nearest unswept liquidity.
+
+    Returns `(scenario, reason)` — exactly one is non-None. `reason` explains
+    a live zone whose nearest pool does not reach `min_rr`, so the plan can
+    say so instead of pretending no structure exists.
+
+    M5 is not scanned here: hours before the session its swings will have
+    been swept long before price reaches the zone.
+    """
     zone = find_h1_zone(h1, direction, max_touches=profile.max_zone_touches)
     if zone is None:
-        return None
+        return None, None
 
     if direction == Direction.LONG:
         # a pullback-to-demand plan: the zone must sit at/below current price
         if zone.top >= price:
-            return None
+            return None, None
         entry, stop = zone.top, zone.bottom - instrument.sl_buffer
     else:
         if zone.bottom <= price:
-            return None
+            return None, None
         entry, stop = zone.bottom, zone.top + instrument.sl_buffer
 
     risk = abs(entry - stop)
     if risk <= 0:
-        return None
+        return None, None
 
-    sign = 1 if direction == Direction.LONG else -1
+    tolerance = instrument.min_fvg
+    levels = (
+        find_liquidity(h1, "H1", tolerance) + find_liquidity(h4, "H4", tolerance)
+    )
+    target = nearest_liquidity(levels, direction, entry)
+    if target is None:
+        return None, None
+
+    sign = -1 if direction == Direction.LONG else 1
+    take_profit = target.price + sign * instrument.sl_buffer
+    rr = abs(take_profit - entry) / risk
     d = instrument.price_decimals
+    if rr < min_rr:
+        return None, (
+            f"Zone {'Demand' if direction == Direction.LONG else 'Supply'} "
+            f"{zone.bottom:.{d}f}-{zone.top:.{d}f} is live, but the nearest "
+            f"liquidity gives 1:{rr:.1f} — waiting for other structure"
+        )
+
     return PlanScenario(
         direction=direction,
         entry=round(entry, d),
         stop_loss=round(stop, d),
-        take_profit=round(entry + sign * tp_rr * risk, d),
-        rr=round(tp_rr, 2),
+        take_profit=round(take_profit, d),
+        rr=round(rr, 2),
         zone_bottom=round(zone.bottom, d),
         zone_top=round(zone.top, d),
         speculative=speculative,
-    )
+    ), None
 
 
 def build_plan(
@@ -90,11 +117,12 @@ def build_plan(
     h4: List[Candle],
     h1: List[Candle],
     m5: List[Candle],
-    tp_rr: float = 2.5,
+    min_rr: float = 1.0,
     profile: Optional[StrategyProfile] = None,
     market_closed: bool = False,
 ) -> PairPlan:
-    """Build the pre-market plan; TP is projected at the fixed tp_rr × risk."""
+    """Build the pre-market plan; only scenarios reaching min_rr to the
+    nearest unswept liquidity are shown."""
     profile = profile or CONSERVATIVE
     price = round(m5[-1].close, instrument.price_decimals) if m5 else 0.0
     trend = detect_trend(h4)
@@ -121,13 +149,18 @@ def build_plan(
     if not directions and trend == Trend.FLAT:
         directions = [(Direction.LONG, True), (Direction.SHORT, True)]
 
+    reasons = []
     for direction, speculative in directions:
-        scenario = _scenario(
-            instrument, h1, direction, price, speculative, tp_rr, profile,
+        scenario, reason = _scenario(
+            instrument, h1, h4, direction, price, speculative, min_rr, profile,
         )
         if scenario:
             plan.scenarios.append(scenario)
+        elif reason:
+            reasons.append(reason)
 
     if not plan.scenarios:
-        plan.note = "No clean H1 zone for a plan yet — wait for structure to form"
+        plan.note = reasons[0] if reasons else (
+            "No clean H1 zone for a plan yet — wait for structure to form"
+        )
     return plan

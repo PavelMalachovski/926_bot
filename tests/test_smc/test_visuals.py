@@ -122,9 +122,11 @@ class TestLiveCardEvents:
         result = _approved_result()
         signal = journal.record(result)
         start = datetime(2026, 7, 6, 15, 45, tzinfo=timezone.utc)
+        # TP is now the nearest unswept liquidity: H1 swing high 3221.0 minus
+        # the $2 buffer = 3219.0 (see TestLiquidityTarget for the arithmetic).
         candles = [
             candle(3142, 3143, 3139.0, 3141, start=start, index=0),  # fills 3139.5
-            candle(3141, 3205, 3140, 3201, start=start, index=1),  # hits TP 3200
+            candle(3141, 3225, 3140, 3222, start=start, index=1),  # hits TP 3219.0
         ]
         events = journal.update_pair("ETHUSD", candles)
         assert [e for _, e in events] == ["filled", "tp"]

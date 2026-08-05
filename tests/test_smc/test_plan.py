@@ -23,7 +23,7 @@ class TestBuildPlan:
     def test_uptrend_projects_long(self):
         # price above the H1 demand zone (top 3138) so the plan is a pullback long
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         assert plan.h4_trend == Trend.UP
         assert len(plan.scenarios) == 1
         s = plan.scenarios[0]
@@ -37,7 +37,7 @@ class TestBuildPlan:
         h4 = make_candles(flat, step_minutes=240)
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
         m5 = make_candles([3165.0], step_minutes=5)
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         assert plan.h4_trend == Trend.FLAT
         # a demand zone below and a supply zone above -> up to two brackets
         assert all(s.speculative for s in plan.scenarios)
@@ -46,20 +46,39 @@ class TestBuildPlan:
 
     def test_market_closed_note(self):
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5, market_closed=True)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0, market_closed=True)
         assert plan.scenarios == [] and "closed" in plan.note.lower()
 
     def test_long_skipped_when_zone_above_price(self):
         # price below the demand zone -> not a clean pullback-long plan
         h4, h1, m5 = _uptrend_data(3120.0)
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         assert plan.scenarios == [] and plan.note
+
+    def test_scenario_targets_liquidity(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        m5 = make_candles([3150, 3152, 3151, 3153])
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert plan.scenarios
+        s = plan.scenarios[0]
+        # TP is a structural level, not a multiple of the risk
+        assert s.take_profit != round(s.entry + 2.5 * abs(s.entry - s.stop_loss), 2)
+        assert s.rr >= 1.0
+
+    def test_scenario_below_threshold_is_explained(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        m5 = make_candles([3150, 3152, 3151, 3153])
+        plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)
+        assert plan.scenarios == []
+        assert "1:" in plan.note
 
 
 class TestFormatAndChart:
     def test_format_plan_html(self):
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         text = format_plan(plan)
         assert "Pre-Market Plan" in text and "LONG" in text
         assert "Buy Limit" in text and "SL" in text and "TP" in text
@@ -67,37 +86,23 @@ class TestFormatAndChart:
 
     def test_note_only_message(self):
         h4, h1, m5 = _uptrend_data(3120.0)  # produces a note, no scenarios
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         text = format_plan(plan)
         assert "ℹ️" in text
 
     def test_render_plan_chart_png(self):
         h4, h1, m5 = _uptrend_data(3160.0)
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         png = render_plan_chart(plan, h1)
         assert png is not None and png[:4] == b"\x89PNG"
 
     def test_chart_none_without_scenarios(self):
         h4, h1, m5 = _uptrend_data(3120.0)
-        plan = build_plan(ETH, h4, h1, m5, tp_rr=2.5)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         assert render_plan_chart(plan, h1) is None
 
 
 class TestFixedTpAndProfile:
-    def test_plan_tp_is_fixed_multiple_of_risk(self):
-        inst = get_instrument("ETHUSD")
-        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
-        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
-        m5 = make_candles([3140, 3142, 3145])
-        plan = build_plan(inst, h4, h1, m5, tp_rr=2.5, profile=CONSERVATIVE)
-        assert plan.scenarios
-        for s in plan.scenarios:
-            risk = abs(s.entry - s.stop_loss)
-            assert s.rr == 2.5
-            assert s.take_profit == round(
-                s.entry + (2.5 if s.direction == Direction.LONG else -2.5) * risk, 2
-            )
-
     def test_aggressive_profile_takes_h4_choch_direction_when_flat(self):
         # H4 uptrend then a decisive, unreclaimed break of the last HL: trend
         # downgrades to FLAT but an aggressive trader can take the CHoCH
@@ -108,7 +113,7 @@ class TestFixedTpAndProfile:
         m5 = make_candles([3150.0], step_minutes=5)
 
         plan = build_plan(
-            get_instrument("ETHUSD"), h4, h1, m5, tp_rr=2.5, profile=AGGRESSIVE
+            get_instrument("ETHUSD"), h4, h1, m5, min_rr=1.0, profile=AGGRESSIVE
         )
         assert plan.h4_trend == Trend.FLAT
         assert len(plan.scenarios) == 1
@@ -126,7 +131,7 @@ class TestFixedTpAndProfile:
         m5 = make_candles([3150.0], step_minutes=5)
 
         plan = build_plan(
-            get_instrument("ETHUSD"), h4, h1, m5, tp_rr=2.5, profile=CONSERVATIVE
+            get_instrument("ETHUSD"), h4, h1, m5, min_rr=1.0, profile=CONSERVATIVE
         )
         assert plan.h4_trend == Trend.FLAT
         assert all(s.speculative for s in plan.scenarios)

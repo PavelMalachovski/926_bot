@@ -49,7 +49,7 @@ def classify_result(result: AnalysisResult) -> str:
     reason = (result.reasons[0] if result.reasons else "").lower()
     if result.h4_trend == Trend.FLAT and "no direction" in reason:
         return "h4_flat"
-    if "no valid untested" in reason or "no untested opposite" in reason:
+    if "no valid untested" in reason:
         return "no_zone"
     if "has not reached" in reason or "pullback phase" in reason:
         return "no_touch"
@@ -57,8 +57,10 @@ def classify_result(result: AnalysisResult) -> str:
         return "no_choch"
     if "no valid fvg" in reason:
         return "fvg_small"
-    if "no room" in reason:
-        return "no_room"
+    if "no unswept liquidity" in reason:
+        return "no_liquidity"
+    if reason.startswith("rr 1:"):
+        return "rr_low"
     return "other"
 
 
@@ -78,7 +80,7 @@ def replay_funnel(
     h1: List[Candle],
     m5: List[Candle],
     profile: StrategyProfile,
-    tp_rr: float = 2.5,
+    min_rr: float = 1.0,
     warmup: int = 60,
 ) -> Dict[str, int]:
     """Replay evaluate() at each M5 close (after `warmup` candles).
@@ -97,7 +99,7 @@ def replay_funnel(
     turning distinct_setups into a setups-per-week rate).
     """
     engine = TripleSyncEngine(
-        instrument=instrument, tp_rr=tp_rr, enforce_sessions=True,
+        instrument=instrument, min_rr=min_rr, enforce_sessions=True,
         profile=profile, fetcher=None,
     )
     counts: Counter = Counter()

@@ -25,13 +25,13 @@ def _fresh_result() -> AnalysisResult:
 
 
 def _engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, tp_rr=2.5)
+    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0)
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
 
 def _agg_engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, tp_rr=2.5, profile=AGGRESSIVE)
+    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, profile=AGGRESSIVE)
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
@@ -50,9 +50,11 @@ class TestApprovedSetup:
         assert setup.direction == Direction.LONG
         assert setup.entry == 3139.5  # top of the bullish FVG
         assert setup.stop_loss == 3128.0  # pivot low 3130 - $2 buffer
-        # fixed TP: entry + 2.5 × risk (risk = 3139.5 - 3128.0 = 11.5)
-        assert setup.take_profit == 3168.25
-        assert setup.rr == 2.5
+        # TP one buffer short of the H1 swing high liquidity at 3221.0
+        # (risk = 3139.5 - 3128.0 = 11.5; rr = (3219.0-3139.5)/11.5 = 6.91)
+        assert setup.take_profit == 3219.0
+        assert setup.target.price == 3221.0
+        assert setup.rr == 6.91
         assert not setup.entry_is_market  # last close 3150 is above the FVG
 
     def test_lot_hint_computed_from_deposit(self):
@@ -99,31 +101,6 @@ class TestSkipsAndWatch:
             result=_fresh_result(),
         )
         assert result.verdict == Verdict.WATCH
-
-    def test_tp_scales_with_configured_tp_rr(self):
-        # tp_rr=4: TP 3139.5 + 4 × 11.5 = 3185.5, still inside the H1 supply
-        # at 3200 -> the room check passes and the TP scales.
-        result = _engine(tp_rr=4.0).evaluate(
-            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
-            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
-            m5=m5_long_trigger(),
-            result=_fresh_result(),
-        )
-        setup = result.setup
-        assert setup.rr == 4.0
-        assert setup.take_profit == 3185.5
-
-    def test_skip_when_no_room_to_the_opposite_zone(self):
-        # tp_rr=10: TP 3254.5 lies beyond both the H1 supply (3200) and the
-        # H4 supply (3250) -> no untested zone at/beyond the TP, SKIP.
-        result = _engine(tp_rr=10.0).evaluate(
-            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
-            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
-            m5=m5_long_trigger(),
-            result=_fresh_result(),
-        )
-        assert result.verdict == Verdict.SKIP
-        assert any("no room" in r for r in result.reasons)
 
 
 class TestProfiles:
@@ -240,3 +217,39 @@ class TestSweepStop:
         assert result.setup is not None, result.reasons
         # sweep low 3126.0 minus the $2 buffer, NOT 3132.5 - 2 = 3130.5
         assert result.setup.stop_loss == 3124.0
+
+
+class TestLiquidityTarget:
+    """Rule 7 (2026-08-05): TP is the nearest unswept liquidity, one buffer
+    short of the level; RR is computed, not assigned."""
+
+    def _run(self, **kwargs):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        return _engine(**kwargs).evaluate(
+            h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
+        )
+
+    def test_tp_is_the_nearest_unswept_liquidity_minus_buffer(self):
+        result = self._run()
+        assert result.setup is not None, result.reasons
+        # H1 swing high 3221.0 is the nearest unswept pool above entry 3140.5
+        assert result.setup.take_profit == 3219.0
+        assert result.setup.target.price == 3221.0
+        assert result.setup.target.timeframe == "H1"
+
+    def test_rr_is_computed_from_the_target(self):
+        result = self._run()
+        # entry 3140.5, SL 3124.0 -> risk 16.5; TP 3219.0 -> 78.5 / 16.5
+        assert result.setup.rr == 4.76
+
+    def test_rr_does_not_track_the_threshold(self):
+        # The old rule assigned rr = tp_rr, so the RR moved with the setting.
+        assert self._run(min_rr=1.0).setup.rr == self._run(min_rr=2.0).setup.rr
+
+    def test_setup_below_the_threshold_is_skipped(self):
+        result = self._run(min_rr=8.0)
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
+        assert "1:4.8" in result.reasons[0]
+        assert "1:8" in result.reasons[0]

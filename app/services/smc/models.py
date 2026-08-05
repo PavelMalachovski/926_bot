@@ -3,7 +3,12 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    # liquidity.py imports Candle/Direction/Pivot from this module, so a
+    # top-level import here would cycle — the annotation stays a string.
+    from app.services.smc.liquidity import LiquidityLevel
 
 
 class Direction(str, Enum):
@@ -105,6 +110,7 @@ class TradeSetup:
     fvg: FVG
     entry_is_market: bool = False
     lot_hint: Optional[str] = None
+    target: Optional["LiquidityLevel"] = None
 
 
 @dataclass

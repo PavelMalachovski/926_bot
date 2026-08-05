@@ -155,35 +155,6 @@ def find_h1_zone(
     return None
 
 
-def find_target_zones(
-    candles: List[Candle], direction: Direction, entry: float
-) -> List[Zone]:
-    """Rule 7: all untested opposite zones beyond entry, nearest first."""
-    pivots = find_pivots(candles)
-    want_high = direction == Direction.LONG
-    out: List[Zone] = []
-    for pivot in (p for p in pivots if p.is_high == want_high):
-        zone = _mark_zone_state(candles, build_zone(candles, pivot))
-        if zone.invalidated or zone.tested:
-            continue
-        if direction == Direction.LONG and zone.bottom > entry:
-            out.append(zone)
-        elif direction == Direction.SHORT and zone.top < entry:
-            out.append(zone)
-    if direction == Direction.LONG:
-        out.sort(key=lambda z: z.bottom)          # nearest above entry first
-    else:
-        out.sort(key=lambda z: z.top, reverse=True)  # nearest below entry first
-    return out
-
-
-def find_target_zone(
-    candles: List[Candle], direction: Direction, entry: float
-) -> Optional[Zone]:
-    """Nearest untested opposite zone beyond entry (back-compat wrapper)."""
-    return next(iter(find_target_zones(candles, direction, entry)), None)
-
-
 def find_choch(
     candles: List[Candle], direction: Direction, from_index: int
 ) -> Optional[int]:
