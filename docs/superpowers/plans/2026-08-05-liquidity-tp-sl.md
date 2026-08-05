@@ -446,11 +446,19 @@ git commit -m "Rule 6: anchor the stop to the sweep extreme, not the last pivot"
 
 ### Task 3: Rule 7 — take-profit at the nearest unswept liquidity
 
+This task carries the `tp_rr` → `min_rr` rename through every call site in one
+commit. Splitting it would leave the suite red between commits, which the
+Global Constraints forbid — the rename ripples through config, engine, plan,
+watcher, funnel and six test modules, and no reviewer could approve half of it.
+
 **Files:**
 - Modify: `app/core/config.py:64-68` (`tp_rr` → `min_rr`)
 - Modify: `app/services/smc/models.py` (`TradeSetup.target`)
 - Modify: `app/services/smc/engine.py` (constructor + Rule 7 block)
-- Test: `tests/test_smc/test_engine.py`, `tests/test_smc/test_improvements.py`
+- Modify: `app/services/smc/plan.py:46-133` (`_scenario`, `build_plan`)
+- Modify: `smc_watcher.py:103`, `smc_watcher.py:502`
+- Modify: `scripts/funnel.py:44-63` (`classify_result`), `:81`, `:100`
+- Test: `tests/test_smc/test_engine.py`, `test_improvements.py`, `test_plan.py`, `test_funnel.py`, `test_multipair.py`, `test_visuals.py`, `test_zone_ping.py`
 
 **Interfaces:**
 - Consumes: `liquidity.find_liquidity`, `liquidity.nearest_liquidity`, `LiquidityLevel` (Task 1).
@@ -458,8 +466,10 @@ git commit -m "Rule 6: anchor the stop to the sweep extreme, not the last pivot"
   - `TripleSyncEngine(..., min_rr: float = 1.0, ...)` — `tp_rr` is gone.
   - `TradeSetup.target: Optional[LiquidityLevel] = None` — Task 4 renders it.
   - `SMCSettings.min_rr: float = 1.0` (env `SMC_MIN_RR`).
+  - `build_plan(instrument, h4, h1, m5, min_rr: float = 1.0, profile=None, market_closed=False) -> PairPlan`
+  - `_scenario(instrument, h1, h4, direction, price, speculative, min_rr, profile) -> Tuple[Optional[PlanScenario], Optional[str]]`
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing engine tests**
 
 Add to `tests/test_smc/test_engine.py`:
 
@@ -517,12 +527,52 @@ def _agg_engine(**kwargs) -> TripleSyncEngine:
 
 Delete `test_tp_scales_with_configured_tp_rr` and `test_skip_when_no_zone_beyond_fixed_tp` (lines ~102-120) — they assert the removed rule. Rewrite the `tp_rr=2.5` case in `tests/test_smc/test_improvements.py:49-52` to construct the engine with no RR argument and assert `result.setup.target is not None`.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [ ] **Step 2: Write the failing plan tests**
 
-Run: `pytest tests/test_smc/test_engine.py::TestLiquidityTarget -v`
+In `tests/test_smc/test_plan.py`, replace every `tp_rr=2.5` argument with `min_rr=1.0`, and add:
+
+```python
+    def test_scenario_targets_liquidity(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        m5 = make_candles([3150, 3152, 3151, 3153])
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert plan.scenarios
+        s = plan.scenarios[0]
+        # TP is a structural level, not a multiple of the risk
+        assert s.take_profit != round(s.entry + 2.5 * abs(s.entry - s.stop_loss), 2)
+        assert s.rr >= 1.0
+
+    def test_scenario_below_threshold_is_explained(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        m5 = make_candles([3150, 3152, 3151, 3153])
+        plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)
+        assert plan.scenarios == []
+        assert "1:" in plan.note
+```
+
+Add to `tests/test_smc/test_funnel.py`:
+
+```python
+def test_classify_result_labels_low_rr():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "RR 1:0.6 < minimum 1:1 to the nearest liquidity (H1 swing high 3221.00)"
+    )
+    assert classify_result(result) == "rr_low"
+```
+
+Import `classify_result`, `AnalysisResult`, `Verdict` and `SESSION_BASE` as that file already does for its other cases.
+
+- [ ] **Step 3: Run the tests to verify they fail**
+
+Run: `pytest tests/test_smc/test_engine.py::TestLiquidityTarget tests/test_smc/test_plan.py -v`
 Expected: FAIL — `TypeError: __init__() got an unexpected keyword argument 'min_rr'`
 
-- [ ] **Step 3: Add the config setting**
+- [ ] **Step 4: Add the config setting**
 
 In `app/core/config.py`, replace the `tp_rr` field (lines 64-68) with:
 
@@ -534,7 +584,7 @@ In `app/core/config.py`, replace the `tp_rr` field (lines 64-68) with:
     )
 ```
 
-- [ ] **Step 4: Add the target field to the model**
+- [ ] **Step 5: Add the target field to the model**
 
 In `app/services/smc/models.py`, add to `TradeSetup` (after `lot_hint`):
 
@@ -550,7 +600,7 @@ from app.services.smc.liquidity import LiquidityLevel
 
 If that import creates a cycle (`liquidity` imports `structure`, which imports `models`), do NOT restructure the modules — keep the annotation as the string `Optional["LiquidityLevel"]` with `if TYPE_CHECKING:` guarding the import. Verify with `python -c "import app.services.smc.engine"`.
 
-- [ ] **Step 5: Rewrite Rule 7 in the engine**
+- [ ] **Step 6: Rewrite Rule 7 in the engine**
 
 Constructor: rename the `tp_rr: float = 2.5` parameter to `min_rr: float = 1.0` and `self.tp_rr = tp_rr` to `self.min_rr = min_rr`.
 
@@ -595,148 +645,9 @@ Replace the whole Rule 7 block (`engine.py`, from the `# Rule 7` comment through
 
 Add `target=target` to the `TradeSetup(...)` construction below it.
 
-Update the engine imports: add `from app.services.smc.liquidity import find_liquidity, nearest_liquidity`, and drop `find_target_zone` from the `structure` import (it keeps its other caller in `plan.py` until Task 5).
+Update the engine imports: add `from app.services.smc.liquidity import find_liquidity, nearest_liquidity`, and drop `find_target_zone` from the `structure` import (it keeps its other caller in `plan.py` until Step 7 removes that too — check with `grep -rn find_target_zone app/` after Step 7 and drop the now-dead function from `structure.py` if nothing calls it).
 
-- [ ] **Step 6: Run the tests**
-
-Run: `pytest tests/test_smc/test_engine.py tests/test_smc/test_improvements.py -v`
-Expected: PASS.
-
-Run: `pytest tests/ -q`
-Expected: failures only in `test_plan.py`, `test_funnel.py`, `test_multipair.py`, `test_visuals.py`, `test_zone_ping.py` on the removed `tp_rr` keyword — those are Tasks 5 and 6.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add app/core/config.py app/services/smc/models.py app/services/smc/engine.py tests/test_smc/test_engine.py tests/test_smc/test_improvements.py
-git commit -m "Rule 7: take-profit at the nearest unswept liquidity, RR >= SMC_MIN_RR"
-```
-
----
-
-### Task 4: Alert names the objective
-
-**Files:**
-- Modify: `app/services/smc/notifier.py` (`format_result`, line ~99)
-- Test: `tests/test_smc/test_html_escaping.py` — the only module that exercises `format_result`
-
-**Interfaces:**
-- Consumes: `TradeSetup.target` (Task 3).
-- Produces: `notifier.format_target(level: LiquidityLevel, decimals: int) -> str`.
-
-- [ ] **Step 1: Write the failing test**
-
-Add to `tests/test_smc/test_html_escaping.py` (import `format_target` from `app.services.smc.notifier` and `LiquidityLevel` from `app.services.smc.liquidity`):
-
-```python
-class TestTargetLine:
-    def test_rr_line_names_the_liquidity(self):
-        level = LiquidityLevel(
-            price=3221.0, is_high=True, timeframe="H1",
-            equal_count=1, timestamp=None,
-        )
-        assert format_target(level, 2) == "H1 swing high 3221.00"
-
-    def test_pool_size_is_shown(self):
-        level = LiquidityLevel(
-            price=3221.0, is_high=True, timeframe="H1",
-            equal_count=3, timestamp=None,
-        )
-        assert format_target(level, 2) == "H1 swing high 3221.00 (EQH x3)"
-
-    def test_low_pool_uses_eql(self):
-        level = LiquidityLevel(
-            price=3050.0, is_high=False, timeframe="H4",
-            equal_count=2, timestamp=None,
-        )
-        assert format_target(level, 2) == "H4 swing low 3050.00 (EQL x2)"
-```
-
-- [ ] **Step 2: Run the test to verify it fails**
-
-Run: `pytest tests/test_smc/ -k TargetLine -v`
-Expected: FAIL — `ImportError: cannot import name 'format_target'`
-
-- [ ] **Step 3: Implement**
-
-In `app/services/smc/notifier.py`:
-
-```python
-def format_target(level, decimals: int) -> str:
-    """Name a liquidity objective: 'H1 swing high 3221.00 (EQH x2)'."""
-    kind = "swing high" if level.is_high else "swing low"
-    pool = ""
-    if level.equal_count > 1:
-        pool = f" (EQ{'H' if level.is_high else 'L'} x{level.equal_count})"
-    return f"{level.timeframe} {kind} {level.price:.{decimals}f}{pool}"
-```
-
-Replace the RR line in `format_result` (currently `lines.append(f"📐 RR: 1:{setup.rr:.1f}")`):
-
-```python
-        rr_line = f"📐 RR: 1:{setup.rr:.1f}"
-        if setup.target:
-            rr_line += "  →  " + escape_html(format_target(setup.target, d))
-        lines.append(rr_line)
-```
-
-Plain ASCII `x` rather than `×` in the pool suffix: the alert already carries emoji, and `x` avoids any doubt about encoding on the Railway console. `escape_html` is applied because the string is dynamic — that rule has no exceptions in this codebase.
-
-- [ ] **Step 4: Run the tests**
-
-Run: `pytest tests/test_smc/ -k TargetLine -v`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add app/services/smc/notifier.py tests/
-git commit -m "Alert: name the liquidity objective on the RR line"
-```
-
----
-
-### Task 5: Pre-market plan uses the same targets
-
-**Files:**
-- Modify: `app/services/smc/plan.py:46-133`
-- Test: `tests/test_smc/test_plan.py`
-
-**Interfaces:**
-- Consumes: `find_liquidity`, `nearest_liquidity` (Task 1).
-- Produces: `build_plan(instrument, h4, h1, m5, min_rr: float = 1.0, profile=None, market_closed=False) -> PairPlan`; `_scenario(instrument, h1, h4, direction, price, speculative, min_rr, profile) -> Tuple[Optional[PlanScenario], Optional[str]]`.
-
-- [ ] **Step 1: Write the failing tests**
-
-In `tests/test_smc/test_plan.py`, replace every `tp_rr=2.5` argument with `min_rr=1.0`, and add:
-
-```python
-    def test_scenario_targets_liquidity(self):
-        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
-        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
-        m5 = make_candles([3150, 3152, 3151, 3153])
-        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
-        assert plan.scenarios
-        s = plan.scenarios[0]
-        # TP is a structural level, not a multiple of the risk
-        assert s.take_profit != round(s.entry + 2.5 * abs(s.entry - s.stop_loss), 2)
-        assert s.rr >= 1.0
-
-    def test_scenario_below_threshold_is_explained(self):
-        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
-        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
-        m5 = make_candles([3150, 3152, 3151, 3153])
-        plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)
-        assert plan.scenarios == []
-        assert "1:" in plan.note
-```
-
-- [ ] **Step 2: Run the tests to verify they fail**
-
-Run: `pytest tests/test_smc/test_plan.py -v`
-Expected: FAIL — `TypeError: build_plan() got an unexpected keyword argument 'min_rr'`
-
-- [ ] **Step 3: Implement**
+- [ ] **Step 7: Convert the pre-market plan to the same targets**
 
 In `app/services/smc/plan.py`, replace `_scenario` (lines 46-85) with:
 
@@ -829,36 +740,9 @@ In `build_plan`: rename the `tp_rr: float = 2.5` parameter to `min_rr: float = 1
     return plan
 ```
 
-Imports: add `from app.services.smc.liquidity import find_liquidity, nearest_liquidity`, drop `find_target_zones` from the `structure` import if it is now unused, and make sure `Tuple` is imported from `typing`.
+Imports: add `from app.services.smc.liquidity import find_liquidity, nearest_liquidity`, drop `find_target_zones` from the `structure` import if now unused, and make sure `Tuple` is imported from `typing`.
 
-- [ ] **Step 4: Run the tests**
-
-Run: `pytest tests/test_smc/test_plan.py -v`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add app/services/smc/plan.py tests/test_smc/test_plan.py
-git commit -m "Plan: project targets at the nearest unswept liquidity"
-```
-
----
-
-### Task 6: Wire the watcher, funnel, env and docs
-
-**Files:**
-- Modify: `smc_watcher.py:103`, `smc_watcher.py:502`
-- Modify: `scripts/funnel.py:44-63` (`classify_result`), `scripts/funnel.py:81`, `scripts/funnel.py:100`
-- Modify: `env.example:31`
-- Modify: `CLAUDE.md`, `README.md`
-- Test: `tests/test_smc/test_funnel.py`, `tests/test_smc/test_multipair.py`, `tests/test_smc/test_visuals.py`, `tests/test_smc/test_zone_ping.py`
-
-**Interfaces:**
-- Consumes: `SMCSettings.min_rr` (Task 3), `build_plan(min_rr=...)` (Task 5).
-- Produces: nothing new — this task closes the remaining call sites.
-
-- [ ] **Step 1: Update the failing call sites**
+- [ ] **Step 8: Close the remaining call sites**
 
 `smc_watcher.py:103`: `tp_rr=smc.tp_rr,` → `min_rr=smc.min_rr,`
 `smc_watcher.py:502`: `tp_rr=settings.smc.tp_rr,` → `min_rr=settings.smc.min_rr,`
@@ -885,32 +769,114 @@ with
 
 and adjust the `no_zone` branch — `"no untested opposite"` no longer appears in any engine reason, so drop that clause and keep `"no valid untested"`.
 
-- [ ] **Step 2: Update the remaining test call sites**
+Then run `grep -rn "tp_rr" tests/ scripts/ smc_watcher.py app/` and convert every remaining hit to `min_rr` with a sensible value (`1.0` unless the test is specifically forcing a skip). Expected remaining files: `test_multipair.py`, `test_visuals.py`, `test_zone_ping.py`.
 
-Run: `grep -rn "tp_rr" tests/ scripts/ smc_watcher.py app/`
-Every remaining hit must become `min_rr` with a sensible value (`1.0` unless the test is specifically forcing a skip). Expected files: `test_funnel.py`, `test_multipair.py`, `test_visuals.py`, `test_zone_ping.py`.
-
-Add to `tests/test_smc/test_funnel.py`:
-
-```python
-def test_classify_result_labels_low_rr():
-    result = AnalysisResult(
-        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
-    )
-    result.reasons.append(
-        "RR 1:0.6 < minimum 1:1 to the nearest liquidity (H1 swing high 3221.00)"
-    )
-    assert classify_result(result) == "rr_low"
-```
-
-Import `classify_result`, `AnalysisResult`, `Verdict` and `SESSION_BASE` as the file already does for its other cases.
-
-- [ ] **Step 3: Run the full suite**
+- [ ] **Step 9: Run the full suite**
 
 Run: `pytest tests/ -q && flake8 app/ tests/ smc_watcher.py`
-Expected: all green, no `tp_rr` left anywhere.
+Expected: all green, zero `tp_rr` left in `app/`, `tests/`, `scripts/`, `smc_watcher.py`.
 
-- [ ] **Step 4: Update env.example**
+- [ ] **Step 10: Commit**
+
+```bash
+git add -A
+git commit -m "Rule 7: take-profit at the nearest unswept liquidity, RR >= SMC_MIN_RR"
+```
+
+---
+
+### Task 4: Alert names the objective
+
+**Files:**
+- Modify: `app/services/smc/notifier.py` (`format_result`, line ~99)
+- Test: `tests/test_smc/test_html_escaping.py` — the only module that exercises `format_result`
+
+**Interfaces:**
+- Consumes: `TradeSetup.target` (Task 3).
+- Produces: `notifier.format_target(level: LiquidityLevel, decimals: int) -> str`.
+
+- [ ] **Step 1: Write the failing test**
+
+Add to `tests/test_smc/test_html_escaping.py` (import `format_target` from `app.services.smc.notifier` and `LiquidityLevel` from `app.services.smc.liquidity`):
+
+```python
+class TestTargetLine:
+    def test_rr_line_names_the_liquidity(self):
+        level = LiquidityLevel(
+            price=3221.0, is_high=True, timeframe="H1",
+            equal_count=1, timestamp=None,
+        )
+        assert format_target(level, 2) == "H1 swing high 3221.00"
+
+    def test_pool_size_is_shown(self):
+        level = LiquidityLevel(
+            price=3221.0, is_high=True, timeframe="H1",
+            equal_count=3, timestamp=None,
+        )
+        assert format_target(level, 2) == "H1 swing high 3221.00 (EQH x3)"
+
+    def test_low_pool_uses_eql(self):
+        level = LiquidityLevel(
+            price=3050.0, is_high=False, timeframe="H4",
+            equal_count=2, timestamp=None,
+        )
+        assert format_target(level, 2) == "H4 swing low 3050.00 (EQL x2)"
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `pytest tests/test_smc/ -k TargetLine -v`
+Expected: FAIL — `ImportError: cannot import name 'format_target'`
+
+- [ ] **Step 3: Implement**
+
+In `app/services/smc/notifier.py`:
+
+```python
+def format_target(level, decimals: int) -> str:
+    """Name a liquidity objective: 'H1 swing high 3221.00 (EQH x2)'."""
+    kind = "swing high" if level.is_high else "swing low"
+    pool = ""
+    if level.equal_count > 1:
+        pool = f" (EQ{'H' if level.is_high else 'L'} x{level.equal_count})"
+    return f"{level.timeframe} {kind} {level.price:.{decimals}f}{pool}"
+```
+
+Replace the RR line in `format_result` (currently `lines.append(f"📐 RR: 1:{setup.rr:.1f}")`):
+
+```python
+        rr_line = f"📐 RR: 1:{setup.rr:.1f}"
+        if setup.target:
+            rr_line += "  →  " + escape_html(format_target(setup.target, d))
+        lines.append(rr_line)
+```
+
+Plain ASCII `x` rather than `×` in the pool suffix: the alert already carries emoji, and `x` avoids any doubt about encoding on the Railway console. `escape_html` is applied because the string is dynamic — that rule has no exceptions in this codebase.
+
+- [ ] **Step 4: Run the tests**
+
+Run: `pytest tests/test_smc/ -k TargetLine -v`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/services/smc/notifier.py tests/
+git commit -m "Alert: name the liquidity objective on the RR line"
+```
+
+---
+
+### Task 5: env, docs and the PR
+
+**Files:**
+- Modify: `env.example:31`
+- Modify: `CLAUDE.md`, `README.md`
+
+**Interfaces:**
+- Consumes: `SMCSettings.min_rr` (Task 3). No code changes — docs only, so the suite is unaffected.
+
+- [ ] **Step 1: Update env.example**
 
 Replace line 31:
 
@@ -918,16 +884,16 @@ Replace line 31:
 SMC_MIN_RR=1.0                    # minimum RR to the nearest unswept liquidity; below it the setup is skipped
 ```
 
-- [ ] **Step 5: Update the docs**
+- [ ] **Step 2: Update CLAUDE.md**
 
-`CLAUDE.md`, Architecture block — add the new module under `app/services/smc/`:
+In the Architecture block, add the new module under `app/services/smc/` in file order:
 
 ```
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools; Rule 7
 │                         targets and the sweep-extreme stop reference
 ```
 
-and in "Conventions and gotchas" add:
+In "Conventions and gotchas", add:
 
 ```
 - Liquidity (`liquidity.py`) and zones (`structure.py`) are different objects:
@@ -937,18 +903,23 @@ and in "Conventions and gotchas" add:
   instrument `min_fvg` — never the profile-scaled value.
 ```
 
-`README.md` — replace any description of the fixed 2.5R take-profit with the liquidity rule and `SMC_MIN_RR`. Find them with `grep -n "2.5\|TP_RR" README.md`.
+- [ ] **Step 3: Update README.md**
 
-- [ ] **Step 6: Verify nothing references the removed setting**
+Run `grep -n "2.5\|TP_RR\|take-profit" README.md` and replace every description of the fixed 2.5R take-profit with the liquidity rule and `SMC_MIN_RR`.
+
+- [ ] **Step 4: Verify nothing references the removed setting**
 
 Run: `grep -rn "TP_RR\|tp_rr" . --include="*.py" --include="*.md" --include="*.example" | grep -v docs/superpowers`
 Expected: no output.
 
-- [ ] **Step 7: Commit and open the PR**
+Run: `pytest tests/ -q && flake8 app/ tests/ smc_watcher.py`
+Expected: all green (docs changes cannot break it, but confirm before the PR).
+
+- [ ] **Step 5: Commit and open the PR**
 
 ```bash
 git add -A
-git commit -m "Wire liquidity targets through watcher, funnel, env and docs"
+git commit -m "Document the liquidity take-profit rule and SMC_MIN_RR"
 git push -u origin feat/liquidity-tp-sl
 gh pr create --fill
 ```
@@ -957,7 +928,7 @@ Follow `.github/pull_request_template.md`. In the PR body, state explicitly that
 
 ---
 
-### Task 7: Replay the new rule and report the numbers
+### Task 6: Replay the new rule and report the numbers
 
 **Files:**
 - No production code. Scratch scripts go in the session scratchpad, not the repo.
