@@ -12,7 +12,8 @@ class Instrument:
     source: str  # "crypto" (Binance) | "forex" (OANDA if token set, else Yahoo)
     source_symbol: str  # Binance symbol for crypto, OANDA instrument for forex
     min_fvg: float  # Rule 4: minimal FVG size in price units
-    sl_buffer: float  # Rule 6: buffer beyond the M5 pivot in price units
+    sl_buffer: float  # Rule 6 stop buffer beyond the sweep extreme AND
+    # Rule 7 take-profit setback from the liquidity level, in price units
     pip: float  # pip size in price units (for lot math / messages)
     price_decimals: int  # formatting precision
     check_funding: bool  # Rule 9.3: funding rate advisory (crypto only)

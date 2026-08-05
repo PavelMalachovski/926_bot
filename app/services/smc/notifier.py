@@ -5,6 +5,7 @@ from typing import Optional
 import httpx
 import structlog
 
+from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.sessions import to_prague
 
@@ -22,6 +23,15 @@ def escape_html(text: str) -> str:
     return (
         str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     )
+
+
+def format_target(level: LiquidityLevel, decimals: int) -> str:
+    """Name a liquidity objective: 'H1 swing high 3221.00 (EQH x2)'."""
+    kind = "swing high" if level.is_high else "swing low"
+    pool = ""
+    if level.equal_count > 1:
+        pool = f" (EQ{'H' if level.is_high else 'L'} x{level.equal_count})"
+    return f"{level.timeframe} {kind} {level.price:.{decimals}f}{pool}"
 
 
 URGENT_HEADER = (
@@ -96,7 +106,10 @@ def format_result(result: AnalysisResult) -> str:
         lines.append(
             f"🛑 SL: {setup.stop_loss:.{d}f} | 🎯 TP: {setup.take_profit:.{d}f}"
         )
-        lines.append(f"📐 RR: 1:{setup.rr:.1f}")
+        rr_line = f"📐 RR: 1:{setup.rr:.1f}"
+        if setup.target:
+            rr_line += "  →  " + escape_html(format_target(setup.target, d))
+        lines.append(rr_line)
         if setup.lot_hint:
             lines.append(f"⚖️ Size: {setup.lot_hint}")
         else:
@@ -178,8 +191,9 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
 
     lines.append("")
     lines.append(
-        "⚠️ Preliminary plan: SL is beyond the H1 zone; the live 🚨 alert will "
-        "tighten it to the M5 pivot. Order lives only within its session."
+        "⚠️ SL is preliminary (beyond the H1 zone); the live 🚨 alert "
+        "re-anchors it to the swept extreme and it may be wider. Order "
+        "lives only within its session."
     )
     return "\n".join(lines)
 

@@ -155,35 +155,6 @@ def find_h1_zone(
     return None
 
 
-def find_target_zones(
-    candles: List[Candle], direction: Direction, entry: float
-) -> List[Zone]:
-    """Rule 7: all untested opposite zones beyond entry, nearest first."""
-    pivots = find_pivots(candles)
-    want_high = direction == Direction.LONG
-    out: List[Zone] = []
-    for pivot in (p for p in pivots if p.is_high == want_high):
-        zone = _mark_zone_state(candles, build_zone(candles, pivot))
-        if zone.invalidated or zone.tested:
-            continue
-        if direction == Direction.LONG and zone.bottom > entry:
-            out.append(zone)
-        elif direction == Direction.SHORT and zone.top < entry:
-            out.append(zone)
-    if direction == Direction.LONG:
-        out.sort(key=lambda z: z.bottom)          # nearest above entry first
-    else:
-        out.sort(key=lambda z: z.top, reverse=True)  # nearest below entry first
-    return out
-
-
-def find_target_zone(
-    candles: List[Candle], direction: Direction, entry: float
-) -> Optional[Zone]:
-    """Nearest untested opposite zone beyond entry (back-compat wrapper)."""
-    return next(iter(find_target_zones(candles, direction, entry)), None)
-
-
 def find_choch(
     candles: List[Candle], direction: Direction, from_index: int
 ) -> Optional[int]:
@@ -214,14 +185,20 @@ def find_choch(
     return None
 
 
-def last_protective_pivot(
-    candles: List[Candle], direction: Direction, before_index: int
-) -> Optional[Pivot]:
-    """Rule 6: last confirmed M5 pivot to anchor the stop loss."""
-    pivots = find_pivots(candles)
-    want_high = direction == Direction.SHORT
-    candidates = [p for p in pivots if p.is_high == want_high and p.index <= before_index]
-    return candidates[-1] if candidates else None
+def sweep_extreme(
+    candles: List[Candle], direction: Direction, touch_index: int, choch_index: int
+) -> float:
+    """Rule 6: the extreme of the excursion that swept liquidity before the
+    CHoCH — the low of a long's pullback, the high of a short's.
+
+    Anchoring the stop here instead of at the last fractal pivot matters when
+    a shallower pivot forms after the sweep: the pivot stop would sit inside
+    the wick that took the stops, and get taken with them.
+    """
+    window = candles[touch_index:choch_index + 1]
+    if direction == Direction.LONG:
+        return min(c.low for c in window)
+    return max(c.high for c in window)
 
 
 def zone_touch_span(

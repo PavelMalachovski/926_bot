@@ -26,7 +26,7 @@ def _approved_result() -> AnalysisResult:
         checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
     )
     result.session_name = "New York"
-    result = TripleSyncEngine().evaluate(
+    result = TripleSyncEngine(max_entry_gap_r=99.0).evaluate(
         h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
         h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
         m5=m5_long_trigger(),
@@ -122,9 +122,11 @@ class TestLiveCardEvents:
         result = _approved_result()
         signal = journal.record(result)
         start = datetime(2026, 7, 6, 15, 45, tzinfo=timezone.utc)
+        # TP is now the nearest unswept liquidity: H1 swing high 3221.0 minus
+        # the $2 buffer = 3219.0 (see TestLiquidityTarget for the arithmetic).
         candles = [
             candle(3142, 3143, 3139.0, 3141, start=start, index=0),  # fills 3139.5
-            candle(3141, 3205, 3140, 3201, start=start, index=1),  # hits TP 3200
+            candle(3141, 3225, 3140, 3222, start=start, index=1),  # hits TP 3219.0
         ]
         events = journal.update_pair("ETHUSD", candles)
         assert [e for _, e in events] == ["filled", "tp"]
@@ -144,6 +146,72 @@ class TestChart:
         result = _approved_result()
         result.m5_candles = None
         assert render_setup_chart(result) is None
+
+    def test_far_away_take_profit_does_not_blow_out_the_ylim(self, monkeypatch):
+        """A liquidity TP can sit an H4 pool away from price (hundreds of
+        points); the y-axis must stay clamped to the candle range instead of
+        autoscaling out to include it (Important finding 1)."""
+        import app.services.smc.chart as chart_mod
+
+        result = _approved_result()
+        candles = result.m5_candles[-chart_mod.CHART_CANDLES:]
+        candle_hi = max(c.high for c in candles)
+        candle_lo = min(c.low for c in candles)
+        candle_span = candle_hi - candle_lo
+
+        # Push the take-profit far outside the candle range, like a distant
+        # H4 liquidity pool the old fixed-RR rule could never produce.
+        result.setup.take_profit = candle_hi + 200.0
+
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            real_set_ylim = ax.set_ylim
+
+            def spy_set_ylim(*a, **kw):
+                out = real_set_ylim(*a, **kw)
+                captured["ylim"] = ax.get_ylim()
+                return out
+
+            ax.set_ylim = spy_set_ylim
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+
+        png = chart_mod.render_setup_chart(result)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        assert "ylim" in captured
+        ylo, yhi = captured["ylim"]
+        # The window still brackets the candle range tightly — nowhere near
+        # the take-profit 200 points above it.
+        assert ylo <= candle_lo
+        assert yhi < candle_hi + candle_span
+        assert yhi - ylo < candle_span * 1.5
+
+    def test_far_take_profit_draws_edge_annotation_not_axhline(self):
+        """A level outside the y-window gets a fixed edge annotation, never
+        an autoscaling axhline (the mechanism behind the blowout): no Line2D
+        is added at the far price, and the axis limits are untouched."""
+        import matplotlib.pyplot as plt
+
+        from app.services.smc.chart import _level, _price_ylim
+
+        candles = _approved_result().m5_candles[-50:]
+        ylim = _price_ylim(candles, (3140.0, 3130.0))
+        fig, ax = plt.subplots()
+        try:
+            ax.set_ylim(*ylim)
+            far_price = ylim[1] + 500.0
+            _level(ax, far_price, "#089981", "TP 9999.00", 10, y_bounds=ylim)
+            assert ax.get_ylim() == ylim  # unaffected by drawing the level
+            assert ax.get_lines() == []  # no axhline drawn for the far price
+            assert len(ax.texts) == 1  # the edge annotation itself
+            assert "↑" in ax.texts[0].get_text()
+        finally:
+            plt.close(fig)
 
 
 class TestPrettyStats:

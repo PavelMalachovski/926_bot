@@ -45,21 +45,19 @@ class TestH4Reclaim:
         assert detect_trend(make_candles(closes)) == Trend.FLAT
 
 
-class TestFixedTp:
-    """Rule 7 (2026-07-30): TP is fixed at tp_rr × risk beyond the entry."""
+class TestLiquidityTp:
+    """Rule 7 (2026-08-05): TP is the nearest unswept liquidity, not a fixed
+    multiple of risk."""
 
-    def test_tp_is_fixed_multiple_of_risk(self):
-        result = TripleSyncEngine(tp_rr=2.5).evaluate(
+    def test_tp_targets_nearest_liquidity(self):
+        result = TripleSyncEngine(max_entry_gap_r=99.0).evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
             m5=m5_long_trigger(),
             result=_fresh_result(),
         )
         assert result.verdict == Verdict.APPROVED_LIMIT
-        setup = result.setup
-        risk = setup.entry - setup.stop_loss
-        assert setup.take_profit == round(setup.entry + 2.5 * risk, 2)
-        assert setup.rr == 2.5
+        assert result.setup.target is not None
 
 
 class TestCryptoSessionScope:
@@ -204,7 +202,7 @@ class TestJournal:
         journal = SignalJournal(db)
         result = _fresh_result()
         result.session_name = "New York"
-        engine = TripleSyncEngine()
+        engine = TripleSyncEngine(max_entry_gap_r=99.0)
         result = engine.evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
@@ -213,7 +211,12 @@ class TestJournal:
         )
         signal = journal.record(result)
         assert signal["status"] == "pending"
-        assert "Signals: 1" in journal.stats_text()
+        # `_fresh_result()` is pinned to SESSION_BASE (2026-07-06) so the
+        # session filters resolve deterministically, but `stats_text` defaults
+        # to a rolling 30-day window — leaving it implicit made this test start
+        # failing on 2026-08-05, the day the fixture date fell out of range.
+        # Pin the window too so the assertion does not expire with the calendar.
+        assert "Signals: 1" in journal.stats_text(days=36500)
 
         reloaded = SignalJournal(Database(str(tmp_path / "smc.db")))
         assert len(reloaded.signals) == 1

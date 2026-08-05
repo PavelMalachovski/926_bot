@@ -2,15 +2,20 @@
 
 from datetime import datetime, timezone
 
+from app.core.config import SMCSettings
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import get_instrument
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.profiles import AGGRESSIVE, CONSERVATIVE
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
+    H1_RALLY_INTO_SUPPLY_CLOSES,
+    H4_DOWNTREND_CLOSES,
     H4_UPTREND_CLOSES,
     candle,
     m5_long_trigger,
+    m5_long_trigger_deep_sweep,
+    m5_short_trigger_deep_sweep,
     make_candles,
 )
 
@@ -24,13 +29,18 @@ def _fresh_result() -> AnalysisResult:
 
 
 def _engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, tp_rr=2.5)
+    defaults = dict(
+        min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, max_entry_gap_r=99.0
+    )
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
 
 def _agg_engine(**kwargs) -> TripleSyncEngine:
-    defaults = dict(min_fvg_size=2.0, sl_buffer=2.0, tp_rr=2.5, profile=AGGRESSIVE)
+    defaults = dict(
+        min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, max_entry_gap_r=99.0,
+        profile=AGGRESSIVE,
+    )
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
 
@@ -49,9 +59,11 @@ class TestApprovedSetup:
         assert setup.direction == Direction.LONG
         assert setup.entry == 3139.5  # top of the bullish FVG
         assert setup.stop_loss == 3128.0  # pivot low 3130 - $2 buffer
-        # fixed TP: entry + 2.5 × risk (risk = 3139.5 - 3128.0 = 11.5)
-        assert setup.take_profit == 3168.25
-        assert setup.rr == 2.5
+        # TP one buffer short of the H1 swing high liquidity at 3221.0
+        # (risk = 3139.5 - 3128.0 = 11.5; rr = (3219.0-3139.5)/11.5 = 6.91)
+        assert setup.take_profit == 3219.0
+        assert setup.target.price == 3221.0
+        assert setup.rr == 6.91
         assert not setup.entry_is_market  # last close 3150 is above the FVG
 
     def test_lot_hint_computed_from_deposit(self):
@@ -98,31 +110,6 @@ class TestSkipsAndWatch:
             result=_fresh_result(),
         )
         assert result.verdict == Verdict.WATCH
-
-    def test_tp_scales_with_configured_tp_rr(self):
-        # tp_rr=4: TP 3139.5 + 4 × 11.5 = 3185.5, still inside the H1 supply
-        # at 3200 -> the room check passes and the TP scales.
-        result = _engine(tp_rr=4.0).evaluate(
-            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
-            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
-            m5=m5_long_trigger(),
-            result=_fresh_result(),
-        )
-        setup = result.setup
-        assert setup.rr == 4.0
-        assert setup.take_profit == 3185.5
-
-    def test_skip_when_no_room_to_the_opposite_zone(self):
-        # tp_rr=10: TP 3254.5 lies beyond both the H1 supply (3200) and the
-        # H4 supply (3250) -> no untested zone at/beyond the TP, SKIP.
-        result = _engine(tp_rr=10.0).evaluate(
-            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
-            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
-            m5=m5_long_trigger(),
-            result=_fresh_result(),
-        )
-        assert result.verdict == Verdict.SKIP
-        assert any("no room" in r for r in result.reasons)
 
 
 class TestProfiles:
@@ -224,3 +211,159 @@ class TestCryptoSameDayFallbackSurvivesProfileWiring:
         assert result.verdict == Verdict.APPROVED_LIMIT
         assert result.setup.entry == 3139.5  # earliest FVG (index 15), only
         # reachable via same_trading_day scope, not same_session
+
+
+class TestSweepStop:
+    """Rule 6 (2026-08-05): SL sits behind the swept extreme, not behind the
+    last fractal pivot."""
+
+    def test_stop_is_below_the_sweep_not_the_later_pivot(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        result = _engine().evaluate(
+            h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
+        )
+        assert result.setup is not None, result.reasons
+        # sweep low 3126.0 minus the $2 buffer, NOT 3132.5 - 2 = 3130.5
+        assert result.setup.stop_loss == 3124.0
+
+
+class TestLiquidityTarget:
+    """Rule 7 (2026-08-05): TP is the nearest unswept liquidity, one buffer
+    short of the level; RR is computed, not assigned."""
+
+    def _run(self, **kwargs):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        return _engine(**kwargs).evaluate(
+            h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
+        )
+
+    def test_tp_is_the_nearest_unswept_liquidity_minus_buffer(self):
+        result = self._run()
+        assert result.setup is not None, result.reasons
+        # H1 swing high 3221.0 is the nearest unswept pool above entry 3140.5
+        assert result.setup.take_profit == 3219.0
+        assert result.setup.target.price == 3221.0
+        assert result.setup.target.timeframe == "H1"
+
+    def test_rr_is_computed_from_the_target(self):
+        result = self._run()
+        # entry 3140.5, SL 3124.0 -> risk 16.5; TP 3219.0 -> 78.5 / 16.5
+        assert result.setup.rr == 4.76
+
+    def test_rr_does_not_track_the_threshold(self):
+        # The old rule assigned rr = the configured multiple, so the RR
+        # moved with the setting.
+        assert self._run(min_rr=1.0).setup.rr == self._run(min_rr=2.0).setup.rr
+
+    def test_setup_below_the_threshold_is_skipped(self):
+        result = self._run(min_rr=8.0)
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
+        assert "1:4.8" in result.reasons[0]
+        assert "1:8" in result.reasons[0]
+
+    def test_short_tp_is_on_the_correct_side_of_entry(self):
+        # SHORT mirror of m5_long_trigger_deep_sweep (see helpers.py and
+        # task-3-report.md finding 1 for the K=6270 reflection and the
+        # independent re-derivation): entry 3129.5, SL 3146.0, target the H1
+        # swing low at 3049.0, TP = 3049.0 + $2 buffer = 3051.0,
+        # rr = (3129.5 - 3051.0) / (3146.0 - 3129.5) = 78.5 / 16.5 = 4.76.
+        h4 = make_candles(H4_DOWNTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_RALLY_INTO_SUPPLY_CLOSES, step_minutes=60)
+        result = _engine().evaluate(
+            h4=h4, h1=h1, m5=m5_short_trigger_deep_sweep(), result=_fresh_result()
+        )
+        assert result.setup is not None, result.reasons
+        setup = result.setup
+        assert setup.direction == Direction.SHORT
+        assert setup.take_profit < setup.entry < setup.stop_loss
+        assert setup.take_profit == 3051.0
+        assert setup.entry == 3129.5
+        assert setup.stop_loss == 3146.0
+        assert setup.target.price == 3049.0
+        assert setup.target.is_high is False
+        assert setup.rr == 4.76
+
+    def test_skip_when_target_is_inside_the_sl_buffer(self):
+        # An inflated sl_buffer pulls the target within one buffer of entry:
+        # TP = 3221.0 - 100 = 3121.0, BELOW entry 3140.5 for a LONG — a
+        # negative reward that abs() alone would report as a positive RR.
+        # min_rr=0.1 proves the skip does not depend on the threshold.
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        result = _engine(sl_buffer=100.0, min_rr=0.1).evaluate(
+            h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
+        )
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
+        assert "no positive reward" in result.reasons[0]
+
+
+class TestEntryStalenessGate:
+    """Rule 5.1 (2026-08-05): a limit far below market never fills, so it is
+    not worth alerting on."""
+
+    def _long(self, price, **kwargs):
+        result = _fresh_result()
+        result.price = price
+        return _engine(**kwargs).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(),
+            result=result,
+        )
+
+    def test_long_skipped_when_price_has_run_past_the_entry(self):
+        # entry 3140.5, risk 16.5 -> at 0.5R the limit may sit at most
+        # 8.25 above market; 3160.0 is 19.5 away (1.18R).
+        result = self._long(3160.0, max_entry_gap_r=0.5)
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
+        assert "1.2R" in result.reasons[0]
+
+    def test_long_approved_when_price_is_still_near_the_entry(self):
+        result = self._long(3145.0, max_entry_gap_r=0.5)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+
+    def test_gate_is_silent_for_a_market_entry(self):
+        # price inside the FVG (3138.0-3140.5) is at or below the entry, so
+        # the gap is never positive and the tightest gate cannot fire.
+        result = self._long(3139.0, max_entry_gap_r=0.0)
+        assert result.verdict == Verdict.APPROVED_MARKET
+
+    def test_threshold_is_configurable(self):
+        assert self._long(3160.0, max_entry_gap_r=2.0).verdict == (
+            Verdict.APPROVED_LIMIT
+        )
+
+    def test_short_gate_measures_the_other_direction(self):
+        # Mirror of the long case on the K=6270 reflected fixture: entry
+        # 3129.5, risk 16.5. Price BELOW the entry is the run-away side.
+        # gap = 3129.5 - 3110.0 = 19.5 -> 19.5 / 16.5 = 1.18 -> "1.2R",
+        # same arithmetic as the long case above.
+        result = _fresh_result()
+        result.price = 3110.0
+        out = _engine(max_entry_gap_r=0.5).evaluate(
+            h4=make_candles(H4_DOWNTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_RALLY_INTO_SUPPLY_CLOSES, step_minutes=60),
+            m5=m5_short_trigger_deep_sweep(),
+            result=result,
+        )
+        assert out.verdict == Verdict.SKIP
+        assert out.setup is None
+        assert "1.2R" in out.reasons[0]
+
+    def test_shipped_default_is_0_75r(self):
+        # Pins the production default (config.py's SMCSettings and the
+        # engine constructor both ship 0.75) against a future edit silently
+        # moving it — every other test in this class passes an explicit
+        # value, so nothing else would catch that.
+        # 0.75 was picked by the 59-day ETHUSD threshold sweep
+        # (.superpowers/sdd/2026-08-05-liquidity-tp-sl/gate-sweep-report.md):
+        # it is the knee of the fill-rate/alert-count curve, and the
+        # provisional 0.5 produced zero conservative alerts in 59 days.
+        assert TripleSyncEngine().max_entry_gap_r == 0.75
+        assert SMCSettings().max_entry_gap_r == 0.75

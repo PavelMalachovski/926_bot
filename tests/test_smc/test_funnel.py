@@ -30,6 +30,38 @@ def test_classify_flat_h4():
     assert classify_result(r) == "h4_flat"
 
 
+def test_classify_result_labels_low_rr():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "RR 1:0.6 < minimum 1:1 to the nearest liquidity (H1 swing high 3221.00)"
+    )
+    assert classify_result(result) == "rr_low"
+
+
+def test_classify_result_labels_reward_inside_sl_buffer_as_no_liquidity():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "Nearest liquidity sits inside the SL buffer — no positive "
+        "reward to aim at"
+    )
+    assert classify_result(result) == "no_liquidity"
+
+
+def test_classify_result_labels_a_stale_entry():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "Price has run 1.2R past the entry 3140.50 (max 0.5R) — the limit "
+        "would sit too far from market"
+    )
+    assert classify_result(result) == "entry_stale"
+
+
 def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
     # H4/H1 are shifted so their history is fully closed at/before
     # SESSION_BASE (the m5 fixture's start) — a realistic point-in-time
@@ -54,6 +86,10 @@ def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
         h1,
         m5_long_trigger(),
         profile=get_profile("conservative"),
+        # m5_long_trigger's live price sits further than the shipped 0.75R
+        # from its FVG entry (see task-7-report.md); this test is about
+        # point-in-time h4/h1 slicing, not Rule 5.1, so disable the gate.
+        max_entry_gap_r=99.0,
     )
     assert counts["approved"] >= 1
 

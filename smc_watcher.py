@@ -100,7 +100,8 @@ def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
     smc = settings.smc
     return TripleSyncEngine(
         instrument=instrument,
-        tp_rr=smc.tp_rr,
+        min_rr=smc.min_rr,
+        max_entry_gap_r=smc.max_entry_gap_r,
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,
@@ -499,7 +500,7 @@ class Watcher:
         )
         plan = build_plan(
             instrument, data["h4"], data["h1"], data["m5"],
-            tp_rr=settings.smc.tp_rr, profile=profile, market_closed=stale,
+            min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
         )
         live_line = None if stale else self._live_status(instrument, data, now)
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")

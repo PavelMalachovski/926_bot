@@ -26,7 +26,7 @@ def _fresh():
 
 
 def _eval(m5, h4=None):
-    return TripleSyncEngine().evaluate(
+    return TripleSyncEngine(max_entry_gap_r=99.0).evaluate(
         h4=h4 or make_candles(H4_UPTREND_CLOSES, step_minutes=240),
         h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
         m5=m5,
@@ -146,6 +146,12 @@ class TestZonePing:
 class TestLiveStatus:
     def test_reports_live_setup(self, monkeypatch):
         w = _watcher(monkeypatch)
+        # Rule 5.1's default gate (0.5R) is unrelated to what this test
+        # covers and m5_long_trigger's live price sits further than that
+        # from its entry; disable it so _live_status keeps reporting the
+        # setup. Only this test runs the engine through _build_engine, so
+        # only it needs the override.
+        monkeypatch.setattr(settings.smc, "max_entry_gap_r", 99.0)
         data = {
             "h4": make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             "h1": make_candles(H1_PULLBACK_CLOSES, step_minutes=60),

@@ -9,15 +9,15 @@ Imbalance** SMC (Smart Money Concepts) setups and sends an urgent alert when
 one is found. There is no web server, no Redis, no Postgres — one worker
 (`smc_watcher.py`) with a SQLite file. It runs on Railway.
 
-The **strategy specification is law**: rules −1 through 11 (H4 trend → H1 zone
-→ M5 CHoCH + FVG, fixed TP at 1:2.5 (`SMC_TP_RR`) with an untested opposite
-zone required at/beyond the TP — owner decision 2026-07-30 after the outcome
-replay showed zone-chain targets were unreachable, session
-windows, news blackouts, correlation
-limits) come from the owner's written trading system. Never relax or "improve"
-a strategy rule without the owner's explicit decision — implementation
-over-strictness may be fixed, the rules themselves may not. "Almost valid"
-does not exist in this system.
+The **strategy specification is law**: rules −1 through 11 (H4 trend → H1
+zone → M5 CHoCH + FVG → entry skipped once price has run more than
+`SMC_MAX_ENTRY_GAP_R` past it, Rule 5.1, owner decision 2026-08-05 → TP at
+the nearest unswept liquidity level with RR ≥ `SMC_MIN_RR`, owner decision
+2026-08-05 replacing the fixed 1:2.5 multiple → session windows → news
+blackouts → correlation limits) come from the owner's written trading
+system. Never relax or "improve" a strategy rule without the owner's
+explicit decision — implementation over-strictness may be fixed, the rules
+themselves may not. "Almost valid" does not exist in this system.
 
 ## Commands
 
@@ -46,7 +46,10 @@ app/services/smc/
 │                         evaluate() is fully unit-testable on synthetic candles
 ├── structure.py          fractal-5 pivots (2-closed-candle confirmation),
 │                         H4 trend HH+HL/LH+LL with fakeout-reclaim, H1 zones
-│                         (untested only), M5 CHoCH, TP target zones
+│                         (untested only), M5 CHoCH, sweep_extreme (Rule 6
+│                         stop reference)
+├── liquidity.py          unswept swing highs/lows + EQH/EQL pools; Rule 7
+│                         take-profit targets
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
 ├── sessions.py           trading hours 08:00-20:00 Prague, two blocks split
@@ -121,6 +124,11 @@ tracking → live-card edits on fill/TP/SL events.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.
+- Liquidity (`liquidity.py`) and zones (`structure.py`) are different objects:
+  a zone is an order block price reacts from, a liquidity level is the stop
+  pool behind a swing extreme. Rule 7 aims at liquidity; Rule 2 enters at a
+  zone. Sweep detection is wick-based with a tolerance of the raw per-
+  instrument `min_fvg` — never the profile-scaled value.
 
 ## Workflow
 

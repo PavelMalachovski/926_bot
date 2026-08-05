@@ -61,10 +61,18 @@ class SMCSettings(BaseSettings):
         default=5,
         description="Check interval inside session windows (M5 cadence), minutes",
     )
-    tp_rr: float = Field(
-        default=2.5,
-        description="Fixed take-profit distance in R: TP = entry ± tp_rr × risk "
-        "(owner decision 2026-07-30, replaces zone-chain targets)",
+    min_rr: float = Field(
+        default=1.0,
+        description="Minimum risk/reward to the nearest unswept liquidity; "
+        "setups below it are skipped (owner decision 2026-08-05)",
+    )
+    max_entry_gap_r: float = Field(
+        default=0.75,
+        description="Skip a setup once price has run this many R past the "
+        "entry — the limit would sit too far from market to fill "
+        "(owner decision 2026-08-05). 0 = price may not have moved past the "
+        "entry at all (a limit further from the entry, i.e. not yet reached, "
+        "still passes); a large value disables the gate",
     )
     risk_pct: float = Field(default=2.0, description="Risk percent per trade")
     deposit: Optional[float] = Field(

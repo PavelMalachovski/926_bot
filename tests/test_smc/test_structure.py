@@ -8,10 +8,7 @@ from app.services.smc.structure import (
     find_choch,
     find_h1_zone,
     find_pivots,
-    find_target_zone,
-    find_target_zones,
     h4_choch_direction,
-    last_protective_pivot,
     zone_touch_span,
 )
 from tests.test_smc.helpers import (
@@ -28,13 +25,6 @@ def test_find_h1_zone_untested_only_by_default():
     zone = find_h1_zone(h1, Direction.LONG)  # max_touches=0
     assert zone is not None
     assert zone.touches == 0
-
-
-def test_find_target_zones_sorted_nearest_first():
-    h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
-    zones = find_target_zones(h1, Direction.LONG, entry=3138.0)
-    tops = [z.bottom for z in zones]
-    assert tops == sorted(tops)  # nearest (smallest bottom above entry) first
 
 
 def test_h4_choch_direction_none_on_clean_uptrend():
@@ -115,14 +105,6 @@ class TestZones:
         assert zone.top == 3138.0  # pivot candle body high
         assert not zone.tested and not zone.invalidated
 
-    def test_target_supply_zone_above_entry(self):
-        target = find_target_zone(
-            make_candles(H1_PULLBACK_CLOSES), Direction.LONG, entry=3139.5
-        )
-        assert target is not None
-        assert not target.is_demand
-        assert target.bottom == 3200.0  # pivot candle body low
-
     def test_no_zone_when_structure_missing(self):
         flat = make_candles([3000] * 12)
         assert find_h1_zone(flat, Direction.LONG) is None
@@ -158,9 +140,3 @@ class TestM5Trigger:
         assert find_choch(m5, Direction.LONG, span[1]) is None
         # NEW behaviour (excursion start): CHoCH at index 8 is found.
         assert find_choch(m5, Direction.LONG, span[0]) == 8
-
-    def test_protective_pivot_for_stop_loss(self):
-        m5 = m5_long_trigger()
-        pivot = last_protective_pivot(m5, Direction.LONG, before_index=16)
-        assert pivot is not None
-        assert pivot.price == 3130.0
