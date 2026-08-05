@@ -8,10 +8,13 @@ from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.profiles import AGGRESSIVE, CONSERVATIVE
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
+    H1_RALLY_INTO_SUPPLY_CLOSES,
+    H4_DOWNTREND_CLOSES,
     H4_UPTREND_CLOSES,
     candle,
     m5_long_trigger,
     m5_long_trigger_deep_sweep,
+    m5_short_trigger_deep_sweep,
     make_candles,
 )
 
@@ -244,7 +247,8 @@ class TestLiquidityTarget:
         assert result.setup.rr == 4.76
 
     def test_rr_does_not_track_the_threshold(self):
-        # The old rule assigned rr = tp_rr, so the RR moved with the setting.
+        # The old rule assigned rr = the configured multiple, so the RR
+        # moved with the setting.
         assert self._run(min_rr=1.0).setup.rr == self._run(min_rr=2.0).setup.rr
 
     def test_setup_below_the_threshold_is_skipped(self):
@@ -253,3 +257,39 @@ class TestLiquidityTarget:
         assert result.setup is None
         assert "1:4.8" in result.reasons[0]
         assert "1:8" in result.reasons[0]
+
+    def test_short_tp_is_on_the_correct_side_of_entry(self):
+        # SHORT mirror of m5_long_trigger_deep_sweep (see helpers.py and
+        # task-3-report.md finding 1 for the K=6270 reflection and the
+        # independent re-derivation): entry 3129.5, SL 3146.0, target the H1
+        # swing low at 3049.0, TP = 3049.0 + $2 buffer = 3051.0,
+        # rr = (3129.5 - 3051.0) / (3146.0 - 3129.5) = 78.5 / 16.5 = 4.76.
+        h4 = make_candles(H4_DOWNTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_RALLY_INTO_SUPPLY_CLOSES, step_minutes=60)
+        result = _engine().evaluate(
+            h4=h4, h1=h1, m5=m5_short_trigger_deep_sweep(), result=_fresh_result()
+        )
+        assert result.setup is not None, result.reasons
+        setup = result.setup
+        assert setup.direction == Direction.SHORT
+        assert setup.take_profit < setup.entry < setup.stop_loss
+        assert setup.take_profit == 3051.0
+        assert setup.entry == 3129.5
+        assert setup.stop_loss == 3146.0
+        assert setup.target.price == 3049.0
+        assert setup.target.is_high is False
+        assert setup.rr == 4.76
+
+    def test_skip_when_target_is_inside_the_sl_buffer(self):
+        # An inflated sl_buffer pulls the target within one buffer of entry:
+        # TP = 3221.0 - 100 = 3121.0, BELOW entry 3140.5 for a LONG — a
+        # negative reward that abs() alone would report as a positive RR.
+        # min_rr=0.1 proves the skip does not depend on the threshold.
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        result = _engine(sl_buffer=100.0, min_rr=0.1).evaluate(
+            h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
+        )
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
+        assert "no positive reward" in result.reasons[0]

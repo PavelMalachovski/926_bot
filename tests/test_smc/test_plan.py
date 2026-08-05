@@ -1,5 +1,7 @@
 """Tests for the Pre-Market Plan builder, formatter and H1 chart."""
 
+import dataclasses
+
 from app.services.smc.chart import render_plan_chart
 from app.services.smc.instruments import get_instrument
 from app.services.smc.models import Direction, Trend
@@ -66,6 +68,24 @@ class TestBuildPlan:
         assert s.take_profit != round(s.entry + 2.5 * abs(s.entry - s.stop_loss), 2)
         assert s.rr >= 1.0
 
+    def test_scenario_tp_is_the_exact_nearest_liquidity(self):
+        # entry = H1 demand zone top = 3138.0, stop = zone bottom (3131.0) -
+        # sl_buffer (2.0) = 3129.0 -> risk = 9.0. Nearest unswept liquidity
+        # above entry is the H1 swing high at 3221.0 (same pool as
+        # TestLiquidityTarget in test_engine.py); TP = 3221.0 - 2.0 = 3219.0.
+        # rr = (3219.0 - 3138.0) / 9.0 = 81.0 / 9.0 = 9.0 exactly.
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        m5 = make_candles([3140, 3142, 3145])
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0, profile=CONSERVATIVE)
+        assert len(plan.scenarios) == 1
+        s = plan.scenarios[0]
+        assert s.direction == Direction.LONG
+        assert s.entry == 3138.0
+        assert s.stop_loss == 3129.0
+        assert s.take_profit == 3219.0
+        assert s.rr == 9.0
+
     def test_scenario_below_threshold_is_explained(self):
         h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
@@ -73,6 +93,19 @@ class TestBuildPlan:
         plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)
         assert plan.scenarios == []
         assert "1:" in plan.note
+
+    def test_scenario_skipped_when_target_is_inside_the_sl_buffer(self):
+        # An inflated sl_buffer pulls the target within one buffer of entry:
+        # TP = 3221.0 - 100 = 3121.0, BELOW entry 3138.0 for a LONG scenario
+        # -- a negative reward that abs() alone would report as a positive
+        # RR. min_rr=0.1 proves the skip does not depend on the threshold.
+        big_buffer = dataclasses.replace(ETH, sl_buffer=100.0)
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        m5 = make_candles([3160.0], step_minutes=5)
+        plan = build_plan(big_buffer, h4, h1, m5, min_rr=0.1, profile=CONSERVATIVE)
+        assert plan.scenarios == []
+        assert "no positive reward" in plan.note
 
 
 class TestFormatAndChart:
@@ -102,7 +135,7 @@ class TestFormatAndChart:
         assert render_plan_chart(plan, h1) is None
 
 
-class TestFixedTpAndProfile:
+class TestLiquidityTpAndProfile:
     def test_aggressive_profile_takes_h4_choch_direction_when_flat(self):
         # H4 uptrend then a decisive, unreclaimed break of the last HL: trend
         # downgrades to FLAT but an aggressive trader can take the CHoCH
@@ -121,6 +154,8 @@ class TestFixedTpAndProfile:
         assert s.direction == Direction.SHORT
         assert not s.speculative
         assert s.rr >= 2.0
+        # SHORT: TP below entry below stop, never the LONG-side ordering.
+        assert s.take_profit < s.entry < s.stop_loss
 
     def test_conservative_profile_ignores_h4_choch_when_flat(self):
         # same fixture, but conservative never reads the CHoCH: it falls back

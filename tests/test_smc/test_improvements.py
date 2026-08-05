@@ -45,11 +45,11 @@ class TestH4Reclaim:
         assert detect_trend(make_candles(closes)) == Trend.FLAT
 
 
-class TestFixedTp:
+class TestLiquidityTp:
     """Rule 7 (2026-08-05): TP is the nearest unswept liquidity, not a fixed
     multiple of risk."""
 
-    def test_tp_is_fixed_multiple_of_risk(self):
+    def test_tp_targets_nearest_liquidity(self):
         result = TripleSyncEngine().evaluate(
             h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
             h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),

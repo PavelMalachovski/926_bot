@@ -270,9 +270,23 @@ class TripleSyncEngine:
 
         if direction == Direction.LONG:
             take_profit = target.price - self.sl_buffer
+            reward = take_profit - entry
         else:
             take_profit = target.price + self.sl_buffer
-        rr = abs(take_profit - entry) / risk
+            reward = entry - take_profit
+        # A target inside one sl_buffer of the entry would otherwise put the
+        # TP on the wrong side of the entry while abs() still reports a
+        # positive RR — unreachable at the default min_rr (risk always
+        # exceeds the buffer) but SMC_MIN_RR is an owner-tunable env float,
+        # so this must not depend on the threshold.
+        if reward <= 0:
+            result.verdict = Verdict.SKIP
+            result.reasons.append(
+                "Nearest liquidity sits inside the SL buffer — no positive "
+                "reward to aim at"
+            )
+            return result
+        rr = reward / risk
         if rr < self.min_rr:
             result.verdict = Verdict.SKIP
             result.reasons.append(

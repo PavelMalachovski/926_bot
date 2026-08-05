@@ -46,8 +46,8 @@ class PairPlan:
 
 def _scenario(
     instrument: Instrument,
-    h1: List[Candle],
     h4: List[Candle],
+    h1: List[Candle],
     direction: Direction,
     price: float,
     speculative: bool,
@@ -91,8 +91,18 @@ def _scenario(
 
     sign = -1 if direction == Direction.LONG else 1
     take_profit = target.price + sign * instrument.sl_buffer
-    rr = abs(take_profit - entry) / risk
+    reward = (take_profit - entry) if direction == Direction.LONG else (entry - take_profit)
     d = instrument.price_decimals
+    # See engine.py's Rule 7 for why this can't be inferred from RR alone:
+    # a target inside one sl_buffer of the entry would put the TP on the
+    # wrong side while abs(take_profit - entry) still reads positive.
+    if reward <= 0:
+        return None, (
+            f"Zone {'Demand' if direction == Direction.LONG else 'Supply'} "
+            f"{zone.bottom:.{d}f}-{zone.top:.{d}f} is live, but the nearest "
+            "liquidity sits inside the SL buffer — no positive reward"
+        )
+    rr = reward / risk
     if rr < min_rr:
         return None, (
             f"Zone {'Demand' if direction == Direction.LONG else 'Supply'} "
@@ -152,7 +162,7 @@ def build_plan(
     reasons = []
     for direction, speculative in directions:
         scenario, reason = _scenario(
-            instrument, h1, h4, direction, price, speculative, min_rr, profile,
+            instrument, h4, h1, direction, price, speculative, min_rr, profile,
         )
         if scenario:
             plan.scenarios.append(scenario)

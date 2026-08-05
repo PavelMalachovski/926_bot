@@ -76,6 +76,35 @@ H1_PULLBACK_CLOSES = [
     3210, 3195, 3180, 3165,
 ]
 
+# SHORT-side mirrors of H4_UPTREND_CLOSES / H1_PULLBACK_CLOSES, built by
+# reflecting every close around K=6270 (close' = K - close). find_pivots,
+# detect_trend, build_zone etc. are pure relational comparisons on price
+# differences, so this reflection is an exact structural mirror: every
+# bullish candle becomes bearish (and vice versa) at the same indices, every
+# HH+HL uptrend becomes a LL+LH downtrend, every high pivot becomes a low
+# pivot at the mirrored price. Verified by running TripleSyncEngine against
+# both the reflected-closes version and this hand-transcribed literal list
+# and confirming identical output (see task-3-report.md finding 1).
+#
+# H4 downtrend: LL (3170 -> 3070 -> 2970) + LH (3220 -> 3150)
+H4_DOWNTREND_CLOSES = [
+    3270, 3250, 3230, 3210, 3190, 3170,  # down leg
+    3180, 3195, 3210, 3220,              # pullback (LH at 3220)
+    3200, 3170, 3130, 3100, 3070,        # down leg (LL)
+    3085, 3110, 3130, 3150,              # pullback (LH)
+    3120, 3070, 3020, 2970,              # down leg (LL)
+    2980, 2990,                          # confirmation candles
+]
+
+# H1: decline, pullback forming a supply pivot at 3138 (zone ~3132-3139),
+# decline to 3050 (untested demand ~3049-3070), drift up.
+H1_RALLY_INTO_SUPPLY_CLOSES = [
+    3170, 3160, 3150, 3135, 3120,
+    3125, 3132, 3138,
+    3125, 3110, 3090, 3070, 3050,
+    3060, 3075, 3090, 3105,
+]
+
 
 def m5_long_trigger() -> List[Candle]:
     """M5: decline into the H1 demand zone, bullish CHoCH + FVG.
@@ -145,6 +174,51 @@ def m5_long_trigger_deep_sweep() -> List[Candle]:
         (3149.0, 3151.0, 3147.0, 3150.0),
         (3150.0, 3152.0, 3148.0, 3151.0),
         (3151.0, 3152.0, 3149.0, 3150.0),
+    ]
+    return [candle(*row, index=i) for i, row in enumerate(spec)]
+
+
+def m5_short_trigger_deep_sweep() -> List[Candle]:
+    """SHORT mirror of m5_long_trigger_deep_sweep (each OHLC reflected
+    around K=6270: open'=K-open, high'=K-low, low'=K-high, close'=K-close —
+    see the comment above H4_DOWNTREND_CLOSES).
+
+    Against the H1 supply zone 3132.0-3139.0 (built from
+    H1_RALLY_INTO_SUPPLY_CLOSES):
+    - higher-low pivot at index 6 (3122) is the CHoCH reference
+    - the excursion into the zone starts at index 8 and runs to index 14
+    - index 9 spikes up to 3144 — the real swept high
+    - a shallower fractal high forms later at index 12 (3137.5)
+    - bearish FVG between low[13]=3132.0 and high[15]=3129.5 (size 2.5)
+    - CHoCH at index 16 (close below the 3122 higher-low)
+
+    `sweep_extreme` returns 3144.0, above the shallower pivot at 3137.5 —
+    the SHORT-side analogue of the LONG fixture's sweep/pivot disagreement.
+    Independently confirmed by running the engine against this fixture:
+    entry 3129.5, stop_loss 3146.0, target H1 swing low 3049.0,
+    take_profit 3051.0, rr 4.76 (see task-3-report.md finding 1).
+    """
+    spec = [
+        (3110.0, 3115.0, 3109.0, 3114.0),
+        (3114.0, 3119.0, 3113.0, 3118.0),
+        (3118.0, 3123.0, 3117.0, 3122.0),
+        (3122.0, 3127.0, 3121.0, 3126.0),
+        (3126.0, 3130.0, 3125.0, 3128.0),
+        (3128.0, 3129.0, 3124.0, 3125.0),
+        (3125.0, 3126.0, 3122.0, 3123.0),
+        (3123.0, 3129.0, 3122.5, 3128.0),
+        (3128.0, 3136.0, 3127.0, 3134.0),
+        (3134.0, 3144.0, 3133.0, 3135.0),
+        (3135.0, 3136.5, 3134.0, 3135.5),
+        (3135.5, 3137.0, 3134.5, 3135.0),
+        (3135.0, 3137.5, 3134.0, 3134.5),
+        (3134.5, 3135.0, 3132.0, 3132.5),
+        (3132.5, 3133.0, 3129.0, 3129.2),
+        (3129.2, 3129.5, 3126.0, 3126.5),
+        (3126.5, 3127.0, 3120.5, 3121.0),
+        (3121.0, 3123.0, 3119.0, 3120.0),
+        (3120.0, 3122.0, 3118.0, 3119.0),
+        (3119.0, 3121.0, 3118.0, 3120.0),
     ]
     return [candle(*row, index=i) for i, row in enumerate(spec)]
 
