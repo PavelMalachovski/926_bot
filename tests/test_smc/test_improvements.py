@@ -211,7 +211,12 @@ class TestJournal:
         )
         signal = journal.record(result)
         assert signal["status"] == "pending"
-        assert "Signals: 1" in journal.stats_text()
+        # `_fresh_result()` is pinned to SESSION_BASE (2026-07-06) so the
+        # session filters resolve deterministically, but `stats_text` defaults
+        # to a rolling 30-day window — leaving it implicit made this test start
+        # failing on 2026-08-05, the day the fixture date fell out of range.
+        # Pin the window too so the assertion does not expire with the calendar.
+        assert "Signals: 1" in journal.stats_text(days=36500)
 
         reloaded = SignalJournal(Database(str(tmp_path / "smc.db")))
         assert len(reloaded.signals) == 1
