@@ -59,6 +59,8 @@ def classify_result(result: AnalysisResult) -> str:
         return "fvg_small"
     if "no unswept liquidity" in reason:
         return "no_liquidity"
+    if "inside the sl buffer" in reason:
+        return "no_liquidity"
     if reason.startswith("rr 1:"):
         return "rr_low"
     return "other"

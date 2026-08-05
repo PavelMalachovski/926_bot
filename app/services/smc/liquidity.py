@@ -46,7 +46,14 @@ def _is_swept(candles: List[Candle], pivot: Pivot, tolerance: float) -> bool:
 def _cluster(
     pivots: List[Pivot], is_high: bool, timeframe: str, tolerance: float
 ) -> List[LiquidityLevel]:
-    """Group same-side pivots within `tolerance` into single pools."""
+    """Group same-side pivots within `tolerance` into single pools.
+
+    Tolerance is measured from the group's first (lowest-price) member, not
+    pairwise between neighbors — a run of 3+ near-equal levels each within
+    `tolerance` of its immediate neighbor but where the span from first to
+    last exceeds `tolerance` splits into a pair plus a singleton, not one
+    pool of 3.
+    """
     group = sorted(
         (p for p in pivots if p.is_high == is_high), key=lambda p: p.price
     )

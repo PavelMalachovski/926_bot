@@ -7,7 +7,7 @@ Rendering failures must never block an alert: callers wrap in try/except.
 
 import os
 from io import BytesIO
-from typing import Optional
+from typing import List, Optional, Sequence, Tuple
 
 import matplotlib
 
@@ -63,7 +63,74 @@ def _style_axes(ax, candles, x_right: int, tf_label: str) -> None:
     ax.set_xlim(-1, x_right + 8)
 
 
-def _level(ax, price: float, color: str, label: str, x_right: int) -> None:
+# Fraction of the (candle + entry/SL) span added above and below as breathing
+# room when clamping the y-axis. Keeps the price action from touching the
+# frame edge without letting a single outlier level reopen the autoscale.
+YLIM_MARGIN_FRAC = 0.08
+
+
+def _price_ylim(
+    candles: Sequence, in_range_prices: Sequence[Optional[float]],
+    margin_frac: float = YLIM_MARGIN_FRAC,
+) -> Tuple[float, float]:
+    """Y-axis window: candle high/low extended to bracket entry/SL, plus a
+    margin. Deliberately excludes the take-profit — a liquidity target can
+    sit hundreds of points away, and letting it into this computation is
+    exactly the autoscale blowout this function exists to prevent.
+    """
+    highs = [c.high for c in candles]
+    lows = [c.low for c in candles]
+    hi = max(highs)
+    lo = min(lows)
+    for p in in_range_prices:
+        if p is not None:
+            hi = max(hi, p)
+            lo = min(lo, p)
+    span = hi - lo
+    if span <= 0:
+        span = max(abs(hi), 1.0) * 0.02
+    margin = span * margin_frac
+    return lo - margin, hi + margin
+
+
+def _level(
+    ax,
+    price: float,
+    color: str,
+    label: str,
+    x_right: int,
+    y_bounds: Optional[Tuple[float, float]] = None,
+) -> None:
+    """Draw a horizontal level line + label.
+
+    When `y_bounds` is given and `price` falls outside it, an autoscaling
+    `axhline` would reopen the y-axis to include it (the bug this guards
+    against — a far-away liquidity target flattening the whole chart).
+    Instead draw a fixed edge annotation naming the price and the direction
+    it sits in, so the owner still sees the number.
+    """
+    if y_bounds is not None:
+        lo, hi = y_bounds
+        if price > hi:
+            ax.annotate(
+                f"{label} ↑",
+                xy=(0.99, 0.98), xycoords="axes fraction",
+                color=color, fontsize=9, fontweight="bold",
+                ha="right", va="top",
+                bbox=dict(boxstyle="round,pad=0.25", fc=BG, ec=color, lw=0.8),
+                zorder=5,
+            )
+            return
+        if price < lo:
+            ax.annotate(
+                f"{label} ↓",
+                xy=(0.99, 0.02), xycoords="axes fraction",
+                color=color, fontsize=9, fontweight="bold",
+                ha="right", va="bottom",
+                bbox=dict(boxstyle="round,pad=0.25", fc=BG, ec=color, lw=0.8),
+                zorder=5,
+            )
+            return
     ax.axhline(price, color=color, linewidth=1.1, linestyle="--", zorder=4)
     ax.text(
         x_right, price, f" {label}", color=color, fontsize=9,
@@ -130,6 +197,14 @@ def render_setup_chart(
         )
     )
 
+    # Clamp the y-axis to the candle range (extended to bracket entry/SL,
+    # which sit close to price by construction) before drawing levels. A
+    # liquidity take-profit can be an H4 pool hundreds of points away; left
+    # to autoscale, its axhline would flatten the whole chart (Important
+    # finding 1). take_profit is deliberately excluded from the window.
+    ylim = _price_ylim(candles, (setup.entry, setup.stop_loss))
+    ax.set_ylim(*ylim)
+
     # Entry / SL / TP levels
     d = result.price_decimals
     for price, color, label in (
@@ -137,17 +212,7 @@ def render_setup_chart(
         (setup.stop_loss, "#f23645", f"SL {setup.stop_loss:.{d}f}"),
         (setup.take_profit, "#089981", f"TP {setup.take_profit:.{d}f}"),
     ):
-        ax.axhline(price, color=color, linewidth=1.1, linestyle="--", zorder=4)
-        ax.text(
-            x_right,
-            price,
-            f" {label}",
-            color=color,
-            fontsize=9,
-            fontweight="bold",
-            va="center",
-            ha="left",
-        )
+        _level(ax, price, color, label, x_right, y_bounds=ylim)
 
     # Sparse Prague time labels on the x axis
     ticks = list(range(0, len(candles), max(1, len(candles) // 8)))
@@ -195,13 +260,26 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
     x_right = len(candles) + 6
 
     for s in plan.scenarios:
+        zone_color = DEMAND_COLOR if s.direction == Direction.LONG else SUPPLY_COLOR
+        ax.axhspan(s.zone_bottom, s.zone_top, color=zone_color, alpha=0.12, zorder=1)
+
+    # Clamp the y-axis to the H1 candle range (extended to bracket every
+    # scenario's entry/SL) before drawing levels — same fix as the alert
+    # chart (Important finding 1): a liquidity take-profit projected off H4
+    # can sit far outside the visible candles.
+    in_range: List[Optional[float]] = []
+    for s in plan.scenarios:
+        in_range.extend([s.entry, s.stop_loss])
+    ylim = _price_ylim(candles, in_range)
+    ax.set_ylim(*ylim)
+
+    for s in plan.scenarios:
         is_long = s.direction == Direction.LONG
         zone_color = DEMAND_COLOR if is_long else SUPPLY_COLOR
-        ax.axhspan(s.zone_bottom, s.zone_top, color=zone_color, alpha=0.12, zorder=1)
         tag = "L" if is_long else "S"
-        _level(ax, s.entry, zone_color, f"{tag} Entry {s.entry:.{d}f}", x_right)
-        _level(ax, s.stop_loss, SUPPLY_COLOR, f"{tag} SL {s.stop_loss:.{d}f}", x_right)
-        _level(ax, s.take_profit, TP_COLOR, f"{tag} TP {s.take_profit:.{d}f}", x_right)
+        _level(ax, s.entry, zone_color, f"{tag} Entry {s.entry:.{d}f}", x_right, ylim)
+        _level(ax, s.stop_loss, SUPPLY_COLOR, f"{tag} SL {s.stop_loss:.{d}f}", x_right, ylim)
+        _level(ax, s.take_profit, TP_COLOR, f"{tag} TP {s.take_profit:.{d}f}", x_right, ylim)
 
     _style_axes(ax, candles, x_right, "%d.%m")
     ax.set_title(

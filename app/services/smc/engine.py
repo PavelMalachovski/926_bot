@@ -253,8 +253,10 @@ class TripleSyncEngine:
         # TP sits one buffer short of the level so the trade is out before
         # the sweep itself. Liquidity uses the raw per-instrument minimum FVG
         # as its tolerance — it is a property of the chart, not of the
-        # profile the owner is trading.
-        tolerance = self.min_fvg_size
+        # profile the owner is trading, so this reads Instrument.min_fvg
+        # directly rather than self.min_fvg_size (which a caller could
+        # override independently of the instrument).
+        tolerance = self.instrument.min_fvg
         levels = (
             find_liquidity(m5, "M5", tolerance)
             + find_liquidity(h1, "H1", tolerance)

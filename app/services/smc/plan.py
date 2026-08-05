@@ -4,7 +4,9 @@ H4/H1 structure before the session, for the 07:45 morning briefing.
 For a trending pair the plan is the with-trend scenario. For a flat pair both
 directions are projected as speculative brackets ("if it breaks up → long, if
 down → short"). No M5 trigger exists yet, so the stop is preliminary — beyond
-the H1 zone extremum (per Шаблон B), not the tighter live M5-pivot stop.
+the H1 zone extremum (per Шаблон B). The live alert re-anchors it to the
+swept extreme of the zone excursion (Rule 6), which is not necessarily
+tighter than this preliminary stop.
 """
 
 from dataclasses import dataclass, field

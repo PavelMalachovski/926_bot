@@ -40,6 +40,17 @@ def test_classify_result_labels_low_rr():
     assert classify_result(result) == "rr_low"
 
 
+def test_classify_result_labels_reward_inside_sl_buffer_as_no_liquidity():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+    )
+    result.reasons.append(
+        "Nearest liquidity sits inside the SL buffer — no positive "
+        "reward to aim at"
+    )
+    assert classify_result(result) == "no_liquidity"
+
+
 def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():
     # H4/H1 are shifted so their history is fully closed at/before
     # SESSION_BASE (the m5 fixture's start) — a realistic point-in-time

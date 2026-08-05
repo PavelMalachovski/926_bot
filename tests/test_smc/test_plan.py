@@ -123,6 +123,20 @@ class TestFormatAndChart:
         text = format_plan(plan)
         assert "ℹ️" in text
 
+    def test_footnote_reflects_the_liquidity_stop_reanchor(self):
+        # The old footnote claimed the live alert "tightens" the SL to an M5
+        # pivot; Rule 6 now anchors to the swept extreme, which can be wider
+        # than the plan's preliminary zone-bottom stop. The footnote must not
+        # promise a tighten, and must not still mention the M5 pivot.
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        text = format_plan(plan)
+        assert "re-anchors it to the swept extreme" in text
+        assert "may be wider" in text
+        assert "M5 pivot" not in text
+        assert "tighten" not in text.lower()
+        assert "Order lives only within its session." in text
+
     def test_render_plan_chart_png(self):
         h4, h1, m5 = _uptrend_data(3160.0)
         plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)

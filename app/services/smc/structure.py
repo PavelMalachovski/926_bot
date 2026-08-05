@@ -195,7 +195,7 @@ def sweep_extreme(
     a shallower pivot forms after the sweep: the pivot stop would sit inside
     the wick that took the stops, and get taken with them.
     """
-    window = candles[touch_index:choch_index + 1] or [candles[choch_index]]
+    window = candles[touch_index:choch_index + 1]
     if direction == Direction.LONG:
         return min(c.low for c in window)
     return max(c.high for c in window)

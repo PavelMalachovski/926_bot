@@ -45,9 +45,10 @@ app/services/smc/
 │                         evaluate() is fully unit-testable on synthetic candles
 ├── structure.py          fractal-5 pivots (2-closed-candle confirmation),
 │                         H4 trend HH+HL/LH+LL with fakeout-reclaim, H1 zones
-│                         (untested only), M5 CHoCH, TP target zones
+│                         (untested only), M5 CHoCH, sweep_extreme (Rule 6
+│                         stop reference)
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools; Rule 7
-│                         targets and the sweep-extreme stop reference
+│                         take-profit targets
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
 ├── sessions.py           trading hours 08:00-20:00 Prague, two blocks split

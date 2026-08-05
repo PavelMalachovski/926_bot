@@ -191,8 +191,9 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
 
     lines.append("")
     lines.append(
-        "⚠️ Preliminary plan: SL is beyond the H1 zone; the live 🚨 alert will "
-        "tighten it to the M5 pivot. Order lives only within its session."
+        "⚠️ SL is preliminary (beyond the H1 zone); the live 🚨 alert "
+        "re-anchors it to the swept extreme and it may be wider. Order "
+        "lives only within its session."
     )
     return "\n".join(lines)
 
