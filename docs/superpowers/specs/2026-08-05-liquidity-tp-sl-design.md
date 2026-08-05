@@ -45,11 +45,15 @@ class LiquidityLevel:
 
 1. Swings come from the existing `structure.find_pivots` (fractal-5, two
    closed confirmation candles). No new swing logic is written.
-2. **Sweep test is wick-based, not body-based.** A pivot high is swept when
-   any later candle prints `high > pivot.price`; a pivot low is swept when
-   any later candle prints `low < pivot.price`. This deliberately differs
-   from zone invalidation (which requires a body close) — liquidity is taken
-   by a wick.
+2. **Sweep test is wick-based, not body-based, and carries the same
+   tolerance as clustering.** A pivot high is swept when any later candle
+   prints `high > pivot.price + tolerance`; a pivot low is swept when any
+   later candle prints `low < pivot.price - tolerance`. Two reasons:
+   liquidity is taken by a wick, not a body close (so this deliberately
+   differs from zone invalidation); and a bare `>` would make EQH/EQL
+   impossible to detect — a second high 20 cents above the first would
+   "sweep" it and leave a lone level instead of a pool. A poke smaller than
+   the instrument's minimum FVG has not taken the pool.
 3. **EQH/EQL clustering.** Unswept pivots of the same kind whose prices sit
    within `tolerance` of each other form one cluster. `tolerance` is the raw
    `Instrument.min_fvg` (ETH $2, forex 5 pips) — no new per-instrument
