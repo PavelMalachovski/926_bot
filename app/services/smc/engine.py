@@ -49,7 +49,7 @@ class TripleSyncEngine:
         min_fvg_size: Optional[float] = None,
         sl_buffer: Optional[float] = None,
         min_rr: float = 1.0,
-        max_entry_gap_r: float = 0.5,
+        max_entry_gap_r: float = 0.75,
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,

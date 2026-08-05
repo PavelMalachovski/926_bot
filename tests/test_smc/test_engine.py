@@ -356,10 +356,14 @@ class TestEntryStalenessGate:
         assert out.setup is None
         assert "1.2R" in out.reasons[0]
 
-    def test_shipped_default_is_0_5r(self):
+    def test_shipped_default_is_0_75r(self):
         # Pins the production default (config.py's SMCSettings and the
-        # engine constructor both ship 0.5) against a future edit silently
+        # engine constructor both ship 0.75) against a future edit silently
         # moving it — every other test in this class passes an explicit
         # value, so nothing else would catch that.
-        assert TripleSyncEngine().max_entry_gap_r == 0.5
-        assert SMCSettings().max_entry_gap_r == 0.5
+        # 0.75 was picked by the 59-day ETHUSD threshold sweep
+        # (.superpowers/sdd/2026-08-05-liquidity-tp-sl/gate-sweep-report.md):
+        # it is the knee of the fill-rate/alert-count curve, and the
+        # provisional 0.5 produced zero conservative alerts in 59 days.
+        assert TripleSyncEngine().max_entry_gap_r == 0.75
+        assert SMCSettings().max_entry_gap_r == 0.75

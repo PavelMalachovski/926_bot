@@ -67,7 +67,7 @@ class SMCSettings(BaseSettings):
         "setups below it are skipped (owner decision 2026-08-05)",
     )
     max_entry_gap_r: float = Field(
-        default=0.5,
+        default=0.75,
         description="Skip a setup once price has run this many R past the "
         "entry — the limit would sit too far from market to fill "
         "(owner decision 2026-08-05). 0 = price may not have moved past the "

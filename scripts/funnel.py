@@ -85,7 +85,7 @@ def replay_funnel(
     m5: List[Candle],
     profile: StrategyProfile,
     min_rr: float = 1.0,
-    max_entry_gap_r: float = 0.5,
+    max_entry_gap_r: float = 0.75,
     warmup: int = 60,
 ) -> Dict[str, int]:
     """Replay evaluate() at each M5 close (after `warmup` candles).
@@ -103,7 +103,7 @@ def replay_funnel(
     distinct Prague trading days spanned by the replayed M5 candles, for
     turning distinct_setups into a setups-per-week rate).
 
-    `max_entry_gap_r` defaults to 0.5, matching `SMCSettings.max_entry_gap_r`
+    `max_entry_gap_r` defaults to 0.75, matching `SMCSettings.max_entry_gap_r`
     — this tool measures what the bot would actually alert on, so its
     default must track production, not disable the gate. Pass a different
     value (e.g. a large one) to measure a threshold the bot isn't shipping.
