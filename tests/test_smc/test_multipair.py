@@ -425,6 +425,134 @@ class TestCorrelationGuard:
         assert warnings == []
 
 
+class TestAlertSendIsolation:
+    """A failure sending one pair's alert (most plausibly `format_result`
+    raising) must not stop the rest of `run_cycle`'s `for key in ...` loop —
+    the same per-pair isolation `check_pair()` and `_track_journal()`'s own
+    loop already give every other per-pair operation there (coordinator
+    review, 2026-08-06: this used to propagate out of the loop and silently
+    drop every remaining pair's check for the cycle)."""
+
+    class _FakeNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, **kwargs):
+            self.sent.append(text)
+            return 42
+
+        async def pin(self, message_id):
+            pass
+
+    @staticmethod
+    def _approved(symbol):
+        from app.services.smc.models import (
+            AnalysisResult,
+            Direction,
+            FVG,
+            TradeSetup,
+            Verdict,
+        )
+
+        result = AnalysisResult(
+            symbol=symbol, verdict=Verdict.APPROVED_LIMIT,
+            checked_at=datetime.now(tz=timezone.utc),
+        )
+        result.session_name = "New York"
+        result.setup = TradeSetup(
+            direction=Direction.LONG, entry=1.0, stop_loss=0.9,
+            take_profit=1.2, rr=2.0,
+            fvg=FVG(0, 0.95, 1.0, True, result.checked_at),
+        )
+        return result
+
+    def _watcher(self, tmp_path):
+        from app.services.smc.db import Database
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        async def _no_chart(*args, **kwargs):
+            return None
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.state.pairs = ["ETHUSD", "USDJPY"]
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._FakeNotifier()
+        watcher._send_chart = _no_chart
+        watcher.news = None
+        watcher.last_results = {}
+        return watcher
+
+    @pytest.mark.asyncio
+    async def test_one_pairs_format_failure_does_not_stop_the_others(
+        self, monkeypatch, tmp_path
+    ):
+        watcher = self._watcher(tmp_path)
+        results = {"ETHUSD": self._approved("ETHUSD"), "USDJPY": self._approved("USDJPY")}
+
+        async def fake_check_pair(key):
+            return f"🚨 {key}: SETUP FOUND", results[key]
+
+        monkeypatch.setattr(watcher, "check_pair", fake_check_pair)
+
+        import smc_watcher as smc_watcher_mod
+
+        real_format_result = smc_watcher_mod.format_result
+
+        def raising_for_ethusd(result, in_plan=None):
+            if result.symbol == "ETHUSD":
+                raise ValueError("simulated formatting failure")
+            return real_format_result(result, in_plan=in_plan)
+
+        monkeypatch.setattr(smc_watcher_mod, "format_result", raising_for_ethusd)
+
+        summary = await watcher.run_cycle()  # must not raise
+
+        # ETHUSD's alert never reached the notifier ...
+        assert not any("ETHUSD" in text for text in watcher.notifier.sent)
+        # ... but USDJPY's still did, in the same cycle.
+        assert any("USDJPY" in text for text in watcher.notifier.sent)
+        # The cycle summary says so for both pairs, rather than silently
+        # dropping the failing one.
+        assert "ETHUSD: setup found but the alert failed to send" in summary
+        assert "USDJPY: SETUP FOUND" in summary
+
+    @pytest.mark.asyncio
+    async def test_the_failing_pair_does_not_skip_journal_tracking(
+        self, monkeypatch, tmp_path
+    ):
+        """Before the fix, an uncaught exception mid-loop would also skip
+        `_track_journal()` at the end of `run_cycle` for every pair, not
+        just the failing one — assert it still runs."""
+        watcher = self._watcher(tmp_path)
+        results = {"ETHUSD": self._approved("ETHUSD"), "USDJPY": self._approved("USDJPY")}
+
+        async def fake_check_pair(key):
+            return f"🚨 {key}: SETUP FOUND", results[key]
+
+        monkeypatch.setattr(watcher, "check_pair", fake_check_pair)
+
+        import smc_watcher as smc_watcher_mod
+
+        def always_raises(result, in_plan=None):
+            raise ValueError("simulated formatting failure")
+
+        monkeypatch.setattr(smc_watcher_mod, "format_result", always_raises)
+
+        track_calls = []
+
+        async def spy_track_journal():
+            track_calls.append(1)
+
+        monkeypatch.setattr(watcher, "_track_journal", spy_track_journal)
+
+        await watcher.run_cycle()  # must not raise even if every pair fails
+        assert track_calls == [1]
+
+
 class TestMorningDigestSkipsWeekends:
     """Forex Factory has no Saturday/Sunday releases — the 07:45 digest must
     stay silent then instead of sending an empty 'no red news' message."""

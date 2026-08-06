@@ -89,6 +89,25 @@ def classify_warnings(result: AnalysisResult) -> List[str]:
     return labels
 
 
+def in_session_count(counts: Dict[str, int]) -> int:
+    """Total M5 closes classified while in-session, for the `--legacy`
+    report's "in-session checks" line.
+
+    Every replayed close increments exactly one of `classify_result`'s
+    stage labels (or "warmup") — except `off_session`, which by definition
+    is not in session, so it is excluded. The `warn_*` counters are NOT one
+    of those per-close stages: `replay_funnel` increments them *alongside*
+    "approved" on the same close (spec sec 1/5, a warning does not replace
+    the approval), so summing them in here double-counts every warned close
+    and inflates the total — on a real replay, by as much as the approved
+    count itself. Excluded for the same reason `off_session` is.
+    """
+    return sum(
+        v for k, v in counts.items()
+        if k != "off_session" and not k.startswith("warn_")
+    )
+
+
 def session_day_span(m5: List[Candle]) -> int:
     """Count distinct Prague calendar days among the in-session M5 candles."""
     days = {
@@ -260,7 +279,7 @@ async def _run(pairs: List[str], days: int, factors: List[float], legacy: bool) 
         if legacy:
             for profile in PROFILES.values():
                 counts = replay_funnel(instrument, h4, h1, m5, profile)
-                in_session = sum(v for k, v in counts.items() if k != "off_session")
+                in_session = in_session_count(counts)
                 print(f"  {profile.label}: {counts}")
                 print(
                     f"    in-session checks: {in_session}, "

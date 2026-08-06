@@ -388,8 +388,23 @@ class Watcher:
                     )
                     continue
                 approved.append(result)
-                await self._send_alert(key, result, fingerprint)
-                heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
+                try:
+                    await self._send_alert(key, result, fingerprint)
+                    heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
+                except Exception as e:
+                    # Isolate this pair's failure the same way check_pair()
+                    # and _track_journal()'s per-pair loop already isolate
+                    # theirs: an uncaught exception here (most likely from
+                    # format_result) would otherwise escape this `for key`
+                    # loop and silently drop every remaining pair's check
+                    # this cycle, plus skip _track_journal() below for all
+                    # of them — not just the one pair that actually failed.
+                    logger.error(
+                        "Alert send failed", pair=key, error=str(e), exc_info=True,
+                    )
+                    heartbeat_lines.append(
+                        f"⚠️ {key}: setup found but the alert failed to send"
+                    )
             else:
                 await self._maybe_zone_ping(key, result)
                 heartbeat_lines.append(line)
@@ -412,17 +427,16 @@ class Watcher:
     async def _send_alert(
         self, key: str, result: AnalysisResult, fingerprint: str
     ) -> None:
-        """Urgent alert: message with Took/Skipped buttons + setup chart."""
+        """Urgent alert: message with Took/Skipped buttons + setup chart.
+
+        A failure anywhere in here (most plausibly `format_result`) is
+        caught by the caller, not here — see the `try/except` around this
+        call in `run_cycle`. That isolates one pair's failure the same way
+        `check_pair()` and `_track_journal()`'s own per-pair loop already
+        isolate theirs, instead of letting it silently drop every remaining
+        pair in this cycle's `for key in ...` loop.
+        """
         signal = self.journal.record(result)
-        # Deliberately NOT wrapped in try/except, unlike _send_chart below:
-        # the chart is decoration and a failed render still lets the text
-        # alert through, but format_result IS the alert — there is nothing
-        # left to send if it raises, so swallowing the error here would
-        # drop the announcement silently instead of loudly (scheduler_loop
-        # already catches any exception at the top of the cycle and logs
-        # it, so a raise here cannot crash the watcher, only this cycle).
-        # notifier.py makes the same call for its own KeyError case: let a
-        # broken result surface rather than print quietly wrong levels.
         text = format_result(result, in_plan=self._plan_provenance(key, result))
         keyboard = {
             "inline_keyboard": [
