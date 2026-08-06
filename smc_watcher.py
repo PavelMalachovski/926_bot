@@ -539,9 +539,16 @@ class Watcher:
         d = instrument.price_decimals
         if res.verdict in APPROVED:
             s = res.setup
+            # take_profit is optional (detector mode): no unswept liquidity
+            # ahead means there is no objective and no RR to quote.
+            tail = (
+                f", TP {s.take_profit:.{d}f} (RR 1:{s.rr:.1f})"
+                if s.take_profit is not None
+                else ", no TP (no structural objective)"
+            )
             return (
                 f"🚨 LIVE SETUP NOW — {s.direction.value} entry {s.entry:.{d}f}, "
-                f"SL {s.stop_loss:.{d}f}, TP {s.take_profit:.{d}f} (RR 1:{s.rr:.1f})"
+                f"SL {s.stop_loss:.{d}f}{tail}"
             )
         prefix = "" if res.session_name else "(off session) "
         icon = "👀" if res.verdict == Verdict.WATCH else "⛔"

@@ -257,12 +257,15 @@ class TestLiquidityTarget:
         # moved with the setting.
         assert self._run(min_rr=1.0).setup.rr == self._run(min_rr=2.0).setup.rr
 
-    def test_setup_below_the_threshold_is_skipped(self):
+    def test_setup_below_the_threshold_is_announced_with_a_warning(self):
+        # Detector mode (2026-08-06): min_rr no longer suppresses. The RR is
+        # still measured (1:4.8 against a 1:8 threshold) and now travels as a
+        # warning instead of killing the announcement.
         result = self._run(min_rr=8.0)
-        assert result.verdict == Verdict.SKIP
-        assert result.setup is None
-        assert "1:4.8" in result.reasons[0]
-        assert "1:8" in result.reasons[0]
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+        assert result.setup.rr == 4.76
+        assert "1:4.8" in " ".join(result.warnings)
 
     def test_short_tp_is_on_the_correct_side_of_entry(self):
         # SHORT mirror of m5_long_trigger_deep_sweep (see helpers.py and
@@ -286,24 +289,30 @@ class TestLiquidityTarget:
         assert setup.target.is_high is False
         assert setup.rr == 4.76
 
-    def test_skip_when_target_is_inside_the_sl_buffer(self):
+    def test_target_inside_the_sl_buffer_yields_no_take_profit(self):
         # An inflated sl_buffer pulls the target within one buffer of entry:
         # TP = 3221.0 - 100 = 3121.0, BELOW entry 3140.5 for a LONG — a
         # negative reward that abs() alone would report as a positive RR.
-        # min_rr=0.1 proves the skip does not depend on the threshold.
+        # Detector mode announces the setup anyway, but refuses to invent an
+        # objective: no TP, no target, rr 0.0. min_rr=0.1 proves the cleared
+        # take-profit does not depend on the threshold.
         h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
         result = _engine(sl_buffer=100.0, min_rr=0.1).evaluate(
             h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
         )
-        assert result.verdict == Verdict.SKIP
-        assert result.setup is None
-        assert "no positive reward" in result.reasons[0]
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+        assert result.setup.take_profit is None
+        assert result.setup.target is None
+        assert result.setup.rr == 0.0
+        assert "inside the stop buffer" in " ".join(result.warnings)
 
 
 class TestEntryStalenessGate:
-    """Rule 5.1 (2026-08-05): a limit far below market never fills, so it is
-    not worth alerting on."""
+    """Rule 5.1 (2026-08-05): a limit far below market rarely fills. Since
+    2026-08-06 (detector mode) the measurement is a warning, not a skip —
+    the owner sets his own entry — but the arithmetic is unchanged."""
 
     def _long(self, price, **kwargs):
         result = _fresh_result()
@@ -315,29 +324,32 @@ class TestEntryStalenessGate:
             result=result,
         )
 
-    def test_long_skipped_when_price_has_run_past_the_entry(self):
+    def test_long_warned_when_price_has_run_past_the_entry(self):
         # entry 3140.5, risk 16.5 -> at 0.5R the limit may sit at most
-        # 8.25 above market; 3160.0 is 19.5 away (1.18R).
+        # 8.25 above market; 3160.0 is 19.5 away (1.18R). Announced, labelled.
         result = self._long(3160.0, max_entry_gap_r=0.5)
-        assert result.verdict == Verdict.SKIP
-        assert result.setup is None
-        assert "1.2R" in result.reasons[0]
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+        assert "1.2R" in " ".join(result.warnings)
 
-    def test_long_approved_when_price_is_still_near_the_entry(self):
+    def test_long_approved_without_a_warning_when_price_is_near_the_entry(self):
         result = self._long(3145.0, max_entry_gap_r=0.5)
         assert result.verdict == Verdict.APPROVED_LIMIT
         assert result.setup is not None
+        assert result.warnings == []
 
     def test_gate_is_silent_for_a_market_entry(self):
         # price inside the FVG (3138.0-3140.5) is at or below the entry, so
-        # the gap is never positive and the tightest gate cannot fire.
+        # the gap is never positive and the tightest threshold cannot fire.
         result = self._long(3139.0, max_entry_gap_r=0.0)
         assert result.verdict == Verdict.APPROVED_MARKET
+        assert result.warnings == []
 
     def test_threshold_is_configurable(self):
-        assert self._long(3160.0, max_entry_gap_r=2.0).verdict == (
-            Verdict.APPROVED_LIMIT
-        )
+        # A wide enough threshold removes the warning entirely.
+        result = self._long(3160.0, max_entry_gap_r=2.0)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.warnings == []
 
     def test_short_gate_measures_the_other_direction(self):
         # Mirror of the long case on the K=6270 reflected fixture: entry
@@ -352,9 +364,9 @@ class TestEntryStalenessGate:
             m5=m5_short_trigger_deep_sweep(),
             result=result,
         )
-        assert out.verdict == Verdict.SKIP
-        assert out.setup is None
-        assert "1.2R" in out.reasons[0]
+        assert out.verdict == Verdict.APPROVED_LIMIT
+        assert out.setup is not None
+        assert "1.2R" in " ".join(out.warnings)
 
     def test_shipped_default_is_0_75r(self):
         # Pins the production default (config.py's SMCSettings and the
@@ -367,3 +379,65 @@ class TestEntryStalenessGate:
         # provisional 0.5 produced zero conservative alerts in 59 days.
         assert TripleSyncEngine().max_entry_gap_r == 0.75
         assert SMCSettings().max_entry_gap_r == 0.75
+
+
+class TestGatesAreNowLabels:
+    """Detector mode (2026-08-06): a completed setup is always announced; the
+    thresholds annotate rather than suppress."""
+
+    def _run(self, price=None, **kwargs):
+        result = _fresh_result()
+        if price is not None:
+            result.price = price
+        return _engine(**kwargs).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=result,
+        )
+
+    def test_low_rr_is_announced_with_a_warning(self):
+        result = self._run(min_rr=8.0)
+        assert result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
+        assert result.setup is not None
+        assert any("RR" in w for w in result.warnings)
+
+    def test_stale_entry_is_announced_with_a_warning(self):
+        result = self._run(price=3160.0, max_entry_gap_r=0.5)
+        assert result.setup is not None
+        assert any("past the imbalance" in w for w in result.warnings)
+        assert "1.2R" in " ".join(result.warnings)
+
+    def test_clean_setup_has_no_warnings(self):
+        result = self._run(min_rr=1.0, max_entry_gap_r=99.0)
+        assert result.setup is not None
+        assert result.warnings == []
+
+    def test_setup_carries_the_order_block_and_both_ladders(self):
+        setup = self._run().setup
+        assert setup.order_block is not None
+        assert setup.order_block.top < setup.entry, "OB is a deeper long entry"
+        assert 1 <= len(setup.ladder) <= 5
+        assert setup.ladder[0].price == setup.target.price, \
+            "the ladder starts at the nearest pool"
+
+    def test_no_liquidity_ahead_is_announced_without_a_take_profit(self, monkeypatch):
+        import app.services.smc.engine as E
+        monkeypatch.setattr(E, "nearest_liquidity", lambda *a, **k: None)
+        monkeypatch.setattr(E, "liquidity_ladder", lambda *a, **k: [])
+        result = self._run()
+        assert result.setup is not None
+        assert result.setup.take_profit is None
+        assert result.setup.target is None
+        assert any("no unswept liquidity" in w.lower() for w in result.warnings)
+
+    def test_target_inside_the_stop_buffer_clears_the_take_profit(self):
+        # An inflated sl_buffer pulls the target within one buffer of entry:
+        # TP = 3221.0 - 100 = 3121.0, BELOW entry 3140.5 for a LONG — a
+        # negative reward that abs() alone would report as a positive RR.
+        # The setup is still announced, but with no objective at all.
+        result = self._run(sl_buffer=100.0, min_rr=0.1)
+        assert result.setup is not None
+        assert result.setup.take_profit is None
+        assert result.setup.target is None
+        assert result.setup.rr == 0.0
+        assert any("stop buffer" in w for w in result.warnings)

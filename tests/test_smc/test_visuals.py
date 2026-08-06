@@ -55,6 +55,68 @@ class TestDbMigration:
         columns = {r["name"] for r in db.conn.execute("PRAGMA table_info(signals)")}
         assert {"taken", "message_id", "alert_text"} <= columns
 
+    def test_old_not_null_take_profit_is_relaxed_and_null_persists(self, tmp_path):
+        """Detector mode: a setup with no unswept liquidity ahead has no
+        take-profit. Databases created before 2026-08-06 declared the column
+        NOT NULL, which SQLite cannot drop in place — the migration must
+        rebuild the table and keep every existing row."""
+        path = str(tmp_path / "old_notnull.db")
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """CREATE TABLE signals (
+                id TEXT PRIMARY KEY, pair TEXT NOT NULL, direction TEXT NOT NULL,
+                entry REAL NOT NULL, stop_loss REAL NOT NULL,
+                take_profit REAL NOT NULL, rr REAL NOT NULL, session TEXT,
+                created_at TEXT NOT NULL, expires_at TEXT, status TEXT NOT NULL,
+                filled_at TEXT, resolved_at TEXT, checked_until TEXT)"""
+        )
+        conn.execute(
+            "INSERT INTO signals (id, pair, direction, entry, stop_loss, "
+            "take_profit, rr, created_at, status) VALUES "
+            "('old1', 'ETHUSD', 'long', 100.0, 95.0, 110.0, 2.0, "
+            "'2026-07-16T14:00:00+00:00', 'pending')"
+        )
+        conn.commit()
+        conn.close()
+
+        db = Database(path)
+        db.signal_upsert(
+            {
+                "id": "new1",
+                "pair": "ETHUSD",
+                "direction": "long",
+                "entry": 100.0,
+                "stop_loss": 95.0,
+                "take_profit": None,
+                "rr": 0.0,
+                "created_at": "2026-07-16T15:00:00+00:00",
+                "status": "pending",
+            }
+        )
+        rows = {s["id"]: s for s in db.signals_all()}
+        assert rows["old1"]["take_profit"] == 110.0  # untouched by the rebuild
+        assert rows["new1"]["take_profit"] is None
+        # the id primary key survived the rebuild
+        assert [r["pk"] for r in db.conn.execute("PRAGMA table_info(signals)")
+                if r["name"] == "id"] == [1]
+
+    def test_fresh_db_accepts_a_null_take_profit(self, tmp_path):
+        db = Database(str(tmp_path / "fresh.db"))
+        db.signal_upsert(
+            {
+                "id": "s1",
+                "pair": "ETHUSD",
+                "direction": "long",
+                "entry": 100.0,
+                "stop_loss": 95.0,
+                "take_profit": None,
+                "rr": 0.0,
+                "created_at": "2026-07-16T14:00:00+00:00",
+                "status": "pending",
+            }
+        )
+        assert db.signals_all()[0]["take_profit"] is None
+
 
 class TestTradeMarksAndDiscipline:
     @staticmethod
@@ -132,12 +194,62 @@ class TestLiveCardEvents:
         assert [e for _, e in events] == ["filled", "tp"]
         assert signal["status"] == "tp"
 
+    def test_signal_without_a_take_profit_still_fills_and_stops(self, tmp_path):
+        """Detector mode: a setup with no unswept liquidity ahead is recorded
+        and tracked; only "TP hit" is impossible for it."""
+        journal = SignalJournal(Database(str(tmp_path / "j.db")))
+        result = _approved_result()
+        result.setup.take_profit = None
+        result.setup.rr = 0.0
+        signal = journal.record(result)
+        assert signal["take_profit"] is None
+        start = datetime(2026, 7, 6, 15, 45, tzinfo=timezone.utc)
+        candles = [
+            candle(3142, 3143, 3139.0, 3141, start=start, index=0),  # fills 3139.5
+            candle(3141, 3225, 3120, 3125, start=start, index=1),  # SL 3128.0
+        ]
+        events = journal.update_pair("ETHUSD", candles)
+        assert [e for _, e in events] == ["filled", "sl"]
+        assert signal["status"] == "sl"
+
+    def test_signal_without_a_take_profit_never_resolves_as_tp(self, tmp_path):
+        journal = SignalJournal(Database(str(tmp_path / "j.db")))
+        result = _approved_result()
+        result.setup.take_profit = None
+        signal = journal.record(result)
+        start = datetime(2026, 7, 6, 15, 45, tzinfo=timezone.utc)
+        candles = [
+            candle(3142, 3143, 3139.0, 3141, start=start, index=0),  # fills
+            candle(3141, 3500, 3140, 3480, start=start, index=1),  # miles up
+        ]
+        events = journal.update_pair("ETHUSD", candles)
+        # It fills, but a 350-point rally cannot resolve a signal that has no
+        # objective. (The fixture's created_at is older than OPEN_TIMEOUT, so
+        # the open position is then swept up by the 5-day safety valve — what
+        # matters here is that "tp" is never reached.)
+        assert "tp" not in [e for _, e in events]
+        assert signal["status"] != "tp"
+        assert signal["filled_at"] is not None
+
 
 class TestChart:
     def test_renders_png(self):
         from app.services.smc.chart import render_setup_chart
 
         png = render_setup_chart(_approved_result())
+        assert png is not None and png[:4] == b"\x89PNG"
+
+    def test_renders_png_without_a_take_profit(self):
+        """Detector mode: no unswept liquidity ahead -> take_profit is None.
+        The TP line and its edge annotation are skipped, the chart still
+        renders (rendering must never block an alert)."""
+        from app.services.smc.chart import render_setup_chart
+
+        result = _approved_result()
+        result.setup.take_profit = None
+        result.setup.target = None
+        result.setup.rr = 0.0
+        png = render_setup_chart(result)
         assert png is not None and png[:4] == b"\x89PNG"
 
     def test_returns_none_without_candles(self):

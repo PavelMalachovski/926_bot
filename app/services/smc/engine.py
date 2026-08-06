@@ -8,7 +8,11 @@ import structlog
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.fvg import best_rejected_fvg, select_valid_fvg
 from app.services.smc.instruments import Instrument, get_instrument
-from app.services.smc.liquidity import find_liquidity, nearest_liquidity
+from app.services.smc.liquidity import (
+    find_liquidity,
+    liquidity_ladder,
+    nearest_liquidity,
+)
 from app.services.smc.models import (
     AnalysisResult,
     Candle,
@@ -23,8 +27,10 @@ from app.services.smc.structure import (
     detect_trend,
     find_choch,
     find_h1_zone,
+    find_order_block,
     h4_choch_direction,
     sweep_extreme,
+    zone_ladder,
     zone_touch_span,
 )
 
@@ -250,34 +256,29 @@ class TripleSyncEngine:
             result.reasons.append("Invalid trade geometry: SL at the entry level")
             return result
 
-        # Rule 5.1 (owner decision 2026-08-05) — entry staleness. The Rule 7
-        # gate below can only pass once the near liquidity has been swept,
-        # which is to say once price has already left the entry; the entry
-        # itself stays anchored to an FVG formed hours earlier. Replaying the
-        # rule without this check, 80-90% of the limit orders never filled.
-        # A negative gap means price has not run past the entry (for a long
-        # that includes sitting inside the FVG), so market entries are never
-        # affected.
+        # Rule 5.1 (owner decision 2026-08-05, demoted to a label 2026-08-06)
+        # — entry staleness. Replaying without this check, 80-90% of limit
+        # orders never filled; but the owner sets his own entry, so this warns
+        # instead of suppressing. A negative gap means price has not run past
+        # the entry, so market entries never trigger it.
         price = result.price or m5[-1].close
         gap = price - entry if direction == Direction.LONG else entry - price
         if gap > self.max_entry_gap_r * risk:
-            result.verdict = Verdict.SKIP
-            result.reasons.append(
-                f"Price has run {gap / risk:.1f}R past the entry "
-                f"{entry:.{self.instrument.price_decimals}f} "
-                f"(max {self.max_entry_gap_r:g}R) — the limit would sit too "
-                "far from market"
+            result.warnings.append(
+                f"price has run {gap / risk:.1f}R past the imbalance"
             )
-            return result
 
-        # Rule 7 (owner decision 2026-08-05) — take-profit at the nearest
-        # unswept liquidity: the pool the move is actually reaching for. The
-        # TP sits one buffer short of the level so the trade is out before
-        # the sweep itself. Liquidity uses the raw per-instrument minimum FVG
-        # as its tolerance — it is a property of the chart, not of the
-        # profile the owner is trading, so this reads Instrument.min_fvg
-        # directly rather than self.min_fvg_size (which a caller could
-        # override independently of the instrument).
+        # Rule 7 (owner decision 2026-08-05, demoted to a label 2026-08-06) —
+        # the nearest unswept liquidity is the pool the move is reaching for,
+        # one buffer short of the level so the trade is out before the sweep
+        # itself. Detector mode: the arithmetic still runs and still labels a
+        # thin objective, but the owner computes RR himself and picks his own
+        # target off the ladder, so nothing here suppresses the announcement.
+        # Liquidity uses the raw per-instrument minimum FVG as its tolerance —
+        # it is a property of the chart, not of the profile the owner is
+        # trading, so this reads Instrument.min_fvg directly rather than
+        # self.min_fvg_size (which a caller could override independently of
+        # the instrument).
         tolerance = self.instrument.min_fvg
         levels = (
             find_liquidity(m5, "M5", tolerance)
@@ -285,47 +286,43 @@ class TripleSyncEngine:
             + find_liquidity(h4, "H4", tolerance)
         )
         target = nearest_liquidity(levels, direction, entry)
+        ladder = liquidity_ladder(levels, direction, entry)
+        take_profit = None
+        rr = 0.0
         if target is None:
-            result.verdict = Verdict.SKIP
-            result.reasons.append(
-                "No unswept liquidity beyond the entry — nothing to aim at"
-            )
-            return result
-
-        if direction == Direction.LONG:
-            take_profit = target.price - self.sl_buffer
-            reward = take_profit - entry
+            result.warnings.append("no unswept liquidity ahead")
         else:
-            take_profit = target.price + self.sl_buffer
-            reward = entry - take_profit
-        # A target inside one sl_buffer of the entry would otherwise put the
-        # TP on the wrong side of the entry while abs() still reports a
-        # positive RR — unreachable at the default min_rr (risk always
-        # exceeds the buffer) but SMC_MIN_RR is an owner-tunable env float,
-        # so this must not depend on the threshold.
-        if reward <= 0:
-            result.verdict = Verdict.SKIP
-            result.reasons.append(
-                "Nearest liquidity sits inside the SL buffer — no positive "
-                "reward to aim at"
-            )
-            return result
-        rr = reward / risk
-        if rr < self.min_rr:
-            result.verdict = Verdict.SKIP
-            result.reasons.append(
-                f"RR 1:{rr:.1f} < minimum 1:{self.min_rr:g} to the nearest "
-                f"liquidity ({target.timeframe} "
-                f"{'swing high' if target.is_high else 'swing low'} "
-                f"{target.price:.{self.instrument.price_decimals}f})"
-            )
-            return result
+            if direction == Direction.LONG:
+                take_profit = target.price - self.sl_buffer
+                reward = take_profit - entry
+            else:
+                take_profit = target.price + self.sl_buffer
+                reward = entry - take_profit
+            if reward <= 0:
+                # The pool sits inside the buffer: the objective would land on
+                # the wrong side of the entry. Report it, do not invent a TP.
+                take_profit, target = None, None
+                result.warnings.append(
+                    "nearest liquidity sits inside the stop buffer"
+                )
+            else:
+                rr = reward / risk
+                if rr < self.min_rr:
+                    result.warnings.append(
+                        f"RR to the nearest liquidity is 1:{rr:.1f}"
+                    )
+
+        # The deeper M5 limit option (owner request 2026-08-06) and the
+        # untested zones ahead — shown, never preferred: which entry to take
+        # is the owner's call.
+        order_block = find_order_block(m5, direction, fvg.index - 1)
+        zones_ahead = zone_ladder(h1, direction, entry)
 
         # Rule 8 — position size hint
         lot_hint = self._lot_hint(entry, risk)
 
         # Market entry allowed only if price is inside the FVG right now
-        # (`price` was already bound by the Rule 5.1 gate above)
+        # (`price` was already bound by the Rule 5.1 block above)
         entry_is_market = fvg.bottom <= price <= fvg.top
 
         d = self.instrument.price_decimals
@@ -333,12 +330,15 @@ class TripleSyncEngine:
             direction=direction,
             entry=round(entry, d),
             stop_loss=round(stop_loss, d),
-            take_profit=round(take_profit, d),
+            take_profit=round(take_profit, d) if take_profit is not None else None,
             rr=round(rr, 2),
             fvg=fvg,
             entry_is_market=entry_is_market,
             lot_hint=lot_hint,
             target=target,
+            order_block=order_block,
+            ladder=ladder,
+            zones_ahead=zones_ahead,
         )
         result.verdict = (
             Verdict.APPROVED_MARKET if entry_is_market else Verdict.APPROVED_LIMIT

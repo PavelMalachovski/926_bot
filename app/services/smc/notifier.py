@@ -103,13 +103,21 @@ def format_result(result: AnalysisResult) -> str:
             lines.append(f"   Alternative: {side} Limit {setup.entry:.{d}f}")
         else:
             lines.append(f"✅ APPROVED (Limit) — {side} Limit: {setup.entry:.{d}f}")
-        lines.append(
-            f"🛑 SL: {setup.stop_loss:.{d}f} | 🎯 TP: {setup.take_profit:.{d}f}"
+        # take_profit is optional (detector mode): no unswept liquidity ahead
+        # means no objective. Task 4 rewrites this layout; this only keeps the
+        # message from crashing on the None.
+        tp_text = (
+            f"{setup.take_profit:.{d}f}" if setup.take_profit is not None
+            else "none (no structural objective)"
         )
-        rr_line = f"📐 RR: 1:{setup.rr:.1f}"
+        lines.append(f"🛑 SL: {setup.stop_loss:.{d}f} | 🎯 TP: {tp_text}")
         if setup.target:
-            rr_line += "  →  " + escape_html(format_target(setup.target, d))
-        lines.append(rr_line)
+            lines.append(
+                f"📐 RR: 1:{setup.rr:.1f}  →  "
+                + escape_html(format_target(setup.target, d))
+            )
+        elif setup.take_profit is not None:
+            lines.append(f"📐 RR: 1:{setup.rr:.1f}")
         if setup.lot_hint:
             lines.append(f"⚖️ Size: {setup.lot_hint}")
         else:

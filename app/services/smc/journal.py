@@ -60,7 +60,13 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
 
         if signal["status"] == "open":
             hit_sl = candle.low <= sl if is_long else candle.high >= sl
-            hit_tp = candle.high >= tp if is_long else candle.low <= tp
+            # Detector mode: a setup with no unswept liquidity ahead has no
+            # take-profit. It still fills and still stops out — "TP hit" is
+            # simply impossible for it, and no target is invented.
+            if tp is None:
+                hit_tp = False
+            else:
+                hit_tp = candle.high >= tp if is_long else candle.low <= tp
             if hit_sl:  # both in one candle -> conservative: count the stop
                 signal["status"] = "sl"
             elif hit_tp:

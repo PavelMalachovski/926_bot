@@ -100,17 +100,28 @@ class FVG:
 
 @dataclass
 class TradeSetup:
-    """A fully validated trade proposal."""
+    """A detected setup and the levels it implies.
+
+    `take_profit` is optional: a setup with no unswept liquidity ahead (or
+    whose nearest pool sits inside the stop buffer) is still a setup, it just
+    has no structural objective. `rr` stays 0.0 in that case — nothing
+    downstream may divide by it.
+    """
 
     direction: Direction
     entry: float
     stop_loss: float
-    take_profit: float
+    take_profit: Optional[float]
     rr: float
     fvg: FVG
     entry_is_market: bool = False
     lot_hint: Optional[str] = None
     target: Optional["LiquidityLevel"] = None
+    # Detector mode (2026-08-06): the deeper M5 limit option and the levels
+    # ahead, so the owner picks his own entry and objective.
+    order_block: Optional["Zone"] = None
+    ladder: List["LiquidityLevel"] = field(default_factory=list)
+    zones_ahead: List["Zone"] = field(default_factory=list)
 
 
 @dataclass
@@ -128,6 +139,9 @@ class AnalysisResult:
     funding_warning: Optional[str] = None
     reasons: List[str] = field(default_factory=list)
     watch_notes: List[str] = field(default_factory=list)
+    # Detector mode: thresholds annotate instead of suppressing. Each entry is
+    # a finished English sentence ready for the alert.
+    warnings: List[str] = field(default_factory=list)
     session_name: Optional[str] = None
     price_decimals: int = 2
     profile_key: str = "conservative"

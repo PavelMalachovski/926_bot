@@ -60,25 +60,18 @@ TRADE_COLUMNS = [
 ]
 
 
-class Database:
-    """Thin wrapper over sqlite3 with a signals table and a kv store."""
-
-    FALLBACK_PATH = ".smc_watcher.db"
-
-    def __init__(self, path: str):
-        self.path = path
-        self.conn = self._connect(path)
-        self.conn.row_factory = sqlite3.Row
-        with self.conn:
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS signals (
+# `take_profit` is nullable on purpose (detector mode, 2026-08-06): a setup
+# with no unswept liquidity ahead is announced and tracked, it simply has no
+# structural objective. Databases created before that date declared the column
+# NOT NULL — see _relax_take_profit_not_null.
+SIGNALS_TABLE_SQL = """
+                CREATE TABLE IF NOT EXISTS {name} (
                     id TEXT PRIMARY KEY,
                     pair TEXT NOT NULL,
                     direction TEXT NOT NULL,
                     entry REAL NOT NULL,
                     stop_loss REAL NOT NULL,
-                    take_profit REAL NOT NULL,
+                    take_profit REAL,
                     rr REAL NOT NULL,
                     session TEXT,
                     created_at TEXT NOT NULL,
@@ -92,8 +85,20 @@ class Database:
                     alert_text TEXT,
                     profile_key TEXT
                 )
-                """
-            )
+"""
+
+
+class Database:
+    """Thin wrapper over sqlite3 with a signals table and a kv store."""
+
+    FALLBACK_PATH = ".smc_watcher.db"
+
+    def __init__(self, path: str):
+        self.path = path
+        self.conn = self._connect(path)
+        self.conn.row_factory = sqlite3.Row
+        with self.conn:
+            self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals"))
             self.conn.execute(
                 "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)"
             )
@@ -144,6 +149,28 @@ class Database:
                     self.conn.execute(
                         f"ALTER TABLE signals ADD COLUMN {column} {sql_type}"
                     )
+            self._relax_take_profit_not_null()
+
+    def _relax_take_profit_not_null(self) -> None:
+        """Drop the legacy NOT NULL on signals.take_profit.
+
+        Detector mode records setups that have no unswept liquidity ahead, so
+        the take-profit may be NULL. SQLite cannot drop a column constraint in
+        place, so the table is rebuilt once (copy → drop → rename) with every
+        row preserved. Runs inside the caller's transaction.
+        """
+        info = list(self.conn.execute("PRAGMA table_info(signals)"))
+        if not any(r["name"] == "take_profit" and r["notnull"] for r in info):
+            return
+        columns = ", ".join(SIGNAL_COLUMNS)
+        self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals_migrated"))
+        self.conn.execute(
+            f"INSERT INTO signals_migrated ({columns}) "
+            f"SELECT {columns} FROM signals"
+        )
+        self.conn.execute("DROP TABLE signals")
+        self.conn.execute("ALTER TABLE signals_migrated RENAME TO signals")
+        logger.info("Migrated signals.take_profit to a nullable column")
 
     def _connect(self, path: str) -> sqlite3.Connection:
         """Open the database, creating parent dirs; fall back instead of dying.
