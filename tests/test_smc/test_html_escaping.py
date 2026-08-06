@@ -199,7 +199,81 @@ class TestDetectorAlert:
     def test_no_take_profit_renders_without_a_bogus_level(self, monkeypatch):
         text = format_result(_approved(no_liquidity=True, monkeypatch=monkeypatch))
         assert "no unswept liquidity ahead" in text
-        assert "🎯" not in text or "—" in text
+        assert "none ahead" in text
+        # The point of the check: nothing invents an objective to show.
+        assert "tracked objective" not in text
+
+    def test_reference_objective_names_the_liquidity_it_tracks(self):
+        """The journal tracks one definite objective; the alert says which,
+        under `ref` — it is the bot's reference, not the owner's order."""
+        result = _hand_built(
+            take_profit=3219.0,
+            rr=2.1,
+            target=LiquidityLevel(price=3221.0, is_high=True, timeframe="H1",
+                                  equal_count=3, timestamp=None),
+        )
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "ref · tracked objective 3219.00 (1:2.1)" in text
+        assert "H1 swing high 3221.00 (EQH x3)" in text
+
+    def test_rung_behind_the_entry_renders_a_dash_not_a_negative_rr(self):
+        """A pool inside the stop buffer: the engine clears the objective but
+        keeps the rung, and "1:-0.0" is not a number to read on a money line."""
+        result = _hand_built(
+            take_profit=None, rr=0.0,
+            ladder=[
+                LiquidityLevel(price=3126.0, is_high=True, timeframe="M5",
+                               equal_count=1, timestamp=None),
+                LiquidityLevel(price=3221.0, is_high=True, timeframe="H1",
+                               equal_count=1, timestamp=None),
+            ],
+        )
+        result.warnings.append("nearest liquidity sits inside the stop buffer")
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "1:-" not in text
+        rung = [ln for ln in text.split("\n") if "3126.00" in ln][0]
+        assert "—" in rung and "1:" not in rung
+        assert "1:1.3" in text  # the rung behind it still reads normally
+
+    def test_funding_reading_stays_visible_under_ref(self):
+        result = _hand_built(ladder=[])
+        result.funding_rate = 0.00012
+        assert "ref · funding 0.012%/8h" in format_result(result)
+
+        # An actionable reading is a warning, not a ref line — not both.
+        result.funding_warning = "Funding 0.120%/8h > 0.1% — longs at risk"
+        text = format_result(result)
+        assert "⚠️ Funding 0.120%/8h &gt; 0.1%" in text
+        assert "ref · funding" not in text
+
+    def test_swept_wick_is_reconstructed_from_the_instrument_buffer(self):
+        """Characterisation test for a known coupling: `TradeSetup` carries no
+        swept extreme, so the notifier rebuilds it as `stop + sl_buffer` taken
+        from the registry. Build the engine with a different buffer and the
+        rendered wick is the registry's answer, not the engine's — today no
+        caller overrides `sl_buffer=`, so this is exact in production. If a
+        real override ever ships, this test is where it announces itself."""
+        engine_buffer, instrument_buffer = 5.0, get_instrument("ETHUSD").sl_buffer
+        assert engine_buffer != instrument_buffer
+        result = AnalysisResult(
+            symbol="ETHUSD", verdict=Verdict.SKIP,
+            checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
+        )
+        result = TripleSyncEngine(
+            min_fvg_size=2.0, sl_buffer=engine_buffer, max_entry_gap_r=99.0,
+        ).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=result,
+        )
+        stop = result.setup.stop_loss
+        text = format_result(result)
+        assert f"🛑 Swept liquidity      {stop + instrument_buffer:.2f}" in text
+        # The engine's real swept extreme is `stop + engine_buffer`; under an
+        # override the rendered wick understates it by the difference.
+        assert f"{stop + engine_buffer:.2f}   ← stop behind" not in text
 
     def test_output_is_valid_telegram_html(self):
         _assert_valid_telegram_html(format_result(_approved(min_rr=8.0)))

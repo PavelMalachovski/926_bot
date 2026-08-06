@@ -44,26 +44,9 @@ def format_distance(value: float, instrument: Instrument) -> str:
     return f"{value / instrument.pip:.1f} pips"
 
 
-def _instrument_for(result: AnalysisResult) -> Instrument:
-    """The result's instrument, or a units-only stand-in for an unknown symbol.
-
-    A KeyError here would cost the owner the whole announcement, and the only
-    thing the alert needs from the registry is units and buffers.
-    """
-    try:
-        return get_instrument(result.symbol)
-    except KeyError:
-        d = result.price_decimals
-        return Instrument(
-            key=result.symbol,
-            source="forex",
-            source_symbol=result.symbol,
-            min_fvg=0.0,
-            sl_buffer=0.0,
-            pip=0.01 if d <= 3 else 0.0001,
-            price_decimals=d,
-            check_funding=False,
-        )
+def _rr_cell(rr: float) -> str:
+    """One RR cell: a ratio, or a dash when the rung is behind the entry."""
+    return f"1:{rr:.1f}" if rr > 0 else "—"
 
 
 def _ladder_lines(setup, instrument: Instrument) -> List[str]:
@@ -92,10 +75,13 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
             else lv.price + instrument.sl_buffer
         )
         rr = (tp - setup.entry if is_long else setup.entry - tp) / risk
-        cell = f"1:{rr:.1f}"
+        # A pool inside the stop buffer gives a non-positive reward — the
+        # engine clears the objective for it but keeps the rung. "1:-0.0" is
+        # not a number to read on a line about money; the dash says "no".
+        cell = _rr_cell(rr)
         if ob_risk:
             rr_ob = (tp - ob_entry if is_long else ob_entry - tp) / ob_risk
-            cell += f" / 1:{rr_ob:.1f}"
+            cell += f" / {_rr_cell(rr_ob)}"
         pool = (
             f" · EQ{'H' if lv.is_high else 'L'} x{lv.equal_count}"
             if lv.equal_count > 1 else ""
@@ -144,7 +130,11 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     trade — RR is a consequence of the levels, not an input to them.
     """
     setup = result.setup
-    instrument = _instrument_for(result)
+    # The symbol always resolves: the engine that produced this setup was
+    # itself built from the registry, so a KeyError here would mean the result
+    # is not one this bot can trade — let it surface rather than fabricating
+    # units and printing quietly wrong levels.
+    instrument = get_instrument(result.symbol)
     d = result.price_decimals
     is_long = setup.direction == Direction.LONG
     side = "LONG" if is_long else "SHORT"
@@ -180,6 +170,14 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         )
     # The stop sits one buffer beyond the swept extreme; show the extreme
     # itself, because that wick is what the owner reads off the chart.
+    #
+    # COUPLING: `TradeSetup` carries only the stop, so the wick is
+    # reconstructed with `Instrument.sl_buffer` — the same value
+    # `TripleSyncEngine` used to subtract it. Exact only while no caller
+    # overrides the engine's `sl_buffer=` argument (none does today; pinned by
+    # test_swept_wick_is_reconstructed_from_the_instrument_buffer). If a real
+    # override ever ships, carry the extreme on TradeSetup instead of widening
+    # the guess here.
     extreme = (
         setup.stop_loss + instrument.sl_buffer if is_long
         else setup.stop_loss - instrument.sl_buffer
@@ -223,6 +221,10 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         )
     if setup.lot_hint:
         lines.append(f"   ref · size {escape_html(setup.lot_hint)}")
+    if result.funding_rate is not None and not result.funding_warning:
+        # Rule 9.3: a benign funding reading is still measured context. The
+        # actionable brackets already left as ⚠️ lines above.
+        lines.append(f"   ref · funding {result.funding_rate * 100:.3f}%/8h")
     if getattr(result, "profile_key", "conservative") == "aggressive":
         lines.append("   ref · aggressive profile — first-leg entry")
     lines.append("   ref · a pending order expires with this session (Rule 10)")
