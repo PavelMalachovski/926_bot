@@ -140,6 +140,58 @@ def _mark_zone_state(candles: List[Candle], zone: Zone) -> Zone:
     return zone
 
 
+def find_order_block(
+    candles: List[Candle], direction: Direction, before_index: int
+) -> Optional[Zone]:
+    """The last candle opposing the trade before the impulse (owner
+    definition, 2026-08-06). Price reacts to it on the retest, and it sits
+    deeper than the FVG edge — a second limit option at a better price.
+
+    Boundaries follow `build_zone`'s convention so the bot has one rule
+    everywhere: demand = low -> body_high, supply = body_low -> high.
+    `before_index` is exclusive — the walk starts at `before_index - 1`.
+    """
+    want_bearish = direction == Direction.LONG
+    for i in range(min(before_index, len(candles)) - 1, -1, -1):
+        c = candles[i]
+        opposing = (c.close < c.open) if want_bearish else (c.close > c.open)
+        if not opposing:
+            continue
+        if want_bearish:
+            return Zone(bottom=c.low, top=c.body_high, is_demand=True,
+                        pivot_index=i, timestamp=c.timestamp)
+        return Zone(bottom=c.body_low, top=c.high, is_demand=False,
+                    pivot_index=i, timestamp=c.timestamp)
+    return None
+
+
+def zone_ladder(
+    candles: List[Candle], direction: Direction, beyond: float, limit: int = 5
+) -> List[Zone]:
+    """Untested opposite-side zones past `beyond`, nearest first.
+
+    The bot used to show only the freshest zone; the owner spotted an
+    untested order block further out that it was hiding. This walks every
+    candidate pivot the way `find_h1_zone` does, but keeps all of them
+    instead of stopping at the first match.
+    """
+    want_high = direction == Direction.LONG
+    out: List[Zone] = []
+    seen = set()
+    for pivot in (p for p in find_pivots(candles) if p.is_high == want_high):
+        zone = _mark_zone_state(candles, build_zone(candles, pivot))
+        if zone.invalidated or zone.tested:
+            continue
+        if (zone.bottom > beyond) if want_high else (zone.top < beyond):
+            key = (round(zone.bottom, 8), round(zone.top, 8))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(zone)
+    out.sort(key=lambda z: z.bottom if want_high else -z.top)
+    return out[:limit]
+
+
 def find_h1_zone(
     candles: List[Candle], direction: Direction, max_touches: int = 0
 ) -> Optional[Zone]:

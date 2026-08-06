@@ -7,13 +7,16 @@ from app.services.smc.structure import (
     detect_trend,
     find_choch,
     find_h1_zone,
+    find_order_block,
     find_pivots,
     h4_choch_direction,
+    zone_ladder,
     zone_touch_span,
 )
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
     H4_UPTREND_CLOSES,
+    candle,
     m5_choch_still_in_zone,
     m5_long_trigger,
     make_candles,
@@ -140,3 +143,57 @@ class TestM5Trigger:
         assert find_choch(m5, Direction.LONG, span[1]) is None
         # NEW behaviour (excursion start): CHoCH at index 8 is found.
         assert find_choch(m5, Direction.LONG, span[0]) == 8
+
+
+class TestOrderBlock:
+    """The M5 order block: the last candle opposing the trade before the
+    impulse that broke structure (owner definition, 2026-08-06)."""
+
+    def test_long_takes_the_last_bearish_candle_wick_to_body(self):
+        # index 3 is the last bearish candle before the up-impulse
+        spec = [
+            (100.0, 101.0, 99.0, 100.5),   # 0 bullish
+            (100.5, 101.0, 99.5, 100.0),   # 1 bearish
+            (100.0, 100.5, 99.0, 100.2),   # 2 bullish
+            (100.2, 100.4, 98.0, 98.5),    # 3 bearish  <- the block
+            (98.5, 103.0, 98.4, 102.5),    # 4 impulse
+            (102.5, 105.0, 102.0, 104.5),  # 5 impulse
+        ]
+        m5 = [candle(*row, index=i) for i, row in enumerate(spec)]
+        ob = find_order_block(m5, Direction.LONG, before_index=5)
+        # demand convention matches build_zone: low -> body_high
+        assert (ob.bottom, ob.top) == (98.0, 100.2)
+        assert ob.is_demand is True
+
+    def test_short_takes_the_last_bullish_candle_body_to_wick(self):
+        spec = [
+            (100.0, 101.0, 99.5, 100.5),
+            (100.5, 101.0, 100.0, 100.2),
+            (100.2, 102.5, 100.1, 102.0),   # 2 bullish  <- the block
+            (102.0, 102.2, 98.0, 98.5),     # 3 impulse down
+            (98.5, 98.8, 96.0, 96.5),
+        ]
+        m5 = [candle(*row, index=i) for i, row in enumerate(spec)]
+        ob = find_order_block(m5, Direction.SHORT, before_index=4)
+        # supply convention: body_low -> high
+        assert (ob.bottom, ob.top) == (100.2, 102.5)
+        assert ob.is_demand is False
+
+    def test_none_when_no_opposing_candle_exists(self):
+        spec = [(100.0 + i, 101.0 + i, 99.5 + i, 100.5 + i) for i in range(5)]
+        m5 = [candle(*row, index=i) for i, row in enumerate(spec)]
+        assert find_order_block(m5, Direction.LONG, before_index=4) is None
+
+
+class TestZoneLadder:
+    def test_returns_untested_zones_beyond_the_entry_nearest_first(self):
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        zones = zone_ladder(h1, Direction.LONG, beyond=3140.0, limit=5)
+        assert zones, "H1_PULLBACK_CLOSES has an untested supply above 3140"
+        prices = [z.bottom for z in zones]
+        assert prices == sorted(prices), "nearest first"
+        assert all(z.bottom > 3140.0 for z in zones)
+
+    def test_limit_is_respected(self):
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        assert len(zone_ladder(h1, Direction.LONG, 3000.0, limit=1)) <= 1
