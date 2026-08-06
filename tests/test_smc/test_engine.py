@@ -229,6 +229,25 @@ class TestH1DirectionFallback:
         )
         assert result.direction_source == "h1"
 
+    def test_choch_direction_none_does_not_label_source_h4_choch(self):
+        # H4 flat (zero confirmed pivots, see the fixture comment above) and
+        # H1 flat (H1_PULLBACK_CLOSES — established above to read Trend.FLAT
+        # on its own), on the aggressive profile: h1_trend is FLAT so the
+        # chain reaches h4_choch_direction(h4), which returns None (no pivot
+        # to anchor a break). direction stays None -> SKIP. Pins that
+        # direction_source is NOT stamped "h4_choch" in this case -- the two
+        # must never disagree (review finding, task-3).
+        h4 = make_candles(
+            [3000, 3100, 3000, 3100, 3000, 3100, 3000] * 4, step_minutes=240
+        )
+        result = _agg_engine().evaluate(
+            h4=h4, h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.verdict == Verdict.SKIP
+        assert result.direction_source != "h4_choch"
+        assert result.direction_source == "h4"
+
 
 class TestCryptoSameDayFallbackSurvivesProfileWiring:
     def test_crypto_conservative_still_accepts_cross_session_fvg(self):

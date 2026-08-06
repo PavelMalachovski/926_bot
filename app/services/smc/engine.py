@@ -157,8 +157,14 @@ class TripleSyncEngine:
             elif h1_trend == Trend.DOWN:
                 direction, result.direction_source = Direction.SHORT, "h1"
             elif self.profile.allow_h4_choch_entry:
-                # aggressive: catch the first leg
-                direction, result.direction_source = h4_choch_direction(h4), "h4_choch"
+                # aggressive: catch the first leg. Only label the source when
+                # a direction actually came out — otherwise direction_source
+                # would say "h4_choch" while direction stays None, and the
+                # two must never disagree (a result heading for SKIP three
+                # lines below has no business claiming a direction source).
+                choch_direction = h4_choch_direction(h4)
+                if choch_direction is not None:
+                    direction, result.direction_source = choch_direction, "h4_choch"
         if direction is None:
             result.verdict = Verdict.SKIP
             result.reasons.append("H4 is flat or CHoCH against the trend — no direction")
