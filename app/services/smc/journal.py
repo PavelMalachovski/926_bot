@@ -279,9 +279,26 @@ class SignalJournal:
                 f"• {pair}: {len(group)} setups, "
                 f"TP {count('tp', group)} / SL {count('sl', group)}"
             )
-        avg_rr = sum(s["rr"] for s in recent) / len(recent)
+        # Detector mode: a setup with no unswept liquidity ahead has no
+        # take-profit and carries rr 0.0 — averaging those zeros in would
+        # deflate the figure into meaninglessness. They have no planned RR;
+        # they are not a planned RR of zero.
+        with_target = [s for s in recent if s.get("take_profit") is not None]
         lines.append("")
-        lines.append(f"Average planned RR: 1:{avg_rr:.1f}")
+        if with_target:
+            avg_rr = sum(s["rr"] for s in with_target) / len(with_target)
+            lines.append(f"Average planned RR: 1:{avg_rr:.1f}")
+            if len(with_target) != len(recent):
+                lines.append(
+                    f"({len(recent) - len(with_target)} signals had no unswept "
+                    "liquidity ahead — no planned RR)"
+                )
+        # Spec 2026-08-06 §4: the bot records its own reference entry/SL/TP,
+        # but the owner sets his own levels. This must not read as his
+        # performance — that lives in /journal (MT4 screenshots).
+        lines.append(
+            "Tracked against the bot's reference levels, not your actual orders."
+        )
         return "\n".join(lines)
 
 

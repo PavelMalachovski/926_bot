@@ -331,9 +331,17 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
     if live_line:
         lines.append(f"📍 <b>Live now:</b> {live_line}")
 
-    if plan.note and not plan.scenarios:
+    if not plan.scenarios and (plan.note or plan.blocker):
+        # No setup in the plan: say which stage is missing, in the live
+        # checklist's own words (spec 2026-08-06 §6). "→" is the same marker
+        # format_result uses for its watch notes.
         lines.append("")
-        lines.append(f"ℹ️ {escape_html(plan.note)}")
+        if plan.blocker:
+            if plan.note and plan.note != plan.blocker:
+                lines.append(f"ℹ️ {escape_html(plan.note)}")
+            lines.append(f"→ {escape_html(plan.blocker)}")
+        else:  # no structural blocker (market closed) — just the note
+            lines.append(f"ℹ️ {escape_html(plan.note)}")
         return "\n".join(lines)
 
     for s in plan.scenarios:

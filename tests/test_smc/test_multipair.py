@@ -3,6 +3,8 @@
 import json
 from datetime import datetime, timezone
 
+import pytest
+
 from app.services.smc.instruments import DEFAULT_PAIRS, INSTRUMENTS, get_instrument
 from app.services.smc.oanda import _parse_time
 from app.services.smc.state import WatcherState
@@ -121,6 +123,226 @@ class TestWatcherState:
         assert db.signals_all()[0]["id"] == "legacy1"
         assert not state_file.exists()  # renamed to .bak
         assert (tmp_path / "state.json.bak").exists()
+
+
+class TestPlanZones:
+    """Zones a /plan run showed are remembered for the Prague day, so an
+    alert can say whether it came from the morning picture."""
+
+    @staticmethod
+    def _db(tmp_path):
+        from app.services.smc.db import Database
+
+        return Database(str(tmp_path / "smc.db"))
+
+    def test_zones_are_remembered_and_matched_by_overlap(self, tmp_path):
+        state = WatcherState(self._db(tmp_path))
+        state.remember_plan_zones("ETHUSD", [(3131.0, 3138.0)])
+        assert state.zone_was_planned("ETHUSD", 3135.0, 3142.0) is True
+        assert state.zone_was_planned("ETHUSD", 3200.0, 3210.0) is False
+
+    def test_a_zone_that_shifted_by_a_tick_is_still_the_same_idea(self, tmp_path):
+        state = WatcherState(self._db(tmp_path))
+        state.remember_plan_zones("ETHUSD", [(3131.0, 3138.0)])
+        # an H1 zone drifts as new pivots confirm — still the same zone
+        assert state.zone_was_planned("ETHUSD", 3131.01, 3138.01) is True
+        assert state.zone_was_planned("ETHUSD", 3130.99, 3137.99) is True
+        # touching edges still overlap
+        assert state.zone_was_planned("ETHUSD", 3138.0, 3145.0) is True
+        # a zone that genuinely moved does not
+        assert state.zone_was_planned("ETHUSD", 3138.01, 3145.0) is False
+
+    def test_direction_separates_zones_at_the_same_price(self, tmp_path):
+        state = WatcherState(self._db(tmp_path))
+        state.remember_plan_zones("ETHUSD", [(3131.0, 3138.0, "long")])
+        assert state.zone_was_planned("ETHUSD", 3132.0, 3139.0, "long") is True
+        assert state.zone_was_planned("ETHUSD", 3132.0, 3139.0, "short") is False
+
+    def test_zones_survive_a_restart(self, tmp_path):
+        from app.services.smc.db import Database
+
+        WatcherState(self._db(tmp_path)).remember_plan_zones(
+            "ETHUSD", [(3131.0, 3138.0)]
+        )
+        reloaded = WatcherState(Database(str(tmp_path / "smc.db")))
+        assert reloaded.has_plan_today("ETHUSD") is True
+        assert reloaded.zone_was_planned("ETHUSD", 3135.0, 3140.0) is True
+
+    def test_a_new_prague_day_replaces_the_previous_set(self, tmp_path):
+        state = WatcherState(self._db(tmp_path))
+        day1 = datetime(2026, 8, 5, 6, 0, tzinfo=timezone.utc)
+        day2 = datetime(2026, 8, 6, 6, 0, tzinfo=timezone.utc)
+        state.remember_plan_zones("ETHUSD", [(3131.0, 3138.0)], now=day1)
+        assert state.zone_was_planned("ETHUSD", 3135.0, 3140.0, now=day1) is True
+        state.remember_plan_zones("USDJPY", [(150.0, 151.0)], now=day2)
+        assert state.has_plan_today("ETHUSD", now=day2) is False
+        assert state.zone_was_planned("ETHUSD", 3135.0, 3140.0, now=day2) is False
+        assert state.has_plan_today("USDJPY", now=day2) is True
+
+    def test_no_plan_today_is_distinct_from_a_zone_not_in_the_plan(self, tmp_path):
+        state = WatcherState(self._db(tmp_path))
+        assert state.has_plan_today("ETHUSD") is False
+        state.remember_plan_zones("ETHUSD", [(3131.0, 3138.0)])
+        assert state.has_plan_today("ETHUSD") is True
+        assert state.zone_was_planned("ETHUSD", 3300.0, 3310.0) is False
+
+    def test_a_plan_with_no_scenarios_still_counts_as_a_plan(self, tmp_path):
+        state = WatcherState(self._db(tmp_path))
+        state.remember_plan_zones("ETHUSD", [])
+        assert state.has_plan_today("ETHUSD") is True
+        assert state.zone_was_planned("ETHUSD", 3131.0, 3138.0) is False
+
+
+def _fingerprint_result(
+    zone=(3131.0, 3138.0), entry=3140.5, session="Frankfurt/London",
+    direction="long", when=None,
+):
+    from app.services.smc.models import (
+        AnalysisResult,
+        Direction,
+        FVG,
+        TradeSetup,
+        Verdict,
+        Zone,
+    )
+
+    checked_at = when or datetime(2026, 8, 6, 9, 30, tzinfo=timezone.utc)
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.APPROVED_LIMIT, checked_at=checked_at,
+    )
+    result.session_name = session
+    result.h1_zone = Zone(
+        bottom=zone[0], top=zone[1], is_demand=direction == "long",
+        pivot_index=3, timestamp=checked_at,
+    )
+    result.setup = TradeSetup(
+        direction=Direction(direction),
+        entry=entry,
+        stop_loss=entry - 10,
+        take_profit=entry + 20,
+        rr=2.0,
+        fvg=FVG(9, entry - 2, entry, True, checked_at),
+    )
+    return result
+
+
+class TestSetupFingerprint:
+    """Detector mode (spec §3): one announcement per zone per session block —
+    a second imbalance in the same zone is the same trading idea."""
+
+    def test_two_imbalances_in_one_zone_collapse_to_one_key(self):
+        from smc_watcher import _setup_fingerprint
+
+        a = _fingerprint_result(zone=(3131.0, 3138.0), entry=3140.5)
+        b = _fingerprint_result(zone=(3131.0, 3138.0), entry=3139.0)
+        assert _setup_fingerprint(a) == _setup_fingerprint(b)
+
+    def test_the_same_zone_in_the_next_session_block_is_a_new_key(self):
+        from smc_watcher import _setup_fingerprint
+
+        london = _fingerprint_result(session="Frankfurt/London")
+        newyork = _fingerprint_result(session="New York")
+        assert _setup_fingerprint(london) != _setup_fingerprint(newyork)
+
+    def test_a_different_zone_is_a_new_key(self):
+        from smc_watcher import _setup_fingerprint
+
+        a = _fingerprint_result(zone=(3131.0, 3138.0), entry=3140.5)
+        b = _fingerprint_result(zone=(3200.0, 3208.0), entry=3140.5)
+        assert _setup_fingerprint(a) != _setup_fingerprint(b)
+
+    def test_the_opposite_direction_is_a_new_key(self):
+        from smc_watcher import _setup_fingerprint
+
+        a = _fingerprint_result(direction="long")
+        b = _fingerprint_result(direction="short")
+        assert _setup_fingerprint(a) != _setup_fingerprint(b)
+
+
+class TestAlertPlanProvenance:
+    """The alert says whether its zone was in the morning plan — and says
+    nothing at all when no /plan was run today."""
+
+    class _FakeNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, **kwargs):
+            self.sent.append(text)
+            return 42
+
+        async def pin(self, message_id):
+            pass
+
+    def _watcher(self, tmp_path):
+        from app.services.smc.db import Database
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        async def _no_chart(*args, **kwargs):
+            return None
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._FakeNotifier()
+        watcher._send_chart = _no_chart
+        return watcher
+
+    @staticmethod
+    def _approved():
+        from app.services.smc.engine import TripleSyncEngine
+        from app.services.smc.models import AnalysisResult, Verdict
+        from tests.test_smc.helpers import (
+            H1_PULLBACK_CLOSES,
+            H4_UPTREND_CLOSES,
+            m5_long_trigger_deep_sweep,
+            make_candles,
+        )
+
+        result = AnalysisResult(
+            symbol="ETHUSD", verdict=Verdict.SKIP,
+            checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
+        )
+        result.session_name = "New York"
+        engine = TripleSyncEngine(
+            min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, max_entry_gap_r=99.0
+        )
+        return engine.evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=result,
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_plan_today_says_nothing_about_the_plan(self, tmp_path):
+        watcher = self._watcher(tmp_path)
+        result = self._approved()
+        await watcher._send_alert("ETHUSD", result, "fp")
+        text = watcher.notifier.sent[0]
+        assert "from this morning's plan" not in text
+        assert "not in the plan" not in text
+
+    @pytest.mark.asyncio
+    async def test_zone_from_the_morning_plan_is_labelled(self, tmp_path):
+        watcher = self._watcher(tmp_path)
+        result = self._approved()
+        zone = result.h1_zone
+        watcher.state.remember_plan_zones(
+            "ETHUSD", [(zone.bottom, zone.top, "long")]
+        )
+        await watcher._send_alert("ETHUSD", result, "fp")
+        assert "from this morning's plan" in watcher.notifier.sent[0]
+
+    @pytest.mark.asyncio
+    async def test_a_zone_outside_the_plan_is_labelled_new(self, tmp_path):
+        watcher = self._watcher(tmp_path)
+        result = self._approved()
+        watcher.state.remember_plan_zones("ETHUSD", [(1.0, 2.0, "long")])
+        await watcher._send_alert("ETHUSD", result, "fp")
+        assert "new zone — not in the plan" in watcher.notifier.sent[0]
 
 
 class TestCorrelationGuard:

@@ -111,10 +111,23 @@ def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
 
 
 def _setup_fingerprint(result: AnalysisResult) -> str:
+    """One announcement per zone per session block.
+
+    Detector mode (spec 2026-08-06 §3): with the RR gate gone, every fresh
+    imbalance inside the same H1 zone would otherwise re-alert. A second
+    imbalance in the same zone is the same trading idea — the owner has
+    already placed his order or decided not to. The entry price is therefore
+    no longer part of the key; the zone is.
+    """
     setup = result.setup
     day = result.checked_at.strftime("%Y-%m-%d")
+    zone = result.h1_zone
+    # An approved result always carries its zone (Rule 2 runs before the
+    # trigger); fall back to the entry rather than collapsing every setup of
+    # the session onto one key if that invariant ever breaks.
+    anchor = f"{zone.bottom}-{zone.top}" if zone else f"entry{setup.entry}"
     return (
-        f"{result.symbol}:{setup.direction.value}:{setup.entry}:"
+        f"{result.symbol}:{setup.direction.value}:{anchor}:"
         f"{result.session_name}:{day}"
     )
 
@@ -318,7 +331,7 @@ class Watcher:
     ) -> None:
         """Urgent alert: message with Took/Skipped buttons + setup chart."""
         signal = self.journal.record(result)
-        text = format_result(result)
+        text = format_result(result, in_plan=self._plan_provenance(key, result))
         keyboard = {
             "inline_keyboard": [
                 [
@@ -334,6 +347,21 @@ class Watcher:
             self.journal.attach_message(signal["id"], message_id, text)
             await self.notifier.pin(message_id)
             await self._send_chart(result, message_id)
+
+    def _plan_provenance(self, key: str, result: AnalysisResult) -> Optional[bool]:
+        """Whether this zone was in the plan the owner read this morning.
+
+        None means no /plan ran today for the pair — the alert then claims no
+        provenance at all rather than calling every zone "new".
+        """
+        if result.h1_zone is None or not self.state.has_plan_today(key):
+            return None
+        return self.state.zone_was_planned(
+            key,
+            result.h1_zone.bottom,
+            result.h1_zone.top,
+            result.setup.direction.value if result.setup else None,
+        )
 
     async def _send_chart(self, result: AnalysisResult, reply_to: int) -> None:
         """Attach the setup chart PNG (must never block the alert)."""
@@ -502,6 +530,15 @@ class Watcher:
             instrument, data["h4"], data["h1"], data["m5"],
             min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
         )
+        if not plan.market_closed:
+            # Remember what the owner just looked at, so today's alerts can
+            # say whether they came from this picture (spec §6). A plan with
+            # no scenarios is still a plan he read — it stores an empty list.
+            self.state.remember_plan_zones(
+                key,
+                [(s.zone_bottom, s.zone_top, s.direction.value)
+                 for s in plan.scenarios],
+            )
         live_line = None if stale else self._live_status(instrument, data, now)
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
         await self.notifier.send(
