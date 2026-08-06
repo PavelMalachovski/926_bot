@@ -1,10 +1,11 @@
 """Telegram message formatting and delivery for SMC analysis results."""
 
-from typing import Optional
+from typing import List, Optional
 
 import httpx
 import structlog
 
+from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.sessions import to_prague
@@ -34,6 +35,204 @@ def format_target(level: LiquidityLevel, decimals: int) -> str:
     return f"{level.timeframe} {kind} {level.price:.{decimals}f}{pool}"
 
 
+def format_distance(value: float, instrument: Instrument) -> str:
+    """Distances read in the instrument's own units — the same split
+    `engine._fmt_size` makes. "1008 pips" for a $10 ETH move is how a level
+    gets misjudged at a glance."""
+    if instrument.source == "crypto":
+        return f"${value:,.2f}"
+    return f"{value / instrument.pip:.1f} pips"
+
+
+def _instrument_for(result: AnalysisResult) -> Instrument:
+    """The result's instrument, or a units-only stand-in for an unknown symbol.
+
+    A KeyError here would cost the owner the whole announcement, and the only
+    thing the alert needs from the registry is units and buffers.
+    """
+    try:
+        return get_instrument(result.symbol)
+    except KeyError:
+        d = result.price_decimals
+        return Instrument(
+            key=result.symbol,
+            source="forex",
+            source_symbol=result.symbol,
+            min_fvg=0.0,
+            sl_buffer=0.0,
+            pip=0.01 if d <= 3 else 0.0001,
+            price_decimals=d,
+            check_funding=False,
+        )
+
+
+def _ladder_lines(setup, instrument: Instrument) -> List[str]:
+    """One rung per pool: price, distance, RR from the FVG edge and — when an
+    order block exists — from the block. Two entries, two RRs; the owner picks.
+
+    Note the two RRs are two different trades, not one number that got better:
+    the deeper entry risks less in price terms, so the same market noise is a
+    larger fraction of it, and the limit may never fill. Hence the header
+    naming both entries rather than a single "RR" column.
+    """
+    d = instrument.price_decimals
+    risk = abs(setup.entry - setup.stop_loss)
+    is_long = setup.direction == Direction.LONG
+    ob_entry = None
+    if setup.order_block:
+        ob_entry = setup.order_block.top if is_long else setup.order_block.bottom
+    ob_risk = abs(ob_entry - setup.stop_loss) if ob_entry is not None else None
+
+    header = "🎯 Unswept liquidity ahead"
+    header += "      RR from FVG / from OB" if ob_risk else "      RR from FVG"
+    out = [header]
+    for lv in setup.ladder:
+        tp = (
+            lv.price - instrument.sl_buffer if is_long
+            else lv.price + instrument.sl_buffer
+        )
+        rr = (tp - setup.entry if is_long else setup.entry - tp) / risk
+        cell = f"1:{rr:.1f}"
+        if ob_risk:
+            rr_ob = (tp - ob_entry if is_long else ob_entry - tp) / ob_risk
+            cell += f" / 1:{rr_ob:.1f}"
+        pool = (
+            f" · EQ{'H' if lv.is_high else 'L'} x{lv.equal_count}"
+            if lv.equal_count > 1 else ""
+        )
+        out.append(
+            f"     {lv.price:.{d}f}   "
+            f"{format_distance(abs(lv.price - setup.entry), instrument):>10}   "
+            f"{cell}   {escape_html(lv.timeframe + pool)}"
+        )
+    if not setup.ladder:
+        out.append("     — none ahead")
+    return out
+
+
+def _zone_lines(setup, decimals: int) -> List[str]:
+    """The untested zones further out — the owner asked to see the block the
+    bot is not entering from (USDCAD 1.40710, 2026-08-06)."""
+    out = ["🧱 Untested zones further out"]
+    for zone in setup.zones_ahead:
+        touches = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
+        out.append(
+            f"     {zone.bottom:.{decimals}f} – {zone.top:.{decimals}f}   ({touches})"
+        )
+    return out
+
+
+def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
+    """Where the direction came from — the guard against a silent first-leg
+    or lower-timeframe entry (spec §2, owner constraint: trend only)."""
+    source = getattr(result, "direction_source", "h4")
+    if source == "h1":
+        return (
+            "⚠️ H4 flat — direction from H1 "
+            f"{'uptrend' if is_long else 'downtrend'}"
+        )
+    if source == "h4_choch":
+        return "⚠️ H4 flat — direction from CHoCH (first leg, not with-trend)"
+    return f"H4 {TREND_LABEL[result.h4_trend]}"
+
+
+def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> str:
+    """The announcement: four actionable lines, then the ladders.
+
+    Detector mode (spec 2026-08-06): the bot says a setup has formed and shows
+    the levels; the owner places his own orders. Nothing here recommends a
+    trade — RR is a consequence of the levels, not an input to them.
+    """
+    setup = result.setup
+    instrument = _instrument_for(result)
+    d = result.price_decimals
+    is_long = setup.direction == Direction.LONG
+    side = "LONG" if is_long else "SHORT"
+
+    lines = [
+        f"🚨 <b>SETUP READY — {escape_html(result.symbol)} · {side}</b>"
+        f" · {_direction_source_label(result, is_long)}"
+    ]
+    if in_plan is True:
+        lines.append("   from this morning's plan")
+    elif in_plan is False:
+        lines.append("   new zone — not in the plan")
+    lines.append("")
+
+    # --- the four actionable lines, in the order the owner works them
+    if result.h1_zone:
+        kind = "Demand" if result.h1_zone.is_demand else "Supply"
+        lines.append(
+            f"📍 H1 {kind} zone      "
+            f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
+        )
+    lines.append(
+        f"⚡ M5 imbalance (FVG)   "
+        f"{setup.fvg.bottom:.{d}f} – {setup.fvg.top:.{d}f}"
+        f"   ← limit order ({setup.entry:.{d}f})"
+    )
+    if setup.order_block:
+        ob_entry = setup.order_block.top if is_long else setup.order_block.bottom
+        lines.append(
+            f"🧱 M5 order block       "
+            f"{setup.order_block.bottom:.{d}f} – {setup.order_block.top:.{d}f}"
+            f"   ← deeper entry ({ob_entry:.{d}f})"
+        )
+    # The stop sits one buffer beyond the swept extreme; show the extreme
+    # itself, because that wick is what the owner reads off the chart.
+    extreme = (
+        setup.stop_loss + instrument.sl_buffer if is_long
+        else setup.stop_loss - instrument.sl_buffer
+    )
+    lines.append(
+        f"🛑 Swept liquidity      {extreme:.{d}f}"
+        f"   ← stop behind the wick ({setup.stop_loss:.{d}f} with buffer)"
+    )
+
+    lines.append("")
+    lines.extend(_ladder_lines(setup, instrument))
+    if setup.zones_ahead:
+        lines.append("")
+        lines.extend(_zone_lines(setup, d))
+
+    # --- warnings: impossible to miss, but they do not push the levels down
+    notes = []
+    if setup.entry_is_market:
+        notes.append("   ▶️ price is inside the imbalance right now")
+    for warning in result.warnings:
+        notes.append(f"   ⚠️ {escape_html(warning)}")
+    if result.funding_warning:
+        notes.append(f"   ⚠️ {escape_html(result.funding_warning)}")
+    if notes:
+        lines.append("")
+        lines.extend(notes)
+
+    # --- ref: measured context, not instruction
+    lines.append("")
+    fvg_ref = (
+        f"   ref · FVG {setup.fvg.size:.{d}f}, "
+        f"{setup.fvg.fill_pct * 100:.0f}% filled"
+    )
+    if result.session_name:
+        fvg_ref += f" · {escape_html(result.session_name)}"
+    lines.append(fvg_ref)
+    if setup.take_profit is not None and setup.target is not None:
+        lines.append(
+            f"   ref · tracked objective {setup.take_profit:.{d}f} "
+            f"(1:{setup.rr:.1f}) · {escape_html(format_target(setup.target, d))}"
+        )
+    if setup.lot_hint:
+        lines.append(f"   ref · size {escape_html(setup.lot_hint)}")
+    if getattr(result, "profile_key", "conservative") == "aggressive":
+        lines.append("   ref · aggressive profile — first-leg entry")
+    lines.append("   ref · a pending order expires with this session (Rule 10)")
+    lines.append(
+        f"   ref · {to_prague(result.checked_at).strftime('%d.%m %H:%M')} Prague"
+        + (f" · price {result.price:.{d}f}" if result.price else "")
+    )
+    return "\n".join(lines)
+
+
 URGENT_HEADER = (
     "🚨🚨🚨 <b>URGENT! SETUP FOUND — READY TO TRADE!</b> 🚨🚨🚨"
 )
@@ -60,13 +259,20 @@ def format_setup_still_active(result: AnalysisResult) -> str:
     )
 
 
-def format_result(result: AnalysisResult) -> str:
-    """Render an AnalysisResult as an HTML Telegram message (templates A/B)."""
-    lines = []
+def format_result(result: AnalysisResult, in_plan: Optional[bool] = None) -> str:
+    """Render an AnalysisResult as an HTML Telegram message.
+
+    `in_plan` is the plan provenance of the announced zone: True renders "from
+    this morning's plan", False "new zone — not in the plan", and None omits
+    the line entirely — no `/plan` ran today, so the bot does not claim a
+    provenance it cannot know.
+    """
     if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
-        lines.append(URGENT_HEADER)
-        lines.append("")
-    lines.append(f"<b>{result.symbol}</b> — Triple Sync + Imbalance")
+        if result.setup is not None:
+            return _format_detector_alert(result, in_plan)
+        logger.error("Approved result without a setup", symbol=result.symbol)
+    lines = []
+    lines.append(f"<b>{escape_html(result.symbol)}</b> — Triple Sync + Imbalance")
     if getattr(result, "profile_key", "conservative") == "aggressive":
         lines.append("⚡ <b>Aggressive profile</b> — first-leg entry, lower-probability")
     lines.append(
@@ -86,52 +292,7 @@ def format_result(result: AnalysisResult) -> str:
             f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
         )
 
-    if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
-        setup = result.setup
-        side = "Buy" if setup.direction == Direction.LONG else "Sell"
-        lines.append(
-            f"<b>Triple Sync:</b> confirmed ✅ | "
-            f"<b>FVG:</b> {setup.fvg.size:.{d}f}, fill {setup.fvg.fill_pct * 100:.0f}%"
-        )
-        lines.append("")
-        lines.append("<b>Verdict:</b>")
-        if result.verdict == Verdict.APPROVED_MARKET:
-            lines.append(
-                f"✅ APPROVED (Market) — {side} now at ~{result.price:.{d}f} "
-                f"(price is inside the FVG {setup.fvg.bottom:.{d}f}–{setup.fvg.top:.{d}f})"
-            )
-            lines.append(f"   Alternative: {side} Limit {setup.entry:.{d}f}")
-        else:
-            lines.append(f"✅ APPROVED (Limit) — {side} Limit: {setup.entry:.{d}f}")
-        # take_profit is optional (detector mode): no unswept liquidity ahead
-        # means no objective. Task 4 rewrites this layout; this only keeps the
-        # message from crashing on the None.
-        tp_text = (
-            f"{setup.take_profit:.{d}f}" if setup.take_profit is not None
-            else "none (no structural objective)"
-        )
-        lines.append(f"🛑 SL: {setup.stop_loss:.{d}f} | 🎯 TP: {tp_text}")
-        if setup.target:
-            lines.append(
-                f"📐 RR: 1:{setup.rr:.1f}  →  "
-                + escape_html(format_target(setup.target, d))
-            )
-        elif setup.take_profit is not None:
-            lines.append(f"📐 RR: 1:{setup.rr:.1f}")
-        if setup.lot_hint:
-            lines.append(f"⚖️ Size: {setup.lot_hint}")
-        else:
-            lines.append("⚖️ Size: calculate for 1.5–2% account risk")
-        if result.funding_warning:
-            lines.append(f"⚠️ {result.funding_warning}")
-        elif result.funding_rate is not None:
-            lines.append(f"💸 Funding: {result.funding_rate * 100:.3f}%/8h — normal")
-        lines.append("")
-        lines.append(
-            "⏳ The limit order is valid only within the current session — "
-            "cancel it if unfilled by session end."
-        )
-    elif result.verdict == Verdict.WATCH:
+    if result.verdict == Verdict.WATCH:
         lines.append("")
         lines.append("<b>No setup yet (Setup Watch):</b>")
         for reason in result.reasons:
