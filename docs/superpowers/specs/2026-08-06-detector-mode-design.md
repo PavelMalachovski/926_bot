@@ -99,6 +99,63 @@ Rules for the layout:
 verdicts; the distinction still drives the `▶️` line and the chart. No new
 verdict is introduced.
 
+## 2a. Ladders, not single picks
+
+Two real USDCAD setups (30 and 31 July, conservative, both with-trend shorts)
+exposed a flaw that no threshold change fixes. The bot announces the *nearest*
+unswept liquidity, and on that pair the nearest pool sat 4.9 and 1.8 pips from
+the entry against 31- and 14-pip stops — RR 1:0.11 and 1:0.02. One of them
+even hit its target, and the "win" was 3.4 pips against 31 risked.
+
+The levels behind it were fine:
+
+```
+30.07 · risk 31 pips        31.07 · risk 14 pips
+  1.40241   4.9p  1:0.11      1.40174   1.8p  1:0.02   <- announced
+  1.40075  21.5p  1:0.64      1.40154   3.8p  1:0.17
+                              1.40080  11.2p  1:0.71
+                              1.40036  15.6p  1:1.03
+```
+
+The owner takes profit at liquidity, and there is more than one pool. Picking
+the closest one for him is the same mistake as the RR gate: a decision made on
+his behalf, badly.
+
+**The alert carries a ladder: up to three unswept liquidity levels beyond the
+entry, each with its distance and the RR it implies, and up to three untested
+zones in the trade direction.** He asked for both — walking through USDCAD he
+noted an untested H1 order block at 1.40710 that he wanted to see, and the bot
+was showing only the freshest zone at 1.40112–1.40154.
+
+This costs nothing to compute: `find_liquidity` already returns every level
+and `nearest_liquidity` discards all but one; zone selection already walks
+every candidate pivot and returns the first match.
+
+`TradeSetup.target` stays as the nearest level so the journal keeps a single
+definite objective to track. The ladder is additional, not a replacement.
+
+## 2b. Direction when H4 is flat
+
+Rule 1 requires two falling highs **and** two falling lows. On USDCAD on
+2026-08-06 the highs fell (1.41291 → 1.40843) but the last low was higher than
+the one before, so the bot read FLAT and would have stayed silent on a market
+the owner reads as plainly bearish — and H1 agreed with him (`H1 trend ->
+down`).
+
+Owner decision: **when H4 is flat and H1 has a clean trend, announce with the
+direction taken from H1**, labelled in the header as
+`H4 flat — direction from H1 downtrend`. This is not a counter-trend entry: H1
+is a trend, just a lower one. It is distinct from the aggressive profile's
+H4-CHoCH first-leg entry, which stays as it is.
+
+**Gated on measurement.** `h4_flat` is the largest funnel stage by far — 4560
+of 8499 in-session ETHUSD checks — so this can multiply the alert rate rather
+than nudge it. Measure the announced-setup rate with and without the fallback,
+on ETHUSD, USDCAD and USDJPY over 90 days at production depth, before writing
+any code. If the rate becomes unusable, the fallback needs a further condition
+(for example, requiring the H1 trend to agree with the direction of the last
+H4 structural break) rather than being shipped as measured.
+
 ## 3. Volume control
 
 This is the one thing that can make the feature worse than useless. Removing
