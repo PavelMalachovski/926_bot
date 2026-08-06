@@ -9,7 +9,7 @@ class Instrument:
     """A tradeable pair with its strategy-specific parameters."""
 
     key: str  # canonical name used in commands and state, e.g. "ETHUSD"
-    source: str  # "crypto" (Binance) | "forex" (OANDA if token set, else Yahoo)
+    source: str  # "crypto" (Binance) | "forex" (Twelve Data or OANDA, key required)
     source_symbol: str  # Binance symbol for crypto, OANDA instrument for forex
     min_fvg: float  # Rule 4: minimal FVG size in price units
     sl_buffer: float  # Rule 6 stop buffer beyond the sweep extreme AND

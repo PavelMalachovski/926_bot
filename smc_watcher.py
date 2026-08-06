@@ -7,8 +7,9 @@ logged; set SMC_NOTIFY_NO_SETUP=true to also receive 15-min heartbeats.
 
 Pairs are chosen at runtime via Telegram commands (/pairs) handled by a
 long-polling loop in the same process. ETHUSD data comes from Binance;
-forex pairs (USDJPY, EURUSD, GBPUSD, USDCAD) come from the free Yahoo
-Finance feed by default, or from OANDA v20 when OANDA_API_TOKEN is set.
+forex pairs (USDJPY, EURUSD, GBPUSD, USDCAD) come from Twelve Data when
+TWELVEDATA_API_KEY is set, or from OANDA v20 when OANDA_API_TOKEN is set —
+a forex key is required, there is no keyless fallback.
 
 Usage:
     python smc_watcher.py                  # run forever (scheduler + bot)
@@ -26,6 +27,7 @@ from typing import Dict, List, Optional, Tuple
 import structlog
 
 from app.core.config import settings
+from app.core.exceptions import ConfigurationError, DataFetchError
 from app.core.logging import configure_logging
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.db import Database, migrate_legacy_json
@@ -43,7 +45,6 @@ from app.services.smc.notifier import (
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
-from app.services.smc.yahoo import YahooDataFetcher
 from app.services.smc.sessions import active_session, to_prague
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
@@ -65,15 +66,41 @@ APPROVED = (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
 
 
 def _forex_source() -> str:
-    """Resolve the configured forex source, honouring 'auto'."""
+    """Resolve the configured forex source, honouring 'auto'.
+
+    There is no keyless fallback any more (the previous keyless forex feed
+    was removed — its data was bad enough to have produced a wrong strategy
+    conclusion during replay validation). A forex pair with no usable key is
+    a configuration error, not a silent downgrade: it must fail clearly here
+    so the caller can warn the owner instead of quietly returning no data.
+    """
     source = settings.smc.forex_source.strip().lower()
-    if source != "auto":
-        return source
-    if settings.twelvedata.api_key:
+    if source == "auto":
+        if settings.twelvedata.api_key:
+            return "twelvedata"
+        if settings.oanda.api_token:
+            return "oanda"
+        raise ConfigurationError(
+            "No forex data source configured: set TWELVEDATA_API_KEY or "
+            "OANDA_API_TOKEN (SMC_FOREX_SOURCE=auto has nothing to pick "
+            "from — the keyless forex fallback has been removed)."
+        )
+    if source == "twelvedata":
+        if not settings.twelvedata.api_key:
+            raise ConfigurationError(
+                "SMC_FOREX_SOURCE=twelvedata but TWELVEDATA_API_KEY is not set."
+            )
         return "twelvedata"
-    if settings.oanda.api_token:
+    if source == "oanda":
+        if not settings.oanda.api_token:
+            raise ConfigurationError(
+                "SMC_FOREX_SOURCE=oanda but OANDA_API_TOKEN is not set."
+            )
         return "oanda"
-    return "yahoo"
+    raise ConfigurationError(
+        f"Unknown SMC_FOREX_SOURCE: {source!r} (use 'auto', 'twelvedata' or "
+        "'oanda')."
+    )
 
 
 def _build_fetcher(instrument: Instrument):
@@ -81,22 +108,22 @@ def _build_fetcher(instrument: Instrument):
         # ETHUSD stays on Binance: unlimited, deep history, funding rate.
         return BinanceDataFetcher(instrument.source_symbol)
     source = _forex_source()
-    if source == "twelvedata" and settings.twelvedata.api_key:
+    if source == "twelvedata":
         return TwelveDataFetcher(instrument.key, settings.twelvedata.api_key)
-    if source == "oanda" and settings.oanda.api_token:
-        return OandaDataFetcher(
-            symbol=instrument.source_symbol,
-            api_token=settings.oanda.api_token,
-            environment=settings.oanda.environment,
-        )
-    # Default / fallback: free keyless Yahoo Finance feed.
-    return YahooDataFetcher(symbol=f"{instrument.key}=X")
+    return OandaDataFetcher(
+        symbol=instrument.source_symbol,
+        api_token=settings.oanda.api_token,
+        environment=settings.oanda.environment,
+    )
 
 
-def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
+def _build_engine(
+    instrument: Instrument, profile=None, fetcher=None
+) -> TripleSyncEngine:
     from app.services.smc.profiles import CONSERVATIVE
 
-    fetcher = _build_fetcher(instrument)
+    if fetcher is None:
+        fetcher = _build_fetcher(instrument)
     smc = settings.smc
     return TripleSyncEngine(
         instrument=instrument,
@@ -233,8 +260,24 @@ class Watcher:
             if env_pairs:
                 self.state.pairs = env_pairs
                 self.state.save()
+        # Startup visibility: a forex pair enabled with no usable key would
+        # otherwise fail silently cycle after cycle. This is a log line, not
+        # a crash — ETHUSD (Binance, keyless) must keep working regardless.
+        # The per-cycle Telegram warning below is what actually reaches the
+        # owner; this just puts the same fact in front of anyone reading logs.
+        if any(get_instrument(p).source == "forex" for p in self.state.pairs):
+            try:
+                _forex_source()
+            except ConfigurationError as e:
+                logger.error("Forex data source misconfigured at startup", error=str(e))
 
     # ------------------------------------------------------------- one cycle
+
+    def _build_fetcher(self, instrument: Instrument):
+        """Instance-level indirection over the module fetcher factory, so a
+        fetch failure (or a missing key) can be simulated per-Watcher in
+        tests without touching global settings."""
+        return _build_fetcher(instrument)
 
     async def check_pair(self, key: str) -> Tuple[str, Optional[AnalysisResult]]:
         """Analyze one pair. Returns (heartbeat line, result or None)."""
@@ -244,9 +287,14 @@ class Watcher:
         profile = get_profile(
             self.state.pair_profile.get(key, settings.smc.default_profile)
         )
-        engine = _build_engine(instrument, profile)
         try:
+            fetcher = self._build_fetcher(instrument)
+            engine = _build_engine(instrument, profile, fetcher=fetcher)
             result = await engine.analyze()
+        except (DataFetchError, ConfigurationError) as e:
+            logger.error("Pair check failed", pair=key, error=str(e))
+            await self._warn_data_source_failure(key, str(e))
+            return f"⚠️ {key}: data error ({e})", None
         except Exception as e:
             logger.error("Pair check failed", pair=key, error=str(e))
             return f"⚠️ {key}: data error ({e})", None
@@ -259,6 +307,29 @@ class Watcher:
             reasons=result.reasons,
         )
         return format_no_setup(result), result
+
+    async def _warn_data_source_failure(self, key: str, detail: str) -> None:
+        """A forex fetch failure must not look like a quiet market — the
+        owner rotates his TwelveData key regularly, and an expired key
+        produces no data, which is indistinguishable from "nothing to alert
+        on" unless something says otherwise. Throttled to one warning per
+        pair per hour (mirrors the news_warned dedup pattern) so a source
+        that is down all day does not spam every cycle.
+        """
+        now = datetime.now(tz=timezone.utc)
+        last = self.state.source_warned.get(key)
+        if last:
+            try:
+                if now - datetime.fromisoformat(last) < timedelta(hours=1):
+                    return
+            except ValueError:
+                pass
+        await self.notifier.send(
+            f"⚠️ <b>{key}</b>: data source failed — {escape_html(detail)}. "
+            "Check your API key (it may have expired)."
+        )
+        self.state.source_warned[key] = now.isoformat()
+        self.state.save()
 
     async def run_cycle(self) -> str:
         """Run the strategy for all enabled pairs; send alerts; return summary."""
@@ -687,8 +758,12 @@ class Watcher:
         )
         if profiles_line:
             lines.append(f"Profiles: {profiles_line}")
+        try:
+            forex_source = _forex_source()
+        except ConfigurationError:
+            forex_source = "NOT CONFIGURED"
         lines.extend([
-            f"Forex data: {_forex_source()} | crypto: Binance",
+            f"Forex data: {forex_source} | crypto: Binance",
             f"Session now: {session or 'off session'}",
             f"Cadence: {settings.smc.session_interval_minutes} min in session / "
             f"{settings.smc.interval_minutes} min off",

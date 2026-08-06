@@ -31,18 +31,19 @@ class TestInstruments:
             for k in ("USDJPY", "EURUSD", "GBPUSD", "USDCAD")
         )
 
-    def test_forex_uses_yahoo_without_oanda_token(self, monkeypatch):
+    def test_forex_requires_a_configured_key(self, monkeypatch):
+        """No keyless fallback any more: with neither key set, resolving a
+        forex fetcher must fail clearly rather than silently degrade."""
         from smc_watcher import _build_fetcher
         from app.core.config import settings
-        from app.services.smc.yahoo import YahooDataFetcher
+        from app.core.exceptions import ConfigurationError
         from app.services.smc.oanda import OandaDataFetcher
 
         monkeypatch.setattr(settings.smc, "forex_source", "auto")
         monkeypatch.setattr(settings.oanda, "api_token", None)
         monkeypatch.setattr(settings.twelvedata, "api_key", None)
-        fetcher = _build_fetcher(get_instrument("USDJPY"))
-        assert isinstance(fetcher, YahooDataFetcher)
-        assert fetcher.symbol == "USDJPY=X"
+        with pytest.raises(ConfigurationError):
+            _build_fetcher(get_instrument("USDJPY"))
 
         monkeypatch.setattr(settings.oanda, "api_token", "tok")
         fetcher = _build_fetcher(get_instrument("USDJPY"))
@@ -493,3 +494,94 @@ class TestMorningDigestSkipsWeekends:
         asyncio.run(stub._morning_briefing())
         assert len(stub.notifier.sent) == 1
         assert stub.state.last_digest_date == "2026-07-16"
+
+
+class TestDataSourceFailureWarning:
+    """The owner rotates his TwelveData key regularly. With the keyless
+    fallback feed gone, an expired key means the forex fetch simply raises —
+    and silence looks exactly like a quiet market. It must not (owner
+    decision 2026-08-06: drop the keyless fallback, but a data outage must
+    still speak)."""
+
+    class _FakeNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, **kwargs):
+            self.sent.append(text)
+            return 1
+
+    @staticmethod
+    def _raising_fetcher(instrument):
+        from app.core.exceptions import DataFetchError
+
+        raise DataFetchError(f"TwelveData 401 for {instrument.key}")
+
+    def _watcher(self, tmp_path):
+        from app.services.smc.db import Database
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._FakeNotifier()
+        watcher.news = None
+        watcher.last_results = {}
+        return watcher
+
+    @pytest.mark.asyncio
+    async def test_data_source_failure_warns_once_per_hour(self, monkeypatch, tmp_path):
+        watcher = self._watcher(tmp_path)
+        monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
+        await watcher.run_cycle()
+        assert any("data source" in m.lower() for m in watcher.notifier.sent)
+        watcher.notifier.sent.clear()
+        await watcher.run_cycle()
+        assert watcher.notifier.sent == [], "second failure inside the hour is quiet"
+
+    @pytest.mark.asyncio
+    async def test_throttle_survives_a_restart(self, monkeypatch, tmp_path):
+        """source_warned is persisted like news_warned — a process restart
+        must not re-warn immediately for a failure already reported."""
+        watcher = self._watcher(tmp_path)
+        monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
+        await watcher.run_cycle()
+        assert watcher.notifier.sent != []
+
+        reloaded = self._watcher(tmp_path)  # fresh Watcher, same db file
+        monkeypatch.setattr(reloaded, "_build_fetcher", self._raising_fetcher)
+        await reloaded.run_cycle()
+        assert reloaded.notifier.sent == [], "restart must not re-warn within the hour"
+
+    @pytest.mark.asyncio
+    async def test_a_different_pair_still_warns(self, monkeypatch, tmp_path):
+        """Default watched pairs are ETHUSD + USDJPY — the throttle is keyed
+        per pair, so both must warn on the same failing cycle."""
+        watcher = self._watcher(tmp_path)
+        assert watcher.state.pairs == ["ETHUSD", "USDJPY"]
+        monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
+        await watcher.run_cycle()
+        assert any("ETHUSD" in m for m in watcher.notifier.sent)
+        assert any("USDJPY" in m for m in watcher.notifier.sent)
+
+    @pytest.mark.asyncio
+    async def test_a_recovered_pair_warns_again_after_an_hour(self, monkeypatch, tmp_path):
+        from datetime import datetime, timedelta, timezone
+
+        watcher = self._watcher(tmp_path)
+        monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
+        await watcher.run_cycle()  # both pairs warn once
+        assert len(watcher.notifier.sent) == 2
+        watcher.notifier.sent.clear()
+
+        # ETHUSD's warning is now over an hour old; USDJPY's stays fresh
+        stale = datetime.now(tz=timezone.utc) - timedelta(hours=2)
+        watcher.state.source_warned["ETHUSD"] = stale.isoformat()
+        watcher.state.save()
+
+        await watcher.run_cycle()
+        assert any("ETHUSD" in m for m in watcher.notifier.sent)
+        assert not any("USDJPY" in m for m in watcher.notifier.sent)

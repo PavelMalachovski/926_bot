@@ -30,6 +30,9 @@ class WatcherState:
         self.last_setup: Dict[str, str] = db.kv_get("last_setup") or {}
         self.last_digest_date: str = db.kv_get("last_digest_date") or ""
         self.news_warned: Dict[str, str] = db.kv_get("news_warned") or {}
+        # pair -> ISO timestamp of the last "data source failed" warning,
+        # throttled to one per pair per hour (see Watcher._warn_data_source_failure)
+        self.source_warned: Dict[str, str] = db.kv_get("source_warned") or {}
         self.day_stop_notified: str = db.kv_get("day_stop_notified") or ""
         # pair -> ISO expiry: no new alerts for the pair until then (Took it)
         self.pair_cooldown: Dict[str, str] = db.kv_get("pair_cooldown") or {}
@@ -52,6 +55,7 @@ class WatcherState:
         self.db.kv_set("last_setup", self.last_setup)
         self.db.kv_set("last_digest_date", self.last_digest_date)
         self.db.kv_set("news_warned", self.news_warned)
+        self.db.kv_set("source_warned", self.source_warned)
         self.db.kv_set("day_stop_notified", self.day_stop_notified)
         self.db.kv_set("pair_cooldown", self.pair_cooldown)
         self.db.kv_set("zone_pinged", self.zone_pinged)

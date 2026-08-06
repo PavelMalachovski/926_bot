@@ -36,18 +36,20 @@ setup appears.
 | Pair | Data source | Min FVG | Notes |
 |---|---|---|---|
 | ETHUSD | Binance (no key needed) | $2.00 | 24/7, funding-rate advisory |
-| USDJPY | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
-| EURUSD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
-| GBPUSD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
-| USDCAD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
+| USDJPY | Twelve Data / OANDA | 5 pips | forex key required |
+| EURUSD | Twelve Data / OANDA | 5 pips | forex key required |
+| GBPUSD | Twelve Data / OANDA | 5 pips | forex key required |
+| USDCAD | Twelve Data / OANDA | 5 pips | forex key required |
 
 **Forex data source** (`SMC_FOREX_SOURCE`, default `auto`) resolves in this
 order: **Twelve Data** if `TWELVEDATA_API_KEY` is set → **OANDA** if
-`OANDA_API_TOKEN` is set → **Yahoo Finance** (keyless, always available).
-ETHUSD always uses Binance. Twelve Data is recommended: free 800 req/day,
-native 4h/1h/5min candles, runs on Railway; the higher timeframes are cached
-so 2–3 forex pairs stay comfortably within the free budget (~200 req/day/pair).
-Grab a free key at [twelvedata.com](https://twelvedata.com).
+`OANDA_API_TOKEN` is set. ETHUSD always uses Binance. A forex key is
+required — there is no keyless fallback any more (the previous keyless feed
+was removed: its OHLC data was quantised coarsely enough to distort replay
+results). Twelve Data is recommended: free 800 req/day, native 4h/1h/5min
+candles, runs on Railway; the higher timeframes are cached so 2–3 forex pairs
+stay comfortably within the free budget (~200 req/day/pair). Grab a free key
+at [twelvedata.com](https://twelvedata.com).
 
 Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
 
@@ -161,14 +163,16 @@ One service, no database, no Redis, no public domain needed:
 1. Create a service from this repo (Dockerfile is picked up automatically;
    the default command runs the watcher).
 2. Variables: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-   (+ optionally `SMC_DEPOSIT`; `OANDA_API_TOKEN` only if you want OANDA data).
+   (+ optionally `SMC_DEPOSIT`; a forex key — `TWELVEDATA_API_KEY` or
+   `OANDA_API_TOKEN` — is required if any forex pair is enabled).
 
 The bot uses Telegram long polling — any old webhook is removed automatically
 at startup.
 
 ### Optional: OANDA API token
 
-Forex works out of the box via Yahoo. To switch to OANDA data: OANDA account →
+Forex requires a key from either Twelve Data (recommended) or OANDA — there
+is no keyless feed. To use OANDA instead of Twelve Data: OANDA account →
 **Manage API Access** (My Services) → Generate, then set `OANDA_API_TOKEN` and
 `OANDA_ENVIRONMENT` (`practice` for a demo token, `live` for a real one).
 
@@ -188,7 +192,7 @@ Key ones:
 | `SMC_NEWS_DIGEST_TIME` | `07:45` | Prague time of the morning news digest |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
 | `SMC_DEFAULT_PROFILE` | `conservative` | strategy profile for a pair with no explicit `/strategy` choice: `conservative` \| `aggressive` |
-| `OANDA_API_TOKEN` | — | optional: use OANDA instead of Yahoo for forex |
+| `OANDA_API_TOKEN` | — | optional: use OANDA instead of Twelve Data for forex |
 | `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |
 
 ## Tests
@@ -211,7 +215,6 @@ app/services/smc/
 ├── instruments.py          # per-pair parameters & data source registry
 ├── data.py                 # Binance fetcher (ETHUSD)
 ├── twelvedata.py           # Twelve Data fetcher (forex, cached, free tier)
-├── yahoo.py                # Yahoo Finance fetcher (forex fallback, no key)
 ├── oanda.py                # OANDA v20 fetcher (forex, optional)
 ├── news.py                 # Forex Factory calendar, blackouts, day timeline
 ├── journal.py              # signal lifecycle, taken marks, discipline, /stats

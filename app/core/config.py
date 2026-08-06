@@ -84,9 +84,9 @@ class SMCSettings(BaseSettings):
     )
     forex_source: str = Field(
         default="auto",
-        description="Forex data source: auto | twelvedata | oanda | yahoo. "
-        "auto = Twelve Data if its key is set, else OANDA if its token is set, "
-        "else keyless Yahoo",
+        description="Forex data source: auto | twelvedata | oanda. "
+        "auto = Twelve Data if its key is set, else OANDA if its token is "
+        "set. A forex key is required — there is no keyless fallback.",
     )
     taken_cooldown_hours: float = Field(
         default=4.0,
