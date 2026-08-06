@@ -298,7 +298,18 @@ but independently, so the engine can silently drift to a fresher zone during
 the day while the owner is still thinking in terms of what he read at 08:00.
 
 **Plan zones are remembered and alerts say whether they came from the plan.**
-When `/plan` runs, each scenario's zone is stored for the Prague day. Every
+When `/plan` runs, every zone the message *named* is stored for the Prague day
+— both the scenario zones and the one a blocker sentence points at
+("Zone Demand 1.40198–1.40266 is live, but the nearest liquidity gives
+1:0.6"). The owner read those bounds; the bot should not later call them new.
+
+This was corrected on 2026-08-06 after review: storing scenarios only would
+have mislabelled precisely the population detector mode exists for. `/plan`
+keeps its `min_rr` filter while the alert dropped it, so "live zone, nearest
+liquidity below 1:1" is a *routine* plan blocker and a *routine* detector-mode
+announcement — the label would have read "new zone" for the very setups the
+owner had just reviewed by name, and both labels would have stopped meaning
+anything. Every
 subsequent announcement is labelled `по утреннему плану` when its zone matches
 a stored one, or `новая зона — в плане не было` when it does not. Both are
 sent; a zone that formed after the morning may well be the better one, and
