@@ -240,11 +240,6 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     return "\n".join(lines)
 
 
-URGENT_HEADER = (
-    "🚨🚨🚨 <b>URGENT! SETUP FOUND — READY TO TRADE!</b> 🚨🚨🚨"
-)
-
-
 def format_no_setup(result: AnalysisResult) -> str:
     """Compact heartbeat when there is no setup."""
     time_str = to_prague(result.checked_at).strftime("%H:%M")

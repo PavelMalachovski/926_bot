@@ -414,6 +414,15 @@ class Watcher:
     ) -> None:
         """Urgent alert: message with Took/Skipped buttons + setup chart."""
         signal = self.journal.record(result)
+        # Deliberately NOT wrapped in try/except, unlike _send_chart below:
+        # the chart is decoration and a failed render still lets the text
+        # alert through, but format_result IS the alert — there is nothing
+        # left to send if it raises, so swallowing the error here would
+        # drop the announcement silently instead of loudly (scheduler_loop
+        # already catches any exception at the top of the cycle and logs
+        # it, so a raise here cannot crash the watcher, only this cycle).
+        # notifier.py makes the same call for its own KeyError case: let a
+        # broken result surface rather than print quietly wrong levels.
         text = format_result(result, in_plan=self._plan_provenance(key, result))
         keyboard = {
             "inline_keyboard": [
@@ -846,13 +855,11 @@ async def run_once() -> None:
 
 async def run_telegram_test() -> None:
     """Send sample messages to verify the Telegram wiring end-to-end."""
-    from app.services.smc.notifier import URGENT_HEADER
-
     watcher = Watcher()
     samples = [
         "🧪 <b>SMC watcher TEST</b> — Telegram wiring works.",
-        f"{URGENT_HEADER}\n\n🧪 TEST: this is how an urgent setup alert looks "
-        "(NOT a real signal).",
+        "🚨 <b>TEST: SETUP READY — this is how a detector-mode setup alert "
+        "opens</b> (NOT a real signal).",
         "🔍 TEST: commands available: /pairs /status /check /stats /news",
     ]
     for text in samples:

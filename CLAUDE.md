@@ -9,15 +9,25 @@ Imbalance** SMC (Smart Money Concepts) setups and sends an urgent alert when
 one is found. There is no web server, no Redis, no Postgres — one worker
 (`smc_watcher.py`) with a SQLite file. It runs on Railway.
 
-The **strategy specification is law**: rules −1 through 11 (H4 trend → H1
-zone → M5 CHoCH + FVG → entry skipped once price has run more than
-`SMC_MAX_ENTRY_GAP_R` past it, Rule 5.1, owner decision 2026-08-05 → TP at
-the nearest unswept liquidity level with RR ≥ `SMC_MIN_RR`, owner decision
-2026-08-05 replacing the fixed 1:2.5 multiple → session windows → news
-blackouts → correlation limits) come from the owner's written trading
-system. Never relax or "improve" a strategy rule without the owner's
-explicit decision — implementation over-strictness may be fixed, the rules
-themselves may not. "Almost valid" does not exist in this system.
+The **strategy specification is law**: rules −1 through 11 (H4 trend — or H1
+when H4 reads FLAT and H1 has a clean trend, owner decision 2026-08-06 → H1
+zone → M5 CHoCH + FVG → SL behind the swept extreme → TP at the nearest
+unswept liquidity level → session windows → news blackouts → correlation
+limits) come from the owner's written trading system. Never relax or
+"improve" a strategy rule without the owner's explicit decision —
+implementation over-strictness may be fixed, the rules themselves may not.
+"Almost valid" does not exist in this system.
+
+The bot is a **detector, not a prescriber** (owner decision 2026-08-06,
+"detector mode"): once a setup fully forms, the alert always fires.
+`SMC_MIN_RR` (Rule 7, RR to the nearest unswept liquidity),
+`SMC_MAX_ENTRY_GAP_R` (Rule 5.1, how far price has run past the entry) and
+"no unswept liquidity ahead" used to return `Verdict.SKIP` and send nothing;
+they now attach a `⚠️` warning to the alert instead — the setup is announced
+either way, and the owner decides whether the warning matters. Only the
+checks that decide whether a setup exists at all (session, news, no H4/H1
+direction, no H1 zone, no M5 CHoCH, no valid FVG) still suppress the
+message; nothing that runs *after* Rule 4 does.
 
 ## Commands
 
@@ -46,10 +56,13 @@ app/services/smc/
 │                         evaluate() is fully unit-testable on synthetic candles
 ├── structure.py          fractal-5 pivots (2-closed-candle confirmation),
 │                         H4 trend HH+HL/LH+LL with fakeout-reclaim, H1 zones
-│                         (untested only), M5 CHoCH, sweep_extreme (Rule 6
-│                         stop reference)
-├── liquidity.py          unswept swing highs/lows + EQH/EQL pools; Rule 7
-│                         take-profit targets
+│                         (untested only) + zone_ladder (untested zones
+│                         further out), M5 CHoCH, sweep_extreme (Rule 6 stop
+│                         reference), find_order_block (the M5 order block,
+│                         a deeper second entry)
+├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
+│                         nearest_liquidity (Rule 7 take-profit target) and
+│                         liquidity_ladder (five rungs shown in the alert)
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
 ├── sessions.py           trading hours 08:00-20:00 Prague, two blocks split
@@ -83,7 +96,7 @@ app/services/smc/
 
 Data flow per cycle: news refresh → per enabled pair: blackout check →
 fetch H4/H1/M5 → engine checklist → discipline check → alert (buttons +
-pinned card + chart PNG, dedup per session) / log → journal outcome
+pinned card + chart PNG, dedup per zone+session) / log → journal outcome
 tracking → live-card edits on fill/TP/SL events.
 
 ## Conventions and gotchas
@@ -92,7 +105,16 @@ tracking → live-card edits on fill/TP/SL events.
   (address him as «Брат»). Message timestamps are **Prague time**.
 - **Telegram messages use parse_mode=HTML**: any dynamic string embedded in a
   message MUST go through `notifier.escape_html` (a raw `<` in "fill < 50%"
-  once broke message delivery in production). Only `<b>` tags are used.
+  once broke message delivery in production). Only `<b>` and `<pre>` tags are
+  used — `<pre>` was added 2026-08-06 (owner decision) to hold the liquidity
+  ladder by itself, so its space-padded columns still line up in Telegram's
+  proportional font. The widening does not relax the escaping rule: every
+  dynamic value interpolated inside the `<pre>` block still goes through
+  `escape_html`, exactly like everywhere else. Nothing else gains a tag.
+- **Detector mode** (owner decision 2026-08-06): after a setup completes,
+  nothing suppresses the message. `SMC_MIN_RR` and `SMC_MAX_ENTRY_GAP_R` are
+  warning thresholds, not gates. Everything that suppresses BEFORE a setup
+  completes is unchanged.
 - **Quiet mode is the default**: Telegram receives only found setups (and
   Rule 9/0.4 warnings + the 07:45 digest). Everything else goes to logs.
   Do not add chatty messages without being asked.

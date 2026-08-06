@@ -5,9 +5,13 @@ selected currency pairs — every 5 minutes during trading hours (08:00–20:00
 Prague), every 15 minutes outside them — and alerts you the moment a valid
 setup appears.
 
-- 🚨 **Urgent alert** when a setup is APPROVED — entry / SL / TP / RR / lot
-  size, a **dark-style M5 chart PNG** (H1 zone, FVG box, ENTRY/SL/TP levels)
-  and **✅ Took it / ❌ Skipped buttons**
+- 🚨 **Setup alert** the moment Triple Sync + Imbalance completes — zone,
+  FVG entry, M5 order block (a deeper second entry), stop, and a ladder of
+  up to five unswept liquidity levels with their RR, a **dark-style M5 chart
+  PNG** and **✅ Took it / ❌ Skipped buttons**. The bot is a **detector**: it
+  always announces a completed setup, flagging a thin RR, a stale entry or
+  no liquidity ahead with `⚠️` rather than staying silent — you place the
+  order, you pick the level
 - 📌 **Live setup card** — the alert is pinned and edited in place as the
   signal evolves: `📈 Filled @ … → 🎯 TP HIT (+2.1R)`; unpinned on resolution
 - 🛡 **Discipline on autopilot** — trades you mark as taken enforce Rule 10
@@ -133,7 +137,9 @@ disabled.
    08–14, New York 14–20): crypto every day, forex Monday–Friday. A closed
    forex market is also detected automatically. All message times are Prague.
 2. **H4 trend** — HH+HL / LH+LL with 2-closed-body pivot confirmation;
-   a reclaimed fakeout beyond the last HL/LH does not kill the trend.
+   a reclaimed fakeout beyond the last HL/LH does not kill the trend. When H4
+   reads flat but H1 has a clean trend, direction is taken from H1 instead
+   (header reads `H4 flat — direction from H1 …`).
 3. **H1 zone** — latest untested Demand/Supply zone; invalidation by body close.
 4. **M5 trigger** — pullback into the zone → CHoCH in trend direction.
 5. **FVG validation** — min size per instrument, fill < 50%; session scope:
@@ -142,7 +148,11 @@ disabled.
 6. **SL** — behind the sweep extreme (the wick that ran the liquidity just
    before the CHoCH, not the last fractal pivot) + buffer; **TP** — the
    nearest unswept liquidity level (an unswept swing high/low, or an EQH/EQL
-   pool) minus one buffer. RR must be ≥ `SMC_MIN_RR` (default `1.0`) or SKIP.
+   pool) minus one buffer, plus up to five further rungs on the same ladder.
+   The bot is a **detector**: the setup is announced either way — an RR below
+   `SMC_MIN_RR` (default `1.0`), an entry that has run more than
+   `SMC_MAX_ENTRY_GAP_R` past the imbalance, or no unswept liquidity ahead
+   all attach a `⚠️` warning to the alert instead of silencing it.
 7. **Position size** — from `SMC_DEPOSIT` at 2% risk (crypto qty / forex lots).
 8. **Rule 9 correlation guard** — warns about forbidden USD combinations
    (e.g. EURUSD + GBPUSD in the same direction).
@@ -234,8 +244,8 @@ CLAUDE.md                   # guidance for AI-assisted development
 
 Each watched pair runs under one of two **strategy profiles**. Both share the
 same rulebook (H4 trend → H1 zone → M5 CHoCH + FVG, TP at the nearest unswept
-liquidity level with RR ≥ `SMC_MIN_RR`, sessions, news, correlation); a
-profile only scales strictness — it never bends a rule.
+liquidity level, flagged `⚠️` below `SMC_MIN_RR`, sessions, news,
+correlation); a profile only scales strictness — it never bends a rule.
 
 | Profile | Label | Behaviour |
 |---|---|---|

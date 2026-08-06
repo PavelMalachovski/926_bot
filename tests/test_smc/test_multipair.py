@@ -593,6 +593,20 @@ class TestDataSourceFailureWarning:
         assert not any("USDJPY" in m for m in watcher.notifier.sent)
 
     @pytest.mark.asyncio
+    async def test_a_non_string_stamp_does_not_raise(self, tmp_path):
+        """The throttle reads the stored stamp with
+        `datetime.fromisoformat(last)` inside a `try/except (ValueError,
+        TypeError)` guard. A corrupt or hand-edited kv store could hold
+        something that is not a string at all (e.g. a stray int from a bad
+        migration) — fromisoformat raises TypeError for that, not
+        ValueError, so the guard must catch both. The warning must still
+        fire rather than the throttle silently eating the failure."""
+        watcher = self._watcher(tmp_path)
+        watcher.state.source_warned["ETHUSD"] = 12345  # not a string
+        await watcher._warn_data_source_failure("ETHUSD", "simulated failure")
+        assert any("ETHUSD" in m for m in watcher.notifier.sent)
+
+    @pytest.mark.asyncio
     async def test_a_send_failure_does_not_start_the_quiet_window(
         self, monkeypatch, tmp_path
     ):

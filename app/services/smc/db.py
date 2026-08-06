@@ -97,62 +97,85 @@ class Database:
         self.path = path
         self.conn = self._connect(path)
         self.conn.row_factory = sqlite3.Row
-        with self.conn:
-            self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals"))
-            self.conn.execute(
-                "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)"
-            )
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS trades (
-                    id TEXT PRIMARY KEY,
-                    ticket TEXT,
-                    symbol TEXT NOT NULL,
-                    direction TEXT,
-                    volume REAL,
-                    open_price REAL,
-                    close_price REAL,
-                    open_time TEXT,
-                    close_time TEXT,
-                    sl REAL,
-                    tp REAL,
-                    profit REAL DEFAULT 0,
-                    swap REAL DEFAULT 0,
-                    commission REAL DEFAULT 0,
-                    taxes REAL DEFAULT 0,
-                    closed_by_sl INTEGER DEFAULT 0,
-                    status TEXT NOT NULL DEFAULT 'pending',
-                    batch_id TEXT,
-                    created_at TEXT NOT NULL
-                )
-                """
-            )
-            self.conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_trades_status "
-                "ON trades(status)"
-            )
-            self.conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_trades_batch ON trades(batch_id)"
-            )
-            # Migrate databases created before these columns existed
-            existing = {
-                row["name"]
-                for row in self.conn.execute("PRAGMA table_info(signals)")
-            }
-            for column, sql_type in (
-                ("taken", "INTEGER"),
-                ("message_id", "INTEGER"),
-                ("alert_text", "TEXT"),
-                ("profile_key", "TEXT"),
-            ):
-                if column not in existing:
-                    self.conn.execute(
-                        f"ALTER TABLE signals ADD COLUMN {column} {sql_type}"
-                    )
+        self._create_schema()
         # Deliberately outside the transaction above: a table rebuild is much
         # heavier than an ADD COLUMN and must not be able to take the watcher
         # down with it.
         self._relax_take_profit_not_null()
+
+    def _create_schema(self) -> None:
+        """Create tables/indexes and add columns missing from an older DB.
+
+        A failure here must never crash the watcher (see CLAUDE.md): the same
+        reasoning as `_relax_take_profit_not_null` below applies one step
+        earlier — a bot that cannot start sends no alerts at all, whereas a
+        bot on a not-yet-migrated schema merely fails the operations that
+        touch the missing piece. Logs loudly and retries on the next start.
+        """
+        try:
+            with self.conn:
+                self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals"))
+                self.conn.execute(
+                    "CREATE TABLE IF NOT EXISTS kv "
+                    "(key TEXT PRIMARY KEY, value TEXT)"
+                )
+                self.conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS trades (
+                        id TEXT PRIMARY KEY,
+                        ticket TEXT,
+                        symbol TEXT NOT NULL,
+                        direction TEXT,
+                        volume REAL,
+                        open_price REAL,
+                        close_price REAL,
+                        open_time TEXT,
+                        close_time TEXT,
+                        sl REAL,
+                        tp REAL,
+                        profit REAL DEFAULT 0,
+                        swap REAL DEFAULT 0,
+                        commission REAL DEFAULT 0,
+                        taxes REAL DEFAULT 0,
+                        closed_by_sl INTEGER DEFAULT 0,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        batch_id TEXT,
+                        created_at TEXT NOT NULL
+                    )
+                    """
+                )
+                self.conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_trades_status "
+                    "ON trades(status)"
+                )
+                self.conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_trades_batch "
+                    "ON trades(batch_id)"
+                )
+                # Migrate databases created before these columns existed
+                existing = {
+                    row["name"]
+                    for row in self.conn.execute("PRAGMA table_info(signals)")
+                }
+                for column, sql_type in (
+                    ("taken", "INTEGER"),
+                    ("message_id", "INTEGER"),
+                    ("alert_text", "TEXT"),
+                    ("profile_key", "TEXT"),
+                ):
+                    if column not in existing:
+                        self.conn.execute(
+                            f"ALTER TABLE signals ADD COLUMN {column} {sql_type}"
+                        )
+        except sqlite3.Error as e:
+            logger.error(
+                "Could not create/migrate the database schema — the watcher "
+                "keeps running, but operations on a missing table or column "
+                "will fail until this succeeds. Will retry on the next "
+                "start.",
+                path=self.path,
+                error=str(e),
+            )
 
     def _relax_take_profit_not_null(self) -> None:
         """Drop the legacy NOT NULL on signals.take_profit.

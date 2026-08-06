@@ -41,7 +41,14 @@ BINANCE_BASE = "https://api.binance.com"
 
 
 def classify_result(result: AnalysisResult) -> str:
-    """Map an evaluate() outcome to a funnel stage label."""
+    """Map an evaluate() outcome to a primary funnel stage label.
+
+    Detector mode (2026-08-06 spec sec 1/5) demoted rr_low, entry_stale and
+    no_liquidity from SKIP reasons to warnings on an APPROVED result — the
+    engine no longer writes their old reason strings, so an approved result
+    always classifies as "approved" here, whichever warnings it carries. Use
+    `classify_warnings` to count those warnings separately.
+    """
     if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
         return "approved"
     if result.verdict == Verdict.OFF_SESSION:
@@ -57,15 +64,29 @@ def classify_result(result: AnalysisResult) -> str:
         return "no_choch"
     if "no valid fvg" in reason:
         return "fvg_small"
-    if "no unswept liquidity" in reason:
-        return "no_liquidity"
-    if "inside the sl buffer" in reason:
-        return "no_liquidity"
-    if "has run" in reason and "past the entry" in reason:
-        return "entry_stale"
-    if reason.startswith("rr 1:"):
-        return "rr_low"
     return "other"
+
+
+def classify_warnings(result: AnalysisResult) -> List[str]:
+    """Warning labels carried by an APPROVED result.
+
+    rr_low, entry_stale and no_liquidity used to be terminal funnel stages;
+    detector mode turned them into `result.warnings` entries on a setup that
+    is announced anyway (spec sec 1/5). The labels are kept, not deleted —
+    moved here so the funnel can still answer "how many announced setups
+    carried a warning" without the death-stage dict implying a rejection
+    that no longer happens. Meaningful only for an approved result.
+    """
+    labels = []
+    for warning in result.warnings:
+        w = warning.lower()
+        if w.startswith("rr to the nearest liquidity"):
+            labels.append("rr_low")
+        elif "past the imbalance" in w:
+            labels.append("entry_stale")
+        elif "no unswept liquidity ahead" in w or "inside the stop buffer" in w:
+            labels.append("no_liquidity")
+    return labels
 
 
 def session_day_span(m5: List[Candle]) -> int:
@@ -99,9 +120,12 @@ def replay_funnel(
     Returns a Counter of funnel-stage labels, plus "distinct_setups" (a
     rising-edge count of transitions into "approved" — how many alert
     episodes the bot would have sent, as opposed to how many M5 closes a
-    persisting setup was re-counted on) and "session_days" (the number of
+    persisting setup was re-counted on), "session_days" (the number of
     distinct Prague trading days spanned by the replayed M5 candles, for
-    turning distinct_setups into a setups-per-week rate).
+    turning distinct_setups into a setups-per-week rate) and "warn_rr_low" /
+    "warn_entry_stale" / "warn_no_liquidity" (how many approved results
+    carried that warning — not death stages, so they are counted alongside
+    "approved" rather than instead of it; see `classify_warnings`).
 
     `max_entry_gap_r` defaults to 0.75, matching `SMCSettings.max_entry_gap_r`
     — this tool measures what the bot would actually alert on, so its
@@ -140,6 +164,9 @@ def replay_funnel(
         result = engine.evaluate(h4=h4_pit, h1=h1_pit, m5=window, result=result)
         stage = classify_result(result)
         counts[stage] += 1
+        if stage == "approved":
+            for label in classify_warnings(result):
+                counts[f"warn_{label}"] += 1
         approved_now = stage == "approved"
         if approved_now and not prev_approved:
             counts["distinct_setups"] += 1
@@ -255,7 +282,7 @@ async def _run(pairs: List[str], days: int, factors: List[float], legacy: bool) 
                 if k not in (
                     "approved", "distinct_setups", "session_days",
                     "off_session", "warmup",
-                )
+                ) and not k.startswith("warn_")
             }
             print(
                 f"  {label:<10}{counts.get('distinct_setups', 0):>10}"
