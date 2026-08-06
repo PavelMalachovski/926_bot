@@ -1,5 +1,6 @@
 """Telegram message formatting and delivery for SMC analysis results."""
 
+import re
 from typing import List, Optional
 
 import httpx
@@ -24,6 +25,42 @@ def escape_html(text: str) -> str:
     return (
         str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     )
+
+
+REDACTED = "***"
+
+# `str(httpx.HTTPStatusError)` embeds the full request URL, and a data-source
+# URL carries the API key as a query parameter — so an error detail forwarded
+# to Telegram can print the owner's live key into his own chat, where the
+# history is durable and syncs to every device he owns. The same class of bug
+# was fixed for logs in bcd5728; this is the outbound-message guard. Fetchers
+# must not build key-bearing messages in the first place (see twelvedata.py),
+# but a future fetcher that forgets must not be able to leak through here.
+_BEARER_RE = re.compile(r"(?i)\b(bearer\s+)[\w.\-~+/]+=*")
+# "…apikey=X", "token: X", "MY_SECRET=X" — a named credential and its value.
+# "auth" is deliberately absent: "Authorization: Bearer X" is handled above,
+# and matching it here would redact the word "Bearer" and leave the token.
+_NAMED_SECRET_RE = re.compile(
+    r"(?i)([\w.\-]*(?:apikey|api[_\-]?key|token|secret|password|passwd)"
+    r"[\w.\-]*\s*[=:]\s*)[\"']?[^\s&\"'#,;]+"
+)
+# A bare `?key=` / `&sig=` query parameter, which the name rule above leaves
+# alone because "key" on its own is far too common in ordinary prose.
+_QUERY_SECRET_RE = re.compile(
+    r"(?i)([?&](?:key|sig|signature)=)[^&\s\"']+"
+)
+
+
+def redact_secrets(text: str) -> str:
+    """Blank out anything credential-shaped in a string bound for Telegram.
+
+    Deliberately narrow: it replaces only the *value* after a credential-ish
+    name, so the message still says which pair failed and roughly why ("HTTP
+    401 Unauthorized"). A warning the owner cannot act on is its own failure.
+    """
+    out = _BEARER_RE.sub(rf"\1{REDACTED}", str(text))
+    out = _NAMED_SECRET_RE.sub(rf"\1{REDACTED}", out)
+    return _QUERY_SECRET_RE.sub(rf"\1{REDACTED}", out)
 
 
 def format_target(level: LiquidityLevel, decimals: int) -> str:

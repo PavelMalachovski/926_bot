@@ -42,6 +42,7 @@ from app.services.smc.notifier import (
     format_no_setup,
     format_plan,
     format_result,
+    redact_secrets,
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
@@ -320,10 +321,14 @@ class Watcher:
         except (DataFetchError, ConfigurationError) as e:
             logger.error("Pair check failed", pair=key, error=str(e))
             await self._warn_data_source_failure(key, str(e))
-            return f"⚠️ {key}: data error ({escape_html(str(e))})", None
+            # This line lands in the cycle summary, which /check sends to
+            # Telegram — redact before it becomes a message (see below).
+            detail = escape_html(redact_secrets(str(e)))
+            return f"⚠️ {key}: data error ({detail})", None
         except Exception as e:
             logger.error("Pair check failed", pair=key, error=str(e))
-            return f"⚠️ {key}: data error ({escape_html(str(e))})", None
+            detail = escape_html(redact_secrets(str(e)))
+            return f"⚠️ {key}: data error ({detail})", None
         self.last_results[key] = result
         logger.info(
             "SMC check finished",
@@ -342,6 +347,13 @@ class Watcher:
         pair per hour (mirrors the news_warned dedup pattern) so a source
         that is down all day does not spam every cycle.
         """
+        # A fetcher error detail can carry the credential that caused it — a
+        # request URL with `apikey=...`, an echoed Authorization header. Logs
+        # were hardened against this in bcd5728; Telegram is worse, because
+        # the history is durable and syncs to every device. Scrub here, at the
+        # point where the detail becomes a message, so no future fetcher can
+        # reopen the hole through this path.
+        detail = redact_secrets(detail)
         now = datetime.now(tz=timezone.utc)
         last = self.state.source_warned.get(key)
         if last:

@@ -190,8 +190,13 @@ class TwelveDataFetcher:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     response = await client.get(BASE_URL, params=params)
             except httpx.HTTPError as e:
+                # Transport-level errors (connect/read timeouts, DNS, protocol)
+                # carry only their own message — no request URL, so no `apikey`.
+                # The status-error path below is the one that does; keep them
+                # separate rather than folding both into one `{e}`.
                 raise DataFetchError(
-                    f"Twelve Data request failed for {self.symbol}: {e}"
+                    f"Twelve Data request failed for {self.symbol}: "
+                    f"{type(e).__name__}: {e}"
                 )
             if response.status_code == 429 and attempt == 0:
                 logger.warning(
@@ -203,9 +208,23 @@ class TwelveDataFetcher:
             try:
                 response.raise_for_status()
                 return response.json()
-            except (httpx.HTTPError, ValueError) as e:
+            except httpx.HTTPStatusError:
+                # NEVER interpolate this exception: `str(HTTPStatusError)`
+                # embeds the request URL, and our URL carries
+                # `apikey=<owner key>` (see the params built above). That
+                # detail is forwarded to Telegram by the watcher's data-source
+                # warning, which would print a live key into the owner's chat.
+                # Status code + reason phrase says everything he needs.
                 raise DataFetchError(
-                    f"Twelve Data request failed for {self.symbol}: {e}"
+                    f"Twelve Data request failed for {self.symbol}: "
+                    f"HTTP {response.status_code} {response.reason_phrase}"
+                )
+            except ValueError:
+                # Body was not JSON — the parser message can echo the body,
+                # so report the shape of the failure, not its content.
+                raise DataFetchError(
+                    f"Twelve Data returned a malformed response for "
+                    f"{self.symbol} (HTTP {response.status_code})"
                 )
         raise DataFetchError(f"Twelve Data rate limited for {self.symbol}")
 

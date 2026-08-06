@@ -909,3 +909,180 @@ class TestDataSourceFailureWarning:
         assert result is None
         assert "<" not in line
         assert "&lt;" in line
+
+
+class TestApiKeyNeverReachesTelegram:
+    """`str(httpx.HTTPStatusError)` embeds the full request URL, and the Twelve
+    Data URL carries `apikey=<the owner's key>`. The data-source warning added
+    for the detector mode forwards that detail to Telegram, so an expired or
+    rate-limited key would print the live key into the owner's own chat —
+    durable history, synced to every device. bcd5728 fixed this class of bug
+    for logs; these tests hold the outbound-message channel to the same line.
+
+    The fake key below is not a real credential.
+    """
+
+    FAKE_KEY = "SECRETKEY123"
+
+    class _FakeNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, **kwargs):
+            self.sent.append(text)
+            return 1
+
+    @staticmethod
+    def _unauthorized_client(status: int = 401):
+        """An httpx.AsyncClient stand-in that answers with a real Response
+        bound to a real Request — so the URL (and its apikey parameter) is
+        exactly what httpx would build in production. No network."""
+        import httpx
+
+        class _FakeClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def get(self, url, params=None):
+                request = httpx.Request("GET", url, params=params)
+                return httpx.Response(status, request=request, text="unauthorized")
+
+        return _FakeClient
+
+    def _fetcher(self, monkeypatch):
+        from app.services.smc import twelvedata as td
+
+        monkeypatch.setattr(td.httpx, "AsyncClient", self._unauthorized_client())
+        td._CACHE.clear()
+        return td.TwelveDataFetcher("USDJPY", api_key=self.FAKE_KEY)
+
+    def _watcher(self, tmp_path):
+        from app.services.smc.db import Database
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._FakeNotifier()
+        watcher.news = None
+        watcher.last_results = {}
+        return watcher
+
+    def test_the_request_url_really_carries_the_key(self):
+        """Guards the premise of every test below: if httpx ever stopped
+        putting query parameters in the exception's URL, these tests would
+        pass for the wrong reason."""
+        import httpx
+
+        from app.services.smc import twelvedata as td
+
+        request = httpx.Request(
+            "GET", td.BASE_URL, params={"symbol": "USD/JPY", "apikey": self.FAKE_KEY}
+        )
+        response = httpx.Response(401, request=request, text="unauthorized")
+        with pytest.raises(httpx.HTTPStatusError) as excinfo:
+            response.raise_for_status()
+        assert self.FAKE_KEY in str(excinfo.value), (
+            "premise: the raw exception string does leak the key"
+        )
+
+    @pytest.mark.asyncio
+    async def test_fetcher_error_detail_has_no_key(self, monkeypatch):
+        """Layer 1 — the fetcher must never build a key-bearing message."""
+        from app.core.exceptions import DataFetchError
+
+        fetcher = self._fetcher(monkeypatch)
+        with pytest.raises(DataFetchError) as excinfo:
+            await fetcher.fetch_candles("5m")
+        assert self.FAKE_KEY not in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_telegram_warning_has_no_key(self, monkeypatch, tmp_path):
+        """The channel that matters: the text handed to the notifier."""
+        watcher = self._watcher(tmp_path)
+        monkeypatch.setattr(
+            watcher, "_build_fetcher", lambda instrument: self._fetcher(monkeypatch)
+        )
+        await watcher.check_pair("USDJPY")
+        assert watcher.notifier.sent, "a dead source must still warn"
+        for message in watcher.notifier.sent:
+            assert self.FAKE_KEY not in message
+
+    @pytest.mark.asyncio
+    async def test_check_heartbeat_line_has_no_key(self, monkeypatch, tmp_path):
+        """/check sends the cycle summary, which is built from these lines."""
+        watcher = self._watcher(tmp_path)
+        monkeypatch.setattr(
+            watcher, "_build_fetcher", lambda instrument: self._fetcher(monkeypatch)
+        )
+        line, result = await watcher.check_pair("USDJPY")
+        assert result is None
+        assert self.FAKE_KEY not in line
+
+    @pytest.mark.asyncio
+    async def test_boundary_scrubs_a_key_a_fetcher_forgot_to_hide(self, tmp_path):
+        """Layer 2 standing on its own: even if a future fetcher hands over a
+        raw key-bearing detail, it must not reach the chat."""
+        watcher = self._watcher(tmp_path)
+        detail = (
+            "Client error '401 Unauthorized' for url "
+            "'https://api.twelvedata.com/time_series?symbol=USD%2FJPY"
+            f"&interval=5min&apikey={self.FAKE_KEY}'"
+        )
+        await watcher._warn_data_source_failure("USDJPY", detail)
+        assert watcher.notifier.sent
+        assert self.FAKE_KEY not in watcher.notifier.sent[0]
+
+    @pytest.mark.asyncio
+    async def test_the_warning_is_still_worth_reading(self, monkeypatch, tmp_path):
+        """Redaction that eats the message is its own failure: the owner has
+        to be able to tell which pair broke and roughly why, and the
+        'check your API key' hint (which keys off the detail text) has to
+        survive the scrub."""
+        watcher = self._watcher(tmp_path)
+        monkeypatch.setattr(
+            watcher, "_build_fetcher", lambda instrument: self._fetcher(monkeypatch)
+        )
+        await watcher.check_pair("USDJPY")
+        message = watcher.notifier.sent[0]
+        assert "USDJPY" in message
+        assert "401" in message
+        assert "Unauthorized" in message
+        assert "API key" in message
+
+
+class TestRedactSecrets:
+    """Unit-level shape of the scrub — narrow enough to keep messages useful."""
+
+    def test_redacts_query_and_header_credentials(self):
+        from app.services.smc.notifier import redact_secrets
+
+        for text in (
+            "https://api.twelvedata.com/time_series?interval=5min&apikey=SECRETKEY123",
+            "https://example.com/candles?key=SECRETKEY123&count=400",
+            "Authorization: Bearer SECRETKEY123",
+            "TWELVEDATA_API_KEY=SECRETKEY123 rejected",
+            "access_token: SECRETKEY123",
+        ):
+            assert "SECRETKEY123" not in redact_secrets(text), text
+
+    def test_leaves_ordinary_diagnostics_alone(self):
+        from app.services.smc.notifier import redact_secrets
+
+        for text in (
+            "Twelve Data request failed for USD/JPY: HTTP 401 Unauthorized",
+            "Twelve Data error: **apikey** parameter is invalid",
+            "SMC_FOREX_SOURCE=twelvedata but TWELVEDATA_API_KEY is not set.",
+            "OANDA candles request failed (503): service unavailable",
+            "Twelve Data rate limited for USD/JPY",
+        ):
+            assert redact_secrets(text) == text, text
