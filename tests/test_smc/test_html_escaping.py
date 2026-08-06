@@ -31,10 +31,16 @@ from tests.test_smc.helpers import (
 
 
 def _assert_valid_telegram_html(text: str):
-    """Every '<' must start one of the tags we intentionally use."""
+    """Every '<' must start one of the tags we intentionally use.
+
+    `<pre>` was added 2026-08-06 (detector-mode spec §2) to give the
+    liquidity ladder a monospace column alignment. It is intentionally
+    narrow: only `<b>`/`</b>` and `<pre>`/`</pre>` are accepted here — any
+    other tag is exactly the failure mode this test guards against.
+    """
     for match in re.finditer(r"<", text):
-        following = text[match.start():match.start() + 4]
-        assert re.match(r"</?b>", following), (
+        following = text[match.start():match.start() + 6]
+        assert re.match(r"</?(b|pre)>", following), (
             f"unescaped '<' near: ...{text[max(0, match.start() - 20):match.start() + 10]}..."
         )
     assert "&" not in re.sub(r"&(amp|lt|gt);", "", text), "unescaped '&'"
@@ -354,3 +360,60 @@ class TestDetectorAlert:
         assert "Untested zones further out" in text
         assert "3300.00 – 3320.00" in text
         assert "0 touches" in text
+
+    def test_ladder_pre_block_opens_and_closes_exactly_once(self):
+        """Spec 2026-08-06 §2: the ladder is wrapped in `<pre>` so its
+        columns line up in Telegram's proportional font. The tag must not
+        be duplicated or left dangling."""
+        text = format_result(_approved())
+        assert text.count("<pre>") == 1
+        assert text.count("</pre>") == 1
+        _assert_valid_telegram_html(text)
+
+    def test_ladder_pre_block_opens_and_closes_once_when_empty(self):
+        """The 'none ahead' rung still lives inside a well-formed <pre>."""
+        result = _hand_built(take_profit=None, rr=0.0, ladder=[])
+        result.warnings.append("no unswept liquidity ahead")
+        text = format_result(result)
+        assert text.count("<pre>") == 1
+        assert text.count("</pre>") == 1
+        assert "— none ahead" in text
+        _assert_valid_telegram_html(text)
+
+    def test_ladder_pre_block_contains_only_the_ladder_body(self):
+        """Nothing outside the ladder gains a tag: the header (🎯 ...),
+        warnings and `ref ·` lines must sit outside <pre>...</pre>."""
+        result = _approved(min_rr=8.0)
+        text = format_result(result)
+        start = text.index("<pre>")
+        end = text.index("</pre>")
+        inside = text[start + len("<pre>"):end]
+        outside = text[:start] + text[end + len("</pre>"):]
+        assert "🎯" not in inside
+        assert "ref ·" not in inside
+        assert "⚠️" not in inside
+        assert "1:" in inside  # the RR ladder itself is inside
+        assert "<pre>" not in outside
+        assert "</pre>" not in outside
+
+    def test_ladder_pre_block_escapes_dynamic_content(self):
+        """Every value interpolated inside <pre> still goes through
+        escape_html — a <pre> block does not make Telegram stop parsing
+        tags inside it."""
+        result = _hand_built(
+            order_block=None,
+            ladder=[
+                LiquidityLevel(
+                    price=3221.0, is_high=True, timeframe="H1<script>",
+                    equal_count=1, timestamp=None,
+                ),
+            ],
+        )
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "H1&lt;script&gt;" in text
+        assert "<script>" not in text
+        # confirm the escaped label actually landed inside the pre block
+        start = text.index("<pre>")
+        end = text.index("</pre>")
+        assert "H1&lt;script&gt;" in text[start:end]

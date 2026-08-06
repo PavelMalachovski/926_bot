@@ -68,7 +68,11 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
 
     header = "🎯 Unswept liquidity ahead"
     header += "      RR from FVG / from OB" if ob_risk else "      RR from FVG"
-    out = [header]
+    # The header carries the emoji and stays in the message's normal
+    # proportional font, matching every other line (📍/⚡/🛑/🧱). Only the
+    # data rows below it need a monospace font for the columns to line up
+    # (spec 2026-08-06 §2), so only they go inside <pre>.
+    out = [header, "<pre>"]
     for lv in setup.ladder:
         tp = (
             lv.price - instrument.sl_buffer if is_long
@@ -93,6 +97,7 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
         )
     if not setup.ladder:
         out.append("     — none ahead")
+    out.append("</pre>")
     return out
 
 
