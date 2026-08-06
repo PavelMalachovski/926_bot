@@ -139,12 +139,26 @@ class TripleSyncEngine:
         # Rule 1 — H4 global trend
         result.h4_trend = detect_trend(h4)
         direction = None
+        result.direction_source = "h4"
         if result.h4_trend == Trend.UP:
             direction = Direction.LONG
         elif result.h4_trend == Trend.DOWN:
             direction = Direction.SHORT
-        elif self.profile.allow_h4_choch_entry:
-            direction = h4_choch_direction(h4)  # aggressive: catch the first leg
+        else:
+            # H4 has no clean HH+HL / LH+LL. H1 is still a trend, just a
+            # lower one — the owner trades those (owner decision 2026-08-06).
+            # This is not a counter-trend entry, and it is distinct from the
+            # aggressive profile's first-leg H4-CHoCH entry below, which
+            # keeps its own label. Applies to both profiles: it is a property
+            # of how the owner reads a chart, not a profile decision point.
+            h1_trend = detect_trend(h1)
+            if h1_trend == Trend.UP:
+                direction, result.direction_source = Direction.LONG, "h1"
+            elif h1_trend == Trend.DOWN:
+                direction, result.direction_source = Direction.SHORT, "h1"
+            elif self.profile.allow_h4_choch_entry:
+                # aggressive: catch the first leg
+                direction, result.direction_source = h4_choch_direction(h4), "h4_choch"
         if direction is None:
             result.verdict = Verdict.SKIP
             result.reasons.append("H4 is flat or CHoCH against the trend — no direction")

@@ -153,6 +153,81 @@ class TestProfiles:
         assert agg.profile_key == "aggressive"
         # with a downward CHoCH the aggressive path no longer SKIPs on "no direction"
         assert "no direction" not in " ".join(agg.reasons).lower()
+        # H1 (H1_PULLBACK_CLOSES) is FLAT here too (only one confirmed low
+        # pivot, see TestH1DirectionFallback below) — confirms the CHoCH
+        # branch is still reached, and labelled, when H1 gives no fallback.
+        assert agg.direction_source == "h4_choch"
+
+
+# H1_PULLBACK_CLOSES (see helpers.py) forms exactly one confirmed low pivot
+# (index 7, the demand pivot at 3132/low 3131.0 that m5_long_trigger_deep_sweep
+# is built against) — detect_trend() needs two confirmed lows to call a trend,
+# so H1_PULLBACK_CLOSES alone reads FLAT, not UP. Verified directly:
+# detect_trend(make_candles(H1_PULLBACK_CLOSES, step_minutes=60)) is
+# Trend.FLAT. The brief's suggested test reuses H1_PULLBACK_CLOSES as-is for
+# the H1 side, which would make test_flat_h4_takes_direction_from_h1 fail for
+# the wrong reason (H1 has no trend either) rather than exercising the H1
+# fallback. This fixture prepends an earlier, lower down-up leg — closes
+# [3140, 3125, 3105, 3080, 3095, 3110, 3100] — that confirms a low pivot at
+# 3079.0, strictly below the 3131.0 pivot. The prefix's last close (3100)
+# equals H1_PULLBACK_CLOSES[0], so every candle from index 7 onward (the
+# demand pivot, the zone, the untested state) is byte-for-byte identical to
+# the plain H1_PULLBACK_CLOSES case — only shifted in index — so
+# m5_long_trigger_deep_sweep's zone (3131.0-3138.0) still matches. Verified:
+# find_pivots gives lows [(index 3, 3079.0), (index 14, 3131.0)] and highs
+# [(index 11, 3151.0), (index 19, 3221.0)] -> HL and HH -> detect_trend is
+# Trend.UP; find_h1_zone(..., Direction.LONG, max_touches=0) still returns
+# bottom=3131.0, top=3138.0, touches=0, invalidated=False.
+H1_UPTREND_FOR_FALLBACK_CLOSES = [
+    3140, 3125, 3105, 3080, 3095, 3110, 3100,
+] + H1_PULLBACK_CLOSES
+
+
+class TestH1DirectionFallback:
+    """When H4 has no clean structure but H1 does, announce with H1's
+    direction (owner decision 2026-08-06). Measured at about +40% announced
+    setups, not a multiple."""
+
+    def test_flat_h4_takes_direction_from_h1(self):
+        # H4 flat: alternating closes give zero confirmed fractal pivots (the
+        # local highs/lows tie with their same-parity neighbours two candles
+        # away, failing the strict-inequality pivot test), so detect_trend()
+        # sees < 2 highs/lows -> Trend.FLAT trivially, and h4_choch_direction()
+        # (which also needs a pivot to anchor a break) returns None. Verified
+        # directly: find_pivots() on this series is []; detect_trend() is
+        # Trend.FLAT; h4_choch_direction() is None.
+        h4 = make_candles(
+            [3000, 3100, 3000, 3100, 3000, 3100, 3000] * 4, step_minutes=240
+        )
+        result = _engine().evaluate(
+            h4=h4,
+            h1=make_candles(H1_UPTREND_FOR_FALLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.h4_trend is Trend.FLAT
+        assert result.direction_source == "h1"
+
+    def test_clean_h4_still_wins(self):
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.direction_source == "h4"
+
+    def test_h1_fallback_applies_to_aggressive_profile_too(self):
+        # The H1 fallback is not a profile decision point (resolved
+        # ambiguity, task-3 brief) — it applies before the aggressive-only
+        # CHoCH branch is even considered, on both profiles.
+        h4 = make_candles(
+            [3000, 3100, 3000, 3100, 3000, 3100, 3000] * 4, step_minutes=240
+        )
+        result = _agg_engine().evaluate(
+            h4=h4,
+            h1=make_candles(H1_UPTREND_FOR_FALLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.direction_source == "h1"
 
 
 class TestCryptoSameDayFallbackSurvivesProfileWiring:

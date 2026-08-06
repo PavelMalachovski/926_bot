@@ -133,6 +133,13 @@ class AnalysisResult:
     checked_at: datetime
     price: float = 0.0
     h4_trend: Trend = Trend.FLAT
+    # Where the trade direction came from: "h4" (a real H4 trend, the normal
+    # case), "h1" (H4 was flat, H1 has a clean trend — owner decision
+    # 2026-08-06, H1 is a trend too, just a lower one, not a counter-trend
+    # entry), or "h4_choch" (aggressive profile only: H4 flat, H1 also flat,
+    # direction taken from an unreclaimed H4 CHoCH — first-leg entry, its own
+    # separate label). Task 4 renders the alert header from this.
+    direction_source: str = "h4"
     h1_zone: Optional[Zone] = None
     setup: Optional[TradeSetup] = None
     funding_rate: Optional[float] = None
