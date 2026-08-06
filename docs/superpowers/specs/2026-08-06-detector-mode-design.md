@@ -174,6 +174,21 @@ close, then recomputing the rising-edge distinct-setup count per threshold
 pair offline — both thresholds reject without altering entry/SL/TP, so ten
 passes suffice instead of forty.
 
+**Replay at production history depth, not archive depth.** `data.py:67-69`
+fetches 300 H4 (~50 days), 400 H1 (~17 days) and 400 M5 (~33 h). A replay fed
+the full cached year at every step inflates both halves of the alert decision:
+`detect_trend` resolves a trend more often on more pivots, and
+`find_liquidity` accumulates far more unswept levels than the bot can ever
+see. Measured directly — an uncapped 90-day ETHUSD replay produced 18
+conservative setups where a 59-day funnel run, whose H4 history happened to be
+~354 bars and therefore close to production, produced 3. Cap every
+higher-timeframe slice to the production limits or the rate is fiction.
+
+The post-hoc threshold shortcut itself is sound and was verified rather than
+assumed: a genuinely gated engine over the same 90-day window produced 18/35
+distinct setups against the shortcut's 19/38, the difference being the warmup
+start offset.
+
 Reference point: on ETHUSD over 59 days with both gates on, conservative
 produced 3 distinct setups and aggressive 16.
 
