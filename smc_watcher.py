@@ -294,10 +294,10 @@ class Watcher:
         except (DataFetchError, ConfigurationError) as e:
             logger.error("Pair check failed", pair=key, error=str(e))
             await self._warn_data_source_failure(key, str(e))
-            return f"⚠️ {key}: data error ({e})", None
+            return f"⚠️ {key}: data error ({escape_html(str(e))})", None
         except Exception as e:
             logger.error("Pair check failed", pair=key, error=str(e))
-            return f"⚠️ {key}: data error ({e})", None
+            return f"⚠️ {key}: data error ({escape_html(str(e))})", None
         self.last_results[key] = result
         logger.info(
             "SMC check finished",
@@ -322,12 +322,22 @@ class Watcher:
             try:
                 if now - datetime.fromisoformat(last) < timedelta(hours=1):
                     return
-            except ValueError:
+            except (ValueError, TypeError):
                 pass
-        await self.notifier.send(
-            f"⚠️ <b>{key}</b>: data source failed — {escape_html(detail)}. "
-            "Check your API key (it may have expired)."
+        # Binance (ETHUSD) is keyless — telling the owner to check an API
+        # key that does not exist for a transient network hiccup is wrong.
+        is_forex = get_instrument(key).source == "forex"
+        hint = (
+            " Check your API key (it may have expired)." if is_forex else ""
         )
+        message_id = await self.notifier.send(
+            f"⚠️ <b>{key}</b>: data source failed — {escape_html(detail)}.{hint}"
+        )
+        if not message_id:
+            # send() swallows Telegram/network failures and returns None —
+            # do not start the hour-long quiet window on a warning that
+            # never actually reached the owner.
+            return
         self.state.source_warned[key] = now.isoformat()
         self.state.save()
 
@@ -585,9 +595,17 @@ class Watcher:
         instrument = get_instrument(key)
         try:
             # on-demand -> bypass the Twelve Data cache for the freshest candles
-            data = await _build_fetcher(instrument).fetch_all_timeframes(
+            data = await self._build_fetcher(instrument).fetch_all_timeframes(
                 force_fresh=True
             )
+        except (DataFetchError, ConfigurationError) as e:
+            # /plan has no pause gate and runs even during a news blackout —
+            # both states remove run_cycle's own warning, so a dead source
+            # here would otherwise never reach the owner at all (this is the
+            # command he starts his day with).
+            logger.warning("Plan fetch failed", pair=key, error=str(e))
+            await self._warn_data_source_failure(key, str(e))
+            return
         except Exception as e:
             logger.warning("Plan fetch failed", pair=key, error=str(e))
             return

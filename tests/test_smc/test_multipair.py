@@ -568,7 +568,13 @@ class TestDataSourceFailureWarning:
         assert any("USDJPY" in m for m in watcher.notifier.sent)
 
     @pytest.mark.asyncio
-    async def test_a_recovered_pair_warns_again_after_an_hour(self, monkeypatch, tmp_path):
+    async def test_an_hour_old_stamp_does_not_latch_the_warning_off(
+        self, monkeypatch, tmp_path
+    ):
+        """The throttle stores a timestamp, not a boolean 'already warned'
+        flag — once an hour has passed since the last warning, the pair can
+        warn again (proven here by back-dating the stored stamp, not by an
+        actual recovery of the source)."""
         from datetime import datetime, timedelta, timezone
 
         watcher = self._watcher(tmp_path)
@@ -585,3 +591,94 @@ class TestDataSourceFailureWarning:
         await watcher.run_cycle()
         assert any("ETHUSD" in m for m in watcher.notifier.sent)
         assert not any("USDJPY" in m for m in watcher.notifier.sent)
+
+    @pytest.mark.asyncio
+    async def test_a_send_failure_does_not_start_the_quiet_window(
+        self, monkeypatch, tmp_path
+    ):
+        """TelegramNotifier.send returns None on any API/network failure
+        without raising. If the throttle stamped itself anyway, a Telegram
+        hiccup at the moment of the first warning would buy the owner an
+        hour of silence he never actually saw."""
+
+        class _FailingNotifier:
+            def __init__(self):
+                self.sent = []
+
+            async def send(self, text, **kwargs):
+                self.sent.append(text)
+                return None  # Telegram/API failure
+
+        watcher = self._watcher(tmp_path)
+        watcher.notifier = _FailingNotifier()
+        monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
+        await watcher.run_cycle()
+        assert watcher.notifier.sent  # the send was attempted
+        assert watcher.state.source_warned == {}, (
+            "a warning that never reached Telegram must not throttle the next one"
+        )
+
+    @pytest.mark.asyncio
+    async def test_eth_hint_does_not_mention_an_api_key(self, monkeypatch, tmp_path):
+        """Binance (ETHUSD) is keyless — telling the owner to check an API
+        key that does not exist, for what is really a transient network
+        error, is actively misleading."""
+        watcher = self._watcher(tmp_path)
+        watcher.state.pairs = ["ETHUSD"]
+
+        def _raise_for_eth(instrument):
+            from app.core.exceptions import DataFetchError
+
+            raise DataFetchError("Binance klines request failed")
+
+        monkeypatch.setattr(watcher, "_build_fetcher", _raise_for_eth)
+        await watcher.run_cycle()
+        assert watcher.notifier.sent
+        assert "API key" not in watcher.notifier.sent[0]
+
+    @pytest.mark.asyncio
+    async def test_forex_hint_still_mentions_the_api_key(self, monkeypatch, tmp_path):
+        watcher = self._watcher(tmp_path)
+        watcher.state.pairs = ["USDJPY"]
+        monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
+        await watcher.run_cycle()
+        assert watcher.notifier.sent
+        assert "API key" in watcher.notifier.sent[0]
+
+    @pytest.mark.asyncio
+    async def test_plan_warns_on_a_dead_source_even_while_paused(
+        self, monkeypatch, tmp_path
+    ):
+        """/plan has no pause gate, and run_cycle's own warning never fires
+        while paused (it returns before any fetch) — a dead source must
+        still reach the owner through the command he starts his day with.
+        (A news blackout removes the cycle's cover the same way — blackout
+        skips a pair before check_pair runs, but /plan has no blackout gate
+        either — so this one code path covers both circumstances.)"""
+        watcher = self._watcher(tmp_path)
+        watcher.state.paused = True
+        monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
+        await watcher.on_plan("ETHUSD")
+        assert any("data source" in m.lower() for m in watcher.notifier.sent)
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_line_escapes_the_exception_detail(
+        self, monkeypatch, tmp_path
+    ):
+        """check_pair's returned heartbeat line is fed into a parse_mode=HTML
+        message whenever SMC_NOTIFY_NO_SETUP=true or /check is used. A raw
+        '<' in a fetcher error message once broke Telegram delivery in
+        production (CLAUDE.md) — this failure path is now hit routinely (any
+        cycle with an expired key), so it must go through escape_html too."""
+
+        def _raise_with_angle_bracket(instrument):
+            from app.core.exceptions import DataFetchError
+
+            raise DataFetchError("fill < 50% for " + instrument.key)
+
+        watcher = self._watcher(tmp_path)
+        monkeypatch.setattr(watcher, "_build_fetcher", _raise_with_angle_bracket)
+        line, result = await watcher.check_pair("ETHUSD")
+        assert result is None
+        assert "<" not in line
+        assert "&lt;" in line
