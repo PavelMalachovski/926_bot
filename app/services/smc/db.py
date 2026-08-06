@@ -149,7 +149,10 @@ class Database:
                     self.conn.execute(
                         f"ALTER TABLE signals ADD COLUMN {column} {sql_type}"
                     )
-            self._relax_take_profit_not_null()
+        # Deliberately outside the transaction above: a table rebuild is much
+        # heavier than an ADD COLUMN and must not be able to take the watcher
+        # down with it.
+        self._relax_take_profit_not_null()
 
     def _relax_take_profit_not_null(self) -> None:
         """Drop the legacy NOT NULL on signals.take_profit.
@@ -157,20 +160,49 @@ class Database:
         Detector mode records setups that have no unswept liquidity ahead, so
         the take-profit may be NULL. SQLite cannot drop a column constraint in
         place, so the table is rebuilt once (copy → drop → rename) with every
-        row preserved. Runs inside the caller's transaction.
+        row preserved.
+
+        A failure here must never crash the watcher (see CLAUDE.md): a bot that
+        cannot start sends no alerts at all, whereas a bot on an unmigrated
+        table merely fails to insert the rare take-profit-less signal. So this
+        logs loudly and returns, and retries on the next start — the rebuild
+        drops any leftover scratch table first, so a half-finished attempt
+        heals itself instead of poisoning every later one.
         """
-        info = list(self.conn.execute("PRAGMA table_info(signals)"))
-        if not any(r["name"] == "take_profit" and r["notnull"] for r in info):
-            return
-        columns = ", ".join(SIGNAL_COLUMNS)
-        self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals_migrated"))
-        self.conn.execute(
-            f"INSERT INTO signals_migrated ({columns}) "
-            f"SELECT {columns} FROM signals"
-        )
-        self.conn.execute("DROP TABLE signals")
-        self.conn.execute("ALTER TABLE signals_migrated RENAME TO signals")
-        logger.info("Migrated signals.take_profit to a nullable column")
+        try:
+            info = list(self.conn.execute("PRAGMA table_info(signals)"))
+            if not any(r["name"] == "take_profit" and r["notnull"] for r in info):
+                return
+            # The copy lists SIGNAL_COLUMNS explicitly, so anything else in the
+            # legacy table would be silently dropped — say so out loud.
+            unknown = [r["name"] for r in info if r["name"] not in SIGNAL_COLUMNS]
+            if unknown:
+                logger.error(
+                    "Rebuilding the signals table will DROP columns that are "
+                    "not in SIGNAL_COLUMNS — their data is lost. Add them to "
+                    "SIGNAL_COLUMNS if they are still needed.",
+                    columns=unknown,
+                )
+            columns = ", ".join(SIGNAL_COLUMNS)
+            with self.conn:
+                self.conn.execute("DROP TABLE IF EXISTS signals_migrated")
+                self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals_migrated"))
+                self.conn.execute(
+                    f"INSERT INTO signals_migrated ({columns}) "
+                    f"SELECT {columns} FROM signals"
+                )
+                self.conn.execute("DROP TABLE signals")
+                self.conn.execute("ALTER TABLE signals_migrated RENAME TO signals")
+            logger.info("Migrated signals.take_profit to a nullable column")
+        except sqlite3.Error as e:
+            logger.error(
+                "Could not migrate signals.take_profit to a nullable column — "
+                "the watcher keeps running, but recording a setup with no "
+                "take-profit will fail until this succeeds. Will retry on the "
+                "next start.",
+                path=self.path,
+                error=str(e),
+            )
 
     def _connect(self, path: str) -> sqlite3.Connection:
         """Open the database, creating parent dirs; fall back instead of dying.

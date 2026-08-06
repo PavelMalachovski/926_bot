@@ -164,6 +164,30 @@ class TestLiveStatus:
         )
         assert "LIVE SETUP NOW" in line
 
+    def test_reports_live_setup_without_a_take_profit(self, monkeypatch):
+        """Detector mode: with no unswept liquidity ahead the setup has
+        take_profit=None and rr 0.0. The /plan live line must still render —
+        an unformattable None here costs the owner the whole message."""
+        import app.services.smc.engine as engine_mod
+
+        w = _watcher(monkeypatch)
+        monkeypatch.setattr(settings.smc, "max_entry_gap_r", 99.0)
+        monkeypatch.setattr(engine_mod, "nearest_liquidity", lambda *a, **k: None)
+        monkeypatch.setattr(engine_mod, "liquidity_ladder", lambda *a, **k: [])
+        data = {
+            "h4": make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            "h1": make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            "m5": m5_long_trigger(),
+        }
+        line = w._live_status(
+            get_instrument("ETHUSD"),
+            data,
+            datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
+        )
+        assert "LIVE SETUP NOW" in line
+        assert "no TP (no structural objective)" in line
+        assert "RR" not in line
+
     def test_reports_watch_reason(self, monkeypatch):
         w = _watcher(monkeypatch)
         data = {

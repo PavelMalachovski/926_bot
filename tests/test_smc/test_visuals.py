@@ -100,6 +100,139 @@ class TestDbMigration:
         assert [r["pk"] for r in db.conn.execute("PRAGMA table_info(signals)")
                 if r["name"] == "id"] == [1]
 
+        # Re-opening must be a no-op: the migration is keyed on the constraint
+        # it removes, so a second pass may neither run again nor lose rows.
+        again = Database(path)
+        assert {s["id"]: s["take_profit"] for s in again.signals_all()} == {
+            "old1": 110.0, "new1": None
+        }
+        assert not any(
+            r["name"] == "take_profit" and r["notnull"]
+            for r in again.conn.execute("PRAGMA table_info(signals)")
+        )
+        assert "signals_migrated" not in {
+            r["name"] for r in again.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+
+    def test_a_broken_migration_does_not_crash_the_watcher(self, tmp_path):
+        """db.py must never take the process down (CLAUDE.md): a bot that
+        cannot start sends no alerts at all. A leftover scratch table of a
+        foreign shape used to raise OperationalError out of the constructor."""
+        path = str(tmp_path / "hostile.db")
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """CREATE TABLE signals (
+                id TEXT PRIMARY KEY, pair TEXT NOT NULL, direction TEXT NOT NULL,
+                entry REAL NOT NULL, stop_loss REAL NOT NULL,
+                take_profit REAL NOT NULL, rr REAL NOT NULL, session TEXT,
+                created_at TEXT NOT NULL, expires_at TEXT, status TEXT NOT NULL,
+                filled_at TEXT, resolved_at TEXT, checked_until TEXT)"""
+        )
+        conn.execute(
+            "INSERT INTO signals (id, pair, direction, entry, stop_loss, "
+            "take_profit, rr, created_at, status) VALUES "
+            "('keep', 'ETHUSD', 'long', 100.0, 95.0, 110.0, 2.0, "
+            "'2026-07-16T14:00:00+00:00', 'pending')"
+        )
+        # A scratch table of a completely different shape, holding a row that
+        # would also collide on the primary key.
+        conn.execute("CREATE TABLE signals_migrated (nonsense TEXT)")
+        conn.execute("INSERT INTO signals_migrated VALUES ('keep')")
+        conn.commit()
+        conn.close()
+
+        db = Database(path)  # must not raise
+        # The residue is dropped, so the rebuild completes and the row lives.
+        assert [s["id"] for s in db.signals_all()] == ["keep"]
+        db.signal_upsert(
+            {
+                "id": "no_tp",
+                "pair": "ETHUSD",
+                "direction": "long",
+                "entry": 100.0,
+                "stop_loss": 95.0,
+                "take_profit": None,
+                "rr": 0.0,
+                "created_at": "2026-07-16T15:00:00+00:00",
+                "status": "pending",
+            }
+        )
+        assert {s["id"] for s in db.signals_all()} == {"keep", "no_tp"}
+
+    def test_a_failing_migration_is_logged_not_raised(self, tmp_path):
+        """Whatever the failure, the constructor returns a usable Database.
+
+        Injected failure: `signals_migrated` exists as a VIEW, so even
+        `DROP TABLE IF EXISTS` raises ("use DROP VIEW to delete view").
+        """
+        path = str(tmp_path / "failing.db")
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """CREATE TABLE signals (
+                id TEXT PRIMARY KEY, pair TEXT NOT NULL, direction TEXT NOT NULL,
+                entry REAL NOT NULL, stop_loss REAL NOT NULL,
+                take_profit REAL NOT NULL, rr REAL NOT NULL, session TEXT,
+                created_at TEXT NOT NULL, expires_at TEXT, status TEXT NOT NULL,
+                filled_at TEXT, resolved_at TEXT, checked_until TEXT)"""
+        )
+        conn.execute(
+            "INSERT INTO signals (id, pair, direction, entry, stop_loss, "
+            "take_profit, rr, created_at, status) VALUES "
+            "('keep', 'ETHUSD', 'long', 100.0, 95.0, 110.0, 2.0, "
+            "'2026-07-16T14:00:00+00:00', 'pending')"
+        )
+        conn.execute("CREATE VIEW signals_migrated AS SELECT 1")
+        conn.commit()
+        conn.close()
+
+        db = Database(path)  # must not raise
+        # The legacy (still NOT NULL) table is intact and usable: only the
+        # rare take-profit-less signal is lost, never the whole watcher.
+        assert [s["id"] for s in db.signals_all()] == ["keep"]
+        assert any(
+            r["name"] == "take_profit" and r["notnull"]
+            for r in db.conn.execute("PRAGMA table_info(signals)")
+        )
+
+    def test_rebuild_reports_columns_it_would_drop(self, tmp_path, monkeypatch):
+        """A legacy column outside SIGNAL_COLUMNS is dropped by the rebuild —
+        that must be loud, so a future mismatch fails visibly."""
+        path = str(tmp_path / "extra_column.db")
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """CREATE TABLE signals (
+                id TEXT PRIMARY KEY, pair TEXT NOT NULL, direction TEXT NOT NULL,
+                entry REAL NOT NULL, stop_loss REAL NOT NULL,
+                take_profit REAL NOT NULL, rr REAL NOT NULL, session TEXT,
+                created_at TEXT NOT NULL, expires_at TEXT, status TEXT NOT NULL,
+                filled_at TEXT, resolved_at TEXT, checked_until TEXT,
+                owner_note TEXT)"""
+        )
+        conn.commit()
+        conn.close()
+
+        import app.services.smc.db as db_mod
+
+        errors = []
+
+        class _Spy:
+            def error(self, event, **kw):
+                errors.append((event, kw))
+
+            def info(self, event, **kw):
+                pass
+
+        monkeypatch.setattr(db_mod, "logger", _Spy())
+        db = Database(path)
+        assert any("owner_note" in (kw.get("columns") or []) for _, kw in errors)
+        # ...and the rebuild still went through
+        assert not any(
+            r["name"] == "take_profit" and r["notnull"]
+            for r in db.conn.execute("PRAGMA table_info(signals)")
+        )
+
     def test_fresh_db_accepts_a_null_take_profit(self, tmp_path):
         db = Database(str(tmp_path / "fresh.db"))
         db.signal_upsert(

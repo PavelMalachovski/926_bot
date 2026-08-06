@@ -44,8 +44,15 @@ corresponding warning.
 Everything **before** the setup is complete still suppresses, exactly as now:
 off-session, market closed, news blackout, no H4 direction, no H1 zone, price
 not in the zone, zone invalidated, no M5 CHoCH, no valid FVG, no confirmed
-geometry (`risk <= 0`, `reward <= 0`). Those are not opinions about a trade —
-they mean there is no setup to announce.
+geometry (`risk <= 0`). Those are not opinions about a trade — they mean there
+is no setup to announce.
+
+`reward <= 0` — the nearest pool sitting inside the stop buffer — is **not**
+one of them, despite an earlier draft of this paragraph saying so. It is a
+statement about the objective, not about the setup, so it behaves like the
+three checks above: the setup is announced, `take_profit` and `target` are
+cleared (no objective is invented) and the alert carries
+`⚠️ nearest liquidity sits inside the stop buffer`.
 
 ## 2. The alert
 

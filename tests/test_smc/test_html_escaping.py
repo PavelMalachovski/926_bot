@@ -169,3 +169,36 @@ class TestTargetLine:
         assert "📐 RR: 1:2.0" in text
         assert "→" in text
         assert "H1 swing high 3221.00 (EQH x3)" in text
+
+    def test_format_result_without_a_take_profit(self):
+        """Detector mode: a setup with no unswept liquidity ahead has
+        take_profit=None. The message must still render (an unformattable
+        None here costs the owner the signal outright) and stay valid HTML.
+        Task 4 rewrites this layout; this pins the None path meanwhile."""
+        result = AnalysisResult(
+            symbol="ETHUSD",
+            verdict=Verdict.APPROVED_LIMIT,
+            checked_at=datetime(2026, 7, 16, 7, 12, tzinfo=timezone.utc),
+            price=3200.0,
+            h4_trend=Trend.UP,
+            price_decimals=2,
+        )
+        fvg = FVG(
+            index=10, bottom=3100.0, top=3150.0, is_bullish=True,
+            timestamp=datetime(2026, 7, 16, 7, 5, tzinfo=timezone.utc),
+        )
+        result.setup = TradeSetup(
+            direction=Direction.LONG,
+            entry=3125.0,
+            stop_loss=3050.0,
+            take_profit=None,
+            rr=0.0,
+            fvg=fvg,
+            target=None,
+        )
+        result.warnings.append("no unswept liquidity ahead")
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "🛑 SL: 3050.00" in text
+        assert "none (no structural objective)" in text
+        assert "RR" not in text  # no objective, no RR to quote
