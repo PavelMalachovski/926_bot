@@ -499,11 +499,10 @@ class TestAlertSendIsolation:
         monkeypatch.setattr(watcher, "check_pair", fake_check_pair)
 
         # This test is about alert-send isolation, not journal tracking —
-        # the latter has its own test below. Without this stub,
-        # journal.record() (called inside _send_alert before format_result
-        # raises) leaves ETHUSD's signal "pending", and the real
-        # _track_journal() at the end of run_cycle would then make a live
-        # network fetch for it (tests must stay network-free).
+        # the latter has its own test below. Without this stub, USDJPY's
+        # successfully recorded "pending" signal would make the real
+        # _track_journal() at the end of run_cycle do a live network fetch
+        # (tests must stay network-free).
         async def no_op_track_journal():
             return None
 
@@ -562,6 +561,41 @@ class TestAlertSendIsolation:
 
         await watcher.run_cycle()  # must not raise even if every pair fails
         assert track_calls == [1]
+
+    @pytest.mark.asyncio
+    async def test_a_failed_render_records_no_journal_row(
+        self, monkeypatch, tmp_path
+    ):
+        """`_send_alert` renders before it records. A row recorded ahead of a
+        `format_result` failure would survive as `pending` with no message
+        and no stored fingerprint, so the next cycle would record a second
+        row for the same setup — one row per cycle, silently, for as long as
+        the failure lasts."""
+        watcher = self._watcher(tmp_path)
+        watcher.state.pairs = ["ETHUSD"]
+        results = {"ETHUSD": self._approved("ETHUSD")}
+
+        async def fake_check_pair(key):
+            return f"🚨 {key}: SETUP FOUND", results[key]
+
+        monkeypatch.setattr(watcher, "check_pair", fake_check_pair)
+
+        async def no_op_track_journal():
+            return None
+
+        monkeypatch.setattr(watcher, "_track_journal", no_op_track_journal)
+
+        import smc_watcher as smc_watcher_mod
+
+        def always_raises(result, in_plan=None):
+            raise ValueError("simulated formatting failure")
+
+        monkeypatch.setattr(smc_watcher_mod, "format_result", always_raises)
+
+        await watcher.run_cycle()
+        await watcher.run_cycle()  # the setup is still live next cycle
+        assert watcher.journal.signals == []
+        assert watcher.db.signals_all() == []
 
 
 class TestMorningDigestSkipsWeekends:
@@ -791,12 +825,52 @@ class TestDataSourceFailureWarning:
 
     @pytest.mark.asyncio
     async def test_forex_hint_still_mentions_the_api_key(self, monkeypatch, tmp_path):
+        """`_raising_fetcher` raises "TwelveData 401 ..." — an auth failure,
+        where "your key may have expired" is exactly the right thing to say."""
         watcher = self._watcher(tmp_path)
         watcher.state.pairs = ["USDJPY"]
         monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
         await watcher.run_cycle()
         assert watcher.notifier.sent
         assert "API key" in watcher.notifier.sent[0]
+
+    @pytest.mark.asyncio
+    async def test_forex_hint_is_absent_on_a_rate_limit_or_transient_error(
+        self, monkeypatch, tmp_path
+    ):
+        """A 429 or a timeout is not an auth problem. Sending the owner to
+        rotate a working key every time TwelveData throttles is noise that
+        trains him to ignore the warning."""
+        watcher = self._watcher(tmp_path)
+        watcher.state.pairs = ["USDJPY"]
+
+        for detail in (
+            "Twelve Data rate limited for USD/JPY",
+            "Twelve Data request failed for USD/JPY: ReadTimeout",
+            "OANDA candles request failed (503): service unavailable",
+        ):
+            watcher.notifier.sent.clear()
+            watcher.state.source_warned.clear()
+            await watcher._warn_data_source_failure("USDJPY", detail)
+            assert watcher.notifier.sent, detail
+            assert "API key" not in watcher.notifier.sent[0], detail
+
+    @pytest.mark.asyncio
+    async def test_forex_hint_is_present_for_other_credential_wordings(
+        self, monkeypatch, tmp_path
+    ):
+        """The two real credential failures the owner actually hits: Twelve
+        Data's error payload naming the parameter, and the config error for
+        a key that was never set."""
+        watcher = self._watcher(tmp_path)
+        for detail in (
+            "Twelve Data error: **apikey** parameter is invalid",
+            "SMC_FOREX_SOURCE=twelvedata but TWELVEDATA_API_KEY is not set.",
+        ):
+            watcher.notifier.sent.clear()
+            watcher.state.source_warned.clear()
+            await watcher._warn_data_source_failure("USDJPY", detail)
+            assert "API key" in watcher.notifier.sent[0], detail
 
     @pytest.mark.asyncio
     async def test_plan_warns_on_a_dead_source_even_while_paused(

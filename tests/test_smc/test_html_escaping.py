@@ -396,6 +396,27 @@ class TestDetectorAlert:
         assert "<pre>" not in outside
         assert "</pre>" not in outside
 
+    def test_two_digit_rr_keeps_the_timeframe_column_aligned(self):
+        """Column alignment is the whole justification for wrapping the
+        ladder in <pre>. The RR cell is width-padded like the distance
+        column, so a rung reaching 1:10+ does not shove its own timeframe
+        one character right and unpick the block below it."""
+        result = _hand_built(
+            order_block=None,
+            ladder=[
+                LiquidityLevel(price=3221.0, is_high=True, timeframe="H1",
+                               equal_count=1, timestamp=None),   # 1:1.3
+                LiquidityLevel(price=3900.0, is_high=True, timeframe="H4",
+                               equal_count=1, timestamp=None),   # 1:10.3
+            ],
+        )
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        rungs = [ln for ln in text.split("\n") if "1:" in ln and "   " in ln]
+        assert len(rungs) == 2
+        assert "1:10" in rungs[1]  # the two-digit ratio is really there
+        assert rungs[0].index("H1") == rungs[1].index("H4")
+
     def test_ladder_pre_block_escapes_dynamic_content(self):
         """Every value interpolated inside <pre> still goes through
         escape_html — a <pre> block does not make Telegram stop parsing

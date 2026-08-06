@@ -364,6 +364,23 @@ class TestLiveCardEvents:
         assert signal["status"] != "tp"
         assert signal["filled_at"] is not None
 
+    def test_live_card_does_not_promise_to_track_a_tp_that_does_not_exist(self):
+        """The card footer for an open position: with no objective recorded,
+        `evaluate_signal` can only ever resolve it as SL or timeout, so
+        "tracking TP/SL" would be a promise the bot cannot keep."""
+        from smc_watcher import _card_footer
+
+        signal = {
+            "status": "open", "entry": 3139.5, "rr": 2.0,
+            "filled_at": None, "resolved_at": None, "take_profit": 3219.0,
+        }
+        assert "tracking TP/SL" in _card_footer(signal)
+
+        signal["take_profit"] = None
+        footer = _card_footer(signal)
+        assert "TP/SL" not in footer
+        assert "tracking SL (no objective recorded)" in footer
+
 
 class TestChart:
     def test_renders_png(self):

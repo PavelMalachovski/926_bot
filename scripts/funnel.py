@@ -39,6 +39,12 @@ PIT_FLOOR = 15
 
 BINANCE_BASE = "https://api.binance.com"
 
+# Keys `replay_funnel` puts in its counter that are not per-close funnel
+# stages: `off_session` is by definition not in session, `distinct_setups` is
+# a rising edge over approved closes and `session_days` counts calendar days.
+# (`warn_*` is the fourth family — matched by prefix, not listed here.)
+NON_STAGE_KEYS = frozenset({"off_session", "distinct_setups", "session_days"})
+
 
 def classify_result(result: AnalysisResult) -> str:
     """Map an evaluate() outcome to a primary funnel stage label.
@@ -95,16 +101,20 @@ def in_session_count(counts: Dict[str, int]) -> int:
 
     Every replayed close increments exactly one of `classify_result`'s
     stage labels (or "warmup") — except `off_session`, which by definition
-    is not in session, so it is excluded. The `warn_*` counters are NOT one
-    of those per-close stages: `replay_funnel` increments them *alongside*
-    "approved" on the same close (spec sec 1/5, a warning does not replace
-    the approval), so summing them in here double-counts every warned close
-    and inflates the total — on a real replay, by as much as the approved
-    count itself. Excluded for the same reason `off_session` is.
+    is not in session, so it is excluded. Everything else `replay_funnel`
+    puts in the same dict is NOT a per-close stage and must be excluded too,
+    or the printed total is inflated:
+
+    * `warn_*` increments *alongside* "approved" on the same close (spec
+      sec 1/5 — a warning does not replace the approval), so summing them in
+      double-counts every warned close, by as much as the approved count;
+    * `distinct_setups` is a rising-edge count over those same approved
+      closes;
+    * `session_days` is a count of calendar days, not of closes at all.
     """
     return sum(
         v for k, v in counts.items()
-        if k != "off_session" and not k.startswith("warn_")
+        if k not in NON_STAGE_KEYS and not k.startswith("warn_")
     )
 
 
@@ -298,10 +308,8 @@ async def _run(pairs: List[str], days: int, factors: List[float], legacy: bool) 
             setups_per_week = counts.get("distinct_setups", 0) / session_days * 5
             died = {
                 k: v for k, v in counts.items()
-                if k not in (
-                    "approved", "distinct_setups", "session_days",
-                    "off_session", "warmup",
-                ) and not k.startswith("warn_")
+                if k not in NON_STAGE_KEYS | {"approved", "warmup"}
+                and not k.startswith("warn_")
             }
             print(
                 f"  {label:<10}{counts.get('distinct_setups', 0):>10}"

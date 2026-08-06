@@ -335,8 +335,15 @@ class TripleSyncEngine:
         # The deeper M5 limit option (owner request 2026-08-06) and the
         # untested zones ahead — shown, never preferred: which entry to take
         # is the owner's call.
-        order_block = find_order_block(m5, direction, fvg.index - 1)
-        zones_ahead = zone_ladder(h1, direction, entry)
+        # The walk is floored at the zone touch — the excursion this setup
+        # formed in — and the candidate is kept only when it really is the
+        # deeper entry the alert calls it (see find_order_block).
+        order_block = find_order_block(
+            m5, direction, fvg.index - 1, touch, entry, stop_loss
+        )
+        # The ladder is the OTHER untested zones on the trade's own side, so
+        # the live entry zone is excluded rather than shown as its own rung.
+        zones_ahead = zone_ladder(h1, direction, entry, exclude=zone)
 
         # Rule 8 — position size hint
         lot_hint = self._lot_hint(entry, risk)

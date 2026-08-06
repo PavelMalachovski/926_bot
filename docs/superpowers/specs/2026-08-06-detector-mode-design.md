@@ -159,6 +159,16 @@ He asked for both ladders — walking through USDCAD he noted an untested H1
 order block at 1.40710 that he wanted to see, while the bot was showing only
 the freshest zone at 1.40112–1.40154.
 
+"In the trade direction" means **on the same side as the setup's own zone,
+further out**: for a short, untested supply *above* the entry (1.40710 on
+that USDCAD short at 1.40192); for a long, untested demand *below* it. They
+are alternative deeper entries, where he could still be filled at a better
+price if the first limit does not — the same idea as the M5 order block, one
+timeframe up. Opposite-side zones are obstacles on the way to the target, not
+entries, and are not what he asked for (confirmed 2026-08-06 after the first
+implementation read the sentence the other way). The zone the setup itself
+formed in is not a rung: it is already the 📍 line at the top of the alert.
+
 Distances are shown in the instrument's own units: dollars for crypto, pips
 for forex, the same split `engine._fmt_size` already makes. "1008 pips" for a
 $10 move on ETH is how a level gets misjudged at a glance.
@@ -184,7 +194,14 @@ opposing the trade direction before the impulse that broke structure — for a
 long, the last bearish candle before the up-move. Boundaries follow
 `build_zone`'s existing convention so the bot has one rule everywhere: demand
 = `low → body_high`, supply = `body_low → high`. Walk back from the oldest
-candle of the FVG triple (`fvg.index - 2`).
+candle of the FVG triple (`fvg.index - 2`), and no further back than the
+candle where price entered the H1 zone — "before the impulse" is a window,
+not all of history, and an unbounded walk drifts into the sweep leg and
+returns a candle worse than the FVG entry. A candidate that is not strictly
+deeper than the FVG entry, or that sits beyond the stop, is dropped rather
+than shown: it is neither the better price the line advertises nor a risk
+the "RR from OB" column can honestly be computed on (clarified 2026-08-06
+during the final branch review).
 
 It is a second limit option, not a replacement: for a long it sits below the
 FVG edge, for a short above it — deeper in both cases, so it fills later and

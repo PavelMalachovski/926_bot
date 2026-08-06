@@ -510,9 +510,43 @@ class TestGatesAreNowLabels:
         setup = self._run().setup
         assert setup.order_block is not None
         assert setup.order_block.top < setup.entry, "OB is a deeper long entry"
+        # ...and a deeper entry that is still a trade: past the stop, the
+        # ladder's "RR from OB" column would be computed on a collapsed risk.
+        assert setup.order_block.top > setup.stop_loss, "OB is inside the stop"
         assert 1 <= len(setup.ladder) <= 5
         assert setup.ladder[0].price == setup.target.price, \
             "the ladder starts at the nearest pool"
+
+    def test_zone_ladder_shows_deeper_entries_not_the_zone_being_entered(self):
+        """Owner confirmation 2026-08-06: the zone ladder is alternative
+        deeper entries on the trade's own side, and never the live zone the
+        setup just formed in (which qualifies on price alone).
+
+        The H1 fixture is extended with an earlier, deeper untested demand
+        zone (3039-3060) so there is something to show: the shipped
+        H1_PULLBACK_CLOSES has exactly one untested demand zone, the live
+        one, and would render an empty block either way.
+        """
+        result = _fresh_result()
+        result = _engine(max_entry_gap_r=99.0).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(
+                [3100, 3060, 3040, 3070, 3100] + H1_PULLBACK_CLOSES,
+                step_minutes=60,
+            ),
+            m5=m5_long_trigger_deep_sweep(), result=result,
+        )
+        setup = result.setup
+        assert setup is not None
+        assert [(z.bottom, z.top) for z in setup.zones_ahead] == [(3039.0, 3060)]
+        # the live zone is not a rung ...
+        assert all(
+            (z.bottom, z.top) != (result.h1_zone.bottom, result.h1_zone.top)
+            for z in setup.zones_ahead
+        )
+        # ... and neither is the supply zone at 3200-3221 above the entry,
+        # which is an obstacle on the way to target, not an entry.
+        assert all(z.is_demand and z.top < setup.entry for z in setup.zones_ahead)
 
     def test_no_liquidity_ahead_is_announced_without_a_take_profit(self, monkeypatch):
         import app.services.smc.engine as E

@@ -60,10 +60,13 @@ app/services/smc/
 │                         evaluate() is fully unit-testable on synthetic candles
 ├── structure.py          fractal-5 pivots (2-closed-candle confirmation),
 │                         H4 trend HH+HL/LH+LL with fakeout-reclaim, H1 zones
-│                         (untested only) + zone_ladder (untested zones
-│                         further out), M5 CHoCH, sweep_extreme (Rule 6 stop
-│                         reference), find_order_block (the M5 order block,
-│                         a deeper second entry)
+│                         (untested only) + zone_ladder (untested zones on the
+│                         trade's own side, further out — deeper entries; the
+│                         live zone excluded), M5 CHoCH, sweep_extreme (Rule 6
+│                         stop reference), find_order_block (the M5 order
+│                         block, a deeper second entry, searched only inside
+│                         the zone-touch→FVG window and kept only when it is
+│                         deeper than the entry and inside the stop)
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
 │                         nearest_liquidity (Rule 7 take-profit target) and
 │                         liquidity_ladder (five rungs shown in the alert)
@@ -160,7 +163,7 @@ tracking → live-card edits on fill/TP/SL events.
 
 ## Workflow
 
-- Work on branch `feat/smc-watcher-railway`, PRs to `master` via `gh`
+- Work on a feature branch (currently `feat/detector-mode`), PRs to `master` via `gh`
   (installed at `C:\Program Files\GitHub CLI` on the owner's machine; add to
   PATH in bash). The owner merges; Railway deploys master.
 - PR template lives in `.github/pull_request_template.md` — follow it.

@@ -72,7 +72,7 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
     # proportional font, matching every other line (📍/⚡/🛑/🧱). Only the
     # data rows below it need a monospace font for the columns to line up
     # (spec 2026-08-06 §2), so only they go inside <pre>.
-    out = [header, "<pre>"]
+    rows = []
     for lv in setup.ladder:
         tp = (
             lv.price - instrument.sl_buffer if is_long
@@ -90,21 +90,32 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
             f" · EQ{'H' if lv.is_high else 'L'} x{lv.equal_count}"
             if lv.equal_count > 1 else ""
         )
+        rows.append((lv, cell, pool))
+
+    # Every column is width-padded, including RR: a two-digit ratio on one
+    # rung would otherwise push that rung's timeframe out of line and undo
+    # the whole reason the block is wrapped in <pre>. The width is taken
+    # from the widest cell actually present rather than guessed.
+    rr_width = max((len(cell) for _, cell, _ in rows), default=0)
+    out = [header, "<pre>"]
+    for lv, cell, pool in rows:
         out.append(
             f"     {lv.price:.{d}f}   "
             f"{format_distance(abs(lv.price - setup.entry), instrument):>10}   "
-            f"{cell}   {escape_html(lv.timeframe + pool)}"
+            f"{cell:<{rr_width}}   {escape_html(lv.timeframe + pool)}"
         )
-    if not setup.ladder:
+    if not rows:
         out.append("     — none ahead")
     out.append("</pre>")
     return out
 
 
 def _zone_lines(setup, decimals: int) -> List[str]:
-    """The untested zones further out — the owner asked to see the block the
-    bot is not entering from (USDCAD 1.40710, 2026-08-06)."""
-    out = ["🧱 Untested zones further out"]
+    """The untested zones on the trade's own side, further out than the
+    entry — alternative deeper entries, the same idea as the 🧱 M5 order
+    block one line up. The owner asked to see the untested H1 block the bot
+    was hiding (USDCAD 1.40710, 2026-08-06)."""
+    out = ["🧱 Untested zones further out   ← deeper entries"]
     for zone in setup.zones_ahead:
         touches = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
         out.append(

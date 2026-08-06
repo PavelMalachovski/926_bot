@@ -244,21 +244,23 @@ class TestJournal:
     def test_average_planned_rr_ignores_signals_without_a_take_profit(
         self, tmp_path
     ):
-        """A setup with no unswept liquidity ahead carries rr 0.0 and no TP;
-        averaging that zero in would deflate the figure."""
+        """A setup with no structural objective carries rr 0.0 and no TP;
+        averaging that zero in would deflate the figure. "No objective"
+        covers both causes: nothing unswept ahead, and a nearest pool inside
+        the stop buffer."""
         with_tp = self._signal()
         without_tp = dict(self._signal(), take_profit=None, rr=0.0)
         journal = self._journal_with(tmp_path, [with_tp, without_tp])
         text = journal.stats_text(days=36500)
         assert "Average planned RR: 1:2.0" in text
-        assert "(1 signal had no unswept liquidity ahead — no planned RR)" in text
+        assert "(1 signal had no structural objective — no planned RR)" in text
 
     def test_the_excluded_count_agrees_in_number(self, tmp_path):
         without_tp = dict(self._signal(), take_profit=None, rr=0.0)
         journal = self._journal_with(
             tmp_path, [self._signal(), without_tp, dict(without_tp)]
         )
-        assert "(2 signals had no unswept liquidity ahead" in journal.stats_text(
+        assert "(2 signals had no structural objective" in journal.stats_text(
             days=36500
         )
 
@@ -270,4 +272,4 @@ class TestJournal:
         journal = self._journal_with(tmp_path, [without_tp, dict(without_tp)])
         text = journal.stats_text(days=36500)
         assert "Average planned RR" not in text
-        assert "(2 signals had no unswept liquidity ahead — no planned RR)" in text
+        assert "(2 signals had no structural objective — no planned RR)" in text

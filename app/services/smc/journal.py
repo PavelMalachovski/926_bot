@@ -293,8 +293,12 @@ class SignalJournal:
             # Say it even when nothing is left to average, or the RR line the
             # owner is used to would just vanish with no explanation.
             lines.append(
+                # Not only "no liquidity ahead": a null take-profit also
+                # comes from the nearest pool sitting inside the stop buffer
+                # (engine, detector mode). Both mean the same thing here —
+                # no structural objective to plan an RR against.
                 f"({missing} signal{'' if missing == 1 else 's'} had no "
-                "unswept liquidity ahead — no planned RR)"
+                "structural objective — no planned RR)"
             )
         # Spec 2026-08-06 §4: the bot records its own reference entry/SL/TP,
         # but the owner sets his own levels. This must not read as his

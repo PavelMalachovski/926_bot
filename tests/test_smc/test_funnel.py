@@ -115,22 +115,26 @@ def test_in_session_count_excludes_off_session():
     assert in_session_count({"off_session": 720, "approved": 10, "h4_flat": 5}) == 15
 
 
-def test_in_session_count_excludes_warn_counters():
-    """Regression for the coordinator's DM7 review finding: `warn_rr_low` /
-    `warn_entry_stale` / `warn_no_liquidity` increment ALONGSIDE "approved"
-    on the same M5 close (`replay_funnel`), not instead of it, so summing
-    them into "in-session checks" double-counts every warned close. These
-    are the exact counts from a live 5-day ETHUSD `--legacy` replay: the old
-    `sum(v for k, v in counts.items() if k != "off_session")` printed 778
-    (673 real in-session closes + 105 double-counted warnings) — the
-    inflation was the same order as "approved" itself."""
+def test_in_session_count_counts_only_per_close_stages():
+    """Regression for the coordinator's DM7 review finding and the final
+    branch review's follow-up: `warn_rr_low` / `warn_entry_stale` /
+    `warn_no_liquidity` increment ALONGSIDE "approved" on the same M5 close
+    (`replay_funnel`), not instead of it, so summing them into "in-session
+    checks" double-counts every warned close. `distinct_setups` (a rising
+    edge over those same approved closes) and `session_days` (calendar days)
+    are not per-close stages either and were still being summed in.
+
+    These are the exact counts from a live 5-day ETHUSD `--legacy` replay:
+    303 + 103 + 36 + 139 + 69 + 10 = 660 real in-session closes. The
+    original `sum(... if k != "off_session")` printed 778 (+105 warnings,
+    +13 for the two bookkeeping keys)."""
     counts = {
         "off_session": 720, "warmup": 303, "approved": 103,
         "warn_rr_low": 80, "warn_entry_stale": 19, "warn_no_liquidity": 6,
         "h4_flat": 36, "no_choch": 139, "fvg_small": 69, "other": 10,
         "distinct_setups": 7, "session_days": 6,
     }
-    assert in_session_count(counts) == 673  # not 778
+    assert in_session_count(counts) == 660  # not 778, and not 673
 
 
 def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():

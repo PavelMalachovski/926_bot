@@ -161,6 +161,24 @@ def _setup_fingerprint(result: AnalysisResult) -> str:
     )
 
 
+# Substrings in a DataFetchError/ConfigurationError detail that actually
+# point at credentials: the provider names the key (Twelve Data's "**apikey**
+# parameter is invalid", the "TWELVEDATA_API_KEY is not set" config error) or
+# the HTTP layer says unauthorized. A 429, a timeout or a 5xx matches none of
+# them — those are not a reason to rotate a working key.
+_AUTH_FAILURE_MARKERS = (
+    "apikey", "api key", "api_key", "api token", "api_token",
+    "unauthorized", "forbidden", "authentication", "credential",
+    " 401", "(401", "401)", " 403", "(403", "403)",
+)
+
+
+def _looks_like_auth_failure(detail: str) -> bool:
+    """True when a data-source failure reads like a credentials problem."""
+    text = detail.lower()
+    return any(marker in text for marker in _AUTH_FAILURE_MARKERS)
+
+
 def _card_footer(signal: Dict) -> str:
     """Status history appended to the alert message (live setup card)."""
 
@@ -184,7 +202,15 @@ def _card_footer(signal: Dict) -> str:
     elif status == "timeout":
         lines.append("⌛ Timed out — untracked after 5 days")
     elif status == "open":
-        lines.append("⏳ Position live — tracking TP/SL")
+        # Detector mode: a setup with no structural objective carries no
+        # take-profit, and `evaluate_signal` can only ever resolve it as SL
+        # or timeout. Promising to track a TP that does not exist would be a
+        # lie on the live card.
+        lines.append(
+            "⏳ Position live — tracking TP/SL"
+            if signal.get("take_profit") is not None
+            else "⏳ Position live — tracking SL (no objective recorded)"
+        )
     return "\n".join(lines)
 
 
@@ -325,10 +351,15 @@ class Watcher:
             except (ValueError, TypeError):
                 pass
         # Binance (ETHUSD) is keyless — telling the owner to check an API
-        # key that does not exist for a transient network hiccup is wrong.
+        # key that does not exist is wrong. And on a forex pair the failure
+        # is just as often a rate limit or a transient HTTP error, where
+        # "your key may have expired" sends him to rotate a working key for
+        # nothing: the hint is only shown when the detail actually reads
+        # like an auth problem.
         is_forex = get_instrument(key).source == "forex"
         hint = (
-            " Check your API key (it may have expired)." if is_forex else ""
+            " Check your API key (it may have expired)."
+            if is_forex and _looks_like_auth_failure(detail) else ""
         )
         message_id = await self.notifier.send(
             f"⚠️ <b>{key}</b>: data source failed — {escape_html(detail)}.{hint}"
@@ -436,8 +467,14 @@ class Watcher:
         isolate theirs, instead of letting it silently drop every remaining
         pair in this cycle's `for key in ...` loop.
         """
-        signal = self.journal.record(result)
+        # Render first, record second. The caller isolates a failure in here
+        # (most plausibly `format_result`) per pair — but a signal recorded
+        # before that failure survives as a `pending` row with no message and
+        # no stored fingerprint, so the next cycle records a second row for
+        # the same setup and the journal grows one row per cycle, silently.
+        # Nothing between here and `attach_message` reads the journal.
         text = format_result(result, in_plan=self._plan_provenance(key, result))
+        signal = self.journal.record(result)
         keyboard = {
             "inline_keyboard": [
                 [

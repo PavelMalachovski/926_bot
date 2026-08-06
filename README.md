@@ -234,7 +234,7 @@ app/services/smc/
 ├── state.py                # runtime state on SQLite (pairs, dedup keys)
 ├── db.py                   # SQLite wrapper, column migrations, JSON import
 └── models.py               # Candle, Zone, FVG, TradeSetup, AnalysisResult
-tests/test_smc/             # 93 unit + end-to-end strategy tests
+tests/test_smc/             # 327 unit + end-to-end strategy tests
 scripts/funnel.py           # offline calibration: replays the engine over
                             # historical candles per profile to size fvg_size_factor
 CLAUDE.md                   # guidance for AI-assisted development
