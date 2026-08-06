@@ -60,25 +60,18 @@ TRADE_COLUMNS = [
 ]
 
 
-class Database:
-    """Thin wrapper over sqlite3 with a signals table and a kv store."""
-
-    FALLBACK_PATH = ".smc_watcher.db"
-
-    def __init__(self, path: str):
-        self.path = path
-        self.conn = self._connect(path)
-        self.conn.row_factory = sqlite3.Row
-        with self.conn:
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS signals (
+# `take_profit` is nullable on purpose (detector mode, 2026-08-06): a setup
+# with no unswept liquidity ahead is announced and tracked, it simply has no
+# structural objective. Databases created before that date declared the column
+# NOT NULL — see _relax_take_profit_not_null.
+SIGNALS_TABLE_SQL = """
+                CREATE TABLE IF NOT EXISTS {name} (
                     id TEXT PRIMARY KEY,
                     pair TEXT NOT NULL,
                     direction TEXT NOT NULL,
                     entry REAL NOT NULL,
                     stop_loss REAL NOT NULL,
-                    take_profit REAL NOT NULL,
+                    take_profit REAL,
                     rr REAL NOT NULL,
                     session TEXT,
                     created_at TEXT NOT NULL,
@@ -92,58 +85,147 @@ class Database:
                     alert_text TEXT,
                     profile_key TEXT
                 )
-                """
-            )
-            self.conn.execute(
-                "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)"
-            )
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS trades (
-                    id TEXT PRIMARY KEY,
-                    ticket TEXT,
-                    symbol TEXT NOT NULL,
-                    direction TEXT,
-                    volume REAL,
-                    open_price REAL,
-                    close_price REAL,
-                    open_time TEXT,
-                    close_time TEXT,
-                    sl REAL,
-                    tp REAL,
-                    profit REAL DEFAULT 0,
-                    swap REAL DEFAULT 0,
-                    commission REAL DEFAULT 0,
-                    taxes REAL DEFAULT 0,
-                    closed_by_sl INTEGER DEFAULT 0,
-                    status TEXT NOT NULL DEFAULT 'pending',
-                    batch_id TEXT,
-                    created_at TEXT NOT NULL
+"""
+
+
+class Database:
+    """Thin wrapper over sqlite3 with a signals table and a kv store."""
+
+    FALLBACK_PATH = ".smc_watcher.db"
+
+    def __init__(self, path: str):
+        self.path = path
+        self.conn = self._connect(path)
+        self.conn.row_factory = sqlite3.Row
+        self._create_schema()
+        # Deliberately outside the transaction above: a table rebuild is much
+        # heavier than an ADD COLUMN and must not be able to take the watcher
+        # down with it.
+        self._relax_take_profit_not_null()
+
+    def _create_schema(self) -> None:
+        """Create tables/indexes and add columns missing from an older DB.
+
+        A failure here must never crash the watcher (see CLAUDE.md): the same
+        reasoning as `_relax_take_profit_not_null` below applies one step
+        earlier — a bot that cannot start sends no alerts at all, whereas a
+        bot on a not-yet-migrated schema merely fails the operations that
+        touch the missing piece. Logs loudly and retries on the next start.
+        """
+        try:
+            with self.conn:
+                self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals"))
+                self.conn.execute(
+                    "CREATE TABLE IF NOT EXISTS kv "
+                    "(key TEXT PRIMARY KEY, value TEXT)"
                 )
-                """
-            )
-            self.conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_trades_status "
-                "ON trades(status)"
-            )
-            self.conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_trades_batch ON trades(batch_id)"
-            )
-            # Migrate databases created before these columns existed
-            existing = {
-                row["name"]
-                for row in self.conn.execute("PRAGMA table_info(signals)")
-            }
-            for column, sql_type in (
-                ("taken", "INTEGER"),
-                ("message_id", "INTEGER"),
-                ("alert_text", "TEXT"),
-                ("profile_key", "TEXT"),
-            ):
-                if column not in existing:
-                    self.conn.execute(
-                        f"ALTER TABLE signals ADD COLUMN {column} {sql_type}"
+                self.conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS trades (
+                        id TEXT PRIMARY KEY,
+                        ticket TEXT,
+                        symbol TEXT NOT NULL,
+                        direction TEXT,
+                        volume REAL,
+                        open_price REAL,
+                        close_price REAL,
+                        open_time TEXT,
+                        close_time TEXT,
+                        sl REAL,
+                        tp REAL,
+                        profit REAL DEFAULT 0,
+                        swap REAL DEFAULT 0,
+                        commission REAL DEFAULT 0,
+                        taxes REAL DEFAULT 0,
+                        closed_by_sl INTEGER DEFAULT 0,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        batch_id TEXT,
+                        created_at TEXT NOT NULL
                     )
+                    """
+                )
+                self.conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_trades_status "
+                    "ON trades(status)"
+                )
+                self.conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_trades_batch "
+                    "ON trades(batch_id)"
+                )
+                # Migrate databases created before these columns existed
+                existing = {
+                    row["name"]
+                    for row in self.conn.execute("PRAGMA table_info(signals)")
+                }
+                for column, sql_type in (
+                    ("taken", "INTEGER"),
+                    ("message_id", "INTEGER"),
+                    ("alert_text", "TEXT"),
+                    ("profile_key", "TEXT"),
+                ):
+                    if column not in existing:
+                        self.conn.execute(
+                            f"ALTER TABLE signals ADD COLUMN {column} {sql_type}"
+                        )
+        except sqlite3.Error as e:
+            logger.error(
+                "Could not create/migrate the database schema — the watcher "
+                "keeps running, but operations on a missing table or column "
+                "will fail until this succeeds. Will retry on the next "
+                "start.",
+                path=self.path,
+                error=str(e),
+            )
+
+    def _relax_take_profit_not_null(self) -> None:
+        """Drop the legacy NOT NULL on signals.take_profit.
+
+        Detector mode records setups that have no unswept liquidity ahead, so
+        the take-profit may be NULL. SQLite cannot drop a column constraint in
+        place, so the table is rebuilt once (copy → drop → rename) with every
+        row preserved.
+
+        A failure here must never crash the watcher (see CLAUDE.md): a bot that
+        cannot start sends no alerts at all, whereas a bot on an unmigrated
+        table merely fails to insert the rare take-profit-less signal. So this
+        logs loudly and returns, and retries on the next start — the rebuild
+        drops any leftover scratch table first, so a half-finished attempt
+        heals itself instead of poisoning every later one.
+        """
+        try:
+            info = list(self.conn.execute("PRAGMA table_info(signals)"))
+            if not any(r["name"] == "take_profit" and r["notnull"] for r in info):
+                return
+            # The copy lists SIGNAL_COLUMNS explicitly, so anything else in the
+            # legacy table would be silently dropped — say so out loud.
+            unknown = [r["name"] for r in info if r["name"] not in SIGNAL_COLUMNS]
+            if unknown:
+                logger.error(
+                    "Rebuilding the signals table will DROP columns that are "
+                    "not in SIGNAL_COLUMNS — their data is lost. Add them to "
+                    "SIGNAL_COLUMNS if they are still needed.",
+                    columns=unknown,
+                )
+            columns = ", ".join(SIGNAL_COLUMNS)
+            with self.conn:
+                self.conn.execute("DROP TABLE IF EXISTS signals_migrated")
+                self.conn.execute(SIGNALS_TABLE_SQL.format(name="signals_migrated"))
+                self.conn.execute(
+                    f"INSERT INTO signals_migrated ({columns}) "
+                    f"SELECT {columns} FROM signals"
+                )
+                self.conn.execute("DROP TABLE signals")
+                self.conn.execute("ALTER TABLE signals_migrated RENAME TO signals")
+            logger.info("Migrated signals.take_profit to a nullable column")
+        except sqlite3.Error as e:
+            logger.error(
+                "Could not migrate signals.take_profit to a nullable column — "
+                "the watcher keeps running, but recording a setup with no "
+                "take-profit will fail until this succeeds. Will retry on the "
+                "next start.",
+                path=self.path,
+                error=str(e),
+            )
 
     def _connect(self, path: str) -> sqlite3.Connection:
         """Open the database, creating parent dirs; fall back instead of dying.

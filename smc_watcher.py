@@ -7,8 +7,9 @@ logged; set SMC_NOTIFY_NO_SETUP=true to also receive 15-min heartbeats.
 
 Pairs are chosen at runtime via Telegram commands (/pairs) handled by a
 long-polling loop in the same process. ETHUSD data comes from Binance;
-forex pairs (USDJPY, EURUSD, GBPUSD, USDCAD) come from the free Yahoo
-Finance feed by default, or from OANDA v20 when OANDA_API_TOKEN is set.
+forex pairs (USDJPY, EURUSD, GBPUSD, USDCAD) come from Twelve Data when
+TWELVEDATA_API_KEY is set, or from OANDA v20 when OANDA_API_TOKEN is set —
+a forex key is required, there is no keyless fallback.
 
 Usage:
     python smc_watcher.py                  # run forever (scheduler + bot)
@@ -26,6 +27,7 @@ from typing import Dict, List, Optional, Tuple
 import structlog
 
 from app.core.config import settings
+from app.core.exceptions import ConfigurationError, DataFetchError
 from app.core.logging import configure_logging
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.db import Database, migrate_legacy_json
@@ -40,10 +42,10 @@ from app.services.smc.notifier import (
     format_no_setup,
     format_plan,
     format_result,
+    redact_secrets,
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
-from app.services.smc.yahoo import YahooDataFetcher
 from app.services.smc.sessions import active_session, to_prague
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
@@ -65,15 +67,41 @@ APPROVED = (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
 
 
 def _forex_source() -> str:
-    """Resolve the configured forex source, honouring 'auto'."""
+    """Resolve the configured forex source, honouring 'auto'.
+
+    There is no keyless fallback any more (the previous keyless forex feed
+    was removed — its data was bad enough to have produced a wrong strategy
+    conclusion during replay validation). A forex pair with no usable key is
+    a configuration error, not a silent downgrade: it must fail clearly here
+    so the caller can warn the owner instead of quietly returning no data.
+    """
     source = settings.smc.forex_source.strip().lower()
-    if source != "auto":
-        return source
-    if settings.twelvedata.api_key:
+    if source == "auto":
+        if settings.twelvedata.api_key:
+            return "twelvedata"
+        if settings.oanda.api_token:
+            return "oanda"
+        raise ConfigurationError(
+            "No forex data source configured: set TWELVEDATA_API_KEY or "
+            "OANDA_API_TOKEN (SMC_FOREX_SOURCE=auto has nothing to pick "
+            "from — the keyless forex fallback has been removed)."
+        )
+    if source == "twelvedata":
+        if not settings.twelvedata.api_key:
+            raise ConfigurationError(
+                "SMC_FOREX_SOURCE=twelvedata but TWELVEDATA_API_KEY is not set."
+            )
         return "twelvedata"
-    if settings.oanda.api_token:
+    if source == "oanda":
+        if not settings.oanda.api_token:
+            raise ConfigurationError(
+                "SMC_FOREX_SOURCE=oanda but OANDA_API_TOKEN is not set."
+            )
         return "oanda"
-    return "yahoo"
+    raise ConfigurationError(
+        f"Unknown SMC_FOREX_SOURCE: {source!r} (use 'auto', 'twelvedata' or "
+        "'oanda')."
+    )
 
 
 def _build_fetcher(instrument: Instrument):
@@ -81,22 +109,22 @@ def _build_fetcher(instrument: Instrument):
         # ETHUSD stays on Binance: unlimited, deep history, funding rate.
         return BinanceDataFetcher(instrument.source_symbol)
     source = _forex_source()
-    if source == "twelvedata" and settings.twelvedata.api_key:
+    if source == "twelvedata":
         return TwelveDataFetcher(instrument.key, settings.twelvedata.api_key)
-    if source == "oanda" and settings.oanda.api_token:
-        return OandaDataFetcher(
-            symbol=instrument.source_symbol,
-            api_token=settings.oanda.api_token,
-            environment=settings.oanda.environment,
-        )
-    # Default / fallback: free keyless Yahoo Finance feed.
-    return YahooDataFetcher(symbol=f"{instrument.key}=X")
+    return OandaDataFetcher(
+        symbol=instrument.source_symbol,
+        api_token=settings.oanda.api_token,
+        environment=settings.oanda.environment,
+    )
 
 
-def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
+def _build_engine(
+    instrument: Instrument, profile=None, fetcher=None
+) -> TripleSyncEngine:
     from app.services.smc.profiles import CONSERVATIVE
 
-    fetcher = _build_fetcher(instrument)
+    if fetcher is None:
+        fetcher = _build_fetcher(instrument)
     smc = settings.smc
     return TripleSyncEngine(
         instrument=instrument,
@@ -111,12 +139,45 @@ def _build_engine(instrument: Instrument, profile=None) -> TripleSyncEngine:
 
 
 def _setup_fingerprint(result: AnalysisResult) -> str:
+    """One announcement per zone per session block.
+
+    Detector mode (spec 2026-08-06 §3): with the RR gate gone, every fresh
+    imbalance inside the same H1 zone would otherwise re-alert. A second
+    imbalance in the same zone is the same trading idea — the owner has
+    already placed his order or decided not to. The entry price is therefore
+    no longer part of the key; the zone is.
+    """
     setup = result.setup
     day = result.checked_at.strftime("%Y-%m-%d")
+    zone = result.h1_zone
+    # An approved result always carries its zone (Rule 2 runs before the
+    # trigger). The fallback guards that one invariant only — it keeps a
+    # zoneless result from collapsing the whole session onto a single key. It
+    # is no protection against a missing `setup`: both branches dereference
+    # it, as does the line below.
+    anchor = f"{zone.bottom}-{zone.top}" if zone else f"entry{setup.entry}"
     return (
-        f"{result.symbol}:{setup.direction.value}:{setup.entry}:"
+        f"{result.symbol}:{setup.direction.value}:{anchor}:"
         f"{result.session_name}:{day}"
     )
+
+
+# Substrings in a DataFetchError/ConfigurationError detail that actually
+# point at credentials: the provider names the key (Twelve Data's "**apikey**
+# parameter is invalid", the "TWELVEDATA_API_KEY is not set" config error) or
+# the HTTP layer says unauthorized. A 429, a timeout or a 5xx matches none of
+# them — those are not a reason to rotate a working key.
+_AUTH_FAILURE_MARKERS = (
+    "apikey", "api key", "api_key", "api token", "api_token",
+    "unauthorized", "forbidden", "authentication", "credential",
+    " 401", "(401", "401)", " 403", "(403", "403)",
+)
+
+
+def _looks_like_auth_failure(detail: str) -> bool:
+    """True when a data-source failure reads like a credentials problem."""
+    text = detail.lower()
+    return any(marker in text for marker in _AUTH_FAILURE_MARKERS)
 
 
 def _card_footer(signal: Dict) -> str:
@@ -142,7 +203,15 @@ def _card_footer(signal: Dict) -> str:
     elif status == "timeout":
         lines.append("⌛ Timed out — untracked after 5 days")
     elif status == "open":
-        lines.append("⏳ Position live — tracking TP/SL")
+        # Detector mode: a setup with no structural objective carries no
+        # take-profit, and `evaluate_signal` can only ever resolve it as SL
+        # or timeout. Promising to track a TP that does not exist would be a
+        # lie on the live card.
+        lines.append(
+            "⏳ Position live — tracking TP/SL"
+            if signal.get("take_profit") is not None
+            else "⏳ Position live — tracking SL (no objective recorded)"
+        )
     return "\n".join(lines)
 
 
@@ -218,8 +287,24 @@ class Watcher:
             if env_pairs:
                 self.state.pairs = env_pairs
                 self.state.save()
+        # Startup visibility: a forex pair enabled with no usable key would
+        # otherwise fail silently cycle after cycle. This is a log line, not
+        # a crash — ETHUSD (Binance, keyless) must keep working regardless.
+        # The per-cycle Telegram warning below is what actually reaches the
+        # owner; this just puts the same fact in front of anyone reading logs.
+        if any(get_instrument(p).source == "forex" for p in self.state.pairs):
+            try:
+                _forex_source()
+            except ConfigurationError as e:
+                logger.error("Forex data source misconfigured at startup", error=str(e))
 
     # ------------------------------------------------------------- one cycle
+
+    def _build_fetcher(self, instrument: Instrument):
+        """Instance-level indirection over the module fetcher factory, so a
+        fetch failure (or a missing key) can be simulated per-Watcher in
+        tests without touching global settings."""
+        return _build_fetcher(instrument)
 
     async def check_pair(self, key: str) -> Tuple[str, Optional[AnalysisResult]]:
         """Analyze one pair. Returns (heartbeat line, result or None)."""
@@ -229,12 +314,21 @@ class Watcher:
         profile = get_profile(
             self.state.pair_profile.get(key, settings.smc.default_profile)
         )
-        engine = _build_engine(instrument, profile)
         try:
+            fetcher = self._build_fetcher(instrument)
+            engine = _build_engine(instrument, profile, fetcher=fetcher)
             result = await engine.analyze()
+        except (DataFetchError, ConfigurationError) as e:
+            logger.error("Pair check failed", pair=key, error=str(e))
+            await self._warn_data_source_failure(key, str(e))
+            # This line lands in the cycle summary, which /check sends to
+            # Telegram — redact before it becomes a message (see below).
+            detail = escape_html(redact_secrets(str(e)))
+            return f"⚠️ {key}: data error ({detail})", None
         except Exception as e:
             logger.error("Pair check failed", pair=key, error=str(e))
-            return f"⚠️ {key}: data error ({e})", None
+            detail = escape_html(redact_secrets(str(e)))
+            return f"⚠️ {key}: data error ({detail})", None
         self.last_results[key] = result
         logger.info(
             "SMC check finished",
@@ -244,6 +338,51 @@ class Watcher:
             reasons=result.reasons,
         )
         return format_no_setup(result), result
+
+    async def _warn_data_source_failure(self, key: str, detail: str) -> None:
+        """A forex fetch failure must not look like a quiet market — the
+        owner rotates his TwelveData key regularly, and an expired key
+        produces no data, which is indistinguishable from "nothing to alert
+        on" unless something says otherwise. Throttled to one warning per
+        pair per hour (mirrors the news_warned dedup pattern) so a source
+        that is down all day does not spam every cycle.
+        """
+        # A fetcher error detail can carry the credential that caused it — a
+        # request URL with `apikey=...`, an echoed Authorization header. Logs
+        # were hardened against this in bcd5728; Telegram is worse, because
+        # the history is durable and syncs to every device. Scrub here, at the
+        # point where the detail becomes a message, so no future fetcher can
+        # reopen the hole through this path.
+        detail = redact_secrets(detail)
+        now = datetime.now(tz=timezone.utc)
+        last = self.state.source_warned.get(key)
+        if last:
+            try:
+                if now - datetime.fromisoformat(last) < timedelta(hours=1):
+                    return
+            except (ValueError, TypeError):
+                pass
+        # Binance (ETHUSD) is keyless — telling the owner to check an API
+        # key that does not exist is wrong. And on a forex pair the failure
+        # is just as often a rate limit or a transient HTTP error, where
+        # "your key may have expired" sends him to rotate a working key for
+        # nothing: the hint is only shown when the detail actually reads
+        # like an auth problem.
+        is_forex = get_instrument(key).source == "forex"
+        hint = (
+            " Check your API key (it may have expired)."
+            if is_forex and _looks_like_auth_failure(detail) else ""
+        )
+        message_id = await self.notifier.send(
+            f"⚠️ <b>{key}</b>: data source failed — {escape_html(detail)}.{hint}"
+        )
+        if not message_id:
+            # send() swallows Telegram/network failures and returns None —
+            # do not start the hour-long quiet window on a warning that
+            # never actually reached the owner.
+            return
+        self.state.source_warned[key] = now.isoformat()
+        self.state.save()
 
     async def run_cycle(self) -> str:
         """Run the strategy for all enabled pairs; send alerts; return summary."""
@@ -292,8 +431,23 @@ class Watcher:
                     )
                     continue
                 approved.append(result)
-                await self._send_alert(key, result, fingerprint)
-                heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
+                try:
+                    await self._send_alert(key, result, fingerprint)
+                    heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
+                except Exception as e:
+                    # Isolate this pair's failure the same way check_pair()
+                    # and _track_journal()'s per-pair loop already isolate
+                    # theirs: an uncaught exception here (most likely from
+                    # format_result) would otherwise escape this `for key`
+                    # loop and silently drop every remaining pair's check
+                    # this cycle, plus skip _track_journal() below for all
+                    # of them — not just the one pair that actually failed.
+                    logger.error(
+                        "Alert send failed", pair=key, error=str(e), exc_info=True,
+                    )
+                    heartbeat_lines.append(
+                        f"⚠️ {key}: setup found but the alert failed to send"
+                    )
             else:
                 await self._maybe_zone_ping(key, result)
                 heartbeat_lines.append(line)
@@ -316,9 +470,23 @@ class Watcher:
     async def _send_alert(
         self, key: str, result: AnalysisResult, fingerprint: str
     ) -> None:
-        """Urgent alert: message with Took/Skipped buttons + setup chart."""
+        """Urgent alert: message with Took/Skipped buttons + setup chart.
+
+        A failure anywhere in here (most plausibly `format_result`) is
+        caught by the caller, not here — see the `try/except` around this
+        call in `run_cycle`. That isolates one pair's failure the same way
+        `check_pair()` and `_track_journal()`'s own per-pair loop already
+        isolate theirs, instead of letting it silently drop every remaining
+        pair in this cycle's `for key in ...` loop.
+        """
+        # Render first, record second. The caller isolates a failure in here
+        # (most plausibly `format_result`) per pair — but a signal recorded
+        # before that failure survives as a `pending` row with no message and
+        # no stored fingerprint, so the next cycle records a second row for
+        # the same setup and the journal grows one row per cycle, silently.
+        # Nothing between here and `attach_message` reads the journal.
+        text = format_result(result, in_plan=self._plan_provenance(key, result))
         signal = self.journal.record(result)
-        text = format_result(result)
         keyboard = {
             "inline_keyboard": [
                 [
@@ -334,6 +502,21 @@ class Watcher:
             self.journal.attach_message(signal["id"], message_id, text)
             await self.notifier.pin(message_id)
             await self._send_chart(result, message_id)
+
+    def _plan_provenance(self, key: str, result: AnalysisResult) -> Optional[bool]:
+        """Whether this zone was in the plan the owner read this morning.
+
+        None means no /plan ran today for the pair — the alert then claims no
+        provenance at all rather than calling every zone "new".
+        """
+        if result.h1_zone is None or not self.state.has_plan_today(key):
+            return None
+        return self.state.zone_was_planned(
+            key,
+            result.h1_zone.bottom,
+            result.h1_zone.top,
+            result.setup.direction.value if result.setup else None,
+        )
 
     async def _send_chart(self, result: AnalysisResult, reply_to: int) -> None:
         """Attach the setup chart PNG (must never block the alert)."""
@@ -484,9 +667,17 @@ class Watcher:
         instrument = get_instrument(key)
         try:
             # on-demand -> bypass the Twelve Data cache for the freshest candles
-            data = await _build_fetcher(instrument).fetch_all_timeframes(
+            data = await self._build_fetcher(instrument).fetch_all_timeframes(
                 force_fresh=True
             )
+        except (DataFetchError, ConfigurationError) as e:
+            # /plan has no pause gate and runs even during a news blackout —
+            # both states remove run_cycle's own warning, so a dead source
+            # here would otherwise never reach the owner at all (this is the
+            # command he starts his day with).
+            logger.warning("Plan fetch failed", pair=key, error=str(e))
+            await self._warn_data_source_failure(key, str(e))
+            return
         except Exception as e:
             logger.warning("Plan fetch failed", pair=key, error=str(e))
             return
@@ -502,6 +693,12 @@ class Watcher:
             instrument, data["h4"], data["h1"], data["m5"],
             min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
         )
+        if not plan.market_closed:
+            # Remember every zone this message named — scenario or blocker —
+            # so today's alerts can say whether they came from this picture
+            # (spec §6). A plan with no zones at all is still a plan he read:
+            # it stores an empty list, which is not the same as no plan.
+            self.state.remember_plan_zones(key, plan.zones_shown())
         live_line = None if stale else self._live_status(instrument, data, now)
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
         await self.notifier.send(
@@ -539,9 +736,16 @@ class Watcher:
         d = instrument.price_decimals
         if res.verdict in APPROVED:
             s = res.setup
+            # take_profit is optional (detector mode): no unswept liquidity
+            # ahead means there is no objective and no RR to quote.
+            tail = (
+                f", TP {s.take_profit:.{d}f} (RR 1:{s.rr:.1f})"
+                if s.take_profit is not None
+                else ", no TP (no structural objective)"
+            )
             return (
                 f"🚨 LIVE SETUP NOW — {s.direction.value} entry {s.entry:.{d}f}, "
-                f"SL {s.stop_loss:.{d}f}, TP {s.take_profit:.{d}f} (RR 1:{s.rr:.1f})"
+                f"SL {s.stop_loss:.{d}f}{tail}"
             )
         prefix = "" if res.session_name else "(off session) "
         icon = "👀" if res.verdict == Verdict.WATCH else "⛔"
@@ -644,8 +848,12 @@ class Watcher:
         )
         if profiles_line:
             lines.append(f"Profiles: {profiles_line}")
+        try:
+            forex_source = _forex_source()
+        except ConfigurationError:
+            forex_source = "NOT CONFIGURED"
         lines.extend([
-            f"Forex data: {_forex_source()} | crypto: Binance",
+            f"Forex data: {forex_source} | crypto: Binance",
             f"Session now: {session or 'off session'}",
             f"Cadence: {settings.smc.session_interval_minutes} min in session / "
             f"{settings.smc.interval_minutes} min off",
@@ -710,13 +918,11 @@ async def run_once() -> None:
 
 async def run_telegram_test() -> None:
     """Send sample messages to verify the Telegram wiring end-to-end."""
-    from app.services.smc.notifier import URGENT_HEADER
-
     watcher = Watcher()
     samples = [
         "🧪 <b>SMC watcher TEST</b> — Telegram wiring works.",
-        f"{URGENT_HEADER}\n\n🧪 TEST: this is how an urgent setup alert looks "
-        "(NOT a real signal).",
+        "🚨 <b>TEST: SETUP READY — this is how a detector-mode setup alert "
+        "opens</b> (NOT a real signal).",
         "🔍 TEST: commands available: /pairs /status /check /stats /news",
     ]
     for text in samples:

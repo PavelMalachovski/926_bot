@@ -153,6 +153,100 @@ class TestProfiles:
         assert agg.profile_key == "aggressive"
         # with a downward CHoCH the aggressive path no longer SKIPs on "no direction"
         assert "no direction" not in " ".join(agg.reasons).lower()
+        # H1 (H1_PULLBACK_CLOSES) is FLAT here too (only one confirmed low
+        # pivot, see TestH1DirectionFallback below) — confirms the CHoCH
+        # branch is still reached, and labelled, when H1 gives no fallback.
+        assert agg.direction_source == "h4_choch"
+
+
+# H1_PULLBACK_CLOSES (see helpers.py) forms exactly one confirmed low pivot
+# (index 7, the demand pivot at 3132/low 3131.0 that m5_long_trigger_deep_sweep
+# is built against) — detect_trend() needs two confirmed lows to call a trend,
+# so H1_PULLBACK_CLOSES alone reads FLAT, not UP. Verified directly:
+# detect_trend(make_candles(H1_PULLBACK_CLOSES, step_minutes=60)) is
+# Trend.FLAT. The brief's suggested test reuses H1_PULLBACK_CLOSES as-is for
+# the H1 side, which would make test_flat_h4_takes_direction_from_h1 fail for
+# the wrong reason (H1 has no trend either) rather than exercising the H1
+# fallback. This fixture prepends an earlier, lower down-up leg — closes
+# [3140, 3125, 3105, 3080, 3095, 3110, 3100] — that confirms a low pivot at
+# 3079.0, strictly below the 3131.0 pivot. The prefix's last close (3100)
+# equals H1_PULLBACK_CLOSES[0], so every candle from index 7 onward (the
+# demand pivot, the zone, the untested state) is byte-for-byte identical to
+# the plain H1_PULLBACK_CLOSES case — only shifted in index — so
+# m5_long_trigger_deep_sweep's zone (3131.0-3138.0) still matches. Verified:
+# find_pivots gives lows [(index 3, 3079.0), (index 14, 3131.0)] and highs
+# [(index 11, 3151.0), (index 19, 3221.0)] -> HL and HH -> detect_trend is
+# Trend.UP; find_h1_zone(..., Direction.LONG, max_touches=0) still returns
+# bottom=3131.0, top=3138.0, touches=0, invalidated=False.
+H1_UPTREND_FOR_FALLBACK_CLOSES = [
+    3140, 3125, 3105, 3080, 3095, 3110, 3100,
+] + H1_PULLBACK_CLOSES
+
+
+class TestH1DirectionFallback:
+    """When H4 has no clean structure but H1 does, announce with H1's
+    direction (owner decision 2026-08-06). Measured at about +40% announced
+    setups, not a multiple."""
+
+    def test_flat_h4_takes_direction_from_h1(self):
+        # H4 flat: alternating closes give zero confirmed fractal pivots (the
+        # local highs/lows tie with their same-parity neighbours two candles
+        # away, failing the strict-inequality pivot test), so detect_trend()
+        # sees < 2 highs/lows -> Trend.FLAT trivially, and h4_choch_direction()
+        # (which also needs a pivot to anchor a break) returns None. Verified
+        # directly: find_pivots() on this series is []; detect_trend() is
+        # Trend.FLAT; h4_choch_direction() is None.
+        h4 = make_candles(
+            [3000, 3100, 3000, 3100, 3000, 3100, 3000] * 4, step_minutes=240
+        )
+        result = _engine().evaluate(
+            h4=h4,
+            h1=make_candles(H1_UPTREND_FOR_FALLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.h4_trend is Trend.FLAT
+        assert result.direction_source == "h1"
+
+    def test_clean_h4_still_wins(self):
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.direction_source == "h4"
+
+    def test_h1_fallback_applies_to_aggressive_profile_too(self):
+        # The H1 fallback is not a profile decision point (resolved
+        # ambiguity, task-3 brief) — it applies before the aggressive-only
+        # CHoCH branch is even considered, on both profiles.
+        h4 = make_candles(
+            [3000, 3100, 3000, 3100, 3000, 3100, 3000] * 4, step_minutes=240
+        )
+        result = _agg_engine().evaluate(
+            h4=h4,
+            h1=make_candles(H1_UPTREND_FOR_FALLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.direction_source == "h1"
+
+    def test_choch_direction_none_does_not_label_source_h4_choch(self):
+        # H4 flat (zero confirmed pivots, see the fixture comment above) and
+        # H1 flat (H1_PULLBACK_CLOSES — established above to read Trend.FLAT
+        # on its own), on the aggressive profile: h1_trend is FLAT so the
+        # chain reaches h4_choch_direction(h4), which returns None (no pivot
+        # to anchor a break). direction stays None -> SKIP. Pins that
+        # direction_source is NOT stamped "h4_choch" in this case -- the two
+        # must never disagree (review finding, task-3).
+        h4 = make_candles(
+            [3000, 3100, 3000, 3100, 3000, 3100, 3000] * 4, step_minutes=240
+        )
+        result = _agg_engine().evaluate(
+            h4=h4, h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=_fresh_result(),
+        )
+        assert result.verdict == Verdict.SKIP
+        assert result.direction_source != "h4_choch"
+        assert result.direction_source == "h4"
 
 
 class TestCryptoSameDayFallbackSurvivesProfileWiring:
@@ -257,12 +351,15 @@ class TestLiquidityTarget:
         # moved with the setting.
         assert self._run(min_rr=1.0).setup.rr == self._run(min_rr=2.0).setup.rr
 
-    def test_setup_below_the_threshold_is_skipped(self):
+    def test_setup_below_the_threshold_is_announced_with_a_warning(self):
+        # Detector mode (2026-08-06): min_rr no longer suppresses. The RR is
+        # still measured (1:4.8 against a 1:8 threshold) and now travels as a
+        # warning instead of killing the announcement.
         result = self._run(min_rr=8.0)
-        assert result.verdict == Verdict.SKIP
-        assert result.setup is None
-        assert "1:4.8" in result.reasons[0]
-        assert "1:8" in result.reasons[0]
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+        assert result.setup.rr == 4.76
+        assert "1:4.8" in " ".join(result.warnings)
 
     def test_short_tp_is_on_the_correct_side_of_entry(self):
         # SHORT mirror of m5_long_trigger_deep_sweep (see helpers.py and
@@ -286,24 +383,30 @@ class TestLiquidityTarget:
         assert setup.target.is_high is False
         assert setup.rr == 4.76
 
-    def test_skip_when_target_is_inside_the_sl_buffer(self):
+    def test_target_inside_the_sl_buffer_yields_no_take_profit(self):
         # An inflated sl_buffer pulls the target within one buffer of entry:
         # TP = 3221.0 - 100 = 3121.0, BELOW entry 3140.5 for a LONG — a
         # negative reward that abs() alone would report as a positive RR.
-        # min_rr=0.1 proves the skip does not depend on the threshold.
+        # Detector mode announces the setup anyway, but refuses to invent an
+        # objective: no TP, no target, rr 0.0. min_rr=0.1 proves the cleared
+        # take-profit does not depend on the threshold.
         h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
         result = _engine(sl_buffer=100.0, min_rr=0.1).evaluate(
             h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
         )
-        assert result.verdict == Verdict.SKIP
-        assert result.setup is None
-        assert "no positive reward" in result.reasons[0]
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+        assert result.setup.take_profit is None
+        assert result.setup.target is None
+        assert result.setup.rr == 0.0
+        assert "inside the stop buffer" in " ".join(result.warnings)
 
 
 class TestEntryStalenessGate:
-    """Rule 5.1 (2026-08-05): a limit far below market never fills, so it is
-    not worth alerting on."""
+    """Rule 5.1 (2026-08-05): a limit far below market rarely fills. Since
+    2026-08-06 (detector mode) the measurement is a warning, not a skip —
+    the owner sets his own entry — but the arithmetic is unchanged."""
 
     def _long(self, price, **kwargs):
         result = _fresh_result()
@@ -315,29 +418,32 @@ class TestEntryStalenessGate:
             result=result,
         )
 
-    def test_long_skipped_when_price_has_run_past_the_entry(self):
+    def test_long_warned_when_price_has_run_past_the_entry(self):
         # entry 3140.5, risk 16.5 -> at 0.5R the limit may sit at most
-        # 8.25 above market; 3160.0 is 19.5 away (1.18R).
+        # 8.25 above market; 3160.0 is 19.5 away (1.18R). Announced, labelled.
         result = self._long(3160.0, max_entry_gap_r=0.5)
-        assert result.verdict == Verdict.SKIP
-        assert result.setup is None
-        assert "1.2R" in result.reasons[0]
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup is not None
+        assert "1.2R" in " ".join(result.warnings)
 
-    def test_long_approved_when_price_is_still_near_the_entry(self):
+    def test_long_approved_without_a_warning_when_price_is_near_the_entry(self):
         result = self._long(3145.0, max_entry_gap_r=0.5)
         assert result.verdict == Verdict.APPROVED_LIMIT
         assert result.setup is not None
+        assert result.warnings == []
 
     def test_gate_is_silent_for_a_market_entry(self):
         # price inside the FVG (3138.0-3140.5) is at or below the entry, so
-        # the gap is never positive and the tightest gate cannot fire.
+        # the gap is never positive and the tightest threshold cannot fire.
         result = self._long(3139.0, max_entry_gap_r=0.0)
         assert result.verdict == Verdict.APPROVED_MARKET
+        assert result.warnings == []
 
     def test_threshold_is_configurable(self):
-        assert self._long(3160.0, max_entry_gap_r=2.0).verdict == (
-            Verdict.APPROVED_LIMIT
-        )
+        # A wide enough threshold removes the warning entirely.
+        result = self._long(3160.0, max_entry_gap_r=2.0)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.warnings == []
 
     def test_short_gate_measures_the_other_direction(self):
         # Mirror of the long case on the K=6270 reflected fixture: entry
@@ -352,9 +458,9 @@ class TestEntryStalenessGate:
             m5=m5_short_trigger_deep_sweep(),
             result=result,
         )
-        assert out.verdict == Verdict.SKIP
-        assert out.setup is None
-        assert "1.2R" in out.reasons[0]
+        assert out.verdict == Verdict.APPROVED_LIMIT
+        assert out.setup is not None
+        assert "1.2R" in " ".join(out.warnings)
 
     def test_shipped_default_is_0_75r(self):
         # Pins the production default (config.py's SMCSettings and the
@@ -367,3 +473,99 @@ class TestEntryStalenessGate:
         # provisional 0.5 produced zero conservative alerts in 59 days.
         assert TripleSyncEngine().max_entry_gap_r == 0.75
         assert SMCSettings().max_entry_gap_r == 0.75
+
+
+class TestGatesAreNowLabels:
+    """Detector mode (2026-08-06): a completed setup is always announced; the
+    thresholds annotate rather than suppress."""
+
+    def _run(self, price=None, **kwargs):
+        result = _fresh_result()
+        if price is not None:
+            result.price = price
+        return _engine(**kwargs).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(), result=result,
+        )
+
+    def test_low_rr_is_announced_with_a_warning(self):
+        result = self._run(min_rr=8.0)
+        assert result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
+        assert result.setup is not None
+        assert any("RR" in w for w in result.warnings)
+
+    def test_stale_entry_is_announced_with_a_warning(self):
+        result = self._run(price=3160.0, max_entry_gap_r=0.5)
+        assert result.setup is not None
+        assert any("past the imbalance" in w for w in result.warnings)
+        assert "1.2R" in " ".join(result.warnings)
+
+    def test_clean_setup_has_no_warnings(self):
+        result = self._run(min_rr=1.0, max_entry_gap_r=99.0)
+        assert result.setup is not None
+        assert result.warnings == []
+
+    def test_setup_carries_the_order_block_and_both_ladders(self):
+        setup = self._run().setup
+        assert setup.order_block is not None
+        assert setup.order_block.top < setup.entry, "OB is a deeper long entry"
+        # ...and a deeper entry that is still a trade: past the stop, the
+        # ladder's "RR from OB" column would be computed on a collapsed risk.
+        assert setup.order_block.top > setup.stop_loss, "OB is inside the stop"
+        assert 1 <= len(setup.ladder) <= 5
+        assert setup.ladder[0].price == setup.target.price, \
+            "the ladder starts at the nearest pool"
+
+    def test_zone_ladder_shows_deeper_entries_not_the_zone_being_entered(self):
+        """Owner confirmation 2026-08-06: the zone ladder is alternative
+        deeper entries on the trade's own side, and never the live zone the
+        setup just formed in (which qualifies on price alone).
+
+        The H1 fixture is extended with an earlier, deeper untested demand
+        zone (3039-3060) so there is something to show: the shipped
+        H1_PULLBACK_CLOSES has exactly one untested demand zone, the live
+        one, and would render an empty block either way.
+        """
+        result = _fresh_result()
+        result = _engine(max_entry_gap_r=99.0).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(
+                [3100, 3060, 3040, 3070, 3100] + H1_PULLBACK_CLOSES,
+                step_minutes=60,
+            ),
+            m5=m5_long_trigger_deep_sweep(), result=result,
+        )
+        setup = result.setup
+        assert setup is not None
+        assert [(z.bottom, z.top) for z in setup.zones_ahead] == [(3039.0, 3060)]
+        # the live zone is not a rung ...
+        assert all(
+            (z.bottom, z.top) != (result.h1_zone.bottom, result.h1_zone.top)
+            for z in setup.zones_ahead
+        )
+        # ... and neither is the supply zone at 3200-3221 above the entry,
+        # which is an obstacle on the way to target, not an entry.
+        assert all(z.is_demand and z.top < setup.entry for z in setup.zones_ahead)
+
+    def test_no_liquidity_ahead_is_announced_without_a_take_profit(self, monkeypatch):
+        import app.services.smc.engine as E
+        monkeypatch.setattr(E, "nearest_liquidity", lambda *a, **k: None)
+        monkeypatch.setattr(E, "liquidity_ladder", lambda *a, **k: [])
+        result = self._run()
+        assert result.setup is not None
+        assert result.setup.take_profit is None
+        assert result.setup.target is None
+        assert any("no unswept liquidity" in w.lower() for w in result.warnings)
+
+    def test_target_inside_the_stop_buffer_clears_the_take_profit(self):
+        # An inflated sl_buffer pulls the target within one buffer of entry:
+        # TP = 3221.0 - 100 = 3121.0, BELOW entry 3140.5 for a LONG — a
+        # negative reward that abs() alone would report as a positive RR.
+        # The setup is still announced, but with no objective at all.
+        result = self._run(sl_buffer=100.0, min_rr=0.1)
+        assert result.setup is not None
+        assert result.setup.take_profit is None
+        assert result.setup.target is None
+        assert result.setup.rr == 0.0
+        assert any("stop buffer" in w for w in result.warnings)

@@ -1,10 +1,12 @@
 """Telegram message formatting and delivery for SMC analysis results."""
 
-from typing import Optional
+import re
+from typing import List, Optional
 
 import httpx
 import structlog
 
+from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.sessions import to_prague
@@ -25,6 +27,42 @@ def escape_html(text: str) -> str:
     )
 
 
+REDACTED = "***"
+
+# `str(httpx.HTTPStatusError)` embeds the full request URL, and a data-source
+# URL carries the API key as a query parameter — so an error detail forwarded
+# to Telegram can print the owner's live key into his own chat, where the
+# history is durable and syncs to every device he owns. The same class of bug
+# was fixed for logs in bcd5728; this is the outbound-message guard. Fetchers
+# must not build key-bearing messages in the first place (see twelvedata.py),
+# but a future fetcher that forgets must not be able to leak through here.
+_BEARER_RE = re.compile(r"(?i)\b(bearer\s+)[\w.\-~+/]+=*")
+# "…apikey=X", "token: X", "MY_SECRET=X" — a named credential and its value.
+# "auth" is deliberately absent: "Authorization: Bearer X" is handled above,
+# and matching it here would redact the word "Bearer" and leave the token.
+_NAMED_SECRET_RE = re.compile(
+    r"(?i)([\w.\-]*(?:apikey|api[_\-]?key|token|secret|password|passwd)"
+    r"[\w.\-]*\s*[=:]\s*)[\"']?[^\s&\"'#,;]+"
+)
+# A bare `?key=` / `&sig=` query parameter, which the name rule above leaves
+# alone because "key" on its own is far too common in ordinary prose.
+_QUERY_SECRET_RE = re.compile(
+    r"(?i)([?&](?:key|sig|signature)=)[^&\s\"']+"
+)
+
+
+def redact_secrets(text: str) -> str:
+    """Blank out anything credential-shaped in a string bound for Telegram.
+
+    Deliberately narrow: it replaces only the *value* after a credential-ish
+    name, so the message still says which pair failed and roughly why ("HTTP
+    401 Unauthorized"). A warning the owner cannot act on is its own failure.
+    """
+    out = _BEARER_RE.sub(rf"\1{REDACTED}", str(text))
+    out = _NAMED_SECRET_RE.sub(rf"\1{REDACTED}", out)
+    return _QUERY_SECRET_RE.sub(rf"\1{REDACTED}", out)
+
+
 def format_target(level: LiquidityLevel, decimals: int) -> str:
     """Name a liquidity objective: 'H1 swing high 3221.00 (EQH x2)'."""
     kind = "swing high" if level.is_high else "swing low"
@@ -34,9 +72,220 @@ def format_target(level: LiquidityLevel, decimals: int) -> str:
     return f"{level.timeframe} {kind} {level.price:.{decimals}f}{pool}"
 
 
-URGENT_HEADER = (
-    "🚨🚨🚨 <b>URGENT! SETUP FOUND — READY TO TRADE!</b> 🚨🚨🚨"
-)
+def format_distance(value: float, instrument: Instrument) -> str:
+    """Distances read in the instrument's own units — the same split
+    `engine._fmt_size` makes. "1008 pips" for a $10 ETH move is how a level
+    gets misjudged at a glance."""
+    if instrument.source == "crypto":
+        return f"${value:,.2f}"
+    return f"{value / instrument.pip:.1f} pips"
+
+
+def _rr_cell(rr: float) -> str:
+    """One RR cell: a ratio, or a dash when the rung is behind the entry."""
+    return f"1:{rr:.1f}" if rr > 0 else "—"
+
+
+def _ladder_lines(setup, instrument: Instrument) -> List[str]:
+    """One rung per pool: price, distance, RR from the FVG edge and — when an
+    order block exists — from the block. Two entries, two RRs; the owner picks.
+
+    Note the two RRs are two different trades, not one number that got better:
+    the deeper entry risks less in price terms, so the same market noise is a
+    larger fraction of it, and the limit may never fill. Hence the header
+    naming both entries rather than a single "RR" column.
+    """
+    d = instrument.price_decimals
+    risk = abs(setup.entry - setup.stop_loss)
+    is_long = setup.direction == Direction.LONG
+    ob_entry = None
+    if setup.order_block:
+        ob_entry = setup.order_block.top if is_long else setup.order_block.bottom
+    ob_risk = abs(ob_entry - setup.stop_loss) if ob_entry is not None else None
+
+    header = "🎯 Unswept liquidity ahead"
+    header += "      RR from FVG / from OB" if ob_risk else "      RR from FVG"
+    # The header carries the emoji and stays in the message's normal
+    # proportional font, matching every other line (📍/⚡/🛑/🧱). Only the
+    # data rows below it need a monospace font for the columns to line up
+    # (spec 2026-08-06 §2), so only they go inside <pre>.
+    rows = []
+    for lv in setup.ladder:
+        tp = (
+            lv.price - instrument.sl_buffer if is_long
+            else lv.price + instrument.sl_buffer
+        )
+        rr = (tp - setup.entry if is_long else setup.entry - tp) / risk
+        # A pool inside the stop buffer gives a non-positive reward — the
+        # engine clears the objective for it but keeps the rung. "1:-0.0" is
+        # not a number to read on a line about money; the dash says "no".
+        cell = _rr_cell(rr)
+        if ob_risk:
+            rr_ob = (tp - ob_entry if is_long else ob_entry - tp) / ob_risk
+            cell += f" / {_rr_cell(rr_ob)}"
+        pool = (
+            f" · EQ{'H' if lv.is_high else 'L'} x{lv.equal_count}"
+            if lv.equal_count > 1 else ""
+        )
+        rows.append((lv, cell, pool))
+
+    # Every column is width-padded, including RR: a two-digit ratio on one
+    # rung would otherwise push that rung's timeframe out of line and undo
+    # the whole reason the block is wrapped in <pre>. The width is taken
+    # from the widest cell actually present rather than guessed.
+    rr_width = max((len(cell) for _, cell, _ in rows), default=0)
+    out = [header, "<pre>"]
+    for lv, cell, pool in rows:
+        out.append(
+            f"     {lv.price:.{d}f}   "
+            f"{format_distance(abs(lv.price - setup.entry), instrument):>10}   "
+            f"{cell:<{rr_width}}   {escape_html(lv.timeframe + pool)}"
+        )
+    if not rows:
+        out.append("     — none ahead")
+    out.append("</pre>")
+    return out
+
+
+def _zone_lines(setup, decimals: int) -> List[str]:
+    """The untested zones on the trade's own side, further out than the
+    entry — alternative deeper entries, the same idea as the 🧱 M5 order
+    block one line up. The owner asked to see the untested H1 block the bot
+    was hiding (USDCAD 1.40710, 2026-08-06)."""
+    out = ["🧱 Untested zones further out   ← deeper entries"]
+    for zone in setup.zones_ahead:
+        touches = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
+        out.append(
+            f"     {zone.bottom:.{decimals}f} – {zone.top:.{decimals}f}   ({touches})"
+        )
+    return out
+
+
+def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
+    """Where the direction came from — the guard against a silent first-leg
+    or lower-timeframe entry (spec §2, owner constraint: trend only)."""
+    source = getattr(result, "direction_source", "h4")
+    if source == "h1":
+        return (
+            "⚠️ H4 flat — direction from H1 "
+            f"{'uptrend' if is_long else 'downtrend'}"
+        )
+    if source == "h4_choch":
+        return "⚠️ H4 flat — direction from CHoCH (first leg, not with-trend)"
+    return f"H4 {TREND_LABEL[result.h4_trend]}"
+
+
+def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> str:
+    """The announcement: four actionable lines, then the ladders.
+
+    Detector mode (spec 2026-08-06): the bot says a setup has formed and shows
+    the levels; the owner places his own orders. Nothing here recommends a
+    trade — RR is a consequence of the levels, not an input to them.
+    """
+    setup = result.setup
+    # The symbol always resolves: the engine that produced this setup was
+    # itself built from the registry, so a KeyError here would mean the result
+    # is not one this bot can trade — let it surface rather than fabricating
+    # units and printing quietly wrong levels.
+    instrument = get_instrument(result.symbol)
+    d = result.price_decimals
+    is_long = setup.direction == Direction.LONG
+    side = "LONG" if is_long else "SHORT"
+
+    lines = [
+        f"🚨 <b>SETUP READY — {escape_html(result.symbol)} · {side}</b>"
+        f" · {_direction_source_label(result, is_long)}"
+    ]
+    if in_plan is True:
+        lines.append("   from this morning's plan")
+    elif in_plan is False:
+        lines.append("   new zone — not in the plan")
+    lines.append("")
+
+    # --- the four actionable lines, in the order the owner works them
+    if result.h1_zone:
+        kind = "Demand" if result.h1_zone.is_demand else "Supply"
+        lines.append(
+            f"📍 H1 {kind} zone      "
+            f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
+        )
+    lines.append(
+        f"⚡ M5 imbalance (FVG)   "
+        f"{setup.fvg.bottom:.{d}f} – {setup.fvg.top:.{d}f}"
+        f"   ← limit order ({setup.entry:.{d}f})"
+    )
+    if setup.order_block:
+        ob_entry = setup.order_block.top if is_long else setup.order_block.bottom
+        lines.append(
+            f"🧱 M5 order block       "
+            f"{setup.order_block.bottom:.{d}f} – {setup.order_block.top:.{d}f}"
+            f"   ← deeper entry ({ob_entry:.{d}f})"
+        )
+    # The stop sits one buffer beyond the swept extreme; show the extreme
+    # itself, because that wick is what the owner reads off the chart.
+    #
+    # COUPLING: `TradeSetup` carries only the stop, so the wick is
+    # reconstructed with `Instrument.sl_buffer` — the same value
+    # `TripleSyncEngine` used to subtract it. Exact only while no caller
+    # overrides the engine's `sl_buffer=` argument (none does today; pinned by
+    # test_swept_wick_is_reconstructed_from_the_instrument_buffer). If a real
+    # override ever ships, carry the extreme on TradeSetup instead of widening
+    # the guess here.
+    extreme = (
+        setup.stop_loss + instrument.sl_buffer if is_long
+        else setup.stop_loss - instrument.sl_buffer
+    )
+    lines.append(
+        f"🛑 Swept liquidity      {extreme:.{d}f}"
+        f"   ← stop behind the wick ({setup.stop_loss:.{d}f} with buffer)"
+    )
+
+    lines.append("")
+    lines.extend(_ladder_lines(setup, instrument))
+    if setup.zones_ahead:
+        lines.append("")
+        lines.extend(_zone_lines(setup, d))
+
+    # --- warnings: impossible to miss, but they do not push the levels down
+    notes = []
+    if setup.entry_is_market:
+        notes.append("   ▶️ price is inside the imbalance right now")
+    for warning in result.warnings:
+        notes.append(f"   ⚠️ {escape_html(warning)}")
+    if result.funding_warning:
+        notes.append(f"   ⚠️ {escape_html(result.funding_warning)}")
+    if notes:
+        lines.append("")
+        lines.extend(notes)
+
+    # --- ref: measured context, not instruction
+    lines.append("")
+    fvg_ref = (
+        f"   ref · FVG {setup.fvg.size:.{d}f}, "
+        f"{setup.fvg.fill_pct * 100:.0f}% filled"
+    )
+    if result.session_name:
+        fvg_ref += f" · {escape_html(result.session_name)}"
+    lines.append(fvg_ref)
+    if setup.take_profit is not None and setup.target is not None:
+        lines.append(
+            f"   ref · tracked objective {setup.take_profit:.{d}f} "
+            f"(1:{setup.rr:.1f}) · {escape_html(format_target(setup.target, d))}"
+        )
+    if setup.lot_hint:
+        lines.append(f"   ref · size {escape_html(setup.lot_hint)}")
+    if result.funding_rate is not None and not result.funding_warning:
+        # Rule 9.3: a benign funding reading is still measured context. The
+        # actionable brackets already left as ⚠️ lines above.
+        lines.append(f"   ref · funding {result.funding_rate * 100:.3f}%/8h")
+    if getattr(result, "profile_key", "conservative") == "aggressive":
+        lines.append("   ref · aggressive profile — first-leg entry")
+    lines.append("   ref · a pending order expires with this session (Rule 10)")
+    lines.append(
+        f"   ref · {to_prague(result.checked_at).strftime('%d.%m %H:%M')} Prague"
+        + (f" · price {result.price:.{d}f}" if result.price else "")
+    )
+    return "\n".join(lines)
 
 
 def format_no_setup(result: AnalysisResult) -> str:
@@ -60,13 +309,20 @@ def format_setup_still_active(result: AnalysisResult) -> str:
     )
 
 
-def format_result(result: AnalysisResult) -> str:
-    """Render an AnalysisResult as an HTML Telegram message (templates A/B)."""
-    lines = []
+def format_result(result: AnalysisResult, in_plan: Optional[bool] = None) -> str:
+    """Render an AnalysisResult as an HTML Telegram message.
+
+    `in_plan` is the plan provenance of the announced zone: True renders "from
+    this morning's plan", False "new zone — not in the plan", and None omits
+    the line entirely — no `/plan` ran today, so the bot does not claim a
+    provenance it cannot know.
+    """
     if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
-        lines.append(URGENT_HEADER)
-        lines.append("")
-    lines.append(f"<b>{result.symbol}</b> — Triple Sync + Imbalance")
+        if result.setup is not None:
+            return _format_detector_alert(result, in_plan)
+        logger.error("Approved result without a setup", symbol=result.symbol)
+    lines = []
+    lines.append(f"<b>{escape_html(result.symbol)}</b> — Triple Sync + Imbalance")
     if getattr(result, "profile_key", "conservative") == "aggressive":
         lines.append("⚡ <b>Aggressive profile</b> — first-leg entry, lower-probability")
     lines.append(
@@ -86,44 +342,7 @@ def format_result(result: AnalysisResult) -> str:
             f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
         )
 
-    if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
-        setup = result.setup
-        side = "Buy" if setup.direction == Direction.LONG else "Sell"
-        lines.append(
-            f"<b>Triple Sync:</b> confirmed ✅ | "
-            f"<b>FVG:</b> {setup.fvg.size:.{d}f}, fill {setup.fvg.fill_pct * 100:.0f}%"
-        )
-        lines.append("")
-        lines.append("<b>Verdict:</b>")
-        if result.verdict == Verdict.APPROVED_MARKET:
-            lines.append(
-                f"✅ APPROVED (Market) — {side} now at ~{result.price:.{d}f} "
-                f"(price is inside the FVG {setup.fvg.bottom:.{d}f}–{setup.fvg.top:.{d}f})"
-            )
-            lines.append(f"   Alternative: {side} Limit {setup.entry:.{d}f}")
-        else:
-            lines.append(f"✅ APPROVED (Limit) — {side} Limit: {setup.entry:.{d}f}")
-        lines.append(
-            f"🛑 SL: {setup.stop_loss:.{d}f} | 🎯 TP: {setup.take_profit:.{d}f}"
-        )
-        rr_line = f"📐 RR: 1:{setup.rr:.1f}"
-        if setup.target:
-            rr_line += "  →  " + escape_html(format_target(setup.target, d))
-        lines.append(rr_line)
-        if setup.lot_hint:
-            lines.append(f"⚖️ Size: {setup.lot_hint}")
-        else:
-            lines.append("⚖️ Size: calculate for 1.5–2% account risk")
-        if result.funding_warning:
-            lines.append(f"⚠️ {result.funding_warning}")
-        elif result.funding_rate is not None:
-            lines.append(f"💸 Funding: {result.funding_rate * 100:.3f}%/8h — normal")
-        lines.append("")
-        lines.append(
-            "⏳ The limit order is valid only within the current session — "
-            "cancel it if unfilled by session end."
-        )
-    elif result.verdict == Verdict.WATCH:
+    if result.verdict == Verdict.WATCH:
         lines.append("")
         lines.append("<b>No setup yet (Setup Watch):</b>")
         for reason in result.reasons:
@@ -160,9 +379,15 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
     if live_line:
         lines.append(f"📍 <b>Live now:</b> {live_line}")
 
-    if plan.note and not plan.scenarios:
+    if not plan.scenarios and (plan.note or plan.blocker):
+        # No setup in the plan: say which stage is missing, in the live
+        # checklist's own words (spec 2026-08-06 §6). "→" is the same marker
+        # format_result uses for its watch notes.
         lines.append("")
-        lines.append(f"ℹ️ {escape_html(plan.note)}")
+        if plan.blocker:
+            lines.append(f"→ {escape_html(plan.blocker)}")
+        else:  # no structural blocker (market closed) — just the note
+            lines.append(f"ℹ️ {escape_html(plan.note)}")
         return "\n".join(lines)
 
     for s in plan.scenarios:

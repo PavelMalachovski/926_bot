@@ -220,3 +220,56 @@ class TestJournal:
 
         reloaded = SignalJournal(Database(str(tmp_path / "smc.db")))
         assert len(reloaded.signals) == 1
+
+    def _journal_with(self, tmp_path, signals):
+        from app.services.smc.db import Database
+
+        journal = SignalJournal(Database(str(tmp_path / "stats.db")))
+        for i, signal in enumerate(signals):
+            signal = dict(signal)
+            signal["id"] = f"s{i}"
+            journal.signals.append(signal)
+        return journal
+
+    def test_stats_says_what_it_measures(self, tmp_path):
+        """Detector mode (spec §4): the owner sets his own levels, so /stats
+        must not read as his own performance."""
+        journal = self._journal_with(tmp_path, [self._signal()])
+        text = journal.stats_text(days=36500)
+        assert (
+            "Tracked against the bot's reference levels, not your actual orders."
+            in text
+        )
+
+    def test_average_planned_rr_ignores_signals_without_a_take_profit(
+        self, tmp_path
+    ):
+        """A setup with no structural objective carries rr 0.0 and no TP;
+        averaging that zero in would deflate the figure. "No objective"
+        covers both causes: nothing unswept ahead, and a nearest pool inside
+        the stop buffer."""
+        with_tp = self._signal()
+        without_tp = dict(self._signal(), take_profit=None, rr=0.0)
+        journal = self._journal_with(tmp_path, [with_tp, without_tp])
+        text = journal.stats_text(days=36500)
+        assert "Average planned RR: 1:2.0" in text
+        assert "(1 signal had no structural objective — no planned RR)" in text
+
+    def test_the_excluded_count_agrees_in_number(self, tmp_path):
+        without_tp = dict(self._signal(), take_profit=None, rr=0.0)
+        journal = self._journal_with(
+            tmp_path, [self._signal(), without_tp, dict(without_tp)]
+        )
+        assert "(2 signals had no structural objective" in journal.stats_text(
+            days=36500
+        )
+
+    def test_no_signal_with_a_target_still_explains_the_missing_average(
+        self, tmp_path
+    ):
+        """The RR line must not vanish silently when nothing can be averaged."""
+        without_tp = dict(self._signal(), take_profit=None, rr=0.0)
+        journal = self._journal_with(tmp_path, [without_tp, dict(without_tp)])
+        text = journal.stats_text(days=36500)
+        assert "Average planned RR" not in text
+        assert "(2 signals had no structural objective — no planned RR)" in text

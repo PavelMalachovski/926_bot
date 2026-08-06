@@ -140,6 +140,109 @@ def _mark_zone_state(candles: List[Candle], zone: Zone) -> Zone:
     return zone
 
 
+def find_order_block(
+    candles: List[Candle],
+    direction: Direction,
+    before_index: int,
+    since_index: int,
+    entry: float,
+    stop_loss: float,
+) -> Optional[Zone]:
+    """The last candle opposing the trade before the impulse (owner
+    definition, 2026-08-06). Price reacts to it on the retest, and it sits
+    deeper than the FVG edge — a second limit option at a better price.
+
+    Boundaries follow `build_zone`'s convention so the bot has one rule
+    everywhere: demand = low -> body_high, supply = body_low -> high.
+    `before_index` is exclusive — the walk starts at `before_index - 1`.
+
+    `since_index` is the inclusive floor of the walk: the index where price
+    entered the H1 zone (`zone_touch_span`'s start). The definition says
+    "before the impulse that broke structure", not "anywhere in history" —
+    an unbounded walk drifts back into the descending/ascending sweep leg
+    (and further) and returns a candle *worse* than the FVG entry. The
+    zone-touch index is used rather than the CHoCH index because the FVG
+    window may end on the CHoCH candle itself (`engine` searches from
+    `max(touch, choch - 2)`), so a CHoCH floor would make the window empty by
+    construction on exactly the setups where the block is most typical — the
+    opposing candle that starts the impulse sits at the sweep extreme, i.e.
+    *before* the CHoCH. `[since_index, before_index)` is the same excursion
+    the stop is anchored in (`sweep_extreme(m5, direction, touch, choch)`).
+
+    A candidate is returned only when it is genuinely the deeper entry it is
+    advertised as: strictly beyond the FVG entry and strictly inside the
+    stop. Otherwise the alert would print "← deeper entry" against a worse
+    price, and the ladder's "RR from OB" column would be computed on a larger
+    risk (or, past the stop, on a collapsed one) while being read as the
+    better option.
+
+    The returned Zone's `pivot_index`/`timestamp` carry the order-block
+    candle's own index and timestamp — it is the zone's origin candle, not a
+    fractal pivot, even though it reuses the same field.
+    """
+    is_long = direction == Direction.LONG
+    for i in range(min(before_index, len(candles)) - 1, max(since_index, 0) - 1, -1):
+        c = candles[i]
+        opposing = (c.close < c.open) if is_long else (c.close > c.open)
+        if not opposing:
+            continue
+        if is_long:
+            zone = Zone(bottom=c.low, top=c.body_high, is_demand=True,
+                        pivot_index=i, timestamp=c.timestamp)
+            ob_entry = zone.top
+            deeper = stop_loss < ob_entry < entry
+        else:
+            zone = Zone(bottom=c.body_low, top=c.high, is_demand=False,
+                        pivot_index=i, timestamp=c.timestamp)
+            ob_entry = zone.bottom
+            deeper = entry < ob_entry < stop_loss
+        return zone if deeper else None
+    return None
+
+
+def zone_ladder(
+    candles: List[Candle],
+    direction: Direction,
+    beyond: float,
+    limit: int = 5,
+    exclude: Optional[Zone] = None,
+) -> List[Zone]:
+    """Untested zones on the trade's own side, further out than `beyond`,
+    nearest first — alternative deeper entries.
+
+    Same side as the setup's own zone (supply above for a SHORT, demand
+    below for a LONG), so every rung is a price the owner could still be
+    filled at if the first limit does not fill. Opposite-side zones would be
+    obstacles on the way to the target, which is not what he asked for
+    (owner confirmation 2026-08-06; he wanted the untested H1 order block at
+    USDCAD 1.40710, above a short's entry, that the bot was hiding).
+
+    This walks every candidate pivot the way `find_h1_zone` does, but keeps
+    all of them instead of stopping at the first match. `exclude` is the
+    zone the setup itself formed in — it sits on this side by construction,
+    so without it the live entry zone would always be the first rung.
+    """
+    want_high = direction == Direction.SHORT
+    out: List[Zone] = []
+    seen = set()
+    if exclude is not None:
+        seen.add((round(exclude.bottom, 8), round(exclude.top, 8)))
+    for pivot in (p for p in find_pivots(candles) if p.is_high == want_high):
+        zone = _mark_zone_state(candles, build_zone(candles, pivot))
+        if zone.invalidated or zone.tested:
+            continue
+        if exclude is not None and zone.pivot_index == exclude.pivot_index:
+            continue
+        if (zone.bottom > beyond) if want_high else (zone.top < beyond):
+            key = (round(zone.bottom, 8), round(zone.top, 8))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(zone)
+    out.sort(key=lambda z: z.bottom if want_high else -z.top)
+    return out[:limit]
+
+
 def find_h1_zone(
     candles: List[Candle], direction: Direction, max_touches: int = 0
 ) -> Optional[Zone]:

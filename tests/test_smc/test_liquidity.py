@@ -3,6 +3,7 @@
 from app.services.smc.liquidity import (
     LiquidityLevel,
     find_liquidity,
+    liquidity_ladder,
     nearest_liquidity,
 )
 from app.services.smc.models import Direction
@@ -197,3 +198,33 @@ class TestNearestLiquidity:
     def test_no_level_beyond_entry_returns_none(self):
         levels = [self._level(3100.0)]
         assert nearest_liquidity(levels, Direction.LONG, entry=3150.0) is None
+
+
+class TestLiquidityLadder:
+    def _level(self, price, is_high=True, tf="H1", count=1):
+        return LiquidityLevel(price=price, is_high=is_high, timeframe=tf,
+                              equal_count=count, timestamp=None)
+
+    def test_long_ladder_is_nearest_first_and_deduplicated(self):
+        levels = [
+            self._level(3180.0, tf="M5"), self._level(3180.0, tf="H1"),
+            self._level(3210.0), self._level(3160.0), self._level(3100.0),
+        ]
+        out = liquidity_ladder(levels, Direction.LONG, entry=3150.0, limit=5)
+        assert [lv.price for lv in out] == [3160.0, 3180.0, 3210.0]
+
+    def test_short_ladder_walks_downward(self):
+        levels = [self._level(p, is_high=False) for p in
+                  (3140.0, 3100.0, 3120.0, 3200.0)]
+        out = liquidity_ladder(levels, Direction.SHORT, entry=3150.0, limit=5)
+        assert [lv.price for lv in out] == [3140.0, 3120.0, 3100.0]
+
+    def test_limit_truncates(self):
+        levels = [self._level(3150.0 + 10 * i) for i in range(1, 9)]
+        assert len(liquidity_ladder(levels, Direction.LONG, 3150.0, limit=5)) == 5
+
+    def test_duplicate_price_keeps_the_richer_pool(self):
+        levels = [self._level(3180.0, tf="M5", count=1),
+                  self._level(3180.0, tf="H1", count=4)]
+        out = liquidity_ladder(levels, Direction.LONG, 3150.0, limit=5)
+        assert len(out) == 1 and out[0].equal_count == 4

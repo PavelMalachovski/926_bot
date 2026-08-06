@@ -5,9 +5,13 @@ selected currency pairs — every 5 minutes during trading hours (08:00–20:00
 Prague), every 15 minutes outside them — and alerts you the moment a valid
 setup appears.
 
-- 🚨 **Urgent alert** when a setup is APPROVED — entry / SL / TP / RR / lot
-  size, a **dark-style M5 chart PNG** (H1 zone, FVG box, ENTRY/SL/TP levels)
-  and **✅ Took it / ❌ Skipped buttons**
+- 🚨 **Setup alert** the moment Triple Sync + Imbalance completes — zone,
+  FVG entry, M5 order block (a deeper second entry), stop, and a ladder of
+  up to five unswept liquidity levels with their RR, a **dark-style M5 chart
+  PNG** and **✅ Took it / ❌ Skipped buttons**. The bot is a **detector**: it
+  always announces a completed setup, flagging a thin RR, a stale entry or
+  no liquidity ahead with `⚠️` rather than staying silent — you place the
+  order, you pick the level
 - 📌 **Live setup card** — the alert is pinned and edited in place as the
   signal evolves: `📈 Filled @ … → 🎯 TP HIT (+2.1R)`; unpinned on resolution
 - 🛡 **Discipline on autopilot** — trades you mark as taken enforce Rule 10
@@ -36,18 +40,20 @@ setup appears.
 | Pair | Data source | Min FVG | Notes |
 |---|---|---|---|
 | ETHUSD | Binance (no key needed) | $2.00 | 24/7, funding-rate advisory |
-| USDJPY | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
-| EURUSD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
-| GBPUSD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
-| USDCAD | Twelve Data / OANDA / Yahoo | 5 pips | free tier, no key needed by default |
+| USDJPY | Twelve Data / OANDA | 5 pips | forex key required |
+| EURUSD | Twelve Data / OANDA | 5 pips | forex key required |
+| GBPUSD | Twelve Data / OANDA | 5 pips | forex key required |
+| USDCAD | Twelve Data / OANDA | 5 pips | forex key required |
 
 **Forex data source** (`SMC_FOREX_SOURCE`, default `auto`) resolves in this
 order: **Twelve Data** if `TWELVEDATA_API_KEY` is set → **OANDA** if
-`OANDA_API_TOKEN` is set → **Yahoo Finance** (keyless, always available).
-ETHUSD always uses Binance. Twelve Data is recommended: free 800 req/day,
-native 4h/1h/5min candles, runs on Railway; the higher timeframes are cached
-so 2–3 forex pairs stay comfortably within the free budget (~200 req/day/pair).
-Grab a free key at [twelvedata.com](https://twelvedata.com).
+`OANDA_API_TOKEN` is set. ETHUSD always uses Binance. A forex key is
+required — there is no keyless fallback any more (the previous keyless feed
+was removed: its OHLC data was quantised coarsely enough to distort replay
+results). Twelve Data is recommended: free 800 req/day, native 4h/1h/5min
+candles, runs on Railway; the higher timeframes are cached so 2–3 forex pairs
+stay comfortably within the free budget (~200 req/day/pair). Grab a free key
+at [twelvedata.com](https://twelvedata.com).
 
 Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
 
@@ -131,7 +137,9 @@ disabled.
    08–14, New York 14–20): crypto every day, forex Monday–Friday. A closed
    forex market is also detected automatically. All message times are Prague.
 2. **H4 trend** — HH+HL / LH+LL with 2-closed-body pivot confirmation;
-   a reclaimed fakeout beyond the last HL/LH does not kill the trend.
+   a reclaimed fakeout beyond the last HL/LH does not kill the trend. When H4
+   reads flat but H1 has a clean trend, direction is taken from H1 instead
+   (header reads `H4 flat — direction from H1 …`).
 3. **H1 zone** — latest untested Demand/Supply zone; invalidation by body close.
 4. **M5 trigger** — pullback into the zone → CHoCH in trend direction.
 5. **FVG validation** — min size per instrument, fill < 50%; session scope:
@@ -140,7 +148,11 @@ disabled.
 6. **SL** — behind the sweep extreme (the wick that ran the liquidity just
    before the CHoCH, not the last fractal pivot) + buffer; **TP** — the
    nearest unswept liquidity level (an unswept swing high/low, or an EQH/EQL
-   pool) minus one buffer. RR must be ≥ `SMC_MIN_RR` (default `1.0`) or SKIP.
+   pool) minus one buffer, plus up to five further rungs on the same ladder.
+   The bot is a **detector**: the setup is announced either way — an RR below
+   `SMC_MIN_RR` (default `1.0`), an entry that has run more than
+   `SMC_MAX_ENTRY_GAP_R` past the imbalance, or no unswept liquidity ahead
+   all attach a `⚠️` warning to the alert instead of silencing it.
 7. **Position size** — from `SMC_DEPOSIT` at 2% risk (crypto qty / forex lots).
 8. **Rule 9 correlation guard** — warns about forbidden USD combinations
    (e.g. EURUSD + GBPUSD in the same direction).
@@ -161,14 +173,16 @@ One service, no database, no Redis, no public domain needed:
 1. Create a service from this repo (Dockerfile is picked up automatically;
    the default command runs the watcher).
 2. Variables: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-   (+ optionally `SMC_DEPOSIT`; `OANDA_API_TOKEN` only if you want OANDA data).
+   (+ optionally `SMC_DEPOSIT`; a forex key — `TWELVEDATA_API_KEY` or
+   `OANDA_API_TOKEN` — is required if any forex pair is enabled).
 
 The bot uses Telegram long polling — any old webhook is removed automatically
 at startup.
 
 ### Optional: OANDA API token
 
-Forex works out of the box via Yahoo. To switch to OANDA data: OANDA account →
+Forex requires a key from either Twelve Data (recommended) or OANDA — there
+is no keyless feed. To use OANDA instead of Twelve Data: OANDA account →
 **Manage API Access** (My Services) → Generate, then set `OANDA_API_TOKEN` and
 `OANDA_ENVIRONMENT` (`practice` for a demo token, `live` for a real one).
 
@@ -188,7 +202,7 @@ Key ones:
 | `SMC_NEWS_DIGEST_TIME` | `07:45` | Prague time of the morning news digest |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
 | `SMC_DEFAULT_PROFILE` | `conservative` | strategy profile for a pair with no explicit `/strategy` choice: `conservative` \| `aggressive` |
-| `OANDA_API_TOKEN` | — | optional: use OANDA instead of Yahoo for forex |
+| `OANDA_API_TOKEN` | — | optional: use OANDA instead of Twelve Data for forex |
 | `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |
 
 ## Tests
@@ -211,7 +225,6 @@ app/services/smc/
 ├── instruments.py          # per-pair parameters & data source registry
 ├── data.py                 # Binance fetcher (ETHUSD)
 ├── twelvedata.py           # Twelve Data fetcher (forex, cached, free tier)
-├── yahoo.py                # Yahoo Finance fetcher (forex fallback, no key)
 ├── oanda.py                # OANDA v20 fetcher (forex, optional)
 ├── news.py                 # Forex Factory calendar, blackouts, day timeline
 ├── journal.py              # signal lifecycle, taken marks, discipline, /stats
@@ -221,7 +234,7 @@ app/services/smc/
 ├── state.py                # runtime state on SQLite (pairs, dedup keys)
 ├── db.py                   # SQLite wrapper, column migrations, JSON import
 └── models.py               # Candle, Zone, FVG, TradeSetup, AnalysisResult
-tests/test_smc/             # 93 unit + end-to-end strategy tests
+tests/test_smc/             # 327 unit + end-to-end strategy tests
 scripts/funnel.py           # offline calibration: replays the engine over
                             # historical candles per profile to size fvg_size_factor
 CLAUDE.md                   # guidance for AI-assisted development
@@ -231,8 +244,8 @@ CLAUDE.md                   # guidance for AI-assisted development
 
 Each watched pair runs under one of two **strategy profiles**. Both share the
 same rulebook (H4 trend → H1 zone → M5 CHoCH + FVG, TP at the nearest unswept
-liquidity level with RR ≥ `SMC_MIN_RR`, sessions, news, correlation); a
-profile only scales strictness — it never bends a rule.
+liquidity level, flagged `⚠️` below `SMC_MIN_RR`, sessions, news,
+correlation); a profile only scales strictness — it never bends a rule.
 
 | Profile | Label | Behaviour |
 |---|---|---|

@@ -3,6 +3,8 @@ from datetime import timedelta
 from scripts.funnel import (
     build_factor_profile,
     classify_result,
+    classify_warnings,
+    in_session_count,
     parse_factors,
     replay_funnel,
     session_day_span,
@@ -30,36 +32,109 @@ def test_classify_flat_h4():
     assert classify_result(r) == "h4_flat"
 
 
-def test_classify_result_labels_low_rr():
+def test_classify_result_never_returns_a_death_stage_for_an_approval():
+    """Detector mode (spec sec 1/5): rr_low, entry_stale and no_liquidity are
+    no longer SKIP reasons the engine writes, so an approved result carrying
+    any of their warnings still classifies as "approved", never as one of
+    the old death-stage labels."""
     result = AnalysisResult(
-        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+        symbol="ETHUSD", verdict=Verdict.APPROVED_LIMIT, checked_at=SESSION_BASE,
     )
-    result.reasons.append(
-        "RR 1:0.6 < minimum 1:1 to the nearest liquidity (H1 swing high 3221.00)"
-    )
-    assert classify_result(result) == "rr_low"
+    result.warnings.append("RR to the nearest liquidity is 1:0.6")
+    assert classify_result(result) == "approved"
 
 
-def test_classify_result_labels_reward_inside_sl_buffer_as_no_liquidity():
+def test_classify_warnings_labels_low_rr():
     result = AnalysisResult(
-        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+        symbol="ETHUSD", verdict=Verdict.APPROVED_LIMIT, checked_at=SESSION_BASE,
     )
-    result.reasons.append(
-        "Nearest liquidity sits inside the SL buffer — no positive "
-        "reward to aim at"
-    )
-    assert classify_result(result) == "no_liquidity"
+    result.warnings.append("RR to the nearest liquidity is 1:0.6")
+    assert classify_warnings(result) == ["rr_low"]
 
 
-def test_classify_result_labels_a_stale_entry():
+def test_classify_warnings_labels_no_liquidity_variants():
     result = AnalysisResult(
-        symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=SESSION_BASE,
+        symbol="ETHUSD", verdict=Verdict.APPROVED_LIMIT, checked_at=SESSION_BASE,
     )
-    result.reasons.append(
-        "Price has run 1.2R past the entry 3140.50 (max 0.5R) — the limit "
-        "would sit too far from market"
+    result.warnings.append("no unswept liquidity ahead")
+    assert classify_warnings(result) == ["no_liquidity"]
+
+    result.warnings = ["nearest liquidity sits inside the stop buffer"]
+    assert classify_warnings(result) == ["no_liquidity"]
+
+
+def test_classify_warnings_labels_a_stale_entry():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.APPROVED_LIMIT, checked_at=SESSION_BASE,
     )
-    assert classify_result(result) == "entry_stale"
+    result.warnings.append("price has run 1.2R past the imbalance")
+    assert classify_warnings(result) == ["entry_stale"]
+
+
+def test_classify_warnings_is_empty_for_a_clean_approval():
+    result = AnalysisResult(
+        symbol="ETHUSD", verdict=Verdict.APPROVED_LIMIT, checked_at=SESSION_BASE,
+    )
+    assert classify_warnings(result) == []
+
+
+def test_replay_funnel_counts_warnings_alongside_approved(monkeypatch):
+    """An approved-with-warning result increments both "approved" and its
+    own warn_* counter — the funnel must be able to answer "how many
+    announced setups carried a warning" without implying a rejection."""
+    def fake_evaluate(self, h4, h1, m5, result):
+        result.verdict = Verdict.APPROVED_LIMIT
+        result.warnings = ["RR to the nearest liquidity is 1:0.4"]
+        return result
+
+    monkeypatch.setattr(funnel_mod.TripleSyncEngine, "evaluate", fake_evaluate)
+
+    n_h4h1 = 20
+    h4 = make_candles(
+        [3000.0] * n_h4h1,
+        start=SESSION_BASE - timedelta(minutes=240 * (n_h4h1 - 1)),
+        step_minutes=240,
+    )
+    h1 = make_candles(
+        [3000.0] * n_h4h1,
+        start=SESSION_BASE - timedelta(minutes=60 * (n_h4h1 - 1)),
+        step_minutes=60,
+    )
+    m5 = make_candles([3000.0] * 7, step_minutes=5)
+
+    counts = funnel_mod.replay_funnel(
+        get_instrument("ETHUSD"), h4, h1, m5,
+        profile=get_profile("conservative"), warmup=2,
+    )
+
+    assert counts["approved"] >= 1
+    assert counts["warn_rr_low"] == counts["approved"]
+
+
+def test_in_session_count_excludes_off_session():
+    assert in_session_count({"off_session": 720, "approved": 10, "h4_flat": 5}) == 15
+
+
+def test_in_session_count_counts_only_per_close_stages():
+    """Regression for the coordinator's DM7 review finding and the final
+    branch review's follow-up: `warn_rr_low` / `warn_entry_stale` /
+    `warn_no_liquidity` increment ALONGSIDE "approved" on the same M5 close
+    (`replay_funnel`), not instead of it, so summing them into "in-session
+    checks" double-counts every warned close. `distinct_setups` (a rising
+    edge over those same approved closes) and `session_days` (calendar days)
+    are not per-close stages either and were still being summed in.
+
+    These are the exact counts from a live 5-day ETHUSD `--legacy` replay:
+    303 + 103 + 36 + 139 + 69 + 10 = 660 real in-session closes. The
+    original `sum(... if k != "off_session")` printed 778 (+105 warnings,
+    +13 for the two bookkeeping keys)."""
+    counts = {
+        "off_session": 720, "warmup": 303, "approved": 103,
+        "warn_rr_low": 80, "warn_entry_stale": 19, "warn_no_liquidity": 6,
+        "h4_flat": 36, "no_choch": 139, "fvg_small": 69, "other": 10,
+        "distinct_setups": 7, "session_days": 6,
+    }
+    assert in_session_count(counts) == 660  # not 778, and not 673
 
 
 def test_replay_counts_at_least_one_approved_on_the_trigger_fixture():

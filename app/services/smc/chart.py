@@ -205,13 +205,19 @@ def render_setup_chart(
     ylim = _price_ylim(candles, (setup.entry, setup.stop_loss))
     ax.set_ylim(*ylim)
 
-    # Entry / SL / TP levels
+    # Entry / SL / TP levels. The take-profit is optional (detector mode): a
+    # setup with no unswept liquidity ahead has no objective to draw, and its
+    # line and edge annotation are skipped rather than faked.
     d = result.price_decimals
-    for price, color, label in (
+    drawn = [
         (setup.entry, "#2962ff", f"ENTRY {setup.entry:.{d}f}"),
         (setup.stop_loss, "#f23645", f"SL {setup.stop_loss:.{d}f}"),
-        (setup.take_profit, "#089981", f"TP {setup.take_profit:.{d}f}"),
-    ):
+    ]
+    if setup.take_profit is not None:
+        drawn.append(
+            (setup.take_profit, "#089981", f"TP {setup.take_profit:.{d}f}")
+        )
+    for price, color, label in drawn:
         _level(ax, price, color, label, x_right, y_bounds=ylim)
 
     # Sparse Prague time labels on the x axis
@@ -229,8 +235,14 @@ def render_setup_chart(
     ax.set_xlim(-1, x_right + 8)
 
     side = "LONG" if setup.direction == Direction.LONG else "SHORT"
+    # No take-profit means no RR to quote — "1:0.0" would read as a measured
+    # objective rather than an absent one.
+    rr_part = (
+        f"RR 1:{setup.rr:.1f}" if setup.take_profit is not None
+        else "no liquidity ahead"
+    )
     ax.set_title(
-        f"{result.symbol} M5 — {side} setup | RR 1:{setup.rr:.1f} | "
+        f"{result.symbol} M5 — {side} setup | {rr_part} | "
         f"{to_prague(result.checked_at).strftime('%d.%m %H:%M')} Prague",
         color=FG,
         fontsize=11,

@@ -63,16 +63,17 @@ class SMCSettings(BaseSettings):
     )
     min_rr: float = Field(
         default=1.0,
-        description="Minimum risk/reward to the nearest unswept liquidity; "
-        "setups below it are skipped (owner decision 2026-08-05)",
+        description="Risk/reward to the nearest unswept liquidity below which "
+        "an announced setup carries a warning (owner decisions 2026-08-05 / "
+        "2026-08-06: it no longer suppresses the alert); still filters /plan "
+        "scenarios",
     )
     max_entry_gap_r: float = Field(
         default=0.75,
-        description="Skip a setup once price has run this many R past the "
-        "entry — the limit would sit too far from market to fill "
-        "(owner decision 2026-08-05). 0 = price may not have moved past the "
-        "entry at all (a limit further from the entry, i.e. not yet reached, "
-        "still passes); a large value disables the gate",
+        description="Warn once price has run this many R past the entry — the "
+        "limit would sit far from market (owner decisions 2026-08-05 / "
+        "2026-08-06: a label, not a skip). 0 = warn as soon as price has moved "
+        "past the entry at all; a large value removes the warning",
     )
     risk_pct: float = Field(default=2.0, description="Risk percent per trade")
     deposit: Optional[float] = Field(
@@ -83,9 +84,9 @@ class SMCSettings(BaseSettings):
     )
     forex_source: str = Field(
         default="auto",
-        description="Forex data source: auto | twelvedata | oanda | yahoo. "
-        "auto = Twelve Data if its key is set, else OANDA if its token is set, "
-        "else keyless Yahoo",
+        description="Forex data source: auto | twelvedata | oanda. "
+        "auto = Twelve Data if its key is set, else OANDA if its token is "
+        "set. A forex key is required — there is no keyless fallback.",
     )
     taken_cooldown_hours: float = Field(
         default=4.0,

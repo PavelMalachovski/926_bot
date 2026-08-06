@@ -108,6 +108,84 @@ class TestBuildPlan:
         assert "no positive reward" in plan.note
 
 
+class TestPlanBlocker:
+    """Spec §6: when the plan has no scenario it names the stage it stopped
+    at, in the live checklist's own words — never a generic sentence, and
+    never a stage the plan cannot evaluate (M5 CHoCH, imbalance)."""
+
+    def test_plan_names_the_missing_zone(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles([3100] * 20, step_minutes=60)  # no clean zone
+        plan = build_plan(ETH, h4, h1, make_candles([3100, 3101]), min_rr=1.0)
+        assert plan.scenarios == []
+        assert "untested" in plan.blocker.lower()
+        assert "H1" in plan.blocker
+
+    def test_flat_h4_blocker_names_the_structure(self):
+        flat = [3000, 3050, 3000, 3050, 3000, 3050, 3000, 3050, 3000, 3050, 3000]
+        h4 = make_candles(flat, step_minutes=240)
+        h1 = make_candles([3100] * 20, step_minutes=60)
+        plan = build_plan(ETH, h4, h1, make_candles([3100, 3101]), min_rr=1.0)
+        assert plan.h4_trend == Trend.FLAT
+        assert plan.scenarios == []
+        assert "HH+HL or LH+LL" in plan.blocker
+
+    def test_live_zone_below_threshold_keeps_the_rr_sentence(self):
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)
+        assert plan.scenarios == []
+        assert "1:" in plan.blocker and "1:" in plan.note
+
+    def test_a_zone_named_only_by_the_blocker_counts_as_shown(self):
+        # /plan keeps its min_rr filter while the alert dropped it, so this
+        # zone is a routine plan blocker AND a routine announcement. The
+        # owner read its bounds this morning -> it must be remembered.
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)
+        assert plan.scenarios == []
+        assert plan.blocker_zone == (3131.0, 3138.0, "long")
+        assert "3131.00-3138.00" in plan.blocker  # the bounds he read
+        assert plan.zones_shown() == [(3131.0, 3138.0, "long")]
+
+    def test_a_blocker_that_names_no_zone_shows_none(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles([3100] * 20, step_minutes=60)
+        plan = build_plan(ETH, h4, h1, make_candles([3100, 3101]), min_rr=1.0)
+        assert plan.blocker_zone is None
+        assert plan.zones_shown() == []
+
+    def test_zones_shown_lists_scenario_zones(self):
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert plan.scenarios
+        assert plan.zones_shown() == [
+            (s.zone_bottom, s.zone_top, s.direction.value) for s in plan.scenarios
+        ]
+
+    def test_the_blocker_never_mentions_stages_the_plan_cannot_see(self):
+        for closes in ([3100] * 20, H1_PULLBACK_CLOSES):
+            h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+            h1 = make_candles(closes, step_minutes=60)
+            plan = build_plan(ETH, h4, h1, make_candles([3100, 3101]), min_rr=1.0)
+            if plan.scenarios:
+                continue
+            assert "CHoCH" not in plan.blocker
+            assert "FVG" not in plan.blocker and "imbalance" not in plan.blocker
+
+    def test_market_closed_has_no_structural_blocker(self):
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0, market_closed=True)
+        assert plan.blocker is None
+        assert "closed" in plan.note.lower()
+
+    def test_format_plan_renders_the_blocker(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles([3100] * 20, step_minutes=60)
+        plan = build_plan(ETH, h4, h1, make_candles([3100, 3101]), min_rr=1.0)
+        text = format_plan(plan)
+        assert f"→ {plan.blocker}" in text
+
+
 class TestFormatAndChart:
     def test_format_plan_html(self):
         h4, h1, m5 = _uptrend_data(3160.0)
@@ -118,10 +196,20 @@ class TestFormatAndChart:
         assert "<" not in text.replace("<b>", "").replace("</b>", "")
 
     def test_note_only_message(self):
+        # No scenario -> the message names the missing stage with "→", the
+        # same marker the live checklist uses (spec 2026-08-06 §6). The old
+        # generic "ℹ️ No clean H1 zone for a plan yet" is gone.
         h4, h1, m5 = _uptrend_data(3120.0)  # produces a note, no scenarios
         plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
         text = format_plan(plan)
-        assert "ℹ️" in text
+        assert "→ " in text and plan.blocker in text
+        assert "No clean H1 zone" not in text
+
+    def test_market_closed_message_keeps_the_info_marker(self):
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0, market_closed=True)
+        text = format_plan(plan)
+        assert text.count("ℹ️") == 1 and "→" not in text  # not rendered twice
 
     def test_footnote_reflects_the_liquidity_stop_reanchor(self):
         # The old footnote claimed the live alert "tightens" the SL to an M5

@@ -60,7 +60,13 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
 
         if signal["status"] == "open":
             hit_sl = candle.low <= sl if is_long else candle.high >= sl
-            hit_tp = candle.high >= tp if is_long else candle.low <= tp
+            # Detector mode: a setup with no unswept liquidity ahead has no
+            # take-profit. It still fills and still stops out — "TP hit" is
+            # simply impossible for it, and no target is invented.
+            if tp is None:
+                hit_tp = False
+            else:
+                hit_tp = candle.high >= tp if is_long else candle.low <= tp
             if hit_sl:  # both in one candle -> conservative: count the stop
                 signal["status"] = "sl"
             elif hit_tp:
@@ -273,9 +279,33 @@ class SignalJournal:
                 f"• {pair}: {len(group)} setups, "
                 f"TP {count('tp', group)} / SL {count('sl', group)}"
             )
-        avg_rr = sum(s["rr"] for s in recent) / len(recent)
+        # Detector mode: a setup with no unswept liquidity ahead has no
+        # take-profit and carries rr 0.0 — averaging those zeros in would
+        # deflate the figure into meaninglessness. They have no planned RR;
+        # they are not a planned RR of zero.
+        with_target = [s for s in recent if s.get("take_profit") is not None]
         lines.append("")
-        lines.append(f"Average planned RR: 1:{avg_rr:.1f}")
+        if with_target:
+            avg_rr = sum(s["rr"] for s in with_target) / len(with_target)
+            lines.append(f"Average planned RR: 1:{avg_rr:.1f}")
+        missing = len(recent) - len(with_target)
+        if missing:
+            # Say it even when nothing is left to average, or the RR line the
+            # owner is used to would just vanish with no explanation.
+            lines.append(
+                # Not only "no liquidity ahead": a null take-profit also
+                # comes from the nearest pool sitting inside the stop buffer
+                # (engine, detector mode). Both mean the same thing here —
+                # no structural objective to plan an RR against.
+                f"({missing} signal{'' if missing == 1 else 's'} had no "
+                "structural objective — no planned RR)"
+            )
+        # Spec 2026-08-06 §4: the bot records its own reference entry/SL/TP,
+        # but the owner sets his own levels. This must not read as his
+        # performance — that lives in /journal (MT4 screenshots).
+        lines.append(
+            "Tracked against the bot's reference levels, not your actual orders."
+        )
         return "\n".join(lines)
 
 

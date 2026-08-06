@@ -71,30 +71,32 @@ class TestSourceSelection:
         assert isinstance(fetcher, TwelveDataFetcher)
         assert fetcher.symbol == "USD/JPY"
 
-    def test_auto_falls_back_to_yahoo_without_keys(self, monkeypatch):
+    def test_auto_raises_without_any_key(self, monkeypatch):
+        """No keyless fallback any more — 'auto' with nothing configured is
+        a configuration error, not a silent downgrade to a lower-quality
+        feed."""
         from app.core.config import settings
+        from app.core.exceptions import ConfigurationError
         from app.services.smc.instruments import get_instrument
         from smc_watcher import _build_fetcher
-        from app.services.smc.yahoo import YahooDataFetcher
 
         monkeypatch.setattr(settings.smc, "forex_source", "auto")
         monkeypatch.setattr(settings.twelvedata, "api_key", None)
         monkeypatch.setattr(settings.oanda, "api_token", None)
-        assert isinstance(
-            _build_fetcher(get_instrument("GBPUSD")), YahooDataFetcher
-        )
+        with pytest.raises(ConfigurationError):
+            _build_fetcher(get_instrument("GBPUSD"))
 
-    def test_explicit_override_forces_yahoo(self, monkeypatch):
+    def test_explicit_source_without_its_key_raises(self, monkeypatch):
         from app.core.config import settings
+        from app.core.exceptions import ConfigurationError
         from app.services.smc.instruments import get_instrument
         from smc_watcher import _build_fetcher
-        from app.services.smc.yahoo import YahooDataFetcher
 
-        monkeypatch.setattr(settings.smc, "forex_source", "yahoo")
+        monkeypatch.setattr(settings.smc, "forex_source", "oanda")
+        monkeypatch.setattr(settings.oanda, "api_token", None)
         monkeypatch.setattr(settings.twelvedata, "api_key", "KEY")
-        assert isinstance(
-            _build_fetcher(get_instrument("USDJPY")), YahooDataFetcher
-        )
+        with pytest.raises(ConfigurationError):
+            _build_fetcher(get_instrument("USDJPY"))
 
     def test_crypto_always_binance(self, monkeypatch):
         from app.core.config import settings

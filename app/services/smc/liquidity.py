@@ -113,3 +113,35 @@ def nearest_liquidity(
         )
     )
     return candidates[0]
+
+
+def liquidity_ladder(
+    levels: List[LiquidityLevel], direction: Direction, entry: float,
+    limit: int = 5,
+) -> List[LiquidityLevel]:
+    """The pools ahead, nearest first — not just the closest one.
+
+    The nearest pool is often unusable: on a real USDCAD setup it sat 1.8
+    pips from the entry against a 14-pip stop (RR 1:0.02) while the fourth
+    pool out gave 1:1.0. The owner takes profit at liquidity and there is
+    more than one pool; picking the closest for him was a decision made
+    badly. Duplicate prices across timeframes collapse to the richer pool.
+    """
+    if direction == Direction.LONG:
+        ahead = [lv for lv in levels if lv.is_high and lv.price > entry]
+        ahead.sort(key=lambda lv: lv.price)
+    else:
+        ahead = [lv for lv in levels if not lv.is_high and lv.price < entry]
+        ahead.sort(key=lambda lv: -lv.price)
+    best: dict = {}
+    order: List[float] = []
+    for lv in ahead:
+        key = round(lv.price, 8)
+        if key not in best:
+            best[key] = lv
+            order.append(key)
+        elif (lv.equal_count, _TF_RANK.get(lv.timeframe, 0)) > (
+            best[key].equal_count, _TF_RANK.get(best[key].timeframe, 0)
+        ):
+            best[key] = lv
+    return [best[k] for k in order[:limit]]

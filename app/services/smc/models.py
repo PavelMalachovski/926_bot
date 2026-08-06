@@ -100,17 +100,28 @@ class FVG:
 
 @dataclass
 class TradeSetup:
-    """A fully validated trade proposal."""
+    """A detected setup and the levels it implies.
+
+    `take_profit` is optional: a setup with no unswept liquidity ahead (or
+    whose nearest pool sits inside the stop buffer) is still a setup, it just
+    has no structural objective. `rr` stays 0.0 in that case — nothing
+    downstream may divide by it.
+    """
 
     direction: Direction
     entry: float
     stop_loss: float
-    take_profit: float
+    take_profit: Optional[float]
     rr: float
     fvg: FVG
     entry_is_market: bool = False
     lot_hint: Optional[str] = None
     target: Optional["LiquidityLevel"] = None
+    # Detector mode (2026-08-06): the deeper M5 limit option and the levels
+    # ahead, so the owner picks his own entry and objective.
+    order_block: Optional["Zone"] = None
+    ladder: List["LiquidityLevel"] = field(default_factory=list)
+    zones_ahead: List["Zone"] = field(default_factory=list)
 
 
 @dataclass
@@ -122,12 +133,22 @@ class AnalysisResult:
     checked_at: datetime
     price: float = 0.0
     h4_trend: Trend = Trend.FLAT
+    # Where the trade direction came from: "h4" (a real H4 trend, the normal
+    # case), "h1" (H4 was flat, H1 has a clean trend — owner decision
+    # 2026-08-06, H1 is a trend too, just a lower one, not a counter-trend
+    # entry), or "h4_choch" (aggressive profile only: H4 flat, H1 also flat,
+    # direction taken from an unreclaimed H4 CHoCH — first-leg entry, its own
+    # separate label). Task 4 renders the alert header from this.
+    direction_source: str = "h4"
     h1_zone: Optional[Zone] = None
     setup: Optional[TradeSetup] = None
     funding_rate: Optional[float] = None
     funding_warning: Optional[str] = None
     reasons: List[str] = field(default_factory=list)
     watch_notes: List[str] = field(default_factory=list)
+    # Detector mode: thresholds annotate instead of suppressing. Each entry is
+    # a finished English sentence ready for the alert.
+    warnings: List[str] = field(default_factory=list)
     session_name: Optional[str] = None
     price_decimals: int = 2
     profile_key: str = "conservative"
