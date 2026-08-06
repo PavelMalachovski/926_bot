@@ -25,11 +25,13 @@ The bot is a **detector, not a prescriber** (owner decision 2026-08-06,
 "no unswept liquidity ahead" used to return `Verdict.SKIP` and send nothing;
 they now attach a `⚠️` warning to the alert instead — the setup is announced
 either way, and the owner decides whether the warning matters. What still
-suppresses: everything that decides whether a setup exists at all (session,
-news, no H4/H1 direction, no H1 zone, no M5 CHoCH, no valid FVG), plus one
-geometry check that runs after them — `risk <= 0` (Rule 6, SL lands at the
-entry level) is a malformed trade, not a judgment call, and still returns
-`Verdict.SKIP` rather than a warning.
+suppresses: everything that decides whether a setup exists at all — off-
+session, market closed, news blackout, no H4/H1 direction, no H1 zone,
+price has not reached the zone yet, the zone was invalidated after the
+touch (a body close through the far edge), no M5 CHoCH, no valid FVG —
+plus one geometry check that runs after all of them: `risk <= 0` (Rule 6,
+SL lands at the entry level) is a malformed trade, not a judgment call, and
+still returns `Verdict.SKIP` rather than a warning.
 
 ## Commands
 

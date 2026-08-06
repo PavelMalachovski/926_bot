@@ -498,6 +498,17 @@ class TestAlertSendIsolation:
 
         monkeypatch.setattr(watcher, "check_pair", fake_check_pair)
 
+        # This test is about alert-send isolation, not journal tracking —
+        # the latter has its own test below. Without this stub,
+        # journal.record() (called inside _send_alert before format_result
+        # raises) leaves ETHUSD's signal "pending", and the real
+        # _track_journal() at the end of run_cycle would then make a live
+        # network fetch for it (tests must stay network-free).
+        async def no_op_track_journal():
+            return None
+
+        monkeypatch.setattr(watcher, "_track_journal", no_op_track_journal)
+
         import smc_watcher as smc_watcher_mod
 
         real_format_result = smc_watcher_mod.format_result
