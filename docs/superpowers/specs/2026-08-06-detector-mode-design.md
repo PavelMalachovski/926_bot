@@ -208,12 +208,53 @@ keeps the labels for diagnostics but they move to a second counter, so the
 funnel can still answer "how many announced setups carried a warning" without
 implying they were rejected.
 
-## 6. Pre-market plan
+## 6. Pre-market plan, and the alerts that follow it
 
-`/plan` is a projection made before price reaches the zone and is unaffected by
-this change. It keeps its own `min_rr` filter: a plan is a shortlist the owner
-reviews in the morning, not an alert he must act on. This asymmetry is
-deliberate — do not "fix" it later.
+The owner's working day: run `/plan` in the morning to see the picture, then
+let the bot hunt the entry inside it. The two already look at the same
+structure — `plan._scenario` and `engine.evaluate` both call `find_h1_zone` —
+but independently, so the engine can silently drift to a fresher zone during
+the day while the owner is still thinking in terms of what he read at 08:00.
+
+**Plan zones are remembered and alerts say whether they came from the plan.**
+When `/plan` runs, each scenario's zone is stored for the Prague day. Every
+subsequent announcement is labelled `по утреннему плану` when its zone matches
+a stored one, or `новая зона — в плане не было` when it does not. Both are
+sent; a zone that formed after the morning may well be the better one, and
+suppressing it would be the same mistake as the RR gate.
+
+Zone matching is by overlap, not equality: an H1 zone shifts slightly as new
+pivots confirm, so treat a stored zone and a live zone as the same idea when
+their price ranges overlap at all in the same direction.
+
+`/plan` stays **on demand** — the owner declined an automatic morning push, so
+zones are remembered only for a plan he actually looked at. The 07:45 weekday
+digest remains news-only.
+
+`/plan` keeps its own `min_rr` filter on projected scenarios: a plan is a
+shortlist he reviews, not an alert he must act on. This asymmetry with
+detector mode is deliberate — do not "fix" it later.
+
+### When the plan has no scenario, say what is missing
+
+Today `build_plan` falls back to a generic "No clean H1 zone for a plan yet".
+The owner asked for the specific blocker instead — *"если в плане нет сетапа,
+то так бы и писал, что сетапа нет, нужен слом структуры например"*.
+
+The engine already produces exactly these sentences for the live checklist
+(`AnalysisResult.watch_notes`): "Wait for a clear HH+HL or LH+LL structure on
+H4", "Wait for a fresh H1 zone to form (an untested HL)", "Wait for a bullish
+M5 CHoCH + FVG ≥ … inside the zone". The plan should report the funnel stage
+it stopped at, in the same words, rather than inventing a second vocabulary:
+
+```
+📋 GBPUSD — плана нет
+   H4 uptrend ✓ · H1 untested demand zone ✗
+   → нужна свежая нетронутая зона спроса на H1 (нетронутый HL)
+```
+
+A stage the plan cannot evaluate (M5 CHoCH, imbalance) is not reported as
+missing — price has not reached the zone yet, so it is not yet due.
 
 ## 7. What does not change
 
