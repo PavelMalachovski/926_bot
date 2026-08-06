@@ -113,6 +113,15 @@ Rules for the layout:
   information about urgency, not a different verdict.
 - Every dynamic value passes through `notifier.escape_html`. The `⚠️` lines
   contain measured numbers and therefore are dynamic.
+- **The ladder block is wrapped in `<pre>`** (owner decision 2026-08-06).
+  Telegram renders the message in a proportional font, so the space-padded
+  columns do not line up and the RR column stops being readable down the page
+  — noticeable at five rungs. This widens the codebase's long-standing
+  "only `<b>`" convention to "only `<b>` and `<pre>`", and the convention
+  exists for a reason: a raw `<` once broke delivery in production. So the
+  widening comes with a requirement — a test must assert that everything
+  interpolated inside the `<pre>` block is still escaped, and that the block
+  opens and closes exactly once. Nothing else in the message gains a tag.
 
 `Verdict.APPROVED_LIMIT` / `APPROVED_MARKET` remain as the two approved
 verdicts; the distinction still drives the `▶️` line and the chart. No new
