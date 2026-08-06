@@ -154,6 +154,45 @@ every candidate pivot and returns the first match.
 `TradeSetup.target` stays as the nearest level so the journal keeps a single
 definite objective to track. The ladder is additional, not a replacement.
 
+## 2c. The M5 order block
+
+Owner request 2026-08-06: show the order block on the same timeframe the
+imbalance is detected on, because price reacts to it on the retest.
+
+The concept is already in the codebase — an H1 "zone" *is* an order block,
+built by `structure.build_zone` from a pivot candle, wick to body edge. This
+applies the same idea one timeframe down, where the trigger lives.
+
+**Definition** (owner's, chosen over the alternatives): the last candle
+opposing the trade direction before the impulse that broke structure — for a
+long, the last bearish candle before the up-move. Boundaries follow
+`build_zone`'s existing convention so the bot has one rule everywhere: demand
+= `low → body_high`, supply = `body_low → high`. Walk back from the oldest
+candle of the FVG triple (`fvg.index - 2`).
+
+It is a second limit option, not a replacement: for a long it sits below the
+FVG edge, for a short above it — deeper in both cases, so it fills later and
+at a better price.
+
+### The ladder shows RR from both entries
+
+Because the stop does not move — it stays behind the swept liquidity
+regardless of where the owner enters — a deeper entry mechanically improves
+every rung. On the rendered examples the order-block entry roughly doubled the
+RR on ETHUSD and multiplied it by nine on USDCAD (1:0.2 → 1:1.8 on the first
+rung).
+
+**That is a trade-off, not free money, and the alert must not imply
+otherwise.** A smaller risk in price terms means the same market noise is a
+larger fraction of it: a three-pip wick is 22% of the FVG-entry risk on that
+USDCAD setup and 52% of the order-block risk. The deeper limit is also more
+likely never to fill. The two RR columns are labelled `RR от FVG / от блока`
+precisely so the owner reads them as two different trades rather than one
+number that got better.
+
+Do not add a rule that prefers one entry over the other. That is his call, and
+it is the entire point of detector mode.
+
 ## 2b. Direction when H4 is flat
 
 Rule 1 requires two falling highs **and** two falling lows. On USDCAD on
