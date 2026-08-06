@@ -54,17 +54,29 @@ the zone, where does the limit go, where does the stop go.
 
 ```
 🚨 SETUP READY — ETHUSD  ·  LONG  ·  H4 uptrend
+   по утреннему плану            ← omitted entirely when no /plan was run
 
-📍 H1 Demand zone      3131.00 – 3138.00
-⚡ M5 imbalance (FVG)   3138.00 – 3140.50   ← limit order
-🛑 Swept liquidity      3126.00             ← stop behind the wick
-🎯 Unswept liquidity    3221.00             ← target  (H1 swing high, EQH x2)
+📍 H1 Demand zone   1855.50 – 1878.53
+⚡ M5 imbalance      1884.60 – 1888.42   ← лимитка
+🛑 Swept liquidity   1869.24   ← стоп за фитиль (1867.24 с буфером)
 
-⚠️ price has run 1.2R past the imbalance
+🎯 Неснятая ликвидность впереди
+     1898.50      $10.08   1:0.4   H1
+     1911.16      $22.74   1:1.0   H1
+     1935.68      $47.26   1:2.1   H1 · EQH x3
+     1955.41      $66.99   1:3.1   H1
+     1977.99      $89.57   1:4.1   H1
 
-   ref · RR imbalance edge → target: 1:4.8
-   ref · FVG 2.50 wide, 12% filled  ·  session: New York
+   ⚠️ цена ушла на 1.3R от имбаланса
+   ⚠️ RR до ближайшей ликвидности 1:0.4
+
+   ref · FVG 3.82, заполнен 0%  ·  New York
+   ref · 05.08 19:55 Праги  ·  цена 1916.75
 ```
+
+Rendered from live ETHUSD on 2026-08-06 and approved by the owner. Note what
+it shows: the nearest pool gives 1:0.4 and today's bot would have stayed
+silent on it, while the third rung gives 1:2.1 against three equal highs.
 
 Rules for the layout:
 
@@ -127,11 +139,13 @@ zones in the trade direction.** Five, not three, because a rendered USDCAD
 example put the first level that reaches 1:1 in *fourth* place — at three the
 owner would have read the setup as unworkable.
 
+He asked for both ladders — walking through USDCAD he noted an untested H1
+order block at 1.40710 that he wanted to see, while the bot was showing only
+the freshest zone at 1.40112–1.40154.
+
 Distances are shown in the instrument's own units: dollars for crypto, pips
 for forex, the same split `engine._fmt_size` already makes. "1008 pips" for a
-$10 move on ETH is how a level gets misjudged at a glance. He asked for both — walking through USDCAD he
-noted an untested H1 order block at 1.40710 that he wanted to see, and the bot
-was showing only the freshest zone at 1.40112–1.40154.
+$10 move on ETH is how a level gets misjudged at a glance.
 
 This costs nothing to compute: `find_liquidity` already returns every level
 and `nearest_liquidity` discards all but one; zone selection already walks
