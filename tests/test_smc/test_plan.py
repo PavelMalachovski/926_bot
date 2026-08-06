@@ -136,6 +136,32 @@ class TestPlanBlocker:
         assert plan.scenarios == []
         assert "1:" in plan.blocker and "1:" in plan.note
 
+    def test_a_zone_named_only_by_the_blocker_counts_as_shown(self):
+        # /plan keeps its min_rr filter while the alert dropped it, so this
+        # zone is a routine plan blocker AND a routine announcement. The
+        # owner read its bounds this morning -> it must be remembered.
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=99.0)
+        assert plan.scenarios == []
+        assert plan.blocker_zone == (3131.0, 3138.0, "long")
+        assert "3131.00-3138.00" in plan.blocker  # the bounds he read
+        assert plan.zones_shown() == [(3131.0, 3138.0, "long")]
+
+    def test_a_blocker_that_names_no_zone_shows_none(self):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles([3100] * 20, step_minutes=60)
+        plan = build_plan(ETH, h4, h1, make_candles([3100, 3101]), min_rr=1.0)
+        assert plan.blocker_zone is None
+        assert plan.zones_shown() == []
+
+    def test_zones_shown_lists_scenario_zones(self):
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert plan.scenarios
+        assert plan.zones_shown() == [
+            (s.zone_bottom, s.zone_top, s.direction.value) for s in plan.scenarios
+        ]
+
     def test_the_blocker_never_mentions_stages_the_plan_cannot_see(self):
         for closes in ([3100] * 20, H1_PULLBACK_CLOSES):
             h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)

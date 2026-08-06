@@ -1,7 +1,7 @@
 """Persistent watcher state (pairs, dedup keys) backed by SQLite."""
 
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import structlog
 
@@ -11,8 +11,11 @@ from app.services.smc.sessions import to_prague
 
 logger = structlog.get_logger(__name__)
 
-# One stored plan zone: [bottom, top, direction] ("long"/"short" or None).
-PlanZone = List
+# One stored plan zone: bottom, top and the direction it was projected in
+# ("long"/"short", or None for a zone stored without one). JSON has no tuple,
+# so the kv store hands these back as lists — every read runs them through
+# `_normalise_zone`, which accepts either shape and returns this one.
+PlanZone = Tuple[float, float, Optional[str]]
 
 
 class WatcherState:
@@ -65,13 +68,13 @@ class WatcherState:
 
     @staticmethod
     def _normalise_zone(zone: Sequence) -> PlanZone:
-        """(bottom, top[, direction]) -> [low, high, direction or None]."""
+        """(bottom, top[, direction]) -> (low, high, direction or None)."""
         bottom, top = float(zone[0]), float(zone[1])
         direction = None
         if len(zone) > 2 and zone[2] is not None:
             # accept a Direction enum as readily as its value
             direction = str(getattr(zone[2], "value", zone[2]))
-        return [min(bottom, top), max(bottom, top), direction]
+        return min(bottom, top), max(bottom, top), direction
 
     def remember_plan_zones(
         self, key: str, zones: Iterable[Sequence], now: Optional[datetime] = None

@@ -337,8 +337,6 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
         # format_result uses for its watch notes.
         lines.append("")
         if plan.blocker:
-            if plan.note and plan.note != plan.blocker:
-                lines.append(f"ℹ️ {escape_html(plan.note)}")
             lines.append(f"→ {escape_html(plan.blocker)}")
         else:  # no structural blocker (market closed) — just the note
             lines.append(f"ℹ️ {escape_html(plan.note)}")

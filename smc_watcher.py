@@ -123,8 +123,10 @@ def _setup_fingerprint(result: AnalysisResult) -> str:
     day = result.checked_at.strftime("%Y-%m-%d")
     zone = result.h1_zone
     # An approved result always carries its zone (Rule 2 runs before the
-    # trigger); fall back to the entry rather than collapsing every setup of
-    # the session onto one key if that invariant ever breaks.
+    # trigger). The fallback guards that one invariant only — it keeps a
+    # zoneless result from collapsing the whole session onto a single key. It
+    # is no protection against a missing `setup`: both branches dereference
+    # it, as does the line below.
     anchor = f"{zone.bottom}-{zone.top}" if zone else f"entry{setup.entry}"
     return (
         f"{result.symbol}:{setup.direction.value}:{anchor}:"
@@ -531,14 +533,11 @@ class Watcher:
             min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
         )
         if not plan.market_closed:
-            # Remember what the owner just looked at, so today's alerts can
-            # say whether they came from this picture (spec §6). A plan with
-            # no scenarios is still a plan he read — it stores an empty list.
-            self.state.remember_plan_zones(
-                key,
-                [(s.zone_bottom, s.zone_top, s.direction.value)
-                 for s in plan.scenarios],
-            )
+            # Remember every zone this message named — scenario or blocker —
+            # so today's alerts can say whether they came from this picture
+            # (spec §6). A plan with no zones at all is still a plan he read:
+            # it stores an empty list, which is not the same as no plan.
+            self.state.remember_plan_zones(key, plan.zones_shown())
         live_line = None if stale else self._live_status(instrument, data, now)
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
         await self.notifier.send(

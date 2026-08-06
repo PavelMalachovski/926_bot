@@ -288,11 +288,14 @@ class SignalJournal:
         if with_target:
             avg_rr = sum(s["rr"] for s in with_target) / len(with_target)
             lines.append(f"Average planned RR: 1:{avg_rr:.1f}")
-            if len(with_target) != len(recent):
-                lines.append(
-                    f"({len(recent) - len(with_target)} signals had no unswept "
-                    "liquidity ahead — no planned RR)"
-                )
+        missing = len(recent) - len(with_target)
+        if missing:
+            # Say it even when nothing is left to average, or the RR line the
+            # owner is used to would just vanish with no explanation.
+            lines.append(
+                f"({missing} signal{'' if missing == 1 else 's'} had no "
+                "unswept liquidity ahead — no planned RR)"
+            )
         # Spec 2026-08-06 §4: the bot records its own reference entry/SL/TP,
         # but the owner sets his own levels. This must not read as his
         # performance — that lives in /journal (MT4 screenshots).

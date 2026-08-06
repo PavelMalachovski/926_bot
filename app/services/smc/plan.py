@@ -48,6 +48,23 @@ class PairPlan:
     # 2026-08-06 §6). None when there is a plan, or when the market is closed
     # — a weekend is not a missing stage.
     blocker: Optional[str] = None
+    # (bottom, top, direction) of the zone the blocker sentence names by its
+    # bounds, when it names one. `/plan` keeps its min_rr filter while the
+    # alert dropped it, so "zone is live but liquidity gives 1:0.6" is both a
+    # routine plan blocker and a routine announcement — the owner read those
+    # bounds this morning, so the zone counts as planned (owner decision
+    # 2026-08-06, spec §6).
+    blocker_zone: Optional[Tuple[float, float, str]] = None
+
+    def zones_shown(self) -> List[Tuple[float, float, str]]:
+        """Every zone this plan message named, scenario or blocker — the set
+        an alert later checks itself against."""
+        zones = [
+            (s.zone_bottom, s.zone_top, s.direction.value) for s in self.scenarios
+        ]
+        if self.blocker_zone:
+            zones.append(self.blocker_zone)
+        return zones
 
 
 # The live checklist's own sentences (engine.py Rules 1 and 2). The plan
@@ -73,6 +90,9 @@ def _zone_note(direction: Direction) -> str:
 _LIVE_ZONE = 0
 _NO_ZONE = 1
 
+# (rank, sentence, zone the sentence names by its bounds or None)
+Reason = Tuple[int, str, Optional[Tuple[float, float, str]]]
+
 
 def _scenario(
     instrument: Instrument,
@@ -83,12 +103,13 @@ def _scenario(
     speculative: bool,
     min_rr: float,
     profile: StrategyProfile,
-) -> Tuple[Optional[PlanScenario], Optional[Tuple[int, str]]]:
+) -> Tuple[Optional[PlanScenario], Optional[Reason]]:
     """Project a conditional setup aimed at the nearest unswept liquidity.
 
     Returns `(scenario, reason)` — exactly one is non-None. `reason` is
-    `(rank, sentence)`: the stage this direction stopped at, so the plan can
-    name it instead of falling back to a generic "no structure" line.
+    `(rank, sentence, zone)`: the stage this direction stopped at, so the plan
+    can name it instead of falling back to a generic "no structure" line, plus
+    the zone that sentence names by its bounds (None when it names none).
 
     M5 is not scanned here: hours before the session its swings will have
     been swept long before price reaches the zone.
@@ -97,19 +118,26 @@ def _scenario(
     kind = "Demand" if direction == Direction.LONG else "Supply"
     zone = find_h1_zone(h1, direction, max_touches=profile.max_zone_touches)
     if zone is None:
-        return None, (_NO_ZONE, _zone_note(direction))
+        return None, (_NO_ZONE, _zone_note(direction), None)
+
+    def named(rank: int, sentence: str) -> Reason:
+        """Every sentence below prints the zone's bounds, so the owner read
+        them — the zone counts as one the plan showed him."""
+        return rank, sentence, (
+            round(zone.bottom, d), round(zone.top, d), direction.value,
+        )
 
     zone_label = f"H1 {kind} zone {zone.bottom:.{d}f}-{zone.top:.{d}f}"
+    inside = (
+        f"Price is already inside the {zone_label} — no pullback left to "
+        "project, the live checklist takes over"
+    )
     if direction == Direction.LONG:
         # a pullback-to-demand plan: the zone must sit at/below current price
         if zone.contains(price):
-            return None, (
-                _LIVE_ZONE,
-                f"Price is already inside the {zone_label} — no pullback left "
-                "to project, the live checklist takes over",
-            )
+            return None, named(_LIVE_ZONE, inside)
         if zone.top >= price:
-            return None, (
+            return None, named(
                 _NO_ZONE,
                 f"Price is below the {zone_label} — wait for a fresh untested "
                 "HL to form under price",
@@ -117,13 +145,9 @@ def _scenario(
         entry, stop = zone.top, zone.bottom - instrument.sl_buffer
     else:
         if zone.contains(price):
-            return None, (
-                _LIVE_ZONE,
-                f"Price is already inside the {zone_label} — no pullback left "
-                "to project, the live checklist takes over",
-            )
+            return None, named(_LIVE_ZONE, inside)
         if zone.bottom <= price:
-            return None, (
+            return None, named(
                 _NO_ZONE,
                 f"Price is above the {zone_label} — wait for a fresh untested "
                 "LH to form above price",
@@ -132,7 +156,7 @@ def _scenario(
 
     risk = abs(entry - stop)
     if risk <= 0:
-        return None, (
+        return None, named(
             _LIVE_ZONE,
             f"{zone_label} is live, but entry and stop coincide — no risk to "
             "measure",
@@ -144,7 +168,7 @@ def _scenario(
     )
     target = nearest_liquidity(levels, direction, entry)
     if target is None:
-        return None, (
+        return None, named(
             _LIVE_ZONE,
             f"{zone_label} is live, but there is no unswept liquidity ahead "
             "of it to aim at",
@@ -157,7 +181,7 @@ def _scenario(
     # a target inside one sl_buffer of the entry would put the TP on the
     # wrong side while abs(take_profit - entry) still reads positive.
     if reward <= 0:
-        return None, (
+        return None, named(
             _LIVE_ZONE,
             f"Zone {kind} {zone.bottom:.{d}f}-{zone.top:.{d}f} is live, but "
             "the nearest liquidity sits inside the SL buffer — no positive "
@@ -165,7 +189,7 @@ def _scenario(
         )
     rr = reward / risk
     if rr < min_rr:
-        return None, (
+        return None, named(
             _LIVE_ZONE,
             f"Zone {kind} {zone.bottom:.{d}f}-{zone.top:.{d}f} is live, but "
             f"the nearest liquidity gives 1:{rr:.1f} — waiting for other "
@@ -221,7 +245,7 @@ def build_plan(
     if not directions and trend == Trend.FLAT:
         directions = [(Direction.LONG, True), (Direction.SHORT, True)]
 
-    reasons: List[Tuple[int, str]] = []
+    reasons: List[Reason] = []
     for direction, speculative in directions:
         scenario, reason = _scenario(
             instrument, h4, h1, direction, price, speculative, min_rr, profile,
@@ -240,7 +264,7 @@ def build_plan(
         # specific stage.
         speculative_only = all(spec for _, spec in directions)
         if best and (best[0] == _LIVE_ZONE or not speculative_only):
-            plan.blocker = best[1]
+            plan.blocker, plan.blocker_zone = best[1], best[2]
         else:
             plan.blocker = H4_STRUCTURE_NOTE
         plan.note = plan.blocker

@@ -251,3 +251,23 @@ class TestJournal:
         journal = self._journal_with(tmp_path, [with_tp, without_tp])
         text = journal.stats_text(days=36500)
         assert "Average planned RR: 1:2.0" in text
+        assert "(1 signal had no unswept liquidity ahead — no planned RR)" in text
+
+    def test_the_excluded_count_agrees_in_number(self, tmp_path):
+        without_tp = dict(self._signal(), take_profit=None, rr=0.0)
+        journal = self._journal_with(
+            tmp_path, [self._signal(), without_tp, dict(without_tp)]
+        )
+        assert "(2 signals had no unswept liquidity ahead" in journal.stats_text(
+            days=36500
+        )
+
+    def test_no_signal_with_a_target_still_explains_the_missing_average(
+        self, tmp_path
+    ):
+        """The RR line must not vanish silently when nothing can be averaged."""
+        without_tp = dict(self._signal(), take_profit=None, rr=0.0)
+        journal = self._journal_with(tmp_path, [without_tp, dict(without_tp)])
+        text = journal.stats_text(days=36500)
+        assert "Average planned RR" not in text
+        assert "(2 signals had no unswept liquidity ahead — no planned RR)" in text

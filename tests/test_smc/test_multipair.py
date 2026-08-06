@@ -337,6 +337,32 @@ class TestAlertPlanProvenance:
         assert "from this morning's plan" in watcher.notifier.sent[0]
 
     @pytest.mark.asyncio
+    async def test_a_zone_named_only_by_a_blocker_is_still_the_morning_plan(
+        self, tmp_path
+    ):
+        """The plan filters on min_rr, the alert does not: the zone whose RR
+        made it a plan blocker is exactly the one detector mode announces.
+        The owner read its bounds this morning (owner decision 2026-08-06)."""
+        from app.services.smc.instruments import get_instrument
+        from app.services.smc.plan import build_plan
+        from tests.test_smc.helpers import (
+            H1_PULLBACK_CLOSES, H4_UPTREND_CLOSES, make_candles,
+        )
+
+        watcher = self._watcher(tmp_path)
+        plan = build_plan(
+            get_instrument("ETHUSD"),
+            make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            make_candles([3160.0], step_minutes=5),
+            min_rr=99.0,  # nothing survives the plan's own filter
+        )
+        assert plan.scenarios == [] and plan.blocker_zone
+        watcher.state.remember_plan_zones("ETHUSD", plan.zones_shown())
+        await watcher._send_alert("ETHUSD", self._approved(), "fp")
+        assert "from this morning's plan" in watcher.notifier.sent[0]
+
+    @pytest.mark.asyncio
     async def test_a_zone_outside_the_plan_is_labelled_new(self, tmp_path):
         watcher = self._watcher(tmp_path)
         result = self._approved()
