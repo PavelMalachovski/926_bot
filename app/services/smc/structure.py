@@ -150,6 +150,10 @@ def find_order_block(
     Boundaries follow `build_zone`'s convention so the bot has one rule
     everywhere: demand = low -> body_high, supply = body_low -> high.
     `before_index` is exclusive — the walk starts at `before_index - 1`.
+
+    The returned Zone's `pivot_index`/`timestamp` carry the order-block
+    candle's own index and timestamp — it is the zone's origin candle, not a
+    fractal pivot, even though it reuses the same field.
     """
     want_bearish = direction == Direction.LONG
     for i in range(min(before_index, len(candles)) - 1, -1, -1):

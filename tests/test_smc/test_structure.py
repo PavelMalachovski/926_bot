@@ -189,11 +189,43 @@ class TestZoneLadder:
     def test_returns_untested_zones_beyond_the_entry_nearest_first(self):
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
         zones = zone_ladder(h1, Direction.LONG, beyond=3140.0, limit=5)
-        assert zones, "H1_PULLBACK_CLOSES has an untested supply above 3140"
-        prices = [z.bottom for z in zones]
-        assert prices == sorted(prices), "nearest first"
-        assert all(z.bottom > 3140.0 for z in zones)
+        # H1_PULLBACK_CLOSES has exactly one untested supply above 3140: the
+        # pivot @ index 12 (rally to 3220, high 3221 -> zone 3200-3221). The
+        # earlier pivot @ index 4 (high 3151, zone 3135-3151) is invalidated
+        # by index 9's close at 3160 (body close beyond its top), so it is
+        # never a candidate regardless of `beyond`.
+        assert [(z.bottom, z.top) for z in zones] == [(3200.0, 3221.0)]
 
     def test_limit_is_respected(self):
+        # H1_PULLBACK_CLOSES yields exactly one qualifying zone for LONG at
+        # any beyond below 3200 (see above) -- there is nothing further to
+        # truncate here, so this pins the fixture's real (single-zone) shape
+        # rather than a hypothetical multi-zone one.
         h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
-        assert len(zone_ladder(h1, Direction.LONG, 3000.0, limit=1)) <= 1
+        assert len(zone_ladder(h1, Direction.LONG, 3000.0, limit=1)) == 1
+
+    def test_limit_truncates_to_the_nearest_zones(self):
+        # A dedicated fixture with two untested, non-invalidated supply
+        # zones -- (99, 104) nearer, (108.5, 110) farther -- to pin `limit`
+        # as genuine truncation (N>1 -> limit), which H1_PULLBACK_CLOSES
+        # cannot demonstrate (it only ever has one qualifying zone).
+        spec = [
+            (100.0, 101.0, 99.0, 100.5),
+            (101.0, 102.0, 100.0, 101.5),
+            (108.5, 110.0, 95.0, 109.5),   # peak 1 -> farther zone
+            (109.0, 109.0, 104.0, 105.0),
+            (105.0, 105.0, 100.0, 101.0),
+            (101.0, 101.5, 97.0, 98.0),
+            (98.0, 99.0, 94.0, 95.0),
+            (95.0, 100.0, 94.0, 99.5),
+            (99.0, 104.0, 90.0, 103.0),    # peak 2 -> nearer zone
+            (103.0, 103.5, 98.0, 99.0),
+            (99.0, 100.0, 95.0, 96.0),
+        ]
+        m5 = [candle(*row, index=i) for i, row in enumerate(spec)]
+        full = zone_ladder(m5, Direction.LONG, beyond=0.0, limit=5)
+        assert [(z.bottom, z.top) for z in full] == [
+            (99.0, 104.0), (108.5, 110.0)
+        ]
+        truncated = zone_ladder(m5, Direction.LONG, beyond=0.0, limit=1)
+        assert [(z.bottom, z.top) for z in truncated] == [(99.0, 104.0)]
