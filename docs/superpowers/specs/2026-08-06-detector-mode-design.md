@@ -121,9 +121,15 @@ The owner takes profit at liquidity, and there is more than one pool. Picking
 the closest one for him is the same mistake as the RR gate: a decision made on
 his behalf, badly.
 
-**The alert carries a ladder: up to three unswept liquidity levels beyond the
-entry, each with its distance and the RR it implies, and up to three untested
-zones in the trade direction.** He asked for both — walking through USDCAD he
+**The alert carries a ladder: up to five unswept liquidity levels beyond the
+entry, each with its distance and the RR it implies, and up to five untested
+zones in the trade direction.** Five, not three, because a rendered USDCAD
+example put the first level that reaches 1:1 in *fourth* place — at three the
+owner would have read the setup as unworkable.
+
+Distances are shown in the instrument's own units: dollars for crypto, pips
+for forex, the same split `engine._fmt_size` already makes. "1008 pips" for a
+$10 move on ETH is how a level gets misjudged at a glance. He asked for both — walking through USDCAD he
 noted an untested H1 order block at 1.40710 that he wanted to see, and the bot
 was showing only the freshest zone at 1.40112–1.40154.
 
@@ -148,13 +154,19 @@ direction taken from H1**, labelled in the header as
 is a trend, just a lower one. It is distinct from the aggressive profile's
 H4-CHoCH first-leg entry, which stays as it is.
 
-**Gated on measurement.** `h4_flat` is the largest funnel stage by far — 4560
-of 8499 in-session ETHUSD checks — so this can multiply the alert rate rather
-than nudge it. Measure the announced-setup rate with and without the fallback,
-on ETHUSD, USDCAD and USDJPY over 90 days at production depth, before writing
-any code. If the rate becomes unusable, the fallback needs a further condition
-(for example, requiring the H1 trend to agree with the direction of the last
-H4 structural break) rather than being shipped as measured.
+**Measured, and it ships as designed.** `h4_flat` is the largest funnel stage
+by far — 4560 of 8499 in-session ETHUSD checks — so the concern was that this
+multiplies the rate rather than nudging it. Announced setups per week over 90
+days at production depth, conservative profile:
+
+| pair | H4 only | H4, else H1 |
+|---|---|---|
+| ETHUSD | 6.85 | 9.92 |
+| USDJPY | 1.15 | 1.69 |
+| USDCAD | 0.54 | 0.62 |
+
+About +40%, not a multiple: a flat H4 usually means an indecisive H1 too, and
+the setup dies further down the chain anyway. No extra condition is needed.
 
 ## 3. Volume control
 
