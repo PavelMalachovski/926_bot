@@ -100,12 +100,13 @@ class TestSessions:
         assert not same_trading_day(b, c)
 
     def test_session_end_utc(self):
-        # 16:00 Prague summer (14:00 UTC) is in the NY window ending 20:00 Prague
+        # 16:00 Prague summer (14:00 UTC) is in the NY window ending 18:30
+        # Prague — so a pending order created then expires at 16:30 UTC.
         dt = datetime(2026, 7, 6, 14, 0, tzinfo=timezone.utc)
         end = session_end_utc(dt)
-        assert end == datetime(2026, 7, 6, 18, 0, tzinfo=timezone.utc)
+        assert end == datetime(2026, 7, 6, 16, 30, tzinfo=timezone.utc)
 
-    def test_trading_hours_08_20_prague(self):
+    def test_trading_hours_08_1830_prague(self):
         from app.services.smc.sessions import active_session
 
         def at(hour, minute=0, day=8):  # Wed 2026-07-08, CEST = UTC+2
@@ -115,8 +116,11 @@ class TestSessions:
         assert active_session(at(8, 0)) == "Frankfurt/London"
         assert active_session(at(13, 59)) == "Frankfurt/London"
         assert active_session(at(14, 0)) == "New York"
-        assert active_session(at(19, 59)) == "New York"
-        assert active_session(at(20, 0)) is None
+        assert active_session(at(18, 29)) == "New York"
+        # owner decision 2026-08-07: the day ends at 18:30, the old
+        # 18:30-20:00 evening tail is off-session
+        assert active_session(at(18, 30)) is None
+        assert active_session(at(19, 59)) is None
 
     def test_forex_weekends_off_crypto_on(self):
         from app.services.smc.sessions import active_session
