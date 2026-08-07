@@ -507,6 +507,6 @@ class TestDigestBlocks:
         text = cal.digest_text(
             ["ETHUSD"], datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc)
         )
-        assert "New York 14–20" in text
+        assert "New York 14:00–18:30" in text
         assert "🔴 14:30 CPI m/m (USD) → ETHUSD" in text
         assert "⛔ no entries 13:30–14:45" in text

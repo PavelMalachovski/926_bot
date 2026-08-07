@@ -16,7 +16,7 @@ import httpx
 import structlog
 
 from app.services.smc.instruments import Instrument, get_instrument
-from app.services.smc.sessions import to_prague
+from app.services.smc.sessions import active_session, to_prague
 
 logger = structlog.get_logger(__name__)
 
@@ -165,10 +165,11 @@ class NewsCalendar:
             )
 
         def block_of(event: NewsEvent) -> str:
-            hour = to_prague(event.time).hour
-            if 8 <= hour < 14:
+            # derived from sessions.WINDOWS — never re-hardcode the hours here
+            session = active_session(event.time)
+            if session == "Frankfurt/London":
                 return "london"
-            if 14 <= hour < 20:
+            if session == "New York":
                 return "ny"
             return "off"
 
@@ -184,8 +185,8 @@ class NewsCalendar:
 
         lines = [header, ""]
         for title, key in (
-            ("🌅 <b>London 08–14</b>", "london"),
-            ("🌇 <b>New York 14–20</b>", "ny"),
+            ("🌅 <b>London 08:00–14:00</b>", "london"),
+            ("🌇 <b>New York 14:00–18:30</b>", "ny"),
         ):
             lines.append(title)
             block_events = [e for e in events if block_of(e) == key]

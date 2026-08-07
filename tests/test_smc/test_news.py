@@ -96,16 +96,38 @@ class TestUpcomingAndDigest:
         now = datetime(2026, 7, 15, 5, 30, tzinfo=timezone.utc)
         text = cal.digest_text(["GBPUSD", "USDJPY", "ETHUSD"], now)
         # CPI 12:30 UTC = 14:30 Prague -> New York block, hits all USD pairs
-        assert "New York 14–20" in text
+        assert "New York 14:00–18:30" in text
         assert "🔴 14:30 CPI m/m (USD)" in text
         assert "GBPUSD" in text and "USDJPY" in text and "ETHUSD" in text
         # exact no-entry window: 60 min before, 15 after
         assert "⛔ no entries 13:30–14:45" in text
         # London block has nothing that day
-        assert "London 08–14" in text and "✅ clear" in text
+        assert "London 08:00–14:00" in text and "✅ clear" in text
         # BOE speech 20:00 UTC = 22:00 Prague -> outside trading hours
         assert "Outside trading hours" in text and "22:00 BOE Gov Speaks" in text
         assert "Blackout rule" in text
+
+    def test_digest_evening_tail_is_off_session(self):
+        """Owner decision 2026-08-07: the day ends at 18:30, so a 19:00 Prague
+        release is no longer part of the New York block."""
+        cal = NewsCalendar(before_minutes=60, after_minutes=15)
+        cal.events = parse_feed(
+            [
+                {
+                    "title": "Late FOMC Presser",
+                    "country": "USD",
+                    "date": "2026-07-15T13:00:00-04:00",  # 17:00 UTC = 19:00 Prague
+                    "impact": "High",
+                }
+            ]
+        )
+        cal.fetched_at = datetime(2026, 7, 15, 5, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 15, 5, 30, tzinfo=timezone.utc)
+        text = cal.digest_text(["USDJPY"], now)
+        assert "Outside trading hours" in text
+        assert "🔴 19:00 Late FOMC Presser (USD)" in text
+        # the NY block itself is clear now that the tail moved out of it
+        assert "New York 14:00–18:30" in text and "✅ clear" in text
 
     def test_digest_hits_only_affected_pairs(self):
         cal = _calendar()

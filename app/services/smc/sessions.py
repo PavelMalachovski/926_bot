@@ -1,8 +1,17 @@
 """Session window filter (Rule 0.1) — Prague local time, DST aware.
 
-Trading hours: 08:00-20:00 Prague. Crypto is watched every day, forex only
+Trading hours: 08:00-18:30 Prague. Crypto is watched every day, forex only
 Monday-Friday. The day is split into two adjacent blocks so the Rule 4
 "an FVG does not carry over between sessions" separation is preserved.
+
+The NY block ends at 18:30, not 20:00 (owner decision 2026-08-07): the last
+evening hour and a half produced nothing worth trading, and dropping it keeps
+four forex pairs inside the Twelve Data free tier (800 credits/day).
+
+WINDOWS is the single source of truth for the trading day — active_session,
+session_end_utc (Rule 10 pending-order expiry), same_session (Rule 4 FVG
+scope) and the news digest all derive from it. Never hardcode the hours
+anywhere else.
 """
 
 from datetime import datetime, time
@@ -15,7 +24,7 @@ PRAGUE = pytz.timezone("Europe/Prague")
 # (start, end, name) in Prague local time, year-round (DST follows Prague).
 WINDOWS: List[Tuple[time, time, str]] = [
     (time(8, 0), time(14, 0), "Frankfurt/London"),
-    (time(14, 0), time(20, 0), "New York"),
+    (time(14, 0), time(18, 30), "New York"),
 ]
 
 

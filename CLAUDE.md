@@ -72,7 +72,7 @@ app/services/smc/
 │                         liquidity_ladder (five rungs shown in the alert)
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
-├── sessions.py           trading hours 08:00-20:00 Prague, two blocks split
+├── sessions.py           trading hours 08:00-18:30 Prague, two blocks split
 │                         at 14:00 (London/NY FVG separation), forex Mon-Fri
 ├── instruments.py        per-pair registry: source, min FVG, SL buffer, pip
 ├── data.py / twelvedata.py / oanda.py   candle fetchers (same interface):

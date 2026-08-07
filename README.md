@@ -1,7 +1,7 @@
 # SMC Watcher — Triple Sync + Imbalance
 
 A Telegram bot that runs the **Triple Sync + Imbalance** SMC strategy for the
-selected currency pairs — every 5 minutes during trading hours (08:00–20:00
+selected currency pairs — every 5 minutes during trading hours (08:00–18:30
 Prague), every 15 minutes outside them — and alerts you the moment a valid
 setup appears.
 
@@ -51,8 +51,9 @@ order: **Twelve Data** if `TWELVEDATA_API_KEY` is set → **OANDA** if
 required — there is no keyless fallback any more (the previous keyless feed
 was removed: its OHLC data was quantised coarsely enough to distort replay
 results). Twelve Data is recommended: free 800 req/day, native 4h/1h/5min
-candles, runs on Railway; the higher timeframes are cached so 2–3 forex pairs
-stay comfortably within the free budget (~200 req/day/pair). Grab a free key
+candles, runs on Railway; the higher timeframes are cached, and with the
+trading day ending at 18:30 that is ~170 credits/day/pair — four forex pairs
+fit inside the free budget with room to spare for `/plan`. Grab a free key
 at [twelvedata.com](https://twelvedata.com).
 
 Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
@@ -133,8 +134,9 @@ disabled.
 
 ## Strategy checklist (per pair, every 5 min in session)
 
-1. **Session filter** — trading hours 08:00–20:00 Prague (Frankfurt/London
-   08–14, New York 14–20): crypto every day, forex Monday–Friday. A closed
+1. **Session filter** — trading hours 08:00–18:30 Prague (Frankfurt/London
+   08:00–14:00, New York 14:00–18:30): crypto every day, forex Monday–Friday.
+   A closed
    forex market is also detected automatically. All message times are Prague.
 2. **H4 trend** — HH+HL / LH+LL with 2-closed-body pivot confirmation;
    a reclaimed fakeout beyond the last HL/LH does not kill the trend. When H4
@@ -221,7 +223,7 @@ app/services/smc/
 ├── engine.py               # rules 0-8 orchestration (pure, testable)
 ├── structure.py            # pivots, trend, zones, BOS/CHoCH
 ├── fvg.py                  # FVG detection, validation & rejection diagnostics
-├── sessions.py             # 08-20 Prague trading hours, London/NY blocks
+├── sessions.py             # 08:00-18:30 Prague trading hours, London/NY blocks
 ├── instruments.py          # per-pair parameters & data source registry
 ├── data.py                 # Binance fetcher (ETHUSD)
 ├── twelvedata.py           # Twelve Data fetcher (forex, cached, free tier)
