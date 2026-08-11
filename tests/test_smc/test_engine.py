@@ -605,3 +605,98 @@ class TestGatesAreNowLabels:
         assert result.setup.target is None
         assert result.setup.rr == 0.0
         assert any("stop buffer" in w for w in result.warnings)
+
+
+class TestFundingAdvisory:
+    """Rule 9.3 (advisory only, review-hardening Task 6). The danger tier
+    used to fire only for LONG — a SHORT paying heavy negative funding (the
+    symmetric squeeze case) fell through to the `elif abs(rate) > WARN`
+    branch, whose text hardcoded 'is in the 0.05-0.1% zone' even when the
+    rate was well outside that band. Fixed to be direction-symmetric.
+
+    The mild-tier text itself had the same falsifiable-band bug one layer
+    down: the `elif abs(rate) > FUNDING_WARN` branch also catches the
+    *favorable*-direction extreme (a LONG at -0.15%, a SHORT at +0.15% —
+    the danger checks above only match the unfavorable pairing), where
+    abs(rate) can be far past FUNDING_DANGER while the text still claimed
+    the rate sat inside the 0.05-0.10% band. Fixed to name only the
+    advisory floor it actually crossed, with no upper-bound claim. No
+    verdict change anywhere here — wording only."""
+
+    def _long(self, funding_rate: float):
+        result = _fresh_result()
+        result.funding_rate = funding_rate
+        return _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger(),
+            result=result,
+        )
+
+    def _short(self, funding_rate: float):
+        result = _fresh_result()
+        result.funding_rate = funding_rate
+        h4 = make_candles(H4_DOWNTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_RALLY_INTO_SUPPLY_CLOSES, step_minutes=60)
+        return _engine().evaluate(
+            h4=h4, h1=h1, m5=m5_short_trigger_deep_sweep(), result=result
+        )
+
+    def test_long_danger_tier(self):
+        result = self._long(0.0015)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        warning = result.funding_warning
+        assert warning is not None
+        assert "longs" in warning
+        assert "elevated squeeze risk" in warning
+        assert "zone" not in warning  # that phrasing belongs to the mild tier
+
+    def test_short_danger_tier_is_direction_correct_with_no_false_band(self):
+        # The symmetric squeeze case the old code mislabeled: a SHORT paying
+        # heavily negative funding used to get the mild "0.05-0.1% zone"
+        # text even though 0.15% sits well outside that band.
+        result = self._short(-0.0015)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        warning = result.funding_warning
+        assert warning is not None
+        assert "shorts" in warning
+        assert "elevated squeeze risk" in warning
+        assert "zone" not in warning
+        assert "0.05" not in warning  # no false band claim
+
+    def test_mild_tier_quotes_the_advisory_floor_with_no_upper_bound_claim(self):
+        for result in (self._long(0.0007), self._short(-0.0007)):
+            assert result.verdict == Verdict.APPROVED_LIMIT
+            warning = result.funding_warning
+            assert warning is not None
+            assert "0.05" in warning  # FUNDING_WARN, the floor that fired
+            assert "0.10" not in warning  # no upper-bound (FUNDING_DANGER) claim
+            assert "zone" not in warning  # that phrasing implied a bounded band
+            assert "your call" in warning
+
+    def test_mild_tier_at_favorable_direction_extreme_has_no_false_band_claim(self):
+        # A LONG at -0.15%/8h: longs RECEIVE funding when the rate is
+        # negative, so this is the favorable direction, not the danger
+        # tier — but abs(rate) still clears FUNDING_WARN, so the mild
+        # branch fires. The old text claimed "is in the 0.05-0.10% zone"
+        # here, which was false: 0.15% sits well outside that band.
+        result = self._long(-0.0015)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        warning = result.funding_warning
+        assert warning is not None
+        assert "0.10" not in warning  # no false upper-bound claim
+        assert "zone" not in warning
+        assert "0.05" in warning  # still names the threshold that actually fired
+
+        # Symmetric case: a SHORT at +0.15%/8h (shorts receive positive funding).
+        result = self._short(0.0015)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        warning = result.funding_warning
+        assert warning is not None
+        assert "0.10" not in warning
+        assert "zone" not in warning
+
+    def test_no_warning_below_the_threshold(self):
+        result = self._long(0.0002)
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.funding_warning is None

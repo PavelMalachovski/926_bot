@@ -97,6 +97,12 @@ class Database:
         self.path = path
         self.conn = self._connect(path)
         self.conn.row_factory = sqlite3.Row
+        # Runtime (post-connect) SQLite errors: connect() is lazy, so a
+        # corrupted file opens fine and only fails once a query actually
+        # runs. `_run` below is the one-attempt-total fallback for that;
+        # these two flags back it.
+        self._runtime_fallback_attempted = False
+        self._logged_runtime_errors: set = set()
         self._create_schema()
         # Deliberately outside the transaction above: a table rebuild is much
         # heavier than an ADD COLUMN and must not be able to take the watcher
@@ -253,99 +259,225 @@ class Database:
             self.path = self.FALLBACK_PATH
             return sqlite3.connect(self.FALLBACK_PATH, check_same_thread=False)
 
+    # ---------------------------------------------------- runtime error guard
+
+    def _recover_to_local_fallback(self) -> bool:
+        """One-time escape hatch for a `sqlite3.Error` raised after connect.
+
+        `sqlite3.connect` is lazy: a corrupted file, a full disk or a
+        read-only mount all open successfully and only fail once a query
+        runs. This mirrors `_connect`'s connect-time fallback for that case,
+        so operations degrade to the same local ephemeral file instead of
+        crash-looping the process (CLAUDE.md). Attempted at most once per
+        process — if the fallback file is also unusable there is nowhere
+        else to go, so later callers just keep getting safe defaults.
+        """
+        if self._runtime_fallback_attempted:
+            return False
+        self._runtime_fallback_attempted = True
+        if self.path == self.FALLBACK_PATH:
+            return False  # already on the fallback file; nothing left to try
+        try:
+            self.conn.close()
+        except sqlite3.Error:
+            pass  # the old connection is already broken; nothing to salvage
+        try:
+            conn = sqlite3.connect(self.FALLBACK_PATH, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self.conn = conn
+            self.path = self.FALLBACK_PATH
+            self._create_schema()
+            self._relax_take_profit_not_null()
+            # _create_schema and _relax_take_profit_not_null both swallow
+            # sqlite3.Error internally (CLAUDE.md: schema failures must not
+            # crash the watcher), so if the fallback file is ALSO unusable
+            # (full disk, unwritable cwd) they return quietly without
+            # raising — this would fall straight through to the success log
+            # below on a connection that cannot actually serve a query.
+            # Probe it for real before claiming victory.
+            self.conn.execute("SELECT 1")
+            logger.error(
+                "Runtime SQLite error — switched to a local ephemeral "
+                "database (data will NOT survive redeploys). Check the "
+                "configured DB path/volume.",
+                fallback=self.FALLBACK_PATH,
+            )
+            return True
+        except sqlite3.Error as e:
+            logger.error(
+                "Fallback database also unusable after a runtime SQLite "
+                "error — running with in-memory defaults; nothing will "
+                "persist this process.",
+                fallback=self.FALLBACK_PATH,
+                error=str(e),
+            )
+            return False
+
+    def _run(self, method: str, fn, default):
+        """Run `fn()` (a closure over `self.conn`), degrading to `default`
+        on a `sqlite3.Error` instead of letting it escape. Logs once per
+        method per process (avoids per-cycle spam) and makes one fallback
+        attempt total via `_recover_to_local_fallback`, retrying `fn` once
+        against the recovered connection before giving up.
+        """
+        try:
+            return fn()
+        except sqlite3.Error as e:
+            if method not in self._logged_runtime_errors:
+                self._logged_runtime_errors.add(method)
+                logger.error(
+                    "SQLite error in Database.%s — returning a safe default; "
+                    "the watcher keeps running." % method,
+                    method=method,
+                    path=self.path,
+                    error=str(e),
+                )
+            if self._recover_to_local_fallback():
+                try:
+                    return fn()
+                except sqlite3.Error:
+                    pass
+            return default
+
     # ------------------------------------------------------------------- kv
 
     def kv_get(self, key: str, default: Any = None) -> Any:
-        row = self.conn.execute(
-            "SELECT value FROM kv WHERE key = ?", (key,)
-        ).fetchone()
-        if row is None:
-            return default
-        try:
-            return json.loads(row["value"])
-        except ValueError:
-            return default
+        def _read():
+            row = self.conn.execute(
+                "SELECT value FROM kv WHERE key = ?", (key,)
+            ).fetchone()
+            if row is None:
+                return default
+            try:
+                return json.loads(row["value"])
+            except ValueError:
+                return default
+
+        return self._run("kv_get", _read, default)
 
     def kv_set(self, key: str, value: Any) -> None:
-        with self.conn:
-            self.conn.execute(
-                "INSERT INTO kv (key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, json.dumps(value, ensure_ascii=False)),
-            )
+        def _write():
+            with self.conn:
+                self.conn.execute(
+                    "INSERT INTO kv (key, value) VALUES (?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, json.dumps(value, ensure_ascii=False)),
+                )
+
+        self._run("kv_set", _write, None)
 
     # -------------------------------------------------------------- signals
 
     def signals_all(self) -> List[Dict]:
-        rows = self.conn.execute(
-            "SELECT * FROM signals ORDER BY created_at"
-        ).fetchall()
-        return [dict(row) for row in rows]
+        def _read():
+            rows = self.conn.execute(
+                "SELECT * FROM signals ORDER BY created_at"
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+        return self._run("signals_all", _read, [])
 
     def signal_upsert(self, signal: Dict) -> None:
-        values = [signal.get(col) for col in SIGNAL_COLUMNS]
-        placeholders = ", ".join("?" for _ in SIGNAL_COLUMNS)
-        assignments = ", ".join(
-            f"{col} = excluded.{col}" for col in SIGNAL_COLUMNS if col != "id"
-        )
-        with self.conn:
-            self.conn.execute(
-                f"INSERT INTO signals ({', '.join(SIGNAL_COLUMNS)}) "
-                f"VALUES ({placeholders}) "
-                f"ON CONFLICT(id) DO UPDATE SET {assignments}",
-                values,
+        def _write():
+            values = [signal.get(col) for col in SIGNAL_COLUMNS]
+            placeholders = ", ".join("?" for _ in SIGNAL_COLUMNS)
+            assignments = ", ".join(
+                f"{col} = excluded.{col}" for col in SIGNAL_COLUMNS if col != "id"
             )
+            with self.conn:
+                self.conn.execute(
+                    f"INSERT INTO signals ({', '.join(SIGNAL_COLUMNS)}) "
+                    f"VALUES ({placeholders}) "
+                    f"ON CONFLICT(id) DO UPDATE SET {assignments}",
+                    values,
+                )
+
+        self._run("signal_upsert", _write, None)
+
+    def signal_delete(self, signal_id: str) -> None:
+        def _write():
+            with self.conn:
+                self.conn.execute("DELETE FROM signals WHERE id = ?", (signal_id,))
+
+        self._run("signal_delete", _write, None)
 
     # --------------------------------------------------------------- trades
 
     def trade_insert(self, trade: Dict) -> None:
-        values = [trade.get(col) for col in TRADE_COLUMNS]
-        placeholders = ", ".join("?" for _ in TRADE_COLUMNS)
-        with self.conn:
-            self.conn.execute(
-                f"INSERT INTO trades ({', '.join(TRADE_COLUMNS)}) "
-                f"VALUES ({placeholders})",
-                values,
-            )
+        def _write():
+            values = [trade.get(col) for col in TRADE_COLUMNS]
+            placeholders = ", ".join("?" for _ in TRADE_COLUMNS)
+            with self.conn:
+                self.conn.execute(
+                    f"INSERT INTO trades ({', '.join(TRADE_COLUMNS)}) "
+                    f"VALUES ({placeholders})",
+                    values,
+                )
+
+        self._run("trade_insert", _write, None)
 
     def trades_by_batch(self, batch_id: str, status: str) -> List[Dict]:
-        rows = self.conn.execute(
-            "SELECT * FROM trades WHERE batch_id = ? AND status = ?",
-            (batch_id, status),
-        ).fetchall()
-        return [dict(row) for row in rows]
+        def _read():
+            rows = self.conn.execute(
+                "SELECT * FROM trades WHERE batch_id = ? AND status = ?",
+                (batch_id, status),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+        return self._run("trades_by_batch", _read, [])
 
     def trades_by_status(self, status: str) -> List[Dict]:
-        rows = self.conn.execute(
-            "SELECT * FROM trades WHERE status = ? ORDER BY close_time DESC",
-            (status,),
-        ).fetchall()
-        return [dict(row) for row in rows]
+        def _read():
+            rows = self.conn.execute(
+                "SELECT * FROM trades WHERE status = ? ORDER BY close_time DESC",
+                (status,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+        return self._run("trades_by_status", _read, [])
 
     def trade_set_status(self, trade_id: str, status: str) -> None:
-        with self.conn:
-            self.conn.execute(
-                "UPDATE trades SET status = ? WHERE id = ?", (status, trade_id)
-            )
+        def _write():
+            with self.conn:
+                self.conn.execute(
+                    "UPDATE trades SET status = ? WHERE id = ?", (status, trade_id)
+                )
+
+        self._run("trade_set_status", _write, None)
 
     def trade_delete(self, trade_id: str) -> None:
-        with self.conn:
-            self.conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+        def _write():
+            with self.conn:
+                self.conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+
+        self._run("trade_delete", _write, None)
 
     def trades_delete_batch(self, batch_id: str, status: str) -> int:
-        with self.conn:
-            cur = self.conn.execute(
-                "DELETE FROM trades WHERE batch_id = ? AND status = ?",
-                (batch_id, status),
-            )
-            return cur.rowcount or 0
+        def _write():
+            with self.conn:
+                cur = self.conn.execute(
+                    "DELETE FROM trades WHERE batch_id = ? AND status = ?",
+                    (batch_id, status),
+                )
+                return cur.rowcount or 0
+
+        return self._run("trades_delete_batch", _write, 0)
 
 
 def migrate_legacy_json(
     db: Database, state_file: str, journal_file: str
 ) -> None:
     """One-time import of the old JSON files into SQLite (files kept as .bak)."""
-    if db.kv_get("pairs") is None and os.path.exists(state_file):
+    try:
+        pairs_already_set = db.kv_get("pairs") is not None
+    except sqlite3.Error as e:
+        # kv_get itself no longer raises (see Database._run), but this stays
+        # defensive on its own: treat an unreadable gate as "already set"
+        # rather than risk re-importing over good state.
+        logger.warning("Could not check existing pairs before migration", error=str(e))
+        pairs_already_set = True
+
+    if not pairs_already_set and os.path.exists(state_file):
         try:
             with open(state_file, "r", encoding="utf-8") as f:
                 data = json.load(f)

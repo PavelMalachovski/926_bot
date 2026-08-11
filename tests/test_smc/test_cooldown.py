@@ -64,11 +64,25 @@ async def test_skipped_sets_no_cooldown(watcher):
     assert watcher._cooldown_left("USDJPY") is None
 
 
-def test_expired_cooldown_is_cleared(watcher):
+def test_expired_cooldown_reads_as_none_without_pruning(watcher):
+    """`_cooldown_left` is read-only (review 2026-08-11 Task 5): it reports
+    an expired entry as gone but does not mutate `pair_cooldown` or write
+    to the DB — that cleanup is `_purge_expired_cooldowns`'s job, run once
+    per cycle from `run_cycle`, so a plain /status read never writes."""
     past = (datetime.now(tz=timezone.utc) - timedelta(minutes=1)).isoformat()
     watcher.state.pair_cooldown["GBPUSD"] = past
     assert watcher._cooldown_left("GBPUSD") is None
-    assert "GBPUSD" not in watcher.state.pair_cooldown  # pruned
+    assert watcher.state.pair_cooldown["GBPUSD"] == past  # untouched
+
+
+def test_purge_expired_cooldowns_prunes_expired_entries(watcher):
+    past = (datetime.now(tz=timezone.utc) - timedelta(minutes=1)).isoformat()
+    future = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
+    watcher.state.pair_cooldown["GBPUSD"] = past
+    watcher.state.pair_cooldown["ETHUSD"] = future
+    watcher._purge_expired_cooldowns()
+    assert "GBPUSD" not in watcher.state.pair_cooldown
+    assert watcher.state.pair_cooldown["ETHUSD"] == future
 
 
 def test_cooldown_persists_across_reload(watcher, tmp_path):

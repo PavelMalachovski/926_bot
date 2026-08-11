@@ -16,6 +16,7 @@ import structlog
 
 from app.core.config import settings
 from app.services.smc.db import Database
+from app.services.smc.notifier import escape_html
 
 logger = structlog.get_logger(__name__)
 
@@ -379,7 +380,8 @@ class TradeJournal:
             ticket = t.get("ticket")
             ticket_str = f"🎫 {ticket} · " if ticket else ""
             lines.append(
-                f"{i}. {emoji} <b>{t.get('symbol')}</b> {direction} {vol_str} "
+                f"{i}. {emoji} <b>{escape_html(t.get('symbol'))}</b> "
+                f"{escape_html(direction)} {vol_str} "
                 f"| {op} → {cp} | <b>{profit:+.2f}</b>{sl_mark}\n"
                 f"    {ticket_str}{ct_str}"
             )
@@ -422,7 +424,7 @@ class TradeJournal:
                 wr = (s["wins"] / s["count"] * 100.0) if s["count"] else 0.0
                 se = "🟢" if s["net"] >= 0 else "🔴"
                 lines.append(
-                    f"  {se} <b>{sym}</b>: {s['net']:+.2f} "
+                    f"  {se} <b>{escape_html(sym)}</b>: {s['net']:+.2f} "
                     f"({s['count']} trades, WR {wr:.0f}%)"
                 )
 
@@ -436,7 +438,8 @@ class TradeJournal:
                 ct_str = ct.strftime("%m.%d %H:%M") if ct else "—"
                 direction = (t.get("direction") or "?").upper()
                 lines.append(
-                    f"  {emoji} {t.get('symbol')} {direction} {profit:+.2f} · {ct_str}"
+                    f"  {emoji} {escape_html(t.get('symbol'))} "
+                    f"{escape_html(direction)} {profit:+.2f} · {ct_str}"
                 )
 
         return "\n".join(lines)

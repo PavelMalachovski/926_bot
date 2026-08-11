@@ -29,8 +29,42 @@ logger = structlog.get_logger(__name__)
 OPEN_TIMEOUT = timedelta(days=5)
 
 
+_BAD_TIMESTAMP_SEEN: set = set()
+
+
 def _parse(ts: str) -> datetime:
-    return datetime.fromisoformat(ts)
+    """Parse a persisted ISO timestamp, tolerating poison values.
+
+    A legacy JSON import (see db.py's migrate_legacy_json) can carry a
+    naive timestamp (no tzinfo — raises TypeError on the first
+    aware-vs-naive comparison downstream) or, rarer, outright unparseable
+    garbage (raises ValueError). Before this, either one raised out of
+    `evaluate_signal` -> `update_pair` and killed journal tracking on every
+    future cycle, forever, since resolving the poisoned row is exactly the
+    code path that crashed.
+
+    - naive -> treated as UTC (attach tzinfo).
+    - unparseable -> treated as "very old" (datetime.min, UTC) so the
+      signal resolves as expired/timed-out instead of looping.
+
+    Logged once per offender (module-level seen-set) so a poisoned row does
+    not spam the log every time it is re-evaluated. Mirrors the defensive
+    style `Watcher._warn_data_source_failure` uses for the same class of
+    bug.
+    """
+    try:
+        parsed = datetime.fromisoformat(ts)
+    except (TypeError, ValueError):
+        if ts not in _BAD_TIMESTAMP_SEEN:
+            _BAD_TIMESTAMP_SEEN.add(ts)
+            logger.error(
+                "Unparseable journal timestamp — treating as very old",
+                value=ts,
+            )
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
@@ -101,8 +135,22 @@ class SignalJournal:
         self.signals: List[Dict] = db.signals_all()
 
     def save(self) -> None:
+        """Persist every signal in one pass.
+
+        Kept for bulk loads (e.g. a legacy-JSON import populating
+        `self.signals` directly) and for tests seeding rows by hand. Everyday
+        mutations below use `_persist` instead — re-upserting the whole
+        journal on every `record`/`mark_taken`/`attach_message` call is O(N)
+        DB writes per 5-minute cycle, growing forever as the journal fills.
+        """
         for signal in self.signals:
             self.db.signal_upsert(signal)
+
+    def _persist(self, signal: Dict) -> None:
+        """Write one row. `db.signal_upsert` is already guarded against
+        `sqlite3.Error` (see `Database._run`), so nothing further to catch
+        here."""
+        self.db.signal_upsert(signal)
 
     def record(self, result: AnalysisResult) -> Dict:
         """Store a freshly approved setup."""
@@ -132,9 +180,22 @@ class SignalJournal:
             "profile_key": getattr(result, "profile_key", "conservative"),
         }
         self.signals.append(signal)
-        self.save()
+        self._persist(signal)
         logger.info("Signal recorded", id=signal["id"], pair=signal["pair"])
         return signal
+
+    def discard(self, signal_id: str) -> None:
+        """Remove a signal that was recorded but never actually delivered.
+
+        `record()` writes the row before the alert send so the Telegram
+        keyboard can carry its id (see `_send_alert`) — if `notifier.send`
+        then returns None (Telegram outage, rate limit), that row would
+        otherwise survive as an orphan `pending` signal with no message and
+        no fingerprint, later resolving as `expired` and polluting /stats.
+        """
+        self.signals = [s for s in self.signals if s["id"] != signal_id]
+        self.db.signal_delete(signal_id)
+        logger.info("Signal discarded (send failed)", id=signal_id)
 
     def get(self, signal_id: str) -> Optional[Dict]:
         for signal in self.signals:
@@ -150,14 +211,14 @@ class SignalJournal:
         if signal:
             signal["message_id"] = message_id
             signal["alert_text"] = alert_text
-            self.save()
+            self._persist(signal)
 
     def mark_taken(self, signal_id: str, taken: bool) -> Optional[Dict]:
         """Owner pressed ✅ Took it / ❌ Skipped on the alert."""
         signal = self.get(signal_id)
         if signal:
             signal["taken"] = 1 if taken else 0
-            self.save()
+            self._persist(signal)
             logger.info("Signal marked", id=signal_id, taken=taken)
         return signal
 
@@ -237,8 +298,11 @@ class SignalJournal:
                 logger.info(
                     "Signal resolved", id=signal["id"], pair=pair, outcome=after
                 )
-        if events:
-            self.save()
+            # Every signal reaching here was just re-evaluated (its
+            # checked_until watermark advances even with no status change) —
+            # persist it. This is bounded by this pair's unresolved signals,
+            # never the whole journal (other pairs, already-resolved rows).
+            self._persist(signal)
         return events
 
     def stats_text(self, days: int = 30) -> str:

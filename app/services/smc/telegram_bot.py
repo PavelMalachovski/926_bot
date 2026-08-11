@@ -82,16 +82,70 @@ class TelegramCommandBot:
         self.default_profile = default_profile
         self.on_set_all_profiles = on_set_all_profiles
         self._offset: Optional[int] = None
+        # Strong references for fire-and-forget plan tasks (see _spawn) — an
+        # asyncio.Task with nothing else holding it can be garbage-collected
+        # mid-run (documented asyncio footgun), silently killing the task.
+        self._background_tasks: set = set()
 
     # ------------------------------------------------------------- transport
 
-    async def _api(self, method: str, http_timeout: float = 35.0, **payload) -> Dict:
-        async with httpx.AsyncClient(timeout=http_timeout) as client:
-            response = await client.post(f"{self.base_url}/{method}", json=payload)
-            data = response.json()
-            if not data.get("ok"):
-                logger.warning("Telegram API error", method=method, response=data)
-            return data
+    def _spawn(self, coro, name: str) -> asyncio.Task:
+        """Fire-and-forget a background coroutine (on_plan/on_stored_plan).
+
+        `/plan ALL` force-fetches every pair fresh through the 8/min rate
+        limiter and renders a chart each — awaiting it inline here used to
+        block getUpdates for ~90s, during which even /pause could not take
+        effect. The Watcher's own `_get_cycle_lock()` still serializes it
+        against a running cycle or another plan build; this only keeps the
+        polling loop free while it waits its turn. Exceptions are logged via
+        a done-callback since nothing awaits this task directly.
+
+        `_background_tasks` is fetched lazily (not just read from __init__)
+        so a bot built via `TelegramCommandBot.__new__` in tests still works
+        rather than raising AttributeError — mirrors Watcher._get_cycle_lock.
+        """
+        tasks = self.__dict__.setdefault("_background_tasks", set())
+        task = asyncio.create_task(coro)
+        tasks.add(task)
+
+        def _on_done(t: asyncio.Task) -> None:
+            tasks.discard(t)
+            if t.cancelled():
+                return
+            exc = t.exception()
+            if exc:
+                logger.error(
+                    "Background task failed", task=name, error=str(exc),
+                    exc_info=exc,
+                )
+
+        task.add_done_callback(_on_done)
+        return task
+
+    async def _api(self, method: str, http_timeout: float = 35.0, **payload) -> Any:
+        """POST to the Bot API; return the `result` payload on success, None
+        on any failure. Mirrors `TelegramNotifier._api`'s discipline — a
+        transient DNS failure, a non-JSON body from a misbehaving proxy, and
+        a parsed `ok: false` (409 second-instance overlap, 401 revoked
+        token) are all failures, and none of them may raise: this bot shares
+        its process with the scheduler, so an unguarded exception here would
+        take alerts down with it."""
+        try:
+            async with httpx.AsyncClient(timeout=http_timeout) as client:
+                response = await client.post(f"{self.base_url}/{method}", json=payload)
+                data = response.json()
+        except (httpx.HTTPError, ValueError) as e:
+            logger.error("Telegram API transport error", method=method, error=str(e))
+            return None
+        if not data.get("ok"):
+            logger.error(
+                "Telegram API error",
+                method=method,
+                status=data.get("error_code"),
+                description=data.get("description"),
+            )
+            return None
+        return data.get("result")
 
     async def send(self, text: str, reply_markup: Optional[Dict] = None) -> None:
         payload: Dict[str, Any] = {
@@ -107,7 +161,7 @@ class TelegramCommandBot:
         """Resolve a file_id via getFile and download its bytes."""
         try:
             info = await self._api("getFile", file_id=file_id)
-            file_path = info.get("result", {}).get("file_path")
+            file_path = (info or {}).get("file_path")
             if not file_path:
                 return None
             url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
@@ -121,33 +175,61 @@ class TelegramCommandBot:
 
     # ------------------------------------------------------------------ loop
 
+    _BACKOFF_START = 5.0
+    _BACKOFF_CAP = 300.0
+
     async def run(self) -> None:
         """Poll Telegram for commands forever."""
         # The old FastAPI bot registered a webhook; getUpdates conflicts with
-        # it, so drop it (and any stale backlog) once at startup.
-        await self._api("deleteWebhook", drop_pending_updates=True)
-        await self._setup_bot_profile()
+        # it, so drop it (and any stale backlog) once at startup. `_api`
+        # itself never raises (see above), but a flaky boot must not be able
+        # to kill this coroutine some other way either: run_forever gathers
+        # it alongside the scheduler, so an exception here would take the
+        # whole watcher down with it. Log and fall through into polling.
+        try:
+            await self._api("deleteWebhook", drop_pending_updates=True)
+            await self._setup_bot_profile()
+        except Exception as e:
+            logger.error(
+                "Telegram bot startup step failed, continuing",
+                error=str(e),
+                exc_info=True,
+            )
         logger.info("Telegram command bot started (long polling)")
+        backoff = self._BACKOFF_START
         while True:
+            if await self._poll_once():
+                backoff = self._BACKOFF_START
+            else:
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, self._BACKOFF_CAP)
+
+    async def _poll_once(self) -> bool:
+        """One getUpdates round-trip: fetch, dispatch, report success.
+
+        Returns False when the poll was refused or failed — `_api` returns
+        None for a transport error, a non-JSON body, or a parsed `ok: false`
+        (409 two-instance overlap, 401 revoked token) — so `run()` can back
+        off. An empty update list is a normal, successful poll (Telegram's
+        own long-poll `timeout=30` already provides the idle wait) and
+        returns True with no extra delay.
+        """
+        updates = await self._api(
+            "getUpdates",
+            http_timeout=40.0,
+            offset=self._offset,
+            timeout=30,
+            allowed_updates=["message", "callback_query"],
+        )
+        if updates is None:
+            return False
+        for update in updates:
+            self._offset = update["update_id"] + 1
             try:
-                # Telegram-side long poll of 30s; HTTP timeout slightly above
-                data = await self._api(
-                    "getUpdates",
-                    http_timeout=40.0,
-                    offset=self._offset,
-                    timeout=30,
-                    allowed_updates=["message", "callback_query"],
-                )
-            except (httpx.HTTPError, ValueError) as e:
-                logger.warning("getUpdates failed, retrying", error=str(e))
-                await asyncio.sleep(5)
-                continue
-            for update in data.get("result", []):
-                self._offset = update["update_id"] + 1
-                try:
-                    await self._handle_update(update)
-                except Exception as e:
-                    logger.error("Failed to handle update", error=str(e), exc_info=True)
+                await self._handle_update(update)
+            except Exception as e:
+                logger.error("Failed to handle update", error=str(e), exc_info=True)
+        return True
 
     async def _setup_bot_profile(self) -> None:
         """Register the slash-command menu and profile texts (best effort)."""
@@ -255,6 +337,14 @@ class TelegramCommandBot:
                 await self.send("News filter is not available.")
         elif command == "/check":
             await self.send("⏳ Checking setups, one moment...")
+            # Intentional inline await, not spawned as a background task:
+            # the owner explicitly asked for a check and wants the summary
+            # when it's done, in this same command handler. run_cycle takes
+            # the watcher's cycle lock (_get_cycle_lock), so it is safe to
+            # simply queue behind a scheduled cycle or an in-flight /plan
+            # build already holding that lock — it will run once the lock
+            # frees, not clobber it. Do not "fix" the latency by firing this
+            # off in the background; that would return before the check ran.
             summary = await self.run_cycle()
             await self.send(summary)
         elif command == "/plan":
@@ -363,13 +453,15 @@ class TelegramCommandBot:
                 "Sending all plans…" if key == "ALL" else f"Sending {key} plan…"
             )
             await self._api("answerCallbackQuery", **answer)
-            await self.on_stored_plan(key)
+            # Fire-and-forget: keeps getUpdates free while the plan builds
+            # (see _spawn). The Watcher's _cycle_lock still serializes it.
+            self._spawn(self.on_stored_plan(key), f"on_stored_plan:{key}")
             return
         if data.startswith("plan_") and self.on_plan:
             key = data[5:]
             answer["text"] = f"Building {key} plan…"
             await self._api("answerCallbackQuery", **answer)
-            await self.on_plan(key)
+            self._spawn(self.on_plan(key), f"on_plan:{key}")
             return
         if data.startswith("pair_"):
             key = data[5:]

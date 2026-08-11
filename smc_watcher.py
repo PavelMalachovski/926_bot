@@ -190,7 +190,16 @@ def _card_footer(signal: Dict) -> str:
     def hhmm(iso: Optional[str]) -> str:
         if not iso:
             return ""
-        local = to_prague(datetime.fromisoformat(iso))
+        # Defense in depth (review 2026-08-11 audit): filled_at/resolved_at
+        # are normally set fresh, in-process, this cycle (always aware) —
+        # but a corrupted legacy-imported row could carry garbage here too,
+        # and this runs on the cycle path (_track_journal ->
+        # _handle_journal_events). to_prague already tolerates naive
+        # datetimes; only outright unparseable values need guarding.
+        try:
+            local = to_prague(datetime.fromisoformat(iso))
+        except (TypeError, ValueError):
+            return ""
         return f" ({local:%H:%M} Prague)"
 
     lines = ["", "──────────────"]
@@ -287,6 +296,14 @@ class Watcher:
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         self.planbook = PlanBook()
+        # Serializes run_cycle/on_plan/on_stored_plan bodies (see
+        # _get_cycle_lock): the dedup fingerprint (state.last_setup) is only
+        # written after a successful alert send, so two of these racing —
+        # the scheduler tick and an owner /check, or a slow /plan ALL —
+        # could otherwise both pass the dedup check before either had
+        # written it, producing a second alert and a second journal row for
+        # the same setup (review 2026-08-11).
+        self._cycle_lock = asyncio.Lock()
         # apply the env default on the very first start (DB wins afterwards)
         if self.db.kv_get("pairs") is None:
             env_pairs = [p for p in settings.smc.default_pairs() if p in INSTRUMENTS]
@@ -311,6 +328,42 @@ class Watcher:
         fetch failure (or a missing key) can be simulated per-Watcher in
         tests without touching global settings."""
         return _build_fetcher(instrument)
+
+    def _get_cycle_lock(self) -> asyncio.Lock:
+        """The one lock shared by run_cycle/on_plan/on_stored_plan.
+
+        Lazily created and cached so a Watcher built via `Watcher.__new__`
+        (the stub pattern most of this test suite uses to bypass __init__'s
+        network-touching setup) still gets a working lock on first use
+        instead of an AttributeError — the real Watcher() constructor
+        already creates it eagerly, so this branch is a test-only fallback,
+        never a second lock instance in production.
+        """
+        lock = self.__dict__.get("_cycle_lock")
+        if lock is None:
+            lock = asyncio.Lock()
+            self._cycle_lock = lock
+        return lock
+
+    def _news_warned_bad_seen(self) -> set:
+        """Log-dedup set for `_rule_04_warnings`'s prune of poisoned
+        `news_warned` timestamps. Lazily created (same pattern as
+        `_get_cycle_lock`) so a Watcher built via `Watcher.__new__` in
+        tests still works without calling `__init__`."""
+        seen = self.__dict__.get("_news_warned_bad")
+        if seen is None:
+            seen = set()
+            self._news_warned_bad = seen
+        return seen
+
+    def _pair_cooldown_bad_seen(self) -> set:
+        """Log-dedup set for `_purge_expired_cooldowns`'s poisoned
+        `pair_cooldown` entries. Same lazy-init pattern as above."""
+        seen = self.__dict__.get("_pair_cooldown_bad")
+        if seen is None:
+            seen = set()
+            self._pair_cooldown_bad = seen
+        return seen
 
     async def check_pair(self, key: str) -> Tuple[str, Optional[AnalysisResult]]:
         """Analyze one pair. Returns (heartbeat line, result or None)."""
@@ -391,98 +444,125 @@ class Watcher:
         self.state.save()
 
     async def run_cycle(self) -> str:
-        """Run the strategy for all enabled pairs; send alerts; return summary."""
-        if self.state.paused:
-            return "⏸ Bot is paused — /resume to continue"
-        if not self.state.pairs:
-            return "⚠️ No active pairs — enable at least one via /pairs"
+        """Run the strategy for all enabled pairs; send alerts; return summary.
 
-        if self.news:
-            await self.news.refresh_if_stale()
-            await self._rule_04_warnings()
-        await self._morning_briefing()
-        await self._maybe_auto_plan()
+        The whole body runs under `_get_cycle_lock()`: the dedup fingerprint
+        (`state.last_setup`) is only written after a successful alert send,
+        so a scheduler tick racing an owner /check (both awaiting this same
+        coroutine, interleaving at every `await`) could otherwise both read
+        the still-unset fingerprint and both send the alert — one lock per
+        Watcher, shared with on_plan/on_stored_plan, closes that window.
+        """
+        async with self._get_cycle_lock():
+            if self.state.paused:
+                return "⏸ Bot is paused — /resume to continue"
+            if not self.state.pairs:
+                return "⚠️ No active pairs — enable at least one via /pairs"
 
-        heartbeat_lines: List[str] = []
-        approved: List[AnalysisResult] = []
+            if self.news:
+                await self.news.refresh_if_stale()
+                await self._rule_04_warnings()
+            await self._morning_briefing()
+            await self._maybe_auto_plan()
+            self._purge_expired_cooldowns()
 
-        for key in list(self.state.pairs):
-            blackout = self._news_blackout(key)
-            if blackout:
-                heartbeat_lines.append(blackout)
-                continue
-            line, result = await self.check_pair(key)
-            self._recompute_plan(key, result)
-            if result and result.verdict in APPROVED:
-                fingerprint = _setup_fingerprint(result)
-                if self.state.last_setup.get(key) == fingerprint:
-                    heartbeat_lines.append(
-                        f"⏳ {key}: previously reported setup is still active"
-                    )
+            heartbeat_lines: List[str] = []
+            approved: List[AnalysisResult] = []
+
+            for key in list(self.state.pairs):
+                blackout = self._news_blackout(key)
+                if blackout:
+                    heartbeat_lines.append(blackout)
                     continue
-                block = self.journal.discipline_block(
-                    key,
-                    result.setup.direction.value,
-                    result.session_name,
-                    result.checked_at,
-                )
-                if block:
-                    logger.info("Alert suppressed", pair=key, rule=block)
-                    heartbeat_lines.append(f"⛔ {key}: alert suppressed — {block}")
-                    continue
-                cooldown = self._cooldown_left(key)
-                if cooldown:
-                    logger.info("Alert muted (taken cooldown)", pair=key, left=cooldown)
+                line, result = await self.check_pair(key)
+                self._recompute_plan(key, result)
+                if result and result.verdict in APPROVED:
+                    fingerprint = _setup_fingerprint(result)
+                    if self.state.last_setup.get(key) == fingerprint:
+                        heartbeat_lines.append(
+                            f"⏳ {key}: previously reported setup is still active"
+                        )
+                        continue
+                    block = self.journal.discipline_block(
+                        key,
+                        result.setup.direction.value,
+                        result.session_name,
+                        result.checked_at,
+                    )
+                    if block:
+                        logger.info("Alert suppressed", pair=key, rule=block)
+                        heartbeat_lines.append(
+                            f"⛔ {key}: alert suppressed — {block}"
+                        )
+                        continue
+                    cooldown = self._cooldown_left(key)
+                    if cooldown:
+                        logger.info(
+                            "Alert muted (taken cooldown)", pair=key, left=cooldown
+                        )
+                        heartbeat_lines.append(
+                            f"🔕 {key}: setup found but muted — you took a trade "
+                            f"here, {cooldown} left"
+                        )
+                        continue
+                    approved.append(result)
+                    try:
+                        sent = await self._send_alert(key, result, fingerprint)
+                    except Exception as e:
+                        # Isolate this pair's failure the same way
+                        # check_pair() and _track_journal()'s per-pair loop
+                        # already isolate theirs: an uncaught exception here
+                        # (most likely from format_result) would otherwise
+                        # escape this `for key` loop and silently drop every
+                        # remaining pair's check this cycle, plus skip
+                        # _track_journal() below for all of them — not just
+                        # the one pair that actually failed.
+                        logger.error(
+                            "Alert send failed", pair=key, error=str(e),
+                            exc_info=True,
+                        )
+                        sent = False
                     heartbeat_lines.append(
-                        f"🔕 {key}: setup found but muted — you took a trade "
-                        f"here, {cooldown} left"
+                        f"🚨 {key}: SETUP FOUND — details above!"
+                        if sent
+                        else f"⚠️ {key}: setup found but the alert failed to send"
                     )
-                    continue
-                approved.append(result)
-                try:
-                    await self._send_alert(key, result, fingerprint)
-                    heartbeat_lines.append(f"🚨 {key}: SETUP FOUND — details above!")
-                except Exception as e:
-                    # Isolate this pair's failure the same way check_pair()
-                    # and _track_journal()'s per-pair loop already isolate
-                    # theirs: an uncaught exception here (most likely from
-                    # format_result) would otherwise escape this `for key`
-                    # loop and silently drop every remaining pair's check
-                    # this cycle, plus skip _track_journal() below for all
-                    # of them — not just the one pair that actually failed.
-                    logger.error(
-                        "Alert send failed", pair=key, error=str(e), exc_info=True,
-                    )
-                    heartbeat_lines.append(
-                        f"⚠️ {key}: setup found but the alert failed to send"
-                    )
-            else:
-                await self._maybe_plan_zone_alert(key, result)
-                heartbeat_lines.append(line)
+                else:
+                    await self._maybe_plan_zone_alert(key, result)
+                    heartbeat_lines.append(line)
 
-        for warning in _correlation_warnings(approved):
-            await self.notifier.send(warning)
+            for warning in _correlation_warnings(approved):
+                await self.notifier.send(warning)
 
-        await self._track_journal()
-        await self._maybe_edit_plan_summary()
+            await self._track_journal()
+            await self._maybe_edit_plan_summary()
 
-        time_str = to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M")
-        summary = f"🔍 <b>Check {time_str} Prague</b>\n" + "\n".join(heartbeat_lines)
-        logger.info("Cycle summary", summary=" | ".join(heartbeat_lines))
-        # By default only setup alerts go to Telegram; the heartbeat is opt-in.
-        if settings.smc.notify_no_setup and not approved:
-            await self.notifier.send(summary)
-        return summary
+            time_str = to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M")
+            summary = (
+                f"🔍 <b>Check {time_str} Prague</b>\n" + "\n".join(heartbeat_lines)
+            )
+            logger.info("Cycle summary", summary=" | ".join(heartbeat_lines))
+            # By default only setup alerts go to Telegram; heartbeat is opt-in.
+            if settings.smc.notify_no_setup and not approved:
+                await self.notifier.send(summary)
+            return summary
 
     # ---------------------------------------------------------------- alerts
 
     async def _send_alert(
         self, key: str, result: AnalysisResult, fingerprint: str
-    ) -> None:
+    ) -> bool:
         """Urgent alert: message with Took/Skipped buttons + setup chart.
 
-        A failure anywhere in here (most plausibly `format_result`) is
-        caught by the caller, not here — see the `try/except` around this
+        Returns True once the alert actually reached Telegram, False if
+        `notifier.send` failed (it swallows Telegram/network errors and
+        returns None rather than raising) — the caller (`run_cycle`) uses
+        this to report the pair honestly in the heartbeat instead of
+        claiming "SETUP FOUND — details above!" for a message nobody
+        received.
+
+        A failure anywhere in here (most plausibly `format_result` raising)
+        is caught by the caller, not here — see the `try/except` around this
         call in `run_cycle`. That isolates one pair's failure the same way
         `check_pair()` and `_track_journal()`'s own per-pair loop already
         isolate theirs, instead of letting it silently drop every remaining
@@ -505,12 +585,20 @@ class Watcher:
             ]
         }
         message_id = await self.notifier.send(text, reply_markup=keyboard)
-        if message_id:
-            self.state.last_setup[key] = fingerprint
-            self.state.save()
-            self.journal.attach_message(signal["id"], message_id, text)
-            await self.notifier.pin(message_id)
-            await self._send_chart(result, message_id)
+        if not message_id:
+            # The signal just recorded needed its id for the keyboard above
+            # before we knew the send would fail — now that it has, remove
+            # it rather than leave an orphan `pending` row with no message
+            # and no fingerprint (it would otherwise resolve as `expired`
+            # later and pollute /stats).
+            self.journal.discard(signal["id"])
+            return False
+        self.state.last_setup[key] = fingerprint
+        self.state.save()
+        self.journal.attach_message(signal["id"], message_id, text)
+        await self.notifier.pin(message_id)
+        await self._send_chart(result, message_id)
+        return True
 
     def _plan_provenance(self, key: str, result: AnalysisResult) -> Optional[bool]:
         """Whether this zone was in the plan the owner read this morning.
@@ -528,11 +616,16 @@ class Watcher:
         )
 
     async def _send_chart(self, result: AnalysisResult, reply_to: int) -> None:
-        """Attach the setup chart PNG (must never block the alert)."""
+        """Attach the setup chart PNG (must never block the alert).
+
+        Rendering is ~seconds of matplotlib CPU for a 2200x660 PNG — run it
+        in a worker thread so the polling loop keeps serving commands while
+        it runs, instead of stalling in-loop for the duration.
+        """
         try:
             from app.services.smc.chart import render_setup_chart
 
-            png = render_setup_chart(result)
+            png = await asyncio.to_thread(render_setup_chart, result)
             if png:
                 await self.notifier.send_photo(png, reply_to=reply_to)
         except Exception as e:
@@ -556,21 +649,58 @@ class Watcher:
         )
 
     def _cooldown_left(self, key: str) -> Optional[str]:
-        """Human 'Nh Mm' remaining on a taken-trade mute, or None if expired."""
+        """Human 'Nh Mm' remaining on a taken-trade mute, or None if expired,
+        absent or poisoned.
+
+        Read-only: no mutation, no `state.save()`. This used to delete the
+        expired entry and save on every call — including from `status_text`,
+        so a plain /status command performed a DB write (review 2026-08-11,
+        MEDIUM). Expired/poisoned cleanup now happens once per cycle in
+        `_purge_expired_cooldowns`.
+        """
         expiry = self.state.pair_cooldown.get(key)
         if not expiry:
             return None
         now = datetime.now(tz=timezone.utc)
         try:
             remaining = datetime.fromisoformat(expiry) - now
-        except ValueError:
+        except (ValueError, TypeError):
             return None
         if remaining.total_seconds() <= 0:
-            del self.state.pair_cooldown[key]
-            self.state.save()
             return None
         total_min = int(remaining.total_seconds() // 60)
         return f"{total_min // 60}h {total_min % 60}m"
+
+    def _purge_expired_cooldowns(self) -> None:
+        """Remove `pair_cooldown` entries that have expired, or that are
+        poisoned (unparseable, or naive — a legacy JSON import raises
+        TypeError on the aware-vs-naive subtraction below). The single
+        writer for this dict's cleanup, called once per cycle from
+        `run_cycle`; `_cooldown_left` only reads (see its docstring).
+        """
+        now = datetime.now(tz=timezone.utc)
+        bad_seen = self._pair_cooldown_bad_seen()
+        survivors: Dict[str, str] = {}
+        changed = False
+        for key, expiry in self.state.pair_cooldown.items():
+            try:
+                remaining = datetime.fromisoformat(expiry) - now
+            except (ValueError, TypeError):
+                changed = True
+                if key not in bad_seen:
+                    bad_seen.add(key)
+                    logger.error(
+                        "Dropping unparseable/naive pair_cooldown timestamp",
+                        pair=key, value=expiry,
+                    )
+                continue
+            if remaining.total_seconds() <= 0:
+                changed = True
+                continue
+            survivors[key] = expiry
+        if changed:
+            self.state.pair_cooldown = survivors
+            self.state.save()
 
     async def _handle_journal_events(self, events) -> None:
         """Live-update alert cards and enforce the daily stop notification."""
@@ -661,18 +791,30 @@ class Watcher:
         self.state.save()
 
     async def on_plan(self, key: str) -> None:
-        """/plan command: send the Pre-Market Plan for a pair (or ALL)."""
-        keys = list(self.state.pairs) if key == "ALL" else [key]
-        for k in keys:
-            if k in INSTRUMENTS:
-                await self._send_pair_plan(k)
+        """/plan command: send the Pre-Market Plan for a pair (or ALL).
+
+        Shares `_get_cycle_lock()` with run_cycle/on_stored_plan (see
+        run_cycle's docstring) — `/plan ALL` force-fetches every pair fresh
+        through the rate limiter and renders a chart each, so it must not
+        interleave with a cycle writing the same planbook/state.
+        """
+        async with self._get_cycle_lock():
+            keys = list(self.state.pairs) if key == "ALL" else [key]
+            for k in keys:
+                if k in INSTRUMENTS:
+                    await self._send_pair_plan(k)
 
     async def on_stored_plan(self, key: str) -> None:
-        """aplan_* button: serve the stored current plan instantly."""
-        keys = list(self.state.pairs) if key == "ALL" else [key]
-        for k in keys:
-            if k in INSTRUMENTS:
-                await self._send_stored_plan(k)
+        """aplan_* button: serve the stored current plan instantly.
+
+        Shares `_get_cycle_lock()` with run_cycle/on_plan (see run_cycle's
+        docstring).
+        """
+        async with self._get_cycle_lock():
+            keys = list(self.state.pairs) if key == "ALL" else [key]
+            for k in keys:
+                if k in INSTRUMENTS:
+                    await self._send_stored_plan(k)
 
     async def _send_stored_plan(self, key: str) -> None:
         entry = self.planbook.get(key)
@@ -940,7 +1082,9 @@ class Watcher:
             format_plan(entry.plan, live_line=live_line, as_of=entry.as_of)
         )
         try:
-            png = render_plan_chart(entry.plan, entry.data["h1"])
+            png = await asyncio.to_thread(
+                render_plan_chart, entry.plan, entry.data["h1"]
+            )
             if png:
                 await self.notifier.send_photo(png)
         except Exception as e:
@@ -1044,6 +1188,7 @@ class Watcher:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""
         now = datetime.now(tz=timezone.utc)
         horizon = timedelta(minutes=30)
+        changed = False
         for signal in self.journal.signals:
             if signal["status"] not in ("pending", "open"):
                 continue
@@ -1066,14 +1211,37 @@ class Watcher:
                     f"— {action}!"
                 )
                 self.state.news_warned[warn_key] = now.isoformat()
-        # prune dedup keys older than 2 days
+                changed = True
+        # Prune dedup keys older than 2 days. A value that fails to parse, or
+        # is naive (a legacy JSON import, or older code before this fix), is
+        # garbage with no dedup value of its own — drop it, instead of
+        # letting fromisoformat's ValueError/TypeError (naive-vs-aware
+        # comparison raises TypeError) kill this line, and every future
+        # cycle, forever (review 2026-08-11, MEDIUM: this ran before the
+        # per-pair loop, so it took the whole cycle down with it).
         cutoff = now - timedelta(days=2)
-        self.state.news_warned = {
-            k: v
-            for k, v in self.state.news_warned.items()
-            if datetime.fromisoformat(v) > cutoff
-        }
-        self.state.save()
+        bad_seen = self._news_warned_bad_seen()
+        kept: Dict[str, str] = {}
+        for k, v in self.state.news_warned.items():
+            try:
+                parsed = datetime.fromisoformat(v)
+                if parsed.tzinfo is None:
+                    raise ValueError("naive news_warned timestamp")
+            except (TypeError, ValueError):
+                if k not in bad_seen:
+                    bad_seen.add(k)
+                    logger.error(
+                        "Dropping unparseable/naive news_warned timestamp",
+                        key=k, value=v,
+                    )
+                continue
+            if parsed > cutoff:
+                kept[k] = v
+        if kept != self.state.news_warned:
+            changed = True
+        self.state.news_warned = kept
+        if changed:
+            self.state.save()
 
     def news_text(self) -> str:
         """/news command."""

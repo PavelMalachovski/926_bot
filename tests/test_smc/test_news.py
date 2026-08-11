@@ -141,3 +141,13 @@ class TestUpcomingAndDigest:
         cal = _calendar()
         now = datetime(2026, 7, 16, 5, 30, tzinfo=timezone.utc)  # next day
         assert "No red news" in cal.digest_text(["ETHUSD"], now)
+
+    def test_digest_escapes_fetch_error(self):
+        """Regression: fetch_error is str(exception) — untrusted text that can
+        contain HTML metacharacters (e.g. from a malformed URL or response
+        body in the error message) and must not reach parse_mode=HTML raw."""
+        cal = NewsCalendar()
+        cal.fetch_error = str(ValueError("bad <tag> & such"))
+        text = cal.digest_text(["USDJPY"])
+        assert "bad &lt;tag&gt; &amp; such" in text
+        assert "bad <tag> & such" not in text

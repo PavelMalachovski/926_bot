@@ -383,17 +383,39 @@ class TripleSyncEngine:
             Verdict.APPROVED_MARKET if entry_is_market else Verdict.APPROVED_LIMIT
         )
 
-        # Rule 9.3 — funding rate advisory (crypto only)
+        # Rule 9.3 — funding rate advisory (crypto only). Symmetric by
+        # direction: longs pay positive funding, shorts pay negative — a
+        # SHORT at -0.15%/8h is squeezed exactly as hard as a LONG at
+        # +0.15%/8h. The mild tier states only that the rate is above the
+        # FUNDING_WARN advisory floor — no upper-bound (FUNDING_DANGER)
+        # claim, since the favorable-direction extreme (e.g. a LONG at
+        # -0.15%) also falls through to this branch and would falsify a
+        # band claim.
         if result.funding_rate is not None:
             rate = result.funding_rate
+            danger_pct = FUNDING_DANGER * 100
+            warn_pct = FUNDING_WARN * 100
             if direction == Direction.LONG and rate > FUNDING_DANGER:
                 result.funding_warning = (
-                    f"Funding {rate * 100:.3f}%/8h > 0.1% — longs are at elevated "
-                    "squeeze risk. Consider SKIP or a smaller size."
+                    f"Funding {rate * 100:.3f}%/8h > {danger_pct:.2f}% — longs "
+                    "are at elevated squeeze risk. Consider SKIP or a smaller "
+                    "size."
+                )
+            elif direction == Direction.SHORT and rate < -FUNDING_DANGER:
+                result.funding_warning = (
+                    f"Funding {rate * 100:.3f}%/8h < -{danger_pct:.2f}% — shorts "
+                    "are at elevated squeeze risk. Consider SKIP or a smaller "
+                    "size."
                 )
             elif abs(rate) > FUNDING_WARN:
+                # Direction-symmetric danger check above only fires for the
+                # unfavorable pairing (LONG+positive / SHORT+negative); the
+                # favorable-direction extreme (e.g. a LONG at -0.15%) falls
+                # through to here too, so this text must hold for ANY
+                # abs(rate) > FUNDING_WARN — no upper-bound claim.
                 result.funding_warning = (
-                    f"Funding {rate * 100:.3f}%/8h is in the 0.05–0.1% zone — your call."
+                    f"Funding {rate * 100:.3f}%/8h is above the "
+                    f"{warn_pct:.2f}% advisory level — your call."
                 )
 
         return result

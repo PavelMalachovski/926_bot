@@ -648,8 +648,15 @@ class TestStoredPlanServe:
 
 
 class TestAplanCallback:
-    def test_aplan_callback_routes_to_handler(self, monkeypatch):
-        import asyncio as aio
+    """Task 4 (review-hardening): the aplan_/plan_ callback handlers spawn
+    on_stored_plan/on_plan as a background task (asyncio.create_task)
+    instead of awaiting them inline — a slow plan build (12 pairs x
+    force-fresh fetch + chart render) must not block getUpdates for the
+    ~90s it used to. The Watcher's own `_get_cycle_lock()` still serializes
+    the actual work against a running cycle or another plan build."""
+
+    @pytest.mark.asyncio
+    async def test_aplan_callback_spawns_the_handler_in_the_background(self):
         from app.services.smc.telegram_bot import TelegramCommandBot
 
         calls = []
@@ -673,6 +680,50 @@ class TestAplanCallback:
             "message": {"chat": {"id": 1}, "message_id": 5},
             "data": "aplan_ETHUSD",
         }
-        aio.run(bot._handle_callback(callback))
-        assert calls == ["ETHUSD"]
+        await bot._handle_callback(callback)
+        # handler returned before the fire-and-forget task ever ran
+        assert calls == []
         assert "answerCallbackQuery" in api_calls
+        # ... but a task really was spawned, and it does complete
+        assert bot._background_tasks
+        await asyncio.gather(*bot._background_tasks)
+        assert calls == ["ETHUSD"]
+
+    @pytest.mark.asyncio
+    async def test_plan_callback_returns_before_a_slow_plan_build_finishes(
+        self,
+    ):
+        """Regression test (c): the polling handler must not await the full
+        plan build — proven with a slow fake on_plan that records when it
+        starts and ends."""
+        from app.services.smc.telegram_bot import TelegramCommandBot
+
+        finished = asyncio.Event()
+        order = []
+
+        async def slow_on_plan(key):
+            order.append("start")
+            await asyncio.sleep(0.05)
+            order.append("end")
+            finished.set()
+
+        bot = TelegramCommandBot.__new__(TelegramCommandBot)
+        bot.owner_chat_id = "1"
+        bot.on_plan = slow_on_plan
+
+        async def fake_api(method, **payload):
+            return {}
+
+        bot._api = fake_api
+        callback = {
+            "id": "cb1",
+            "from": {"id": 1},
+            "message": {"chat": {"id": 1}, "message_id": 5},
+            "data": "plan_ETHUSD",
+        }
+        await bot._handle_callback(callback)
+        # the slow build has not even started, let alone finished, by the
+        # time the handler gives control back to the polling loop
+        assert order == []
+        await asyncio.wait_for(finished.wait(), timeout=1)
+        assert order == ["start", "end"]
