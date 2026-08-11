@@ -530,3 +530,78 @@ class TestPlanZoneAlert:
         monkeypatch.setattr(settings.smc, "zone_ping", False)
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
         assert w.notifier.sent == []
+
+
+class TestStoredPlanServe:
+    def test_serves_from_book_without_fetching(self, monkeypatch):
+        w = _stub_watcher()
+        w.planbook.update("ETHUSD", _fetched_entry("ETHUSD"))
+        fetches = []
+
+        async def fake_fetch(key, force_fresh=True):
+            fetches.append(key)
+            return None
+
+        w._fetch_pair_plan = fake_fetch
+
+        async def fake_deliver(key, entry):
+            await w.notifier.send(f"plan {key} as of {entry.as_of}")
+
+        w._deliver_plan = fake_deliver
+        asyncio.run(w.on_stored_plan("ETHUSD"))
+        assert fetches == []                       # zero API calls
+        assert "as of 07:54" in w.notifier.sent[0][0]
+
+    def test_empty_book_falls_back_to_fresh_plan(self, monkeypatch):
+        w = _stub_watcher()
+        sent_fresh = []
+
+        async def fake_send_pair_plan(key):
+            sent_fresh.append(key)
+
+        w._send_pair_plan = fake_send_pair_plan
+        asyncio.run(w.on_stored_plan("ETHUSD"))
+        assert sent_fresh == ["ETHUSD"]
+
+    def test_all_serves_every_enabled_pair(self, monkeypatch):
+        w = _stub_watcher()
+        w.state.pairs = ["ETHUSD", "USDJPY"]
+        served = []
+
+        async def fake_stored(key):
+            served.append(key)
+
+        w._send_stored_plan = fake_stored
+        asyncio.run(w.on_stored_plan("ALL"))
+        assert served == ["ETHUSD", "USDJPY"]
+
+
+class TestAplanCallback:
+    def test_aplan_callback_routes_to_handler(self, monkeypatch):
+        import asyncio as aio
+        from app.services.smc.telegram_bot import TelegramCommandBot
+
+        calls = []
+
+        async def on_stored_plan(key):
+            calls.append(key)
+
+        bot = TelegramCommandBot.__new__(TelegramCommandBot)
+        bot.owner_chat_id = "1"
+        bot.on_stored_plan = on_stored_plan
+        api_calls = []
+
+        async def fake_api(method, **payload):
+            api_calls.append(method)
+            return {}
+
+        bot._api = fake_api
+        callback = {
+            "id": "cb1",
+            "from": {"id": 1},
+            "message": {"chat": {"id": 1}, "message_id": 5},
+            "data": "aplan_ETHUSD",
+        }
+        aio.run(bot._handle_callback(callback))
+        assert calls == ["ETHUSD"]
+        assert "answerCallbackQuery" in api_calls

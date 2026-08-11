@@ -278,6 +278,7 @@ class Watcher:
             news_text=self.news_text,
             on_trade_mark=self.mark_trade,
             on_plan=self.on_plan,
+            on_stored_plan=self.on_stored_plan,
             trade_journal=self.trade_journal,
             on_set_profile=self.state.set_profile,
             pair_profiles=lambda: dict(self.state.pair_profile),
@@ -665,6 +666,21 @@ class Watcher:
         for k in keys:
             if k in INSTRUMENTS:
                 await self._send_pair_plan(k)
+
+    async def on_stored_plan(self, key: str) -> None:
+        """aplan_* button: serve the stored current plan instantly."""
+        keys = list(self.state.pairs) if key == "ALL" else [key]
+        for k in keys:
+            if k in INSTRUMENTS:
+                await self._send_stored_plan(k)
+
+    async def _send_stored_plan(self, key: str) -> None:
+        entry = self.planbook.get(key)
+        if entry is None:
+            # fresh restart and no cycle yet — build one the normal way
+            await self._send_pair_plan(key)
+            return
+        await self._deliver_plan(key, entry)
 
     async def _fetch_pair_plan(
         self, key: str, force_fresh: bool = True
