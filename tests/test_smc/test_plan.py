@@ -274,6 +274,59 @@ class TestLiquidityTpAndProfile:
         assert all(s.speculative for s in plan.scenarios)
 
 
+class TestRule1DirectionParity:
+    """build_plan must pick direction exactly like engine.evaluate (Rule 1):
+    H4 trend, else H1 trend (owner decision 2026-08-06), else — aggressive
+    only — H4 CHoCH, else both-way speculative brackets."""
+
+    FLAT_H4 = [3000, 3050, 3000, 3050, 3000, 3050, 3000, 3050, 3000, 3050, 3000]
+    # H4_UPTREND_CLOSES re-timed as H1 is a clean H1 uptrend with an untested
+    # demand zone (last confirmed HL at close 3120 -> zone low..body_high
+    # 3119.0-3140.0) and unswept liquidity above (swing high ~3301).
+    H1_UP = H4_UPTREND_CLOSES
+
+    def _plan(self, h4_closes, h1_closes, price, profile):
+        h4 = make_candles(h4_closes, step_minutes=240)
+        h1 = make_candles(h1_closes, step_minutes=60)
+        m5 = make_candles([price], step_minutes=5)
+        return build_plan(ETH, h4, h1, m5, min_rr=1.0, profile=profile)
+
+    def test_h4_flat_h1_uptrend_projects_nonspeculative_long(self):
+        plan = self._plan(self.FLAT_H4, self.H1_UP, 3160.0, CONSERVATIVE)
+        assert plan.h4_trend == Trend.FLAT
+        assert plan.direction_note == "H4 flat — direction from H1 uptrend"
+        assert plan.scenarios, plan.blocker
+        assert all(
+            s.direction == Direction.LONG and not s.speculative
+            for s in plan.scenarios
+        )
+
+    def test_h1_trend_beats_aggressive_h4_choch(self):
+        # H4: uptrend then an unreclaimed break below the last HL -> flat
+        # trend but h4_choch_direction() == SHORT (same shape as
+        # test_h4_choch_direction_short_after_break_of_last_hl). The engine
+        # consults H1 first; so must the plan.
+        choch_h4 = H4_UPTREND_CLOSES + [3200, 3100, 3050, 3000, 2990]
+        plan = self._plan(choch_h4, self.H1_UP, 3160.0, AGGRESSIVE)
+        assert plan.direction_note == "H4 flat — direction from H1 uptrend"
+        assert all(s.direction == Direction.LONG for s in plan.scenarios)
+
+    def test_aggressive_choch_used_when_h1_is_flat_too(self):
+        choch_h4 = H4_UPTREND_CLOSES + [3200, 3100, 3050, 3000, 2990]
+        plan = self._plan(choch_h4, self.FLAT_H4, 3160.0, AGGRESSIVE)
+        assert plan.direction_note is not None and "CHoCH" in plan.direction_note
+
+    def test_conservative_flat_everything_keeps_both_way_brackets(self):
+        plan = self._plan(self.FLAT_H4, H1_PULLBACK_CLOSES, 3165.0, CONSERVATIVE)
+        assert plan.direction_note is None
+        assert all(s.speculative for s in plan.scenarios)
+
+    def test_format_plan_renders_direction_note(self):
+        plan = self._plan(self.FLAT_H4, self.H1_UP, 3160.0, CONSERVATIVE)
+        text = format_plan(plan)
+        assert "H4 flat — direction from H1 uptrend" in text
+
+
 class TestPlanKeyboard:
     def _bot(self, pairs):
         from app.services.smc.telegram_bot import TelegramCommandBot

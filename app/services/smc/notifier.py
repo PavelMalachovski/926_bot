@@ -378,6 +378,8 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
         lines.append(f"💵 {plan.price:.{d}f}{suffix}")
     if live_line:
         lines.append(f"📍 <b>Live now:</b> {live_line}")
+    if getattr(plan, "direction_note", None):
+        lines.append(f"⚠️ {escape_html(plan.direction_note)}")
 
     if not plan.scenarios and (plan.note or plan.blocker):
         # No setup in the plan: say which stage is missing, in the live
