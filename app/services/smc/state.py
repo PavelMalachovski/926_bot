@@ -23,10 +23,15 @@ class WatcherState:
 
     def __init__(self, db: Database):
         self.db = db
-        pairs = db.kv_get("pairs") or []
-        self.pairs: List[str] = [p for p in pairs if p in INSTRUMENTS] or list(
-            DEFAULT_PAIRS
-        )
+        # None means "never set" -> apply the env/default pairs. A stored
+        # list, even an empty one, is a deliberate choice (e.g. the owner
+        # disabled every pair via /pairs) and must not resurrect the
+        # defaults on the next restart (review finding 2026-08-11, MEDIUM).
+        raw_pairs = db.kv_get("pairs")
+        if raw_pairs is None:
+            self.pairs: List[str] = list(DEFAULT_PAIRS)
+        else:
+            self.pairs = [p for p in raw_pairs if p in INSTRUMENTS]
         self.last_setup: Dict[str, str] = db.kv_get("last_setup") or {}
         self.last_digest_date: str = db.kv_get("last_digest_date") or ""
         self.news_warned: Dict[str, str] = db.kv_get("news_warned") or {}
