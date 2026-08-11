@@ -151,7 +151,7 @@ class NewsCalendar:
         header = f"📅 <b>Forex Factory — {date_str}</b> (Prague time)"
         if self.fetched_at is None:
             return header + "\n⚠️ Calendar not loaded yet" + (
-                f" ({self.fetch_error})" if self.fetch_error else ""
+                f" ({escape_html(self.fetch_error)})" if self.fetch_error else ""
             )
 
         by_pair = {p: relevant_currencies(get_instrument(p)) for p in pairs}

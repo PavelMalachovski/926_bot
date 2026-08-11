@@ -178,6 +178,42 @@ class TestFormatting:
         assert "Trade journal" in text
         assert "Win rate" in text
 
+    def test_preview_escapes_ocr_symbol_and_direction(self, tmp_path):
+        """Regression: OpenAI Vision output is untrusted HTML input. A broker
+        symbol like 'S&P500' or a stray '<'/'>' in a misread direction must
+        not reach Telegram raw, or parse_mode=HTML rejects the whole message
+        and the pending batch orphans silently."""
+        tj = _journal(tmp_path)
+        norm = [tj._normalize({
+            "symbol": "S&P500",
+            "direction": "<buy>",
+            "profit": "1.0",
+        })]
+        text = tj.format_preview(norm)
+        assert "S&amp;P500" in text
+        assert "S&P500" not in text
+        assert "&lt;BUY&gt;" in text
+        assert "<BUY>" not in text
+
+    def test_journal_escapes_ocr_symbol_and_direction(self, tmp_path):
+        """Same hazard as the preview, but for the /journal by-symbol and
+        recent-trades lines (format_journal), which read back OCR text that
+        was already persisted to the DB."""
+        tj = _journal(tmp_path)
+        raw = {
+            "symbol": "S&P500",
+            "direction": "<buy>",
+            "profit": "1.0",
+            "close_time": "2026.06.09 00:01:29",
+        }
+        norm = [tj._normalize(raw)]
+        tj.confirm_batch(tj.save_pending_batch(norm))
+        text = tj.stats_text()
+        assert "S&amp;P500" in text
+        assert "S&P500" not in text
+        assert "&lt;BUY&gt;" in text
+        assert "<BUY>" not in text
+
 
 class TestParseScreenshot:
     @pytest.mark.asyncio
