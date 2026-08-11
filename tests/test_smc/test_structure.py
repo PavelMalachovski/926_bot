@@ -9,6 +9,7 @@ from app.services.smc.structure import (
     find_h1_zone,
     find_order_block,
     find_pivots,
+    first_zone_touch,
     h4_choch_direction,
     zone_ladder,
     zone_touch_span,
@@ -46,6 +47,38 @@ def test_h4_choch_direction_short_after_break_of_last_hl():
 def _zone(bottom, top, is_demand=True):
     return Zone(bottom=bottom, top=top, is_demand=is_demand, pivot_index=0,
                 timestamp=datetime(2026, 7, 6, tzinfo=timezone.utc))
+
+
+class TestFirstZoneTouch:
+    """Anchor for the invalidation scan: the first entry into the zone AFTER
+    the zone existed. Candles that crossed the same price range on the way to
+    forming the pivot are approach noise, not touches — anchoring on them
+    would false-invalidate a fresh zone from its own birth decline."""
+
+    _FORMED = datetime(2026, 7, 6, 21, 0, tzinfo=timezone.utc)
+
+    def _fresh_zone(self):
+        return Zone(bottom=3130.0, top=3140.0, is_demand=True, pivot_index=7,
+                    timestamp=self._FORMED)
+
+    def test_ignores_candles_before_the_zone_existed(self):
+        candles = [
+            # 14:00 — crosses the range downward, pre-formation
+            candle(3145.0, 3146.0, 3128.0, 3129.0, index=0),
+            # still pre-formation, fully below the zone
+            candle(3129.0, 3129.5, 3125.0, 3126.0, index=1),
+            # 21:00 — the first touch that counts
+            candle(3126.0, 3150.0, 3125.5, 3149.0, index=0, start=self._FORMED),
+            candle(3149.0, 3151.0, 3144.0, 3150.0, index=1, start=self._FORMED),
+        ]
+        assert first_zone_touch(candles, self._fresh_zone()) == 2
+
+    def test_none_when_price_never_touched_after_formation(self):
+        candles = [
+            candle(3145.0, 3146.0, 3128.0, 3129.0, index=0),  # pre-formation
+            candle(3150.0, 3151.0, 3144.0, 3149.0, index=0, start=self._FORMED),
+        ]
+        assert first_zone_touch(candles, self._fresh_zone()) is None
 
 
 def test_zone_touch_span_returns_first_and_last_of_last_excursion():

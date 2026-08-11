@@ -304,6 +304,26 @@ def sweep_extreme(
     return max(c.high for c in window)
 
 
+def first_zone_touch(candles: List[Candle], zone: Zone) -> Optional[int]:
+    """Index of the first candle entering the zone at/after the zone's own
+    pivot timestamp, or None if price never did.
+
+    The anchor for the invalidation scan: a body close through the far edge
+    kills the zone from the FIRST touch onward, not just within the latest
+    excursion (`zone_touch_span` returns the latest — anchoring there forgot
+    an invalidation once price exited and re-entered). The timestamp filter
+    matters on the other side: candles that crossed the same price range on
+    the way to forming the pivot are approach noise, and counting them would
+    false-invalidate a fresh zone from its own birth decline.
+    """
+    for i, c in enumerate(candles):
+        if c.timestamp < zone.timestamp:
+            continue
+        if c.low <= zone.top and c.high >= zone.bottom:
+            return i
+    return None
+
+
 def zone_touch_span(
     candles: List[Candle], zone: Zone
 ) -> Optional[Tuple[int, int]]:
