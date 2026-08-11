@@ -27,6 +27,17 @@ speculative brackets are the only picture available.
    "price reached the zone" alert becomes **plan-centric**: it fires when
    price first enters a zone named by the *current* plan and carries that
    scenario's projected numbers.
+5. `build_plan` direction selection is brought to **parity with the
+   engine's Rule 1 precedence** (review finding, 2026-08-11): on H4 FLAT
+   the plan must consult the H1 trend first (owner decision 2026-08-06),
+   then — aggressive profile only — the H4 CHoCH, and only then fall back
+   to both-way speculative brackets. Today the plan skips the H1 step and
+   checks CHoCH first, so it can project a non-speculative direction the
+   live engine will never alert, and label an engine-directional pair
+   "speculative". A zone alert that quotes plan numbers makes this a
+   correctness requirement, not polish. The H1-derived scenario is
+   non-speculative and labels its source like the alert does ("H4 flat —
+   direction from H1 …").
 
 Detector mode is untouched: the full 🚨 setup alert still fires on M5
 CHoCH + FVG regardless of any plan.
@@ -144,6 +155,7 @@ the stored zones, as today.
 | File | Change |
 |---|---|
 | `smc_watcher.py` | auto-plan scheduler gate, per-cycle recompute + store, summary build/edit, plan-zone alert, remove `_maybe_zone_ping` |
+| `app/services/smc/plan.py` | Rule 1 direction parity: H1-trend fallback on H4 FLAT, ahead of the aggressive CHoCH check |
 | `app/services/smc/planbook.py` (new) | in-memory plan store, fingerprint, summary line formatting — pure & unit-testable |
 | `app/services/smc/notifier.py` | `send(disable_notification=)`, summary formatter lives with the other formatters |
 | `app/services/smc/telegram_bot.py` | `aplan_*` callbacks |
@@ -169,3 +181,8 @@ Synthetic candles via `tests/test_smc/helpers.py`, network-free:
 5. Provenance: snapshot updates `plan_zones`, per-cycle recompute does not.
 6. Callback: `aplan_` serves stored plan; falls back to fresh build when
    the store is empty.
+7. Plan direction parity: H4 flat + clean H1 uptrend → one non-speculative
+   LONG (matching `engine.direction_source == "h1"`); aggressive profile
+   with both an H1 trend and an opposing H4 CHoCH → the H1 direction wins,
+   same as the engine; no H1 trend + aggressive CHoCH → CHoCH direction;
+   nothing → both-way speculative brackets, as today.
