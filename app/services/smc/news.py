@@ -179,7 +179,11 @@ class NewsCalendar:
             end = to_prague(event.time + self.after).strftime("%H:%M")
             return [
                 f"🔴 {event.prague_hhmm()} {escape_html(event.title)} "
-                f"({event.currency}) → {hits or '—'}",
+                # currency is safe-by-construction today (only whitelisted
+                # instrument-currency codes ever match the by_pair filter
+                # below), but escape it anyway — defense-in-depth, same as
+                # the title right next to it.
+                f"({escape_html(event.currency)}) → {hits or '—'}",
                 f"    ⛔ no entries {start}–{end}",
             ]
 

@@ -194,6 +194,40 @@ class TestGetUpdatesBackoff:
         assert sleeps == [5.0, 10.0, 20.0, 5.0]
 
     @pytest.mark.asyncio
+    async def test_backoff_caps_at_300_and_holds(self, monkeypatch):
+        # 8 consecutive refused polls: backoff doubles from _BACKOFF_START
+        # (5.0) each time, capped at _BACKOFF_CAP (300.0) — 5, 10, 20, 40,
+        # 80, 160, 300, then held at 300 rather than continuing to double.
+        results = [False] * 8
+        state = {"n": 0}
+
+        async def fake_poll_once():
+            if state["n"] >= len(results):
+                raise _Done()
+            value = results[state["n"]]
+            state["n"] += 1
+            return value
+
+        sleeps = []
+
+        async def fake_sleep(seconds):
+            sleeps.append(seconds)
+
+        bot = _bot()
+        bot._poll_once = fake_poll_once
+
+        async def noop_api(method, **kwargs):
+            return {}
+
+        bot._api = noop_api
+        monkeypatch.setattr(tb.asyncio, "sleep", fake_sleep)
+
+        with pytest.raises(_Done):
+            await bot.run()
+
+        assert sleeps == [5.0, 10.0, 20.0, 40.0, 80.0, 160.0, 300.0, 300.0]
+
+    @pytest.mark.asyncio
     async def test_successful_empty_poll_does_not_trigger_backoff_sleep(
         self, monkeypatch
     ):

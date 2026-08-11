@@ -396,9 +396,14 @@ class TripleSyncEngine:
                     "size."
                 )
             elif abs(rate) > FUNDING_WARN:
+                # Direction-symmetric danger check above only fires for the
+                # unfavorable pairing (LONG+positive / SHORT+negative); the
+                # favorable-direction extreme (e.g. a LONG at -0.15%) falls
+                # through to here too, so this text must hold for ANY
+                # abs(rate) > FUNDING_WARN — no upper-bound claim.
                 result.funding_warning = (
-                    f"Funding {rate * 100:.3f}%/8h is in the {warn_pct:.2f}–"
-                    f"{danger_pct:.2f}% zone — your call."
+                    f"Funding {rate * 100:.3f}%/8h is above the "
+                    f"{warn_pct:.2f}% advisory level — your call."
                 )
 
         return result

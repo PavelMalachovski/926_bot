@@ -117,7 +117,16 @@ class TestDatabaseRuntimeErrors:
         self, tmp_path, monkeypatch
     ):
         """Every connection (including the fallback) is corrupted: calls
-        must keep degrading gracefully rather than raising, forever."""
+        must keep degrading gracefully rather than raising, forever. The
+        recovery attempt must also be honest about it — a probe query on
+        the fallback connection must fail before any 'switched to a local
+        database' success line is logged, since _create_schema and
+        _relax_take_profit_not_null both swallow sqlite3.Error internally
+        (CLAUDE.md) and would otherwise let that log through unchallenged
+        even though the fallback connection cannot serve a real query
+        either."""
+        import app.services.smc.db as db_mod
+
         original_connect = sqlite3.connect
         raising_factory = self._raising_connection_factory()
 
@@ -132,10 +141,26 @@ class TestDatabaseRuntimeErrors:
 
         db = Database(str(tmp_path / "corrupted.db"))  # must not raise
 
+        events = []
+
+        class _Spy:
+            def error(self, event, **kw):
+                events.append(event)
+
+            def info(self, event, **kw):
+                pass
+
+        monkeypatch.setattr(db_mod, "logger", _Spy())
+
         assert db.kv_get("pairs") is None
         assert db.signals_all() == []
         db.kv_set("pairs", ["ETHUSD"])  # a no-op, must not raise
         assert db.kv_get("pairs") is None  # still nothing persisted, still safe
+
+        # The fallback probe failed, so the success line must never fire...
+        assert not any("switched to a local ephemeral" in e for e in events)
+        # ...and the honest failure line was logged instead.
+        assert any("also unusable" in e for e in events)
 
     def test_watcher_state_constructs_on_a_fully_corrupted_database(
         self, tmp_path, monkeypatch

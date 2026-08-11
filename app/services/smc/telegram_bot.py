@@ -337,6 +337,14 @@ class TelegramCommandBot:
                 await self.send("News filter is not available.")
         elif command == "/check":
             await self.send("⏳ Checking setups, one moment...")
+            # Intentional inline await, not spawned as a background task:
+            # the owner explicitly asked for a check and wants the summary
+            # when it's done, in this same command handler. run_cycle takes
+            # the watcher's cycle lock (_get_cycle_lock), so it is safe to
+            # simply queue behind a scheduled cycle or an in-flight /plan
+            # build already holding that lock — it will run once the lock
+            # frees, not clobber it. Do not "fix" the latency by firing this
+            # off in the background; that would return before the check ran.
             summary = await self.run_cycle()
             await self.send(summary)
         elif command == "/plan":

@@ -278,12 +278,24 @@ class Database:
         if self.path == self.FALLBACK_PATH:
             return False  # already on the fallback file; nothing left to try
         try:
+            self.conn.close()
+        except sqlite3.Error:
+            pass  # the old connection is already broken; nothing to salvage
+        try:
             conn = sqlite3.connect(self.FALLBACK_PATH, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             self.conn = conn
             self.path = self.FALLBACK_PATH
             self._create_schema()
             self._relax_take_profit_not_null()
+            # _create_schema and _relax_take_profit_not_null both swallow
+            # sqlite3.Error internally (CLAUDE.md: schema failures must not
+            # crash the watcher), so if the fallback file is ALSO unusable
+            # (full disk, unwritable cwd) they return quietly without
+            # raising — this would fall straight through to the success log
+            # below on a connection that cannot actually serve a query.
+            # Probe it for real before claiming victory.
+            self.conn.execute("SELECT 1")
             logger.error(
                 "Runtime SQLite error — switched to a local ephemeral "
                 "database (data will NOT survive redeploys). Check the "
@@ -293,9 +305,9 @@ class Database:
             return True
         except sqlite3.Error as e:
             logger.error(
-                "Fallback database also failed after a runtime SQLite "
-                "error — the watcher keeps running on safe defaults, but "
-                "nothing will persist this process.",
+                "Fallback database also unusable after a runtime SQLite "
+                "error — running with in-memory defaults; nothing will "
+                "persist this process.",
                 fallback=self.FALLBACK_PATH,
                 error=str(e),
             )

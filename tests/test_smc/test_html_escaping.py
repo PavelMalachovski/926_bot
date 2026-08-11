@@ -14,7 +14,8 @@ from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import (
     AnalysisResult, Direction, FVG, TradeSetup, Trend, Verdict, Zone,
 )
-from app.services.smc.news import NewsCalendar, parse_feed
+from app.services.smc import news as news_module
+from app.services.smc.news import NewsCalendar, NewsEvent, parse_feed
 from app.services.smc.notifier import (
     escape_html,
     format_distance,
@@ -104,6 +105,30 @@ class TestEscaping:
         )
         _assert_valid_telegram_html(text)
         assert "S&amp;P" in text
+
+    def test_news_digest_currency_escaped(self, monkeypatch):
+        # `currency` is safe-by-construction today (relevant_currencies only
+        # ever returns whitelisted instrument-currency codes), but it is
+        # routed through escape_html anyway (defense-in-depth) — this pins
+        # that by forcing a currency value with an unescaped '<' through the
+        # normal by_pair-match path via a monkeypatched relevant_currencies.
+        cal = NewsCalendar()
+        cal.events = [
+            NewsEvent(
+                time=datetime(2026, 7, 16, 9, 45, tzinfo=timezone.utc),
+                currency="US<D",
+                title="Retail Sales",
+            )
+        ]
+        cal.fetched_at = datetime(2026, 7, 16, 5, 0, tzinfo=timezone.utc)
+        monkeypatch.setattr(
+            news_module, "relevant_currencies", lambda instrument: {"US<D"}
+        )
+        text = cal.digest_text(
+            ["ETHUSD"], datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc)
+        )
+        _assert_valid_telegram_html(text)
+        assert "US&lt;D" in text
 
 
 class TestTargetLine:

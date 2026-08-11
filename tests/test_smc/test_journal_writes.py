@@ -15,7 +15,11 @@ from app.services.smc.db import Database
 from app.services.smc.journal import SignalJournal
 from app.services.smc.models import AnalysisResult, Direction, FVG, TradeSetup, Verdict
 
-NOW = datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc)
+# Relative to the real wall clock, not a fixed calendar date: `update_pair`
+# evaluates OPEN_TIMEOUT (5 days, journal.py) against `datetime.now()` at
+# call time, so a hardcoded `created_at` goes stale and starts flipping
+# "open" signals to "timeout" the moment the real clock passes it by 5 days.
+NOW = datetime.now(tz=timezone.utc)
 
 
 def _approved_result(symbol="ETHUSD"):

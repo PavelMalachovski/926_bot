@@ -13,6 +13,14 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+# NOTE: this module uses pyplot's global figure registry (plt.subplots /
+# plt.close), which is only safe because every render call site in
+# smc_watcher.py runs under the watcher's cycle lock (_get_cycle_lock) —
+# one render happens at a time, so there is never a second thread mutating
+# pyplot's global state concurrently. If pair processing is ever
+# parallelized (concurrent cycles/render calls), this module must migrate
+# to the object-oriented Figure/FigureCanvasAgg API first (each render gets
+# its own Figure instance instead of sharing pyplot's global one).
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
 
