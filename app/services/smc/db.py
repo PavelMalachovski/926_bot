@@ -382,6 +382,13 @@ class Database:
 
         self._run("signal_upsert", _write, None)
 
+    def signal_delete(self, signal_id: str) -> None:
+        def _write():
+            with self.conn:
+                self.conn.execute("DELETE FROM signals WHERE id = ?", (signal_id,))
+
+        self._run("signal_delete", _write, None)
+
     # --------------------------------------------------------------- trades
 
     def trade_insert(self, trade: Dict) -> None:

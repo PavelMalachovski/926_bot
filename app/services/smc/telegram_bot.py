@@ -82,8 +82,45 @@ class TelegramCommandBot:
         self.default_profile = default_profile
         self.on_set_all_profiles = on_set_all_profiles
         self._offset: Optional[int] = None
+        # Strong references for fire-and-forget plan tasks (see _spawn) — an
+        # asyncio.Task with nothing else holding it can be garbage-collected
+        # mid-run (documented asyncio footgun), silently killing the task.
+        self._background_tasks: set = set()
 
     # ------------------------------------------------------------- transport
+
+    def _spawn(self, coro, name: str) -> asyncio.Task:
+        """Fire-and-forget a background coroutine (on_plan/on_stored_plan).
+
+        `/plan ALL` force-fetches every pair fresh through the 8/min rate
+        limiter and renders a chart each — awaiting it inline here used to
+        block getUpdates for ~90s, during which even /pause could not take
+        effect. The Watcher's own `_get_cycle_lock()` still serializes it
+        against a running cycle or another plan build; this only keeps the
+        polling loop free while it waits its turn. Exceptions are logged via
+        a done-callback since nothing awaits this task directly.
+
+        `_background_tasks` is fetched lazily (not just read from __init__)
+        so a bot built via `TelegramCommandBot.__new__` in tests still works
+        rather than raising AttributeError — mirrors Watcher._get_cycle_lock.
+        """
+        tasks = self.__dict__.setdefault("_background_tasks", set())
+        task = asyncio.create_task(coro)
+        tasks.add(task)
+
+        def _on_done(t: asyncio.Task) -> None:
+            tasks.discard(t)
+            if t.cancelled():
+                return
+            exc = t.exception()
+            if exc:
+                logger.error(
+                    "Background task failed", task=name, error=str(exc),
+                    exc_info=exc,
+                )
+
+        task.add_done_callback(_on_done)
+        return task
 
     async def _api(self, method: str, http_timeout: float = 35.0, **payload) -> Any:
         """POST to the Bot API; return the `result` payload on success, None
@@ -408,13 +445,15 @@ class TelegramCommandBot:
                 "Sending all plans…" if key == "ALL" else f"Sending {key} plan…"
             )
             await self._api("answerCallbackQuery", **answer)
-            await self.on_stored_plan(key)
+            # Fire-and-forget: keeps getUpdates free while the plan builds
+            # (see _spawn). The Watcher's _cycle_lock still serializes it.
+            self._spawn(self.on_stored_plan(key), f"on_stored_plan:{key}")
             return
         if data.startswith("plan_") and self.on_plan:
             key = data[5:]
             answer["text"] = f"Building {key} plan…"
             await self._api("answerCallbackQuery", **answer)
-            await self.on_plan(key)
+            self._spawn(self.on_plan(key), f"on_plan:{key}")
             return
         if data.startswith("pair_"):
             key = data[5:]

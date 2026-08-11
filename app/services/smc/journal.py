@@ -136,6 +136,19 @@ class SignalJournal:
         logger.info("Signal recorded", id=signal["id"], pair=signal["pair"])
         return signal
 
+    def discard(self, signal_id: str) -> None:
+        """Remove a signal that was recorded but never actually delivered.
+
+        `record()` writes the row before the alert send so the Telegram
+        keyboard can carry its id (see `_send_alert`) — if `notifier.send`
+        then returns None (Telegram outage, rate limit), that row would
+        otherwise survive as an orphan `pending` signal with no message and
+        no fingerprint, later resolving as `expired` and polluting /stats.
+        """
+        self.signals = [s for s in self.signals if s["id"] != signal_id]
+        self.db.signal_delete(signal_id)
+        logger.info("Signal discarded (send failed)", id=signal_id)
+
     def get(self, signal_id: str) -> Optional[Dict]:
         for signal in self.signals:
             if signal["id"] == signal_id:
