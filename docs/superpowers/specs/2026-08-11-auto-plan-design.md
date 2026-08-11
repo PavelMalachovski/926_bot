@@ -138,7 +138,6 @@ the stored zones, as today.
   when the current plan no longer names a scenario with the SAME bounds
   and direction as the pinged zone (a shifted zone is a new episode — its
   projected numbers changed, so it alerts again), or on a new Prague day.
-  Zone matching by overlap + direction, the `zone_was_planned` logic.
 - The "already managing a position here" cooldown check is kept.
 - Alert failure must not mark the episode as pinged (send first, then mark
   — same ordering rule the fingerprint dedup uses).
