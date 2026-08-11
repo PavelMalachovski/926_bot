@@ -1,6 +1,6 @@
 """End-to-end tests for the TripleSyncEngine checklist."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.core.config import SMCSettings
 from app.services.smc.engine import TripleSyncEngine
@@ -12,9 +12,11 @@ from tests.test_smc.helpers import (
     H1_RALLY_INTO_SUPPLY_CLOSES,
     H4_DOWNTREND_CLOSES,
     H4_UPTREND_CLOSES,
+    SESSION_BASE,
     candle,
     m5_long_trigger,
     m5_long_trigger_deep_sweep,
+    m5_long_trigger_reentry,
     m5_short_trigger_deep_sweep,
     make_candles,
 )
@@ -110,6 +112,40 @@ class TestSkipsAndWatch:
             result=_fresh_result(),
         )
         assert result.verdict == Verdict.WATCH
+
+
+class TestZoneInvalidationMemory:
+    """Regression (review 2026-08-11): a body close through the far edge kills
+    the zone permanently (CLAUDE.md suppressor list). The invalidation scan
+    used to start at the LAST excursion into the zone, so a close-through in
+    an earlier excursion was forgotten once price exited and re-entered — the
+    classic stop-hunt below a demand zone produced a full alert on a zone the
+    engine itself had declared dead a few cycles earlier."""
+
+    # M5 candles must postdate the H1 zone pivot (7 hours into
+    # H1_PULLBACK_CLOSES) the way live data always does; a day later keeps
+    # the same in-session wall-clock phase as every other fixture.
+    _M5_START = SESSION_BASE + timedelta(days=1)
+
+    def test_reentry_after_earlier_invalidation_skips(self):
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_reentry(invalidated=True, start=self._M5_START),
+            result=_fresh_result(),
+        )
+        assert result.verdict == Verdict.SKIP
+        assert any("invalidated" in r for r in result.reasons)
+
+    def test_reentry_without_invalidation_still_approves(self):
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_reentry(invalidated=False, start=self._M5_START),
+            result=_fresh_result(),
+        )
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.setup.direction == Direction.LONG
 
 
 class TestProfiles:

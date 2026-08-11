@@ -28,6 +28,7 @@ from app.services.smc.structure import (
     find_choch,
     find_h1_zone,
     find_order_block,
+    first_zone_touch,
     h4_choch_direction,
     sweep_extreme,
     zone_ladder,
@@ -209,8 +210,17 @@ class TripleSyncEngine:
             return result
         touch = span[0]
 
-        # Zone still valid on M5? (body close through the far edge = invalidated)
-        for c in m5[touch:]:
+        # Zone still valid on M5? A body close through the far edge kills the
+        # zone permanently, so the scan anchors at the FIRST touch since the
+        # zone formed — `touch` is only the latest excursion, and starting
+        # there forgot an invalidation once price exited and re-entered
+        # (review 2026-08-11: a stop-hunt through a demand zone alerted on
+        # re-entry). The fallback covers candle lists that predate the zone's
+        # pivot timestamp, where no post-formation touch exists to anchor on.
+        scan_from = first_zone_touch(m5, zone)
+        if scan_from is None:
+            scan_from = touch
+        for c in m5[scan_from:]:
             if zone.is_demand and c.close < zone.bottom and c.body_low < zone.bottom:
                 result.verdict = Verdict.SKIP
                 result.reasons.append(

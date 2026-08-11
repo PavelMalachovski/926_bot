@@ -106,37 +106,84 @@ H1_RALLY_INTO_SUPPLY_CLOSES = [
 ]
 
 
+# M5: decline into the H1 demand zone, bullish CHoCH + FVG.
+# - lower-high pivot at index 6 (3148)
+# - protective pivot low at index 10 (3130), inside the zone
+# - bullish FVG between high[13]=3136 and low[15]=3139.5 (size 3.5)
+# - CHoCH at index 16 (close 3149 > 3148)
+_M5_LONG_TRIGGER_SPEC = [
+    (3160.0, 3161.0, 3155.0, 3156.0),
+    (3156.0, 3157.0, 3151.0, 3152.0),
+    (3152.0, 3153.0, 3147.0, 3148.0),
+    (3148.0, 3149.0, 3143.0, 3144.0),
+    (3144.0, 3145.0, 3140.0, 3142.0),
+    (3142.0, 3146.0, 3141.0, 3145.0),
+    (3145.0, 3148.0, 3144.0, 3147.0),
+    (3147.0, 3147.5, 3141.0, 3142.0),
+    (3142.0, 3143.0, 3137.0, 3138.0),
+    (3138.0, 3139.0, 3133.0, 3134.0),
+    (3134.0, 3135.0, 3130.0, 3131.0),
+    (3131.0, 3133.0, 3130.5, 3132.0),
+    (3132.0, 3134.0, 3131.0, 3133.0),
+    (3133.0, 3136.0, 3132.0, 3135.5),
+    (3135.5, 3141.0, 3135.0, 3140.5),
+    (3140.5, 3144.0, 3139.5, 3143.0),
+    (3143.0, 3149.5, 3142.0, 3149.0),
+    (3149.0, 3151.0, 3147.0, 3150.0),
+    (3150.0, 3152.0, 3148.0, 3151.0),
+    (3151.0, 3152.0, 3149.0, 3150.0),
+]
+
+
 def m5_long_trigger() -> List[Candle]:
     """M5: decline into the H1 demand zone, bullish CHoCH + FVG.
 
-    - lower-high pivot at index 6 (3148)
-    - protective pivot low at index 10 (3130), inside the zone
-    - bullish FVG between high[13]=3136 and low[15]=3139.5 (size 3.5)
-    - CHoCH at index 16 (close 3149 > 3148)
+    See _M5_LONG_TRIGGER_SPEC for the shape.
     """
-    spec = [
-        (3160.0, 3161.0, 3155.0, 3156.0),
-        (3156.0, 3157.0, 3151.0, 3152.0),
-        (3152.0, 3153.0, 3147.0, 3148.0),
-        (3148.0, 3149.0, 3143.0, 3144.0),
-        (3144.0, 3145.0, 3140.0, 3142.0),
-        (3142.0, 3146.0, 3141.0, 3145.0),
-        (3145.0, 3148.0, 3144.0, 3147.0),
-        (3147.0, 3147.5, 3141.0, 3142.0),
-        (3142.0, 3143.0, 3137.0, 3138.0),
-        (3138.0, 3139.0, 3133.0, 3134.0),
-        (3134.0, 3135.0, 3130.0, 3131.0),
-        (3131.0, 3133.0, 3130.5, 3132.0),
-        (3132.0, 3134.0, 3131.0, 3133.0),
-        (3133.0, 3136.0, 3132.0, 3135.5),
-        (3135.5, 3141.0, 3135.0, 3140.5),
-        (3140.5, 3144.0, 3139.5, 3143.0),
-        (3143.0, 3149.5, 3142.0, 3149.0),
-        (3149.0, 3151.0, 3147.0, 3150.0),
-        (3150.0, 3152.0, 3148.0, 3151.0),
-        (3151.0, 3152.0, 3149.0, 3150.0),
-    ]
-    return [candle(*row, index=i) for i, row in enumerate(spec)]
+    return [candle(*row, index=i) for i, row in enumerate(_M5_LONG_TRIGGER_SPEC)]
+
+
+def m5_long_trigger_reentry(
+    invalidated: bool = True, start: datetime = SESSION_BASE
+) -> List[Candle]:
+    """m5_long_trigger preceded by an EARLIER excursion into the demand zone
+    (3131.0-3138.0 from H1_PULLBACK_CLOSES).
+
+    invalidated=True is the stop-hunt shape: the early excursion body-closes
+    at 3128 below the zone bottom (invalidation), price exits above, then the
+    normal re-entry trigger plays out. The zone is dead from that close
+    onward, whatever price does next — the engine must SKIP.
+
+    invalidated=False is the control: the early excursion holds the zone
+    (close 3132), so the later trigger is a legitimate second touch and must
+    still approve.
+
+    Pass a `start` after the H1 zone pivot's timestamp (the pivot forms 7
+    hours into H1_PULLBACK_CLOSES) so the M5 candles read as post-formation
+    price action, the way live data always does.
+    """
+    if invalidated:
+        prelude = [
+            (3160.0, 3161.0, 3155.0, 3156.0),
+            (3156.0, 3157.0, 3144.0, 3145.0),  # above the zone (low > 3138)
+            (3145.0, 3146.0, 3136.0, 3137.0),  # enters the zone
+            (3137.0, 3138.5, 3127.0, 3128.0),  # body close 3128 < 3131 — dead
+            (3128.0, 3130.5, 3126.0, 3130.0),  # fully below (high < 3131)
+            (3130.0, 3150.0, 3129.0, 3149.0),  # rallies back through the zone
+            (3149.0, 3151.0, 3143.0, 3144.0),  # above again (low > 3138)
+        ]
+    else:
+        prelude = [
+            (3160.0, 3161.0, 3155.0, 3156.0),
+            (3156.0, 3157.0, 3144.0, 3145.0),
+            (3145.0, 3146.0, 3136.0, 3137.0),  # enters the zone
+            (3137.0, 3138.5, 3131.5, 3132.0),  # holds inside (close >= 3131)
+            (3132.0, 3150.0, 3131.5, 3149.0),  # exits upward through the top
+            (3149.0, 3151.0, 3143.0, 3144.0),  # above the zone (low > 3138)
+            (3144.0, 3146.0, 3141.0, 3145.0),  # still above
+        ]
+    spec = prelude + _M5_LONG_TRIGGER_SPEC
+    return [candle(*row, index=i, start=start) for i, row in enumerate(spec)]
 
 
 def m5_long_trigger_deep_sweep() -> List[Candle]:
