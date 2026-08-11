@@ -94,10 +94,23 @@ class SMCSettings(BaseSettings):
         "for this many hours (you are managing the position)",
     )
     zone_ping: bool = Field(
-        default=False,
-        description="Send a 'get ready' ping when price first reaches a live "
-        "H1 zone, before the full setup forms (off by default — the owner "
-        "found it noisy)",
+        default=True,
+        description="Alert when price first reaches a zone named by the "
+        "current Pre-Market Plan, quoting the plan's projected numbers "
+        "(owner decision 2026-08-11 — this replaced the old engine-zone "
+        "ping and is the auto-plan feature's main notification)",
+    )
+    auto_plan: bool = Field(
+        default=True,
+        description="Build the Pre-Market Plan for all pairs automatically "
+        "before each session block and send a silent summary with buttons "
+        "(owner decision 2026-08-11); the full plan is sent only on button "
+        "press",
+    )
+    auto_plan_times: str = Field(
+        default="07:55,13:55",
+        description="Comma-separated Prague times (HH:MM) for the automatic "
+        "plan snapshots — right before the Frankfurt/London and NY blocks",
     )
     notify_no_setup: bool = Field(
         default=False,

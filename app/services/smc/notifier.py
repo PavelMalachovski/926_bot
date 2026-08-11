@@ -451,12 +451,17 @@ class TelegramNotifier:
             return None
 
     async def send(
-        self, text: str, reply_markup: Optional[dict] = None
+        self,
+        text: str,
+        reply_markup: Optional[dict] = None,
+        disable_notification: bool = False,
     ) -> Optional[int]:
         """Send a message; returns its message_id or None on failure."""
         payload = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"}
         if reply_markup:
             payload["reply_markup"] = reply_markup
+        if disable_notification:
+            payload["disable_notification"] = True
         result = await self._api("sendMessage", **payload)
         return result.get("message_id") if result else None
 
