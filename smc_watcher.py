@@ -190,7 +190,16 @@ def _card_footer(signal: Dict) -> str:
     def hhmm(iso: Optional[str]) -> str:
         if not iso:
             return ""
-        local = to_prague(datetime.fromisoformat(iso))
+        # Defense in depth (review 2026-08-11 audit): filled_at/resolved_at
+        # are normally set fresh, in-process, this cycle (always aware) —
+        # but a corrupted legacy-imported row could carry garbage here too,
+        # and this runs on the cycle path (_track_journal ->
+        # _handle_journal_events). to_prague already tolerates naive
+        # datetimes; only outright unparseable values need guarding.
+        try:
+            local = to_prague(datetime.fromisoformat(iso))
+        except (TypeError, ValueError):
+            return ""
         return f" ({local:%H:%M} Prague)"
 
     lines = ["", "──────────────"]
@@ -336,6 +345,26 @@ class Watcher:
             self._cycle_lock = lock
         return lock
 
+    def _news_warned_bad_seen(self) -> set:
+        """Log-dedup set for `_rule_04_warnings`'s prune of poisoned
+        `news_warned` timestamps. Lazily created (same pattern as
+        `_get_cycle_lock`) so a Watcher built via `Watcher.__new__` in
+        tests still works without calling `__init__`."""
+        seen = self.__dict__.get("_news_warned_bad")
+        if seen is None:
+            seen = set()
+            self._news_warned_bad = seen
+        return seen
+
+    def _pair_cooldown_bad_seen(self) -> set:
+        """Log-dedup set for `_purge_expired_cooldowns`'s poisoned
+        `pair_cooldown` entries. Same lazy-init pattern as above."""
+        seen = self.__dict__.get("_pair_cooldown_bad")
+        if seen is None:
+            seen = set()
+            self._pair_cooldown_bad = seen
+        return seen
+
     async def check_pair(self, key: str) -> Tuple[str, Optional[AnalysisResult]]:
         """Analyze one pair. Returns (heartbeat line, result or None)."""
         instrument = get_instrument(key)
@@ -435,6 +464,7 @@ class Watcher:
                 await self._rule_04_warnings()
             await self._morning_briefing()
             await self._maybe_auto_plan()
+            self._purge_expired_cooldowns()
 
             heartbeat_lines: List[str] = []
             approved: List[AnalysisResult] = []
@@ -614,21 +644,58 @@ class Watcher:
         )
 
     def _cooldown_left(self, key: str) -> Optional[str]:
-        """Human 'Nh Mm' remaining on a taken-trade mute, or None if expired."""
+        """Human 'Nh Mm' remaining on a taken-trade mute, or None if expired,
+        absent or poisoned.
+
+        Read-only: no mutation, no `state.save()`. This used to delete the
+        expired entry and save on every call — including from `status_text`,
+        so a plain /status command performed a DB write (review 2026-08-11,
+        MEDIUM). Expired/poisoned cleanup now happens once per cycle in
+        `_purge_expired_cooldowns`.
+        """
         expiry = self.state.pair_cooldown.get(key)
         if not expiry:
             return None
         now = datetime.now(tz=timezone.utc)
         try:
             remaining = datetime.fromisoformat(expiry) - now
-        except ValueError:
+        except (ValueError, TypeError):
             return None
         if remaining.total_seconds() <= 0:
-            del self.state.pair_cooldown[key]
-            self.state.save()
             return None
         total_min = int(remaining.total_seconds() // 60)
         return f"{total_min // 60}h {total_min % 60}m"
+
+    def _purge_expired_cooldowns(self) -> None:
+        """Remove `pair_cooldown` entries that have expired, or that are
+        poisoned (unparseable, or naive — a legacy JSON import raises
+        TypeError on the aware-vs-naive subtraction below). The single
+        writer for this dict's cleanup, called once per cycle from
+        `run_cycle`; `_cooldown_left` only reads (see its docstring).
+        """
+        now = datetime.now(tz=timezone.utc)
+        bad_seen = self._pair_cooldown_bad_seen()
+        survivors: Dict[str, str] = {}
+        changed = False
+        for key, expiry in self.state.pair_cooldown.items():
+            try:
+                remaining = datetime.fromisoformat(expiry) - now
+            except (ValueError, TypeError):
+                changed = True
+                if key not in bad_seen:
+                    bad_seen.add(key)
+                    logger.error(
+                        "Dropping unparseable/naive pair_cooldown timestamp",
+                        pair=key, value=expiry,
+                    )
+                continue
+            if remaining.total_seconds() <= 0:
+                changed = True
+                continue
+            survivors[key] = expiry
+        if changed:
+            self.state.pair_cooldown = survivors
+            self.state.save()
 
     async def _handle_journal_events(self, events) -> None:
         """Live-update alert cards and enforce the daily stop notification."""
@@ -1114,6 +1181,7 @@ class Watcher:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""
         now = datetime.now(tz=timezone.utc)
         horizon = timedelta(minutes=30)
+        changed = False
         for signal in self.journal.signals:
             if signal["status"] not in ("pending", "open"):
                 continue
@@ -1136,14 +1204,37 @@ class Watcher:
                     f"— {action}!"
                 )
                 self.state.news_warned[warn_key] = now.isoformat()
-        # prune dedup keys older than 2 days
+                changed = True
+        # Prune dedup keys older than 2 days. A value that fails to parse, or
+        # is naive (a legacy JSON import, or older code before this fix), is
+        # garbage with no dedup value of its own — drop it, instead of
+        # letting fromisoformat's ValueError/TypeError (naive-vs-aware
+        # comparison raises TypeError) kill this line, and every future
+        # cycle, forever (review 2026-08-11, MEDIUM: this ran before the
+        # per-pair loop, so it took the whole cycle down with it).
         cutoff = now - timedelta(days=2)
-        self.state.news_warned = {
-            k: v
-            for k, v in self.state.news_warned.items()
-            if datetime.fromisoformat(v) > cutoff
-        }
-        self.state.save()
+        bad_seen = self._news_warned_bad_seen()
+        kept: Dict[str, str] = {}
+        for k, v in self.state.news_warned.items():
+            try:
+                parsed = datetime.fromisoformat(v)
+                if parsed.tzinfo is None:
+                    raise ValueError("naive news_warned timestamp")
+            except (TypeError, ValueError):
+                if k not in bad_seen:
+                    bad_seen.add(k)
+                    logger.error(
+                        "Dropping unparseable/naive news_warned timestamp",
+                        key=k, value=v,
+                    )
+                continue
+            if parsed > cutoff:
+                kept[k] = v
+        if kept != self.state.news_warned:
+            changed = True
+        self.state.news_warned = kept
+        if changed:
+            self.state.save()
 
     def news_text(self) -> str:
         """/news command."""

@@ -29,8 +29,42 @@ logger = structlog.get_logger(__name__)
 OPEN_TIMEOUT = timedelta(days=5)
 
 
+_BAD_TIMESTAMP_SEEN: set = set()
+
+
 def _parse(ts: str) -> datetime:
-    return datetime.fromisoformat(ts)
+    """Parse a persisted ISO timestamp, tolerating poison values.
+
+    A legacy JSON import (see db.py's migrate_legacy_json) can carry a
+    naive timestamp (no tzinfo — raises TypeError on the first
+    aware-vs-naive comparison downstream) or, rarer, outright unparseable
+    garbage (raises ValueError). Before this, either one raised out of
+    `evaluate_signal` -> `update_pair` and killed journal tracking on every
+    future cycle, forever, since resolving the poisoned row is exactly the
+    code path that crashed.
+
+    - naive -> treated as UTC (attach tzinfo).
+    - unparseable -> treated as "very old" (datetime.min, UTC) so the
+      signal resolves as expired/timed-out instead of looping.
+
+    Logged once per offender (module-level seen-set) so a poisoned row does
+    not spam the log every time it is re-evaluated. Mirrors the defensive
+    style `Watcher._warn_data_source_failure` uses for the same class of
+    bug.
+    """
+    try:
+        parsed = datetime.fromisoformat(ts)
+    except (TypeError, ValueError):
+        if ts not in _BAD_TIMESTAMP_SEEN:
+            _BAD_TIMESTAMP_SEEN.add(ts)
+            logger.error(
+                "Unparseable journal timestamp — treating as very old",
+                value=ts,
+            )
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
