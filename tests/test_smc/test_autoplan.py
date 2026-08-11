@@ -53,6 +53,34 @@ class TestAutoPlanSettings:
         assert s.zone_ping is True
 
 
+class TestAutoPlanSlotsParsing:
+    """_autoplan_slots: validated 'HH:MM' Prague slots from the raw
+    SMC_AUTO_PLAN_TIMES setting — invalid/out-of-range entries are
+    dropped, duplicates collapse, and the result is sorted."""
+
+    def _watcher(self):
+        return _stub_watcher()
+
+    def test_invalid_entries_dropped_valid_kept(self, monkeypatch):
+        w = self._watcher()
+        monkeypatch.setattr(
+            settings.smc, "auto_plan_times", "07:55, 25:99, garbage, 13:55"
+        )
+        assert w._autoplan_slots() == ["07:55", "13:55"]
+
+    def test_empty_string_yields_no_slots(self, monkeypatch):
+        w = self._watcher()
+        monkeypatch.setattr(settings.smc, "auto_plan_times", "")
+        assert w._autoplan_slots() == []
+
+    def test_duplicates_collapse_and_sort(self, monkeypatch):
+        w = self._watcher()
+        monkeypatch.setattr(
+            settings.smc, "auto_plan_times", "13:55,07:55,13:55,07:55"
+        )
+        assert w._autoplan_slots() == ["07:55", "13:55"]
+
+
 class TestStatePlumbing:
     def _state(self, tmp_path):
         return WatcherState(Database(str(tmp_path / "t.db")))
@@ -72,9 +100,14 @@ class TestStatePlumbing:
 
     def test_legacy_bool_zone_pinged_is_dropped(self, tmp_path):
         db = Database(str(tmp_path / "t.db"))
-        db.kv_set("zone_pinged", {"ETHUSD": True, "EURUSD": [1.0, 2.0, "long", "2026-08-11"]})
+        db.kv_set("zone_pinged", {
+            "ETHUSD": True,
+            "USDJPY": [1.0, 2.0],  # wrong-length list: also dropped
+            "EURUSD": [1.0, 2.0, "long", "2026-08-11"],
+        })
         state = WatcherState(db)
         assert "ETHUSD" not in state.zone_pinged
+        assert "USDJPY" not in state.zone_pinged
         assert state.zone_pinged["EURUSD"] == [1.0, 2.0, "long", "2026-08-11"]
 
 
@@ -453,6 +486,44 @@ class TestSummaryEdit:
         w.planbook.update("ETHUSD", _fetched_entry("ETHUSD", [_scenario(bottom=1.0, top=2.0)]))
         asyncio.run(w._maybe_edit_plan_summary())
         assert w.notifier.edited == []
+
+
+class TestSummaryEditMissingPair:
+    """A pair missing from the planbook (mid-day restart racing a failing
+    feed, or the pair got disabled) must degrade alone — it should never
+    freeze summary edits for the pairs that ARE fresh."""
+
+    def _watcher_with_one_missing(self):
+        w = _stub_watcher()
+        eth_entry = _fetched_entry("ETHUSD")
+        w.planbook.update("ETHUSD", eth_entry)
+        # EURUSD is intentionally absent from the book: the missing-pair case
+        w.state.plan_summary = {
+            "message_id": 42, "slot": "07:55",
+            "date": WatcherState._prague_day(),
+            "fingerprints": {
+                "ETHUSD": plan_fingerprint(eth_entry.plan),
+                "EURUSD": "stale-fingerprint",
+            },
+        }
+        return w
+
+    def test_missing_pair_alone_does_not_trigger_edit(self):
+        w = self._watcher_with_one_missing()
+        asyncio.run(w._maybe_edit_plan_summary())
+        assert w.notifier.edited == []
+
+    def test_other_pair_change_edits_with_placeholder_for_missing(self):
+        w = self._watcher_with_one_missing()
+        moved = _fetched_entry("ETHUSD", [_scenario(bottom=3140.0, top=3145.0)])
+        w.planbook.update("ETHUSD", moved)
+        asyncio.run(w._maybe_edit_plan_summary())
+        assert len(w.notifier.edited) == 1
+        _, text = w.notifier.edited[0]
+        assert "3140.00–3145.00" in text
+        assert "EURUSD" in text and "no fresh plan" in text
+        # the missing pair's stored fingerprint carries forward unchanged
+        assert w.state.plan_summary["fingerprints"]["EURUSD"] == "stale-fingerprint"
 
 
 class TestPlanZoneAlert:

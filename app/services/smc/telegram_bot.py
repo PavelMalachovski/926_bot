@@ -359,7 +359,9 @@ class TelegramCommandBot:
             return
         if data.startswith("aplan_") and self.on_stored_plan:
             key = data[len("aplan_"):]
-            answer["text"] = f"Sending {key} plan…"
+            answer["text"] = (
+                "Sending all plans…" if key == "ALL" else f"Sending {key} plan…"
+            )
             await self._api("answerCallbackQuery", **answer)
             await self.on_stored_plan(key)
             return

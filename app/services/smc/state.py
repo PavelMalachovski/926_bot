@@ -40,10 +40,12 @@ class WatcherState:
         # plan zone already alerted this episode (reset when price leaves,
         # the plan drops the zone, or the day changes). Legacy bool values
         # from the pre-auto-plan ping are dropped: they carry no bounds to
-        # compare against.
+        # compare against. Anything not a 4-element list (legacy bool, a
+        # partially-written record) is dropped the same way.
         raw_pinged = db.kv_get("zone_pinged") or {}
         self.zone_pinged: Dict[str, list] = {
-            k: v for k, v in raw_pinged.items() if isinstance(v, list)
+            k: v for k, v in raw_pinged.items()
+            if isinstance(v, list) and len(v) == 4
         }
         self.pair_profile: Dict[str, str] = db.kv_get("pair_profile") or {}
         # auto-plan snapshot gate: slot "HH:MM" -> Prague date it fired

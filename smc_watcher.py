@@ -21,7 +21,7 @@ import argparse
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 import structlog
@@ -50,7 +50,7 @@ from app.services.smc.notifier import (
 from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
-from app.services.smc.sessions import active_session, to_prague
+from app.services.smc.sessions import PRAGUE, active_session, to_prague
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
 from app.services.smc.trade_journal import TradeJournal
@@ -843,23 +843,39 @@ class Watcher:
         """Silently edit today's summary when any pair's plan materially
         changed since it was rendered (spec §3). Only pairs the summary
         already shows are compared — a summary is a snapshot of its slot's
-        pair set, not a live pair list."""
+        pair set, not a live pair list.
+
+        Degrades per pair: a pair missing from the book (mid-day restart
+        racing a failing feed, or the pair got disabled) carries its stored
+        fingerprint forward unchanged, so it never triggers an edit on its
+        own. When another pair's change DOES trigger one, the summary is
+        rendered from the available plans only, with a static placeholder
+        line for each missing pair — one absent pair no longer freezes
+        summary edits for the whole book."""
         info = self.state.plan_summary
         if not info or info.get("date") != WatcherState._prague_day():
             return
         stored = info.get("fingerprints") or {}
         current: Dict[str, str] = {}
         plans = []
+        missing: List[str] = []
         for k in stored:
             entry = self.planbook.get(k)
             if entry is None:
-                return  # book incomplete (fresh restart) — leave summary be
+                current[k] = stored[k]  # unchanged -> never triggers alone
+                missing.append(k)
+                logger.info(
+                    "Auto-plan summary: pair missing from book", pair=k
+                )
+                continue
             current[k] = plan_fingerprint(entry.plan)
             plans.append(entry.plan)
         if current == stored:
             return
         upd = to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M")
         text = format_plan_summary(info["slot"], plans, updated_hhmm=upd)
+        for k in missing:
+            text += f"\n{escape_html(k)} ⚠️ no fresh plan (data unavailable)"
         ok = await self.notifier.edit_message(
             info["message_id"], text,
             reply_markup=plan_summary_keyboard(list(stored)),
@@ -872,7 +888,13 @@ class Watcher:
     def _seconds_until_next_autoplan(self) -> Optional[float]:
         """Seconds until the nearest configured slot (today or tomorrow),
         so the scheduler can wake AT 07:55/13:55 instead of on the next
-        cadence grid tick five minutes later."""
+        cadence grid tick five minutes later.
+
+        Each candidate is localized fresh from a naive datetime via
+        `PRAGUE.localize` rather than built with `.replace()` on an
+        already-localized `now_local` — `.replace()` keeps `now_local`'s
+        UTC offset, which is wrong for a candidate on the other side of a
+        DST transition."""
         if not settings.smc.auto_plan:
             return None
         slots = self._autoplan_slots()
@@ -882,11 +904,15 @@ class Watcher:
         best = None
         for s in slots:
             hh, mm = (int(x) for x in s.split(":"))
-            candidate = now_local.replace(
-                hour=hh, minute=mm, second=0, microsecond=0
+            candidate = PRAGUE.localize(
+                datetime.combine(now_local.date(), time(hh, mm))
             )
             if candidate <= now_local:
-                candidate += timedelta(days=1)
+                candidate = PRAGUE.localize(
+                    datetime.combine(
+                        now_local.date() + timedelta(days=1), time(hh, mm)
+                    )
+                )
             delta = (candidate - now_local).total_seconds()
             best = delta if best is None else min(best, delta)
         return best

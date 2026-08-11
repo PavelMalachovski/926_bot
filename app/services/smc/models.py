@@ -157,5 +157,9 @@ class AnalysisResult:
     in_zone: bool = False
     # last fetched M5 candles (in-memory only, used for chart rendering)
     m5_candles: Optional[List[Candle]] = field(default=None, repr=False)
-    h4_candles: Optional[List[Candle]] = None  # kept for plan recompute
-    h1_candles: Optional[List[Candle]] = None  # kept for plan recompute/chart
+    h4_candles: Optional[List[Candle]] = field(
+        default=None, repr=False
+    )  # kept for plan recompute
+    h1_candles: Optional[List[Candle]] = field(
+        default=None, repr=False
+    )  # kept for plan recompute/chart
