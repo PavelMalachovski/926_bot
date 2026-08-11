@@ -376,9 +376,11 @@ class TripleSyncEngine:
         # Rule 9.3 — funding rate advisory (crypto only). Symmetric by
         # direction: longs pay positive funding, shorts pay negative — a
         # SHORT at -0.15%/8h is squeezed exactly as hard as a LONG at
-        # +0.15%/8h. The mild tier quotes the actual configured band
-        # (FUNDING_WARN..FUNDING_DANGER) instead of a hardcoded claim that
-        # would go stale if either threshold changes.
+        # +0.15%/8h. The mild tier states only that the rate is above the
+        # FUNDING_WARN advisory floor — no upper-bound (FUNDING_DANGER)
+        # claim, since the favorable-direction extreme (e.g. a LONG at
+        # -0.15%) also falls through to this branch and would falsify a
+        # band claim.
         if result.funding_rate is not None:
             rate = result.funding_rate
             danger_pct = FUNDING_DANGER * 100
