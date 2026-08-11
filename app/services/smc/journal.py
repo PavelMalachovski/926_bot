@@ -135,8 +135,22 @@ class SignalJournal:
         self.signals: List[Dict] = db.signals_all()
 
     def save(self) -> None:
+        """Persist every signal in one pass.
+
+        Kept for bulk loads (e.g. a legacy-JSON import populating
+        `self.signals` directly) and for tests seeding rows by hand. Everyday
+        mutations below use `_persist` instead — re-upserting the whole
+        journal on every `record`/`mark_taken`/`attach_message` call is O(N)
+        DB writes per 5-minute cycle, growing forever as the journal fills.
+        """
         for signal in self.signals:
             self.db.signal_upsert(signal)
+
+    def _persist(self, signal: Dict) -> None:
+        """Write one row. `db.signal_upsert` is already guarded against
+        `sqlite3.Error` (see `Database._run`), so nothing further to catch
+        here."""
+        self.db.signal_upsert(signal)
 
     def record(self, result: AnalysisResult) -> Dict:
         """Store a freshly approved setup."""
@@ -166,7 +180,7 @@ class SignalJournal:
             "profile_key": getattr(result, "profile_key", "conservative"),
         }
         self.signals.append(signal)
-        self.save()
+        self._persist(signal)
         logger.info("Signal recorded", id=signal["id"], pair=signal["pair"])
         return signal
 
@@ -197,14 +211,14 @@ class SignalJournal:
         if signal:
             signal["message_id"] = message_id
             signal["alert_text"] = alert_text
-            self.save()
+            self._persist(signal)
 
     def mark_taken(self, signal_id: str, taken: bool) -> Optional[Dict]:
         """Owner pressed ✅ Took it / ❌ Skipped on the alert."""
         signal = self.get(signal_id)
         if signal:
             signal["taken"] = 1 if taken else 0
-            self.save()
+            self._persist(signal)
             logger.info("Signal marked", id=signal_id, taken=taken)
         return signal
 
@@ -284,8 +298,11 @@ class SignalJournal:
                 logger.info(
                     "Signal resolved", id=signal["id"], pair=pair, outcome=after
                 )
-        if events:
-            self.save()
+            # Every signal reaching here was just re-evaluated (its
+            # checked_until watermark advances even with no status change) —
+            # persist it. This is bounded by this pair's unresolved signals,
+            # never the whole journal (other pairs, already-resolved rows).
+            self._persist(signal)
         return events
 
     def stats_text(self, days: int = 30) -> str:

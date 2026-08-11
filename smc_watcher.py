@@ -616,11 +616,16 @@ class Watcher:
         )
 
     async def _send_chart(self, result: AnalysisResult, reply_to: int) -> None:
-        """Attach the setup chart PNG (must never block the alert)."""
+        """Attach the setup chart PNG (must never block the alert).
+
+        Rendering is ~seconds of matplotlib CPU for a 2200x660 PNG — run it
+        in a worker thread so the polling loop keeps serving commands while
+        it runs, instead of stalling in-loop for the duration.
+        """
         try:
             from app.services.smc.chart import render_setup_chart
 
-            png = render_setup_chart(result)
+            png = await asyncio.to_thread(render_setup_chart, result)
             if png:
                 await self.notifier.send_photo(png, reply_to=reply_to)
         except Exception as e:
@@ -1077,7 +1082,9 @@ class Watcher:
             format_plan(entry.plan, live_line=live_line, as_of=entry.as_of)
         )
         try:
-            png = render_plan_chart(entry.plan, entry.data["h1"])
+            png = await asyncio.to_thread(
+                render_plan_chart, entry.plan, entry.data["h1"]
+            )
             if png:
                 await self.notifier.send_photo(png)
         except Exception as e:

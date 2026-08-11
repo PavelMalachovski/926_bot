@@ -1,8 +1,11 @@
 """Tests for the visual upgrade pack: DB migration, trade marks, discipline,
 live-card events, chart rendering, pretty stats, digest timeline."""
 
+import asyncio
 import sqlite3
 from datetime import datetime, timedelta, timezone
+
+import pytest
 
 from app.services.smc.db import Database
 from app.services.smc.engine import TripleSyncEngine
@@ -474,6 +477,144 @@ class TestChart:
             assert "↑" in ax.texts[0].get_text()
         finally:
             plt.close(fig)
+
+
+class TestChartOffTheEventLoop:
+    """Review-hardening Task 6: matplotlib renders (~seconds of CPU for a
+    2200x660 PNG) used to run synchronously inside the coroutine — during a
+    render the polling loop stalled. Both call sites now go through
+    `asyncio.to_thread`; the failure-isolation contract (a bad render must
+    never block or break the alert/plan) stays intact either way."""
+
+    @staticmethod
+    def _watcher():
+        from smc_watcher import Watcher
+
+        w = Watcher.__new__(Watcher)
+
+        class _FakeNotifier:
+            def __init__(self):
+                self.photos = []
+                self.sent = []
+
+            async def send_photo(self, photo, reply_to=None, caption=None):
+                self.photos.append(photo)
+                return 1
+
+            async def send(self, text, reply_markup=None, disable_notification=False):
+                self.sent.append(text)
+                return 1
+
+        w.notifier = _FakeNotifier()
+        return w
+
+    def test_send_chart_runs_the_render_off_thread_and_survives_a_failure(
+        self, monkeypatch
+    ):
+        import app.services.smc.chart as chart_mod
+
+        calls = []
+
+        def failing_render(result):
+            calls.append(result.symbol)
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(chart_mod, "render_setup_chart", failing_render)
+        w = self._watcher()
+        result = _approved_result()
+
+        # Must not raise (chart rendering must never block/break the alert)
+        # and must still reach the (possibly monkeypatched) render function
+        # via asyncio.to_thread rather than a direct in-loop call.
+        asyncio.run(w._send_chart(result, reply_to=1))
+
+        assert calls == ["ETHUSD"]
+        assert w.notifier.photos == []  # failed render -> no photo sent
+
+    def test_send_chart_sends_the_photo_on_success(self, monkeypatch):
+        import app.services.smc.chart as chart_mod
+
+        monkeypatch.setattr(
+            chart_mod, "render_setup_chart", lambda result: b"\x89PNGfake"
+        )
+        w = self._watcher()
+        asyncio.run(w._send_chart(_approved_result(), reply_to=7))
+
+        assert w.notifier.photos == [b"\x89PNGfake"]
+
+    def test_send_chart_offloads_via_asyncio_to_thread(self, monkeypatch):
+        """Pins the literal contract: the render call goes through
+        `asyncio.to_thread`, not a direct synchronous call on the event
+        loop."""
+        import app.services.smc.chart as chart_mod
+
+        monkeypatch.setattr(chart_mod, "render_setup_chart", lambda result: b"PNG")
+        calls = []
+        real_to_thread = asyncio.to_thread
+
+        async def spy_to_thread(fn, *a, **kw):
+            calls.append(fn)
+            return await real_to_thread(fn, *a, **kw)
+
+        monkeypatch.setattr(asyncio, "to_thread", spy_to_thread)
+        w = self._watcher()
+        asyncio.run(w._send_chart(_approved_result(), reply_to=1))
+
+        assert calls == [chart_mod.render_setup_chart]
+
+    def test_deliver_plan_runs_the_render_off_thread_and_survives_a_failure(
+        self, monkeypatch
+    ):
+        import app.services.smc.chart as chart_mod
+        from app.services.smc.plan import PairPlan
+        from app.services.smc.planbook import PlanEntry
+        from app.services.smc.models import Trend
+
+        calls = []
+
+        def failing_render(plan, h1):
+            calls.append(plan.pair)
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(chart_mod, "render_plan_chart", failing_render)
+        w = self._watcher()
+        plan = PairPlan(
+            pair="ETHUSD", price=100.0, price_decimals=2, h4_trend=Trend.FLAT,
+            market_closed=True,  # skips _live_status, keeps the fixture minimal
+        )
+        entry = PlanEntry(plan=plan, data={"h4": [], "h1": [], "m5": []}, as_of="12:00")
+
+        asyncio.run(w._deliver_plan("ETHUSD", entry))
+
+        assert calls == ["ETHUSD"]
+        assert w.notifier.photos == []  # failed render -> no photo sent
+        assert len(w.notifier.sent) == 1  # the plan text still went out
+
+    def test_deliver_plan_offloads_via_asyncio_to_thread(self, monkeypatch):
+        import app.services.smc.chart as chart_mod
+        from app.services.smc.plan import PairPlan
+        from app.services.smc.planbook import PlanEntry
+        from app.services.smc.models import Trend
+
+        monkeypatch.setattr(chart_mod, "render_plan_chart", lambda plan, h1: b"PNG")
+        calls = []
+        real_to_thread = asyncio.to_thread
+
+        async def spy_to_thread(fn, *a, **kw):
+            calls.append(fn)
+            return await real_to_thread(fn, *a, **kw)
+
+        monkeypatch.setattr(asyncio, "to_thread", spy_to_thread)
+        w = self._watcher()
+        plan = PairPlan(
+            pair="ETHUSD", price=100.0, price_decimals=2, h4_trend=Trend.FLAT,
+            market_closed=True,
+        )
+        entry = PlanEntry(plan=plan, data={"h4": [], "h1": [], "m5": []}, as_of="12:00")
+
+        asyncio.run(w._deliver_plan("ETHUSD", entry))
+
+        assert calls == [chart_mod.render_plan_chart]
 
 
 class TestPrettyStats:
