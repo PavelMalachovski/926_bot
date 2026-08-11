@@ -135,9 +135,10 @@ the stored zones, as today.
   projections (preliminary SL, as the plan message itself warns).
 - Episode dedup: state stores the pinged zone's bounds per pair
   (replacing the `zone_pinged` bool). Reset when price leaves the zone,
-  when the current plan no longer names an overlapping same-direction zone,
-  or on a new Prague day. Zone matching by overlap + direction, the
-  `zone_was_planned` logic.
+  when the current plan no longer names a scenario with the SAME bounds
+  and direction as the pinged zone (a shifted zone is a new episode — its
+  projected numbers changed, so it alerts again), or on a new Prague day.
+  Zone matching by overlap + direction, the `zone_was_planned` logic.
 - The "already managing a position here" cooldown check is kept.
 - Alert failure must not mark the episode as pinged (send first, then mark
   — same ordering rule the fingerprint dedup uses).
