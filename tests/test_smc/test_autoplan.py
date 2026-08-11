@@ -453,3 +453,80 @@ class TestSummaryEdit:
         w.planbook.update("ETHUSD", _fetched_entry("ETHUSD", [_scenario(bottom=1.0, top=2.0)]))
         asyncio.run(w._maybe_edit_plan_summary())
         assert w.notifier.edited == []
+
+
+class TestPlanZoneAlert:
+    """The plan-centric zone alert (spec §5): fires once per episode when
+    the last closed M5 candle first overlaps a scenario zone of the CURRENT
+    plan, quoting the plan's numbers. The old engine-zone ping is gone."""
+
+    def _armed_watcher(self, monkeypatch, price=3137.0):
+        monkeypatch.setattr(settings.smc, "zone_ping", True)
+        w = _stub_watcher()
+        w.planbook.update("ETHUSD", _fetched_entry("ETHUSD"))  # zone 3131-3138
+        return w, _result_with_candles(price=price)
+
+    def test_touch_alerts_with_plan_numbers_once(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))  # same episode
+        assert len(w.notifier.sent) == 1
+        text = w.notifier.sent[0][0]
+        assert "🔔" in text and "Buy Limit 3138.00" in text
+
+    def test_no_alert_outside_zone(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch, price=3160.0)
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        assert w.notifier.sent == []
+
+    def test_exit_resets_episode(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        away = _result_with_candles(price=3160.0)
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", away))  # left the zone
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))     # re-entry
+        assert len(w.notifier.sent) == 2
+
+    def test_plan_dropping_the_zone_resets_episode(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        # plan moves to a different zone that the same candle also touches
+        w.planbook.update(
+            "ETHUSD", _fetched_entry("ETHUSD", [_scenario(bottom=3135.0, top=3141.0)])
+        )
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        assert len(w.notifier.sent) == 2
+
+    def test_off_session_is_silent(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        r.session_name = None
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        assert w.notifier.sent == []
+
+    def test_approved_verdict_is_covered_by_full_alert(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        r.verdict = Verdict.APPROVED_LIMIT
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        assert w.notifier.sent == []
+
+    def test_cooldown_suppresses(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        w.state.pair_cooldown["ETHUSD"] = (
+            datetime.now(tz=timezone.utc) + timedelta(hours=2)
+        ).isoformat()
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        assert w.notifier.sent == []
+
+    def test_send_failure_keeps_episode_unmarked(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        w.notifier.fail_sends = True
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        w.notifier.fail_sends = False
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        assert len(w.notifier.sent) == 1  # retried and delivered
+
+    def test_disabled_by_flag(self, monkeypatch):
+        w, r = self._armed_watcher(monkeypatch)
+        monkeypatch.setattr(settings.smc, "zone_ping", False)
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
+        assert w.notifier.sent == []

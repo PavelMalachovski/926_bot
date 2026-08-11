@@ -456,7 +456,7 @@ class Watcher:
                         f"⚠️ {key}: setup found but the alert failed to send"
                     )
             else:
-                await self._maybe_zone_ping(key, result)
+                await self._maybe_plan_zone_alert(key, result)
                 heartbeat_lines.append(line)
 
         for warning in _correlation_warnings(approved):
@@ -945,29 +945,58 @@ class Watcher:
         reason = res.reasons[0] if res.reasons else "no direction"
         return f"{icon} {prefix}{escape_html(reason)}"
 
-    async def _maybe_zone_ping(self, key: str, result: AnalysisResult) -> None:
-        """Send a one-time 'get ready' ping when price first enters a live zone."""
+    async def _maybe_plan_zone_alert(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> None:
+        """Price first entered a zone the CURRENT plan names: one alert per
+        episode, carrying the plan's projected bracket (spec 2026-08-11 §5;
+        replaced the engine-zone ping — owner decision). An episode ends
+        when price leaves the zone, the plan stops naming it, or the Prague
+        day rolls over."""
         if not settings.smc.zone_ping or result is None:
             return
-        armed = result.in_zone and result.verdict not in APPROVED and result.h1_zone
-        was_pinged = self.state.zone_pinged.get(key, False)
-        if armed and not was_pinged:
-            if self._cooldown_left(key):  # already managing a position here
-                return
-            zone = result.h1_zone
-            d = result.price_decimals
-            kind = "Demand" if zone.is_demand else "Supply"
-            await self.notifier.send(
-                f"🔔 <b>{key}</b>: price reached the H1 {kind} zone "
-                f"{zone.bottom:.{d}f}–{zone.top:.{d}f} — get ready, watching M5 "
-                f"for a {'bullish' if zone.is_demand else 'bearish'} CHoCH + FVG."
+        if not result.session_name or not result.m5_candles:
+            return  # Rule 0.1: get-ready alerts belong to the session
+        last = result.m5_candles[-1]
+        today = WatcherState._prague_day()
+        pinged = self.state.zone_pinged.get(key)
+        if pinged:
+            p_low, p_high, p_dir, p_date = pinged
+            # has_zone() is a fuzzy overlap check (Task 2) — not enough here:
+            # a replacement zone can overlap the old one and still be a
+            # different zone, so the reset check needs an exact match on
+            # the pinged zone's own bounds via the current touching scenario.
+            current = self.planbook.scenario_for_touch(key, last.low, last.high)
+            same_episode = (
+                p_date == today
+                and last.low <= p_high and last.high >= p_low
+                and current is not None
+                and current.zone_bottom == p_low
+                and current.zone_top == p_high
+                and current.direction.value == p_dir
             )
-            self.state.zone_pinged[key] = True
+            if same_episode:
+                return
+            self.state.zone_pinged.pop(key, None)
             self.state.save()
-            logger.info("Zone-touch ping sent", pair=key)
-        elif not result.in_zone and was_pinged:
-            self.state.zone_pinged[key] = False
+        if result.verdict in APPROVED:
+            return  # the full 🚨 alert covers this touch
+        scenario = self.planbook.scenario_for_touch(key, last.low, last.high)
+        if scenario is None:
+            return
+        if self._cooldown_left(key):
+            return  # already managing a position here
+        sent = await self.notifier.send(
+            format_zone_alert(key, scenario, result.price_decimals)
+        )
+        if sent:
+            # mark AFTER the send: a failed delivery must retry next cycle
+            self.state.zone_pinged[key] = [
+                scenario.zone_bottom, scenario.zone_top,
+                scenario.direction.value, today,
+            ]
             self.state.save()
+            logger.info("Plan-zone alert sent", pair=key)
 
     async def _rule_04_warnings(self) -> None:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""

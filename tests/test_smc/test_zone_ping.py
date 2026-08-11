@@ -1,14 +1,13 @@
-"""Tests for /plan⇄watcher info merge: engine in_zone flag, zone-touch ping,
-and the live-status line shown in /plan."""
+"""Tests for /plan⇄watcher info merge: engine in_zone flag and the
+live-status line shown in /plan. The zone-touch ping tests moved to
+test_autoplan.py::TestPlanZoneAlert (plan-centric zone alert)."""
 
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import datetime, timezone
 
 from app.core.config import settings
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import get_instrument
-from app.services.smc.models import AnalysisResult, Verdict, Zone
+from app.services.smc.models import AnalysisResult, Verdict
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
     H4_UPTREND_CLOSES,
@@ -81,66 +80,6 @@ def _watcher(monkeypatch):
     w.state = _State()
     w.notifier = _Notifier()
     return w
-
-
-def _in_zone_result():
-    r = AnalysisResult(
-        symbol="USDJPY",
-        verdict=Verdict.WATCH,
-        checked_at=datetime.now(tz=timezone.utc),
-        price_decimals=3,
-    )
-    r.in_zone = True
-    r.h1_zone = Zone(
-        bottom=162.0, top=162.12, is_demand=True, pivot_index=0,
-        timestamp=r.checked_at,
-    )
-    return r
-
-
-class TestZonePing:
-    @pytest.mark.asyncio
-    async def test_first_entry_pings_once(self, monkeypatch):
-        w = _watcher(monkeypatch)
-        r = _in_zone_result()
-        await w._maybe_zone_ping("USDJPY", r)
-        await w._maybe_zone_ping("USDJPY", r)  # still in zone -> no second ping
-        assert len(w.notifier.sent) == 1
-        assert "reached the H1 Demand zone" in w.notifier.sent[0]
-
-    @pytest.mark.asyncio
-    async def test_reset_on_leaving_then_repings(self, monkeypatch):
-        w = _watcher(monkeypatch)
-        await w._maybe_zone_ping("USDJPY", _in_zone_result())
-        left = _in_zone_result()
-        left.in_zone = False
-        await w._maybe_zone_ping("USDJPY", left)  # left the zone -> reset
-        await w._maybe_zone_ping("USDJPY", _in_zone_result())  # re-entry pings
-        assert len(w.notifier.sent) == 2
-
-    @pytest.mark.asyncio
-    async def test_no_ping_when_approved(self, monkeypatch):
-        w = _watcher(monkeypatch)
-        r = _in_zone_result()
-        r.verdict = Verdict.APPROVED_LIMIT  # full alert handles this, not a ping
-        await w._maybe_zone_ping("USDJPY", r)
-        assert w.notifier.sent == []
-
-    @pytest.mark.asyncio
-    async def test_cooldown_suppresses_ping(self, monkeypatch):
-        w = _watcher(monkeypatch)
-        w.state.pair_cooldown["USDJPY"] = (
-            datetime.now(tz=timezone.utc) + timedelta(hours=2)
-        ).isoformat()
-        await w._maybe_zone_ping("USDJPY", _in_zone_result())
-        assert w.notifier.sent == []
-
-    @pytest.mark.asyncio
-    async def test_disabled_by_flag(self, monkeypatch):
-        w = _watcher(monkeypatch)
-        monkeypatch.setattr(settings.smc, "zone_ping", False)
-        await w._maybe_zone_ping("USDJPY", _in_zone_result())
-        assert w.notifier.sent == []
 
 
 class TestLiveStatus:
