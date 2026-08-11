@@ -41,9 +41,13 @@ from app.services.smc.notifier import (
     escape_html,
     format_no_setup,
     format_plan,
+    format_plan_summary,
     format_result,
+    format_zone_alert,
+    plan_summary_keyboard,
     redact_secrets,
 )
+from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
 from app.services.smc.sessions import active_session, to_prague
@@ -281,6 +285,7 @@ class Watcher:
             on_set_all_profiles=self.state.set_all_profiles,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
+        self.planbook = PlanBook()
         # apply the env default on the very first start (DB wins afterwards)
         if self.db.kv_get("pairs") is None:
             env_pairs = [p for p in settings.smc.default_pairs() if p in INSTRUMENTS]
@@ -395,6 +400,7 @@ class Watcher:
             await self.news.refresh_if_stale()
             await self._rule_04_warnings()
         await self._morning_briefing()
+        await self._maybe_auto_plan()
 
         heartbeat_lines: List[str] = []
         approved: List[AnalysisResult] = []
@@ -658,29 +664,30 @@ class Watcher:
             if k in INSTRUMENTS:
                 await self._send_pair_plan(k)
 
-    async def _send_pair_plan(self, key: str) -> None:
-        """Build and send one pair's Pre-Market Plan (text + H1 chart)."""
-        from app.services.smc.chart import render_plan_chart
+    async def _fetch_pair_plan(
+        self, key: str, force_fresh: bool = True
+    ) -> Optional[PlanEntry]:
+        """Fetch candles and (re)build one pair's plan into the planbook.
+
+        Never writes plan_zones — provenance belongs to the callers that
+        represent something the owner will actually see (snapshot, /plan)."""
         from app.services.smc.plan import build_plan
         from app.services.smc.profiles import get_profile
 
         instrument = get_instrument(key)
         try:
-            # on-demand -> bypass the Twelve Data cache for the freshest candles
             data = await self._build_fetcher(instrument).fetch_all_timeframes(
-                force_fresh=True
+                force_fresh=force_fresh
             )
         except (DataFetchError, ConfigurationError) as e:
-            # /plan has no pause gate and runs even during a news blackout —
-            # both states remove run_cycle's own warning, so a dead source
-            # here would otherwise never reach the owner at all (this is the
-            # command he starts his day with).
+            # same visibility contract as the old _send_pair_plan: a dead
+            # source must reach the owner (see _warn_data_source_failure)
             logger.warning("Plan fetch failed", pair=key, error=str(e))
             await self._warn_data_source_failure(key, str(e))
-            return
+            return None
         except Exception as e:
             logger.warning("Plan fetch failed", pair=key, error=str(e))
-            return
+            return None
         now = datetime.now(tz=timezone.utc)
         stale = (
             instrument.source == "forex"
@@ -693,19 +700,139 @@ class Watcher:
             instrument, data["h4"], data["h1"], data["m5"],
             min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
         )
-        if not plan.market_closed:
-            # Remember every zone this message named — scenario or blocker —
-            # so today's alerts can say whether they came from this picture
-            # (spec §6). A plan with no zones at all is still a plan he read:
-            # it stores an empty list, which is not the same as no plan.
-            self.state.remember_plan_zones(key, plan.zones_shown())
-        live_line = None if stale else self._live_status(instrument, data, now)
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
+        entry = PlanEntry(plan=plan, data=data, as_of=as_of)
+        self.planbook.update(key, entry)
+        return entry
+
+    def _autoplan_slots(self) -> List[str]:
+        """Validated 'HH:MM' Prague slots from SMC_AUTO_PLAN_TIMES."""
+        slots = []
+        for part in settings.smc.auto_plan_times.split(","):
+            part = part.strip()
+            try:
+                hh, mm = part.split(":")
+                hh, mm = int(hh), int(mm)
+                if not (0 <= hh < 24 and 0 <= mm < 60):
+                    raise ValueError(part)
+            except (ValueError, TypeError):
+                logger.warning("Ignoring invalid auto-plan slot", slot=part)
+                continue
+            slots.append(f"{hh:02d}:{mm:02d}")
+        return sorted(set(slots))
+
+    async def _maybe_auto_plan(self) -> None:
+        """Fire the auto-plan snapshot once per slot per Prague day.
+
+        Only the MOST RECENT due slot builds (a 15:00 boot sends the 13:55
+        picture, not the stale morning one); older due slots are consumed
+        silently. A slot is marked only after its summary actually reached
+        Telegram, so a failed send retries next cycle."""
+        if not settings.smc.auto_plan:
+            return
+        slots = self._autoplan_slots()
+        if not slots:
+            return
+        local = to_prague(datetime.now(tz=timezone.utc))
+        today = local.date().isoformat()
+        due = [s for s in slots if s <= local.strftime("%H:%M")]
+        due = [s for s in due if self.state.auto_plan_sent.get(s) != today]
+        if not due:
+            return
+        slot = max(due)
+        sent = await self._auto_plan_snapshot(slot)
+        for s in due:
+            if s == slot and not sent:
+                continue
+            self.state.auto_plan_sent[s] = today
+        self.state.save()
+
+    async def _auto_plan_snapshot(self, slot: str) -> bool:
+        """Build every open pair's plan fresh, remember its zones
+        (provenance, spec §4) and send ONE silent summary with buttons."""
+        local = to_prague(datetime.now(tz=timezone.utc))
+        keys = [
+            k for k in self.state.pairs
+            if k in INSTRUMENTS
+            and (get_instrument(k).source != "forex" or local.weekday() < 5)
+        ]
+        if not keys:
+            return True  # nothing to plan (crypto disabled on a weekend)
+        built: List[Tuple[str, PlanEntry]] = []
+        for k in keys:
+            entry = await self._fetch_pair_plan(k, force_fresh=True)
+            if entry is None:
+                continue
+            if not entry.plan.market_closed:
+                self.state.remember_plan_zones(k, entry.plan.zones_shown())
+            built.append((k, entry))
+        if not built:
+            return False  # every fetch failed — retry next cycle
+        text = format_plan_summary(slot, [e.plan for _, e in built])
+        markup = plan_summary_keyboard([k for k, _ in built])
+        message_id = await self.notifier.send(
+            text, reply_markup=markup, disable_notification=True
+        )
+        if not message_id:
+            return False
+        self.state.plan_summary = {
+            "message_id": message_id,
+            "slot": slot,
+            "date": local.date().isoformat(),
+            "fingerprints": {
+                k: plan_fingerprint(e.plan) for k, e in built
+            },
+        }
+        self.state.save()
+        logger.info("Auto-plan summary sent", slot=slot, pairs=len(built))
+        return True
+
+    def _seconds_until_next_autoplan(self) -> Optional[float]:
+        """Seconds until the nearest configured slot (today or tomorrow),
+        so the scheduler can wake AT 07:55/13:55 instead of on the next
+        cadence grid tick five minutes later."""
+        if not settings.smc.auto_plan:
+            return None
+        slots = self._autoplan_slots()
+        if not slots:
+            return None
+        now_local = to_prague(datetime.now(tz=timezone.utc))
+        best = None
+        for s in slots:
+            hh, mm = (int(x) for x in s.split(":"))
+            candidate = now_local.replace(
+                hour=hh, minute=mm, second=0, microsecond=0
+            )
+            if candidate <= now_local:
+                candidate += timedelta(days=1)
+            delta = (candidate - now_local).total_seconds()
+            best = delta if best is None else min(best, delta)
+        return best
+
+    async def _send_pair_plan(self, key: str) -> None:
+        """Build and send one pair's Pre-Market Plan (text + H1 chart)."""
+        entry = await self._fetch_pair_plan(key, force_fresh=True)
+        if entry is None:
+            return
+        if not entry.plan.market_closed:
+            self.state.remember_plan_zones(key, entry.plan.zones_shown())
+        await self._deliver_plan(key, entry)
+
+    async def _deliver_plan(self, key: str, entry: PlanEntry) -> None:
+        """Send a plan message + chart from an already-built PlanEntry."""
+        from app.services.smc.chart import render_plan_chart
+
+        instrument = get_instrument(key)
+        now = datetime.now(tz=timezone.utc)
+        live_line = (
+            None if entry.plan.market_closed
+            else self._live_status(instrument, entry.data, now)
+        )
         await self.notifier.send(
-            format_plan(plan, live_line=live_line, as_of=as_of)
+            format_plan(entry.plan, live_line=live_line, as_of=entry.as_of)
         )
         try:
-            png = render_plan_chart(plan, data["h1"])
+            png = render_plan_chart(entry.plan, entry.data["h1"])
             if png:
                 await self.notifier.send_photo(png)
         except Exception as e:
@@ -896,7 +1023,12 @@ class Watcher:
             now = datetime.now(tz=timezone.utc)
             interval = session_interval if active_session(now) else off_interval
             # +10s so the just-closed M5 candle is already served by the APIs
-            await asyncio.sleep(_seconds_until_next_slot(interval) + 10)
+            sleep_s = _seconds_until_next_slot(interval) + 10
+            # wake AT the auto-plan slot (07:55 sits off the 15-min grid)
+            next_plan = self._seconds_until_next_autoplan()
+            if next_plan is not None:
+                sleep_s = min(sleep_s, next_plan + 5)
+            await asyncio.sleep(sleep_s)
 
     async def run_forever(self) -> None:
         await asyncio.gather(self.scheduler_loop(), self.bot.run())

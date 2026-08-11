@@ -1,9 +1,12 @@
 """Tests for the auto-plan feature: settings, state plumbing, summary
 formatting, snapshot gate, per-cycle recompute/edit and the plan-zone alert."""
 
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timedelta, timezone
 
-from app.core.config import SMCSettings
+import pytest
+
+from app.core.config import settings, SMCSettings
 from app.services.smc.db import Database
 from app.services.smc.models import Direction, Trend
 from app.services.smc.notifier import (
@@ -12,6 +15,7 @@ from app.services.smc.notifier import (
     plan_summary_keyboard,
 )
 from app.services.smc.plan import PairPlan, PlanScenario
+from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.state import WatcherState
 
 
@@ -152,3 +156,198 @@ class TestZoneAlertFormat:
         text = format_zone_alert("EURUSD", s, 2)
         assert "Supply zone" in text and "Sell Limit 3131.00" in text
         assert "(speculative)" in text and "bearish" in text
+
+
+class _StubState:
+    def __init__(self):
+        self.pairs = ["ETHUSD"]
+        self.pair_profile = {}
+        self.pair_cooldown = {}
+        self.zone_pinged = {}
+        self.auto_plan_sent = {}
+        self.plan_summary = {}
+        self.plan_zones = {}
+        self.plan_zones_date = ""
+        self.paused = False
+
+    def save(self):
+        pass
+
+    def remember_plan_zones(self, key, zones, now=None):
+        from app.services.smc.state import WatcherState
+        self.plan_zones[key.upper()] = [
+            WatcherState._normalise_zone(z) for z in zones
+        ]
+        self.plan_zones_date = WatcherState._prague_day(now)
+
+
+class _StubNotifier:
+    def __init__(self):
+        self.sent = []          # (text, reply_markup, disable_notification)
+        self.edited = []        # (message_id, text)
+        self.photos = []
+        self.fail_sends = False
+
+    async def send(self, text, reply_markup=None, disable_notification=False):
+        if self.fail_sends:
+            return None
+        self.sent.append((text, reply_markup, disable_notification))
+        return len(self.sent)
+
+    async def edit_message(self, message_id, text, reply_markup=None):
+        self.edited.append((message_id, text))
+        return True
+
+    async def send_photo(self, photo, caption=None, reply_to=None):
+        self.photos.append(photo)
+        return 99
+
+
+def _stub_watcher():
+    from smc_watcher import Watcher
+
+    w = Watcher.__new__(Watcher)
+    w.state = _StubState()
+    w.notifier = _StubNotifier()
+    w.planbook = PlanBook()
+    return w
+
+
+def _fetched_entry(pair="ETHUSD", scenarios=None):
+    return PlanEntry(
+        plan=_pair_plan(pair, scenarios or [_scenario()]),
+        data={"h4": [], "h1": [], "m5": []},
+        as_of="07:54",
+    )
+
+
+class TestAutoPlanGate:
+    """_maybe_auto_plan: once per slot per Prague day, most recent slot only."""
+
+    def _watcher_with_fake_snapshot(self, monkeypatch):
+        w = _stub_watcher()
+        w.snapshots = []
+
+        async def fake_snapshot(slot):
+            w.snapshots.append(slot)
+            return True
+
+        w._auto_plan_snapshot = fake_snapshot
+        monkeypatch.setattr(settings.smc, "auto_plan", True)
+        monkeypatch.setattr(settings.smc, "auto_plan_times", "07:55,13:55")
+        return w
+
+    def test_fires_most_recent_due_slot_once(self, monkeypatch):
+        import smc_watcher as mod
+        w = self._watcher_with_fake_snapshot(monkeypatch)
+        # 15:00 Prague = 13:00 UTC in July (CEST): both slots due
+        fake_now = datetime(2026, 7, 6, 13, 0, tzinfo=timezone.utc)
+
+        class _DT(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fake_now
+
+        monkeypatch.setattr(mod, "datetime", _DT)
+        asyncio.run(w._maybe_auto_plan())
+        assert w.snapshots == ["13:55"]          # morning slot skipped as stale
+        assert w.state.auto_plan_sent["13:55"]   # marked
+        assert w.state.auto_plan_sent["07:55"]   # stale slot consumed too
+        asyncio.run(w._maybe_auto_plan())
+        assert w.snapshots == ["13:55"]          # no re-fire same day
+
+    def test_nothing_before_first_slot(self, monkeypatch):
+        import smc_watcher as mod
+        w = self._watcher_with_fake_snapshot(monkeypatch)
+        fake_now = datetime(2026, 7, 6, 4, 0, tzinfo=timezone.utc)  # 06:00 Prague
+
+        class _DT(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fake_now
+
+        monkeypatch.setattr(mod, "datetime", _DT)
+        asyncio.run(w._maybe_auto_plan())
+        assert w.snapshots == []
+
+    def test_disabled_by_flag(self, monkeypatch):
+        w = self._watcher_with_fake_snapshot(monkeypatch)
+        monkeypatch.setattr(settings.smc, "auto_plan", False)
+        asyncio.run(w._maybe_auto_plan())
+        assert w.snapshots == []
+
+    def test_failed_send_retries_next_cycle(self, monkeypatch):
+        import smc_watcher as mod
+        w = _stub_watcher()
+        calls = []
+
+        async def failing_snapshot(slot):
+            calls.append(slot)
+            return False
+
+        w._auto_plan_snapshot = failing_snapshot
+        monkeypatch.setattr(settings.smc, "auto_plan", True)
+        monkeypatch.setattr(settings.smc, "auto_plan_times", "07:55")
+        fake_now = datetime(2026, 7, 6, 6, 0, tzinfo=timezone.utc)  # 08:00 Prague
+
+        class _DT(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fake_now
+
+        monkeypatch.setattr(mod, "datetime", _DT)
+        asyncio.run(w._maybe_auto_plan())
+        asyncio.run(w._maybe_auto_plan())
+        assert calls == ["07:55", "07:55"]  # unmarked -> retried
+
+
+class TestAutoPlanSnapshot:
+    def _watcher(self, monkeypatch, pairs=("ETHUSD",)):
+        w = _stub_watcher()
+        w.state.pairs = list(pairs)
+
+        async def fake_fetch(key, force_fresh=True):
+            entry = _fetched_entry(key)
+            w.planbook.update(key, entry)
+            return entry
+
+        w._fetch_pair_plan = fake_fetch
+        return w
+
+    def test_snapshot_sends_silent_summary_and_remembers_zones(self, monkeypatch):
+        w = self._watcher(monkeypatch)
+        ok = asyncio.run(w._auto_plan_snapshot("07:55"))
+        assert ok is True
+        text, markup, silent = w.notifier.sent[0]
+        assert silent is True
+        assert "Pre-Market Plan 07:55" in text
+        assert any(
+            "aplan_ETHUSD" in str(row) for row in markup["inline_keyboard"]
+        )
+        # snapshot writes provenance (spec §4)
+        assert "ETHUSD" in w.state.plan_zones
+        # summary state stored for later edits
+        assert w.state.plan_summary["slot"] == "07:55"
+        assert "ETHUSD" in w.state.plan_summary["fingerprints"]
+
+    def test_weekend_skips_forex_keeps_crypto(self, monkeypatch):
+        import smc_watcher as mod
+        w = self._watcher(monkeypatch, pairs=("ETHUSD", "EURUSD"))
+        # Saturday 2026-07-04, 07:55 Prague
+        fake_now = datetime(2026, 7, 4, 5, 55, tzinfo=timezone.utc)
+
+        class _DT(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fake_now
+
+        monkeypatch.setattr(mod, "datetime", _DT)
+        asyncio.run(w._auto_plan_snapshot("07:55"))
+        text = w.notifier.sent[0][0]
+        assert "ETHUSD" in text and "EURUSD" not in text
+
+    def test_failed_summary_send_returns_false(self, monkeypatch):
+        w = self._watcher(monkeypatch)
+        w.notifier.fail_sends = True
+        assert asyncio.run(w._auto_plan_snapshot("07:55")) is False
+        assert w.state.plan_summary == {}

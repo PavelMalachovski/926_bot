@@ -469,9 +469,13 @@ class TestAlertSendIsolation:
     def _watcher(self, tmp_path):
         from app.services.smc.db import Database
         from app.services.smc.journal import SignalJournal
+        from app.services.smc.planbook import PlanBook
         from smc_watcher import Watcher
 
         async def _no_chart(*args, **kwargs):
+            return None
+
+        async def _no_auto_plan():
             return None
 
         db = Database(str(tmp_path / "smc.db"))
@@ -484,6 +488,11 @@ class TestAlertSendIsolation:
         watcher._send_chart = _no_chart
         watcher.news = None
         watcher.last_results = {}
+        watcher.planbook = PlanBook()
+        # These tests exercise run_cycle's per-pair alert isolation, not the
+        # auto-plan snapshot — which would otherwise run a real (network)
+        # fetch here depending on the wall clock at test time.
+        watcher._maybe_auto_plan = _no_auto_plan
         return watcher
 
     @pytest.mark.asyncio
@@ -693,7 +702,11 @@ class TestDataSourceFailureWarning:
     def _watcher(self, tmp_path):
         from app.services.smc.db import Database
         from app.services.smc.journal import SignalJournal
+        from app.services.smc.planbook import PlanBook
         from smc_watcher import Watcher
+
+        async def _no_auto_plan():
+            return None
 
         db = Database(str(tmp_path / "smc.db"))
         watcher = Watcher.__new__(Watcher)
@@ -703,6 +716,12 @@ class TestDataSourceFailureWarning:
         watcher.notifier = self._FakeNotifier()
         watcher.news = None
         watcher.last_results = {}
+        watcher.planbook = PlanBook()
+        # This class exercises the data-source-warning throttle via
+        # run_cycle, not the auto-plan snapshot — which would otherwise run
+        # a real (network) fetch here depending on the wall clock at test
+        # time, and double up the very warning these tests count.
+        watcher._maybe_auto_plan = _no_auto_plan
         return watcher
 
     @pytest.mark.asyncio
