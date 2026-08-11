@@ -27,9 +27,15 @@ setup appears.
   (incl. a session-block breakdown of today's releases)
 - 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair, folded
   together with the **live checklist status** (projection + where the pair is
-  right now); conditional entry/SL/TP/RR + H1 chart, both-way brackets when flat
-- 🔔 **Zone-touch ping** — a light "get ready" nudge the moment price reaches a
-  live H1 zone, before the full 🚨 setup forms (opt-in via `SMC_ZONE_PING=true`)
+  right now); conditional entry/SL/TP/RR + H1 chart, both-way brackets when
+  flat. The bot also builds it automatically at **07:55/13:55 Prague** for
+  every enabled pair: a silent summary (no push notification) with a button
+  per pair delivers that pair's full plan on demand (`SMC_AUTO_PLAN=true` by
+  default)
+- 🔔 **Zone-touch alert** — a "get ready" nudge the moment price reaches a
+  zone named by the *current* Pre-Market Plan, carrying that scenario's
+  projected entry/SL/TP/RR, before the full 🚨 setup forms (on by default,
+  `SMC_ZONE_PING=false` to disable)
 - ⏸ **`/pause` / `/resume`** — mute everything (alerts, digest, warnings)
   until you switch it back on; survives restarts
 - 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;

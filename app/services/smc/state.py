@@ -36,10 +36,23 @@ class WatcherState:
         self.day_stop_notified: str = db.kv_get("day_stop_notified") or ""
         # pair -> ISO expiry: no new alerts for the pair until then (Took it)
         self.pair_cooldown: Dict[str, str] = db.kv_get("pair_cooldown") or {}
-        # pair -> bool: whether the "price reached the zone" ping was sent for
-        # the current in-zone episode (reset when price leaves the zone)
-        self.zone_pinged: Dict[str, bool] = db.kv_get("zone_pinged") or {}
+        # pair -> [zone_bottom, zone_top, direction, prague_date] of the
+        # plan zone already alerted this episode (reset when price leaves,
+        # the plan drops the zone, or the day changes). Legacy bool values
+        # from the pre-auto-plan ping are dropped: they carry no bounds to
+        # compare against. Anything not a 4-element list (legacy bool, a
+        # partially-written record) is dropped the same way.
+        raw_pinged = db.kv_get("zone_pinged") or {}
+        self.zone_pinged: Dict[str, list] = {
+            k: v for k, v in raw_pinged.items()
+            if isinstance(v, list) and len(v) == 4
+        }
         self.pair_profile: Dict[str, str] = db.kv_get("pair_profile") or {}
+        # auto-plan snapshot gate: slot "HH:MM" -> Prague date it fired
+        self.auto_plan_sent: Dict[str, str] = db.kv_get("auto_plan_sent") or {}
+        # the latest plan-summary message, so silent edits survive restarts:
+        # {"message_id", "slot", "date", "fingerprints": {pair: fingerprint}}
+        self.plan_summary: dict = db.kv_get("plan_summary") or {}
         # global mute: scheduler cycles are no-ops until /resume
         self.paused: bool = bool(db.kv_get("paused") or False)
         # pair -> [[bottom, top, direction], ...] shown by the last /plan run,
@@ -63,6 +76,8 @@ class WatcherState:
         self.db.kv_set("paused", self.paused)
         self.db.kv_set("plan_zones", self.plan_zones)
         self.db.kv_set("plan_zones_date", self.plan_zones_date)
+        self.db.kv_set("auto_plan_sent", self.auto_plan_sent)
+        self.db.kv_set("plan_summary", self.plan_summary)
 
     # ------------------------------------------------------------ plan zones
 

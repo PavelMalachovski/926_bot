@@ -469,6 +469,7 @@ class TestAlertSendIsolation:
     def _watcher(self, tmp_path):
         from app.services.smc.db import Database
         from app.services.smc.journal import SignalJournal
+        from app.services.smc.planbook import PlanBook
         from smc_watcher import Watcher
 
         async def _no_chart(*args, **kwargs):
@@ -484,6 +485,13 @@ class TestAlertSendIsolation:
         watcher._send_chart = _no_chart
         watcher.news = None
         watcher.last_results = {}
+        # run_cycle references self.planbook only via the real
+        # _maybe_auto_plan -> _auto_plan_snapshot -> _fetch_pair_plan chain,
+        # which the tests/test_smc/conftest.py autouse fixture keeps
+        # disabled by default (settings.smc.auto_plan = False), so
+        # _maybe_auto_plan short-circuits before touching planbook. Kept
+        # here anyway so run_cycle's attribute access stays satisfied.
+        watcher.planbook = PlanBook()
         return watcher
 
     @pytest.mark.asyncio
@@ -693,6 +701,7 @@ class TestDataSourceFailureWarning:
     def _watcher(self, tmp_path):
         from app.services.smc.db import Database
         from app.services.smc.journal import SignalJournal
+        from app.services.smc.planbook import PlanBook
         from smc_watcher import Watcher
 
         db = Database(str(tmp_path / "smc.db"))
@@ -703,6 +712,15 @@ class TestDataSourceFailureWarning:
         watcher.notifier = self._FakeNotifier()
         watcher.news = None
         watcher.last_results = {}
+        # run_cycle references self.planbook only via the real
+        # _maybe_auto_plan -> _auto_plan_snapshot -> _fetch_pair_plan chain,
+        # which the tests/test_smc/conftest.py autouse fixture keeps
+        # disabled by default (settings.smc.auto_plan = False), so
+        # _maybe_auto_plan short-circuits before touching planbook and
+        # before it can double up the data-source warning these tests
+        # count. Kept here anyway so run_cycle's attribute access stays
+        # satisfied.
+        watcher.planbook = PlanBook()
         return watcher
 
     @pytest.mark.asyncio

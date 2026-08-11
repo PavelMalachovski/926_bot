@@ -378,6 +378,8 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
         lines.append(f"💵 {plan.price:.{d}f}{suffix}")
     if live_line:
         lines.append(f"📍 <b>Live now:</b> {live_line}")
+    if getattr(plan, "direction_note", None):
+        lines.append(f"⚠️ {escape_html(plan.direction_note)}")
 
     if not plan.scenarios and (plan.note or plan.blocker):
         # No setup in the plan: say which stage is missing, in the live
@@ -423,6 +425,75 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
     return "\n".join(lines)
 
 
+def format_plan_summary(slot_hhmm, plans, updated_hhmm=None) -> str:
+    """One-line-per-pair digest of the auto-built Pre-Market Plans.
+
+    Silent by design (the send uses disable_notification): the owner sees
+    that plans exist without being pushed their content — the buttons under
+    this message deliver the full plan on demand (spec 2026-08-11 §2).
+    """
+    title = (
+        f"📋 <b>Pre-Market Plan {escape_html(slot_hhmm)}</b> "
+        "— press a pair for details"
+    )
+    if updated_hhmm:
+        title += f" · upd {escape_html(updated_hhmm)}"
+    lines = [title]
+    for plan in plans:
+        d = plan.price_decimals
+        name = escape_html(plan.pair)
+        if plan.market_closed:
+            lines.append(f"{name} 😴 market closed")
+            continue
+        if not plan.scenarios:
+            reason = plan.blocker or plan.note or "no plan"
+            lines.append(f"{name} ⛔ waiting: {escape_html(reason)}")
+            continue
+        for s in plan.scenarios:
+            is_long = s.direction == Direction.LONG
+            arrow = "🔼" if is_long else "🔽"
+            spec = " (speculative)" if s.speculative else ""
+            lines.append(
+                f"{name} {arrow} {'LONG' if is_long else 'SHORT'} zone "
+                f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f} (~1:{s.rr:.1f}){spec}"
+            )
+    return "\n".join(lines)
+
+
+def plan_summary_keyboard(pairs) -> dict:
+    """aplan_* buttons under the summary: two pairs per row, then All."""
+    rows, row = [], []
+    for key in pairs:
+        row.append({"text": key, "callback_data": f"aplan_{key}"})
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([{"text": "🌐 All pairs", "callback_data": "aplan_ALL"}])
+    return {"inline_keyboard": rows}
+
+
+def format_zone_alert(pair, scenario, decimals: int) -> str:
+    """Price reached a plan zone: the get-ready moment, with the plan's own
+    projected bracket so the owner sees the scenario without pressing
+    anything (spec 2026-08-11 §5). SL here is the plan's preliminary one —
+    the live 🚨 alert re-anchors it (Rule 6)."""
+    d = decimals
+    is_long = scenario.direction == Direction.LONG
+    kind = "Demand" if is_long else "Supply"
+    side = "Buy" if is_long else "Sell"
+    spec = " (speculative)" if scenario.speculative else ""
+    return (
+        f"🔔 <b>{escape_html(pair)}</b>: price reached the {kind} zone "
+        f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}\n"
+        f"📋 Plan: {'LONG' if is_long else 'SHORT'} — {side} Limit "
+        f"{scenario.entry:.{d}f} | 🛑 SL {scenario.stop_loss:.{d}f} "
+        f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}\n"
+        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG."
+    )
+
+
 class TelegramNotifier:
     """Minimal standalone Telegram sender (no DB dependencies)."""
 
@@ -449,12 +520,17 @@ class TelegramNotifier:
             return None
 
     async def send(
-        self, text: str, reply_markup: Optional[dict] = None
+        self,
+        text: str,
+        reply_markup: Optional[dict] = None,
+        disable_notification: bool = False,
     ) -> Optional[int]:
         """Send a message; returns its message_id or None on failure."""
         payload = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"}
         if reply_markup:
             payload["reply_markup"] = reply_markup
+        if disable_notification:
+            payload["disable_notification"] = True
         result = await self._api("sendMessage", **payload)
         return result.get("message_id") if result else None
 

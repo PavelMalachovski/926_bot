@@ -55,6 +55,11 @@ class PairPlan:
     # bounds this morning, so the zone counts as planned (owner decision
     # 2026-08-06, spec §6).
     blocker_zone: Optional[Tuple[float, float, str]] = None
+    # Rule 1 parity with the engine: when H4 is FLAT the direction can come
+    # from the H1 trend (owner decision 2026-08-06) or — aggressive only —
+    # from an unreclaimed H4 CHoCH. The note labels that source the same way
+    # the live alert does; None when the direction is plain H4 (or absent).
+    direction_note: Optional[str] = None
 
     def zones_shown(self) -> List[Tuple[float, float, str]]:
         """Every zone this plan message named, scenario or blocker — the set
@@ -238,10 +243,25 @@ def build_plan(
         directions = [(Direction.LONG, False)]
     elif trend == Trend.DOWN:
         directions = [(Direction.SHORT, False)]
-    elif profile.allow_h4_choch_entry:
-        choch = h4_choch_direction(h4)
-        if choch is not None:
-            directions = [(choch, False)]  # aggressive: first-leg direction
+    else:
+        # Engine parity (engine.evaluate Rule 1): H1 trend first, then —
+        # aggressive only — the H4 CHoCH first leg. The zone alert quotes
+        # this plan's numbers, so the plan may not disagree with the engine
+        # about which side of the market is in play.
+        h1_trend = detect_trend(h1)
+        if h1_trend == Trend.UP:
+            directions = [(Direction.LONG, False)]
+            plan.direction_note = "H4 flat — direction from H1 uptrend"
+        elif h1_trend == Trend.DOWN:
+            directions = [(Direction.SHORT, False)]
+            plan.direction_note = "H4 flat — direction from H1 downtrend"
+        elif profile.allow_h4_choch_entry:
+            choch = h4_choch_direction(h4)
+            if choch is not None:
+                directions = [(choch, False)]  # aggressive: first-leg direction
+                plan.direction_note = (
+                    "H4 flat — direction from CHoCH (first leg, not with-trend)"
+                )
     if not directions and trend == Trend.FLAT:
         directions = [(Direction.LONG, True), (Direction.SHORT, True)]
 

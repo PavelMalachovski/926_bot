@@ -127,11 +127,11 @@ class TestPauseCommands:
 
 
 class TestNewDefaults:
-    def test_zone_ping_default_off(self, monkeypatch):
+    def test_zone_ping_default_on(self, monkeypatch):
         monkeypatch.delenv("SMC_ZONE_PING", raising=False)
         from app.core.config import SMCSettings
 
-        assert SMCSettings().zone_ping is False
+        assert SMCSettings().zone_ping is True
 
     def test_chart_candles_default_doubled(self):
         from app.services.smc import chart

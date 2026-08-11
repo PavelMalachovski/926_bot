@@ -33,6 +33,8 @@ HELP_TEXT = (
     "/status — current settings and last verdicts\n"
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
+    "Auto-plan: silent 07:55/13:55 summaries — press a pair button "
+    "for the full plan\n"
     "/stats — signal journal: setups, TP/SL, winrate\n"
     "/journal — trade journal: send an MT4 history screenshot to log trades\n"
     "/news — today's red news (Forex Factory)\n"
@@ -56,6 +58,7 @@ class TelegramCommandBot:
         news_text: Optional[Callable[[], str]] = None,
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
+        on_stored_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         trade_journal: Optional[Any] = None,
         on_set_profile: Optional[Callable[[str, str], None]] = None,
         pair_profiles: Optional[Callable[[], Dict[str, str]]] = None,
@@ -72,6 +75,7 @@ class TelegramCommandBot:
         self.news_text = news_text
         self.on_trade_mark = on_trade_mark
         self.on_plan = on_plan
+        self.on_stored_plan = on_stored_plan
         self.trade_journal = trade_journal
         self.on_set_profile = on_set_profile
         self.pair_profiles = pair_profiles
@@ -352,6 +356,14 @@ class TelegramCommandBot:
                 )
             await self._api("answerCallbackQuery", **answer)
             await self.send("▶️ <b>Resumed</b> — watching pairs again.")
+            return
+        if data.startswith("aplan_") and self.on_stored_plan:
+            key = data[len("aplan_"):]
+            answer["text"] = (
+                "Sending all plans…" if key == "ALL" else f"Sending {key} plan…"
+            )
+            await self._api("answerCallbackQuery", **answer)
+            await self.on_stored_plan(key)
             return
         if data.startswith("plan_") and self.on_plan:
             key = data[5:]

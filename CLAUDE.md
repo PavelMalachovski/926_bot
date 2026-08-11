@@ -54,7 +54,11 @@ smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           off-session), per-pair cycle, alert dedup, live
                           setup cards, discipline suppression, 07:45 weekday
                           news digest, on-demand /plan, Rule 0.4 warnings,
-                          journal tracking
+                          journal tracking, auto-plan snapshots at 07:55/13:55
+                          (silent summary + aplan_* buttons), per-cycle plan
+                          recompute into the planbook with silent summary
+                          edits on material change, plan-centric zone alerts
+                          (replaced the old engine-zone ping)
 app/services/smc/
 ├── engine.py             TripleSyncEngine: rules 0-8 checklist; pure
 │                         evaluate() is fully unit-testable on synthetic candles
@@ -88,8 +92,15 @@ app/services/smc/
 │                         discipline_block (Rule 10 / Rule 0.2), /stats
 ├── plan.py               Pre-Market Plan (Шаблон B): projected entry/SL/TP/RR
 │                         from H4/H1 structure; both-way brackets when H4 flat;
-│                         on-demand via /plan, folded with live engine status.
-│                         Zone-touch ping fires when result.in_zone flips true
+│                         on-demand via /plan, folded with live engine status;
+│                         Rule 1 direction parity with the engine (H1-trend
+│                         fallback on H4 FLAT, ahead of the aggressive-profile
+│                         CHoCH check, before both-way speculative brackets)
+├── planbook.py           in-memory current-plan store (PlanBook/PlanEntry),
+│                         filled by the 07:55/13:55 snapshot and by the
+│                         per-cycle recompute; material fingerprint
+│                         (plan_fingerprint) drives silent summary edits;
+│                         scenario_for_touch backs the plan-zone alert
 ├── chart.py              alert chart PNG (M5) + plan chart PNG (H1): candles,
 │                         zones, levels (matplotlib Agg, NO pandas — keep it so)
 ├── telegram_bot.py       long-polling commands, slash-menu registration,
@@ -160,6 +171,17 @@ tracking → live-card edits on fill/TP/SL events.
   pool behind a swing extreme. Rule 7 aims at liquidity; Rule 2 enters at a
   zone. Sweep detection is wick-based with a tolerance of the raw per-
   instrument `min_fvg` — never the profile-scaled value.
+- **Plan-centric zone alert** (spec 2026-08-11 §5, replaced the old engine-
+  zone ping): fires when price first touches a zone named by the pair's
+  *current* plan (`planbook.scenario_for_touch`), carrying that scenario's
+  projected bracket. `state.zone_pinged[key]` stores the pinged zone's own
+  bounds + direction + Prague date (no longer a bool); the episode resets
+  only on an exact bounds+direction mismatch against the *current* touching
+  scenario — a shifted-but-overlapping zone is a new episode and alerts
+  again. `state.remember_plan_zones` (the separate "from this morning's
+  plan" provenance, spec 2026-08-06 §6) is written **only** by the
+  07:55/13:55 snapshots and manual `/plan` — never by the 5-minute
+  recompute, or comparing a plan against itself would always match.
 
 ## Workflow
 
