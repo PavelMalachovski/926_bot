@@ -85,13 +85,30 @@ class TelegramCommandBot:
 
     # ------------------------------------------------------------- transport
 
-    async def _api(self, method: str, http_timeout: float = 35.0, **payload) -> Dict:
-        async with httpx.AsyncClient(timeout=http_timeout) as client:
-            response = await client.post(f"{self.base_url}/{method}", json=payload)
-            data = response.json()
-            if not data.get("ok"):
-                logger.warning("Telegram API error", method=method, response=data)
-            return data
+    async def _api(self, method: str, http_timeout: float = 35.0, **payload) -> Any:
+        """POST to the Bot API; return the `result` payload on success, None
+        on any failure. Mirrors `TelegramNotifier._api`'s discipline — a
+        transient DNS failure, a non-JSON body from a misbehaving proxy, and
+        a parsed `ok: false` (409 second-instance overlap, 401 revoked
+        token) are all failures, and none of them may raise: this bot shares
+        its process with the scheduler, so an unguarded exception here would
+        take alerts down with it."""
+        try:
+            async with httpx.AsyncClient(timeout=http_timeout) as client:
+                response = await client.post(f"{self.base_url}/{method}", json=payload)
+                data = response.json()
+        except (httpx.HTTPError, ValueError) as e:
+            logger.error("Telegram API transport error", method=method, error=str(e))
+            return None
+        if not data.get("ok"):
+            logger.error(
+                "Telegram API error",
+                method=method,
+                status=data.get("error_code"),
+                description=data.get("description"),
+            )
+            return None
+        return data.get("result")
 
     async def send(self, text: str, reply_markup: Optional[Dict] = None) -> None:
         payload: Dict[str, Any] = {
@@ -107,7 +124,7 @@ class TelegramCommandBot:
         """Resolve a file_id via getFile and download its bytes."""
         try:
             info = await self._api("getFile", file_id=file_id)
-            file_path = info.get("result", {}).get("file_path")
+            file_path = (info or {}).get("file_path")
             if not file_path:
                 return None
             url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
@@ -121,33 +138,61 @@ class TelegramCommandBot:
 
     # ------------------------------------------------------------------ loop
 
+    _BACKOFF_START = 5.0
+    _BACKOFF_CAP = 300.0
+
     async def run(self) -> None:
         """Poll Telegram for commands forever."""
         # The old FastAPI bot registered a webhook; getUpdates conflicts with
-        # it, so drop it (and any stale backlog) once at startup.
-        await self._api("deleteWebhook", drop_pending_updates=True)
-        await self._setup_bot_profile()
+        # it, so drop it (and any stale backlog) once at startup. `_api`
+        # itself never raises (see above), but a flaky boot must not be able
+        # to kill this coroutine some other way either: run_forever gathers
+        # it alongside the scheduler, so an exception here would take the
+        # whole watcher down with it. Log and fall through into polling.
+        try:
+            await self._api("deleteWebhook", drop_pending_updates=True)
+            await self._setup_bot_profile()
+        except Exception as e:
+            logger.error(
+                "Telegram bot startup step failed, continuing",
+                error=str(e),
+                exc_info=True,
+            )
         logger.info("Telegram command bot started (long polling)")
+        backoff = self._BACKOFF_START
         while True:
+            if await self._poll_once():
+                backoff = self._BACKOFF_START
+            else:
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, self._BACKOFF_CAP)
+
+    async def _poll_once(self) -> bool:
+        """One getUpdates round-trip: fetch, dispatch, report success.
+
+        Returns False when the poll was refused or failed — `_api` returns
+        None for a transport error, a non-JSON body, or a parsed `ok: false`
+        (409 two-instance overlap, 401 revoked token) — so `run()` can back
+        off. An empty update list is a normal, successful poll (Telegram's
+        own long-poll `timeout=30` already provides the idle wait) and
+        returns True with no extra delay.
+        """
+        updates = await self._api(
+            "getUpdates",
+            http_timeout=40.0,
+            offset=self._offset,
+            timeout=30,
+            allowed_updates=["message", "callback_query"],
+        )
+        if updates is None:
+            return False
+        for update in updates:
+            self._offset = update["update_id"] + 1
             try:
-                # Telegram-side long poll of 30s; HTTP timeout slightly above
-                data = await self._api(
-                    "getUpdates",
-                    http_timeout=40.0,
-                    offset=self._offset,
-                    timeout=30,
-                    allowed_updates=["message", "callback_query"],
-                )
-            except (httpx.HTTPError, ValueError) as e:
-                logger.warning("getUpdates failed, retrying", error=str(e))
-                await asyncio.sleep(5)
-                continue
-            for update in data.get("result", []):
-                self._offset = update["update_id"] + 1
-                try:
-                    await self._handle_update(update)
-                except Exception as e:
-                    logger.error("Failed to handle update", error=str(e), exc_info=True)
+                await self._handle_update(update)
+            except Exception as e:
+                logger.error("Failed to handle update", error=str(e), exc_info=True)
+        return True
 
     async def _setup_bot_profile(self) -> None:
         """Register the slash-command menu and profile texts (best effort)."""
