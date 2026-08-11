@@ -411,6 +411,7 @@ class Watcher:
                 heartbeat_lines.append(blackout)
                 continue
             line, result = await self.check_pair(key)
+            self._recompute_plan(key, result)
             if result and result.verdict in APPROVED:
                 fingerprint = _setup_fingerprint(result)
                 if self.state.last_setup.get(key) == fingerprint:
@@ -462,6 +463,7 @@ class Watcher:
             await self.notifier.send(warning)
 
         await self._track_journal()
+        await self._maybe_edit_plan_summary()
 
         time_str = to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M")
         summary = f"🔍 <b>Check {time_str} Prague</b>\n" + "\n".join(heartbeat_lines)
@@ -786,6 +788,70 @@ class Watcher:
         self.state.save()
         logger.info("Auto-plan summary sent", slot=slot, pairs=len(built))
         return True
+
+    def _recompute_plan(self, key: str, result: Optional[AnalysisResult]) -> None:
+        """Refresh the pair's current plan from the candles this cycle's
+        engine pass already fetched — free by API quota, pure by build_plan.
+        Never writes plan_zones: provenance stays snapshot-only (spec §4)."""
+        if (
+            result is None
+            or result.verdict == Verdict.OFF_SESSION
+            or not result.m5_candles
+            or result.h4_candles is None
+            or result.h1_candles is None
+        ):
+            return
+        from app.services.smc.plan import build_plan
+        from app.services.smc.profiles import get_profile
+
+        instrument = get_instrument(key)
+        profile = get_profile(
+            self.state.pair_profile.get(key, settings.smc.default_profile)
+        )
+        plan = build_plan(
+            instrument, result.h4_candles, result.h1_candles, result.m5_candles,
+            min_rr=settings.smc.min_rr, profile=profile,
+        )
+        as_of = to_prague(result.m5_candles[-1].timestamp).strftime("%H:%M")
+        self.planbook.update(key, PlanEntry(
+            plan=plan,
+            data={
+                "h4": result.h4_candles,
+                "h1": result.h1_candles,
+                "m5": result.m5_candles,
+            },
+            as_of=as_of,
+        ))
+
+    async def _maybe_edit_plan_summary(self) -> None:
+        """Silently edit today's summary when any pair's plan materially
+        changed since it was rendered (spec §3). Only pairs the summary
+        already shows are compared — a summary is a snapshot of its slot's
+        pair set, not a live pair list."""
+        info = self.state.plan_summary
+        if not info or info.get("date") != WatcherState._prague_day():
+            return
+        stored = info.get("fingerprints") or {}
+        current: Dict[str, str] = {}
+        plans = []
+        for k in stored:
+            entry = self.planbook.get(k)
+            if entry is None:
+                return  # book incomplete (fresh restart) — leave summary be
+            current[k] = plan_fingerprint(entry.plan)
+            plans.append(entry.plan)
+        if current == stored:
+            return
+        upd = to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M")
+        text = format_plan_summary(info["slot"], plans, updated_hhmm=upd)
+        ok = await self.notifier.edit_message(
+            info["message_id"], text,
+            reply_markup=plan_summary_keyboard(list(stored)),
+        )
+        if ok:
+            info["fingerprints"] = current
+            self.state.plan_summary = info
+            self.state.save()
 
     def _seconds_until_next_autoplan(self) -> Optional[float]:
         """Seconds until the nearest configured slot (today or tomorrow),

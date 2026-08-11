@@ -8,7 +8,7 @@ import pytest
 
 from app.core.config import settings, SMCSettings
 from app.services.smc.db import Database
-from app.services.smc.models import Direction, Trend
+from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.notifier import (
     format_plan_summary,
     format_zone_alert,
@@ -17,6 +17,11 @@ from app.services.smc.notifier import (
 from app.services.smc.plan import PairPlan, PlanScenario
 from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.state import WatcherState
+from tests.test_smc.helpers import (
+    H1_PULLBACK_CLOSES,
+    H4_UPTREND_CLOSES,
+    make_candles,
+)
 
 
 def _scenario(direction=Direction.LONG, bottom=3131.0, top=3138.0,
@@ -351,3 +356,100 @@ class TestAutoPlanSnapshot:
         w.notifier.fail_sends = True
         assert asyncio.run(w._auto_plan_snapshot("07:55")) is False
         assert w.state.plan_summary == {}
+
+
+def _result_with_candles(price=3160.0, verdict=Verdict.WATCH):
+    r = AnalysisResult(
+        symbol="ETHUSD", verdict=verdict,
+        checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
+        price_decimals=2,
+    )
+    r.session_name = "New York"
+    r.h4_candles = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+    r.h1_candles = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+    r.m5_candles = make_candles([price], step_minutes=5)
+    return r
+
+
+class TestRecompute:
+    def test_recompute_fills_planbook_without_provenance(self):
+        w = _stub_watcher()
+        w._recompute_plan("ETHUSD", _result_with_candles())
+        entry = w.planbook.get("ETHUSD")
+        assert entry is not None and entry.plan.pair == "ETHUSD"
+        assert w.state.plan_zones == {}  # spec §4: recompute never writes it
+
+    def test_no_candles_no_recompute(self):
+        w = _stub_watcher()
+        r = _result_with_candles()
+        r.h4_candles = None
+        w._recompute_plan("ETHUSD", r)
+        assert w.planbook.get("ETHUSD") is None
+
+    def test_off_session_result_skipped(self):
+        w = _stub_watcher()
+        w._recompute_plan("ETHUSD", _result_with_candles(verdict=Verdict.OFF_SESSION))
+        assert w.planbook.get("ETHUSD") is None
+
+    def test_engine_analyze_keeps_h4_h1(self):
+        # the recompute's data source: analyze() must expose what it fetched
+        import asyncio as aio
+        from app.services.smc.engine import TripleSyncEngine
+
+        class _Fetcher:
+            async def fetch_all_timeframes(self, force_fresh=False):
+                return {
+                    "h4": make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+                    "h1": make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+                    "m5": make_candles(
+                        [3160.0],
+                        start=datetime.now(tz=timezone.utc) - timedelta(minutes=5),
+                    ),
+                }
+
+            async def fetch_funding_rate(self):
+                # default instrument is ETHUSD (check_funding=True) —
+                # analyze() calls this after stashing h4/h1/m5 candles.
+                return None
+
+        engine = TripleSyncEngine(fetcher=_Fetcher(), enforce_sessions=False)
+        result = aio.run(engine.analyze())
+        assert result.h4_candles and result.h1_candles and result.m5_candles
+
+
+class TestSummaryEdit:
+    def _watcher_with_summary(self):
+        w = _stub_watcher()
+        entry = _fetched_entry("ETHUSD")
+        w.planbook.update("ETHUSD", entry)
+        w.state.plan_summary = {
+            "message_id": 42, "slot": "07:55",
+            # date must be the *Prague* day — reuse the state helper
+            "date": WatcherState._prague_day(),
+            "fingerprints": {"ETHUSD": plan_fingerprint(entry.plan)},
+        }
+        return w
+
+    def test_no_edit_when_plan_unchanged(self):
+        w = self._watcher_with_summary()
+        asyncio.run(w._maybe_edit_plan_summary())
+        assert w.notifier.edited == []
+
+    def test_material_change_edits_with_upd(self):
+        w = self._watcher_with_summary()
+        moved = _fetched_entry("ETHUSD", [_scenario(bottom=3140.0, top=3145.0)])
+        w.planbook.update("ETHUSD", moved)
+        asyncio.run(w._maybe_edit_plan_summary())
+        assert len(w.notifier.edited) == 1
+        message_id, text = w.notifier.edited[0]
+        assert message_id == 42 and "upd " in text and "3140.00–3145.00" in text
+        # stored fingerprints refreshed -> second pass is a no-op
+        asyncio.run(w._maybe_edit_plan_summary())
+        assert len(w.notifier.edited) == 1
+
+    def test_stale_summary_from_yesterday_ignored(self):
+        w = self._watcher_with_summary()
+        w.state.plan_summary["date"] = "2020-01-01"
+        w.planbook.update("ETHUSD", _fetched_entry("ETHUSD", [_scenario(bottom=1.0, top=2.0)]))
+        asyncio.run(w._maybe_edit_plan_summary())
+        assert w.notifier.edited == []
