@@ -475,9 +475,6 @@ class TestAlertSendIsolation:
         async def _no_chart(*args, **kwargs):
             return None
 
-        async def _no_auto_plan():
-            return None
-
         db = Database(str(tmp_path / "smc.db"))
         watcher = Watcher.__new__(Watcher)
         watcher.db = db
@@ -488,11 +485,13 @@ class TestAlertSendIsolation:
         watcher._send_chart = _no_chart
         watcher.news = None
         watcher.last_results = {}
+        # run_cycle references self.planbook only via the real
+        # _maybe_auto_plan -> _auto_plan_snapshot -> _fetch_pair_plan chain,
+        # which the tests/test_smc/conftest.py autouse fixture keeps
+        # disabled by default (settings.smc.auto_plan = False), so
+        # _maybe_auto_plan short-circuits before touching planbook. Kept
+        # here anyway so run_cycle's attribute access stays satisfied.
         watcher.planbook = PlanBook()
-        # These tests exercise run_cycle's per-pair alert isolation, not the
-        # auto-plan snapshot — which would otherwise run a real (network)
-        # fetch here depending on the wall clock at test time.
-        watcher._maybe_auto_plan = _no_auto_plan
         return watcher
 
     @pytest.mark.asyncio
@@ -705,9 +704,6 @@ class TestDataSourceFailureWarning:
         from app.services.smc.planbook import PlanBook
         from smc_watcher import Watcher
 
-        async def _no_auto_plan():
-            return None
-
         db = Database(str(tmp_path / "smc.db"))
         watcher = Watcher.__new__(Watcher)
         watcher.db = db
@@ -716,12 +712,15 @@ class TestDataSourceFailureWarning:
         watcher.notifier = self._FakeNotifier()
         watcher.news = None
         watcher.last_results = {}
+        # run_cycle references self.planbook only via the real
+        # _maybe_auto_plan -> _auto_plan_snapshot -> _fetch_pair_plan chain,
+        # which the tests/test_smc/conftest.py autouse fixture keeps
+        # disabled by default (settings.smc.auto_plan = False), so
+        # _maybe_auto_plan short-circuits before touching planbook and
+        # before it can double up the data-source warning these tests
+        # count. Kept here anyway so run_cycle's attribute access stays
+        # satisfied.
         watcher.planbook = PlanBook()
-        # This class exercises the data-source-warning throttle via
-        # run_cycle, not the auto-plan snapshot — which would otherwise run
-        # a real (network) fetch here depending on the wall clock at test
-        # time, and double up the very warning these tests count.
-        watcher._maybe_auto_plan = _no_auto_plan
         return watcher
 
     @pytest.mark.asyncio
