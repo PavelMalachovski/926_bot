@@ -140,6 +140,16 @@ Superseding the corresponding provisional lines above:
    the FVG-entry basis with the final config (runner 3.0, V2+staleness)
    and must re-confirm the green light (star R positive both halves) before
    the bot code merges.
+   **Outcome (2026-08-12):** the re-cut came back RED at room ≥ 2.5 on the
+   FVG basis (train −0.016) — the 2.5 bar was calibrated on the deeper OB
+   entry. A room-threshold sweep (train-picked, test-confirmed;
+   variants-report.md §room-threshold) showed 2.5 is the ONLY negative
+   threshold of {1.0, 1.5, 2.0, 2.5, 3.0}. **Owner decision: room ≥ 1.0 on
+   the FVG basis** — train +0.193 / test +0.188 R/idea, 2.68 ⭐/week, both
+   giant winners captured. `MIN_ROOM_R = 1.0`. Standing caveat: the star
+   pool is carried by ETHUSD (USDJPY train-negative at every threshold,
+   USDCAD has no train stars) — per-pair ⭐ performance must be visible in
+   the journal (decision 5).
 5. Watch item: USDJPY star tier is net negative on both halves under every
    variant — carried by ETHUSD. Not a roster change (owner kept USDJPY);
    journal should make per-pair star performance visible.
