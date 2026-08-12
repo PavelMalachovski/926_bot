@@ -619,6 +619,18 @@ class TestEntryStalenessGate:
         assert TripleSyncEngine().max_entry_gap_r == 0.75
         assert SMCSettings().max_entry_gap_r == 0.75
 
+    def test_shipped_roster_and_hybrid_exit_defaults(self):
+        # Pins config.py's production defaults: the sniper-redesign roster
+        # (ETHUSD/USDJPY/USDCAD; EURUSD/GBPUSD dropped — the year replay
+        # shows EURUSD losing under every tested rule and GBPUSD negative on
+        # the shipped conservative profile, docs/superpowers/specs/
+        # 2026-08-12-sniper-redesign-design.md section 1) and the hybrid-exit
+        # R multiples (2.0R half-close at TP1, 3.0R runner).
+        settings = SMCSettings()
+        assert settings.default_pairs() == ["ETHUSD", "USDJPY", "USDCAD"]
+        assert settings.tp1_r == 2.0
+        assert settings.runner_r == 3.0
+
 
 class TestGatesAreNowLabels:
     """Detector mode (2026-08-06): a completed setup is always announced; the

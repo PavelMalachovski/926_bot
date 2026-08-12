@@ -51,8 +51,12 @@ class SMCSettings(BaseSettings):
     """Triple Sync + Imbalance strategy watcher configuration."""
 
     pairs: str = Field(
-        default="ETHUSD,USDJPY",
-        description="Comma-separated default pairs (runtime changes via /pairs)",
+        default="ETHUSD,USDJPY,USDCAD",
+        description="Comma-separated default pairs (runtime changes via /pairs). "
+        "EURUSD and GBPUSD dropped from the default roster (sniper redesign "
+        "2026-08-12: EURUSD loses under every tested rule over the year, "
+        "GBPUSD negative on the shipped conservative profile) — still "
+        "addable at runtime via /pairs",
     )
     interval_minutes: int = Field(
         default=15, description="Check interval outside sessions, minutes"

@@ -90,7 +90,7 @@ class TestPairListSurvivesRestart:
     ):
         factory = _WatcherFactory(tmp_path, monkeypatch)
         w = factory.boot()
-        assert w.state.pairs == ["ETHUSD", "USDJPY"]
+        assert w.state.pairs == ["ETHUSD", "USDJPY", "USDCAD"]
 
     def test_all_pairs_disabled_then_redeployed_do_not_resurrect(
         self, tmp_path, monkeypatch
