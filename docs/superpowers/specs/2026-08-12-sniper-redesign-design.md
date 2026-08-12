@@ -59,7 +59,11 @@ rests on:
 **⭐ Sniper** — full alert (pin, chart PNG, Took/Skipped buttons). ALL three
 conditions required:
 
-1. **Projected RR ≥ 2.5**, measured from the OB entry to the runner target.
+1. **Room check (projected RR ≥ 2.5).** With a fixed-multiple runner, "RR to
+   the runner target" is tautological (always 3.5); the intent is room to
+   run. Implemented as: the nearest H1/H4 liquidity pool ahead of the entry
+   in the trade direction sits **≥ 2.5 × risk** away (or no pool exists).
+   M5 pools are ignored here — they are the noise that made Rule 7 fail.
 2. **Liquidity sweep at the touch**: the zone tap's wick took out a concrete
    pool — PDH/PDL, Asia-session high/low, EQH/EQL, or an unswept swing from
    `liquidity.py` — at or immediately before the touch. Sweep detection stays
