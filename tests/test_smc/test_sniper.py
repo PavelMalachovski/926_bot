@@ -290,7 +290,7 @@ def test_classify_pd_none_passes():
 
 
 def test_classify_missing_room_alone():
-    v = classify(room=1.0, sweep="PDL", pd="ok", stale=False)
+    v = classify(room=0.99, sweep="PDL", pd="ok", stale=False)
     assert v.star is False
     assert v.missed == ["room"]
 
@@ -314,7 +314,7 @@ def test_classify_stale_alone():
 
 
 def test_classify_all_miss_reports_in_order():
-    v = classify(room=1.0, sweep=None, pd="bad", stale=True)
+    v = classify(room=0.99, sweep=None, pd="bad", stale=True)
     assert v.star is False
     assert v.missed == ["room", "sweep", "pd", "stale"]
 

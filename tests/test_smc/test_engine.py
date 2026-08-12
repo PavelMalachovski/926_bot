@@ -541,7 +541,7 @@ class TestHybridTPAndTier:
 
     def test_near_pool_misses_room(self, monkeypatch):
         import app.services.smc.engine as E
-        monkeypatch.setattr(E.sniper, "room_r", lambda *a, **k: 1.0)
+        monkeypatch.setattr(E.sniper, "room_r", lambda *a, **k: 0.99)
         result = self._long()
         assert result.setup is not None
         assert result.setup.tier_star is False

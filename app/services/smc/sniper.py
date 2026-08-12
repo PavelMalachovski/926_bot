@@ -39,10 +39,10 @@ from app.services.smc.structure import find_pivots
 
 PRAGUE = ZoneInfo("Europe/Prague")
 
-# Room check threshold (design doc "3. Premium/Discount" / Phase 2 locked
-# decision 3): the nearest H1/H4 pool ahead must sit at least this many risk
+# Room check threshold (design doc Phase 2 locked decision 4, FVG-basis
+# recalibration): the nearest H1/H4 pool ahead must sit at least this many risk
 # units away, or not exist at all.
-MIN_ROOM_R = 2.5
+MIN_ROOM_R = 1.0
 
 
 def _prague_date(ts_utc):
