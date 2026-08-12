@@ -99,6 +99,8 @@ rotated; treat as read-only input).
    on the first half of the year and confirmed on the second half —
    out-of-sample, per the standing criticism in the year reports.
 
+Replay report: C:\temp\926_bot_data\reports\sniper-replay.md (2026-08-12)
+
 ## 6. Explicitly unchanged
 
 Sessions/blocks, news blackouts, discipline (Rule 10 / Rule 0.2, taken-marks
