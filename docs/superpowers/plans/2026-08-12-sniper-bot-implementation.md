@@ -113,6 +113,18 @@
 
 ---
 
+### Task 4b: Notification-level control (replaces the strategy picker; owner request 2026-08-12)
+
+**Files:**
+- Modify: `app/services/smc/state.py` (WatcherState), `app/services/smc/telegram_bot.py` (/notify command + callbacks, slash-menu registration, /strategy removal), `smc_watcher.py` (level check in the alert path)
+- Test: `tests/test_smc/test_state.py`, `tests/test_smc/test_telegram_bot.py`, watcher tests (extend)
+
+**Owner decisions:** one strategy ships (conservative), so the per-pair `/strategy` picker is retired and replaced by a GLOBAL notification level with an in-menu mute. Levels: `"all"` (⭐ loud + quiet regular), `"star"` (⭐ only; regular setups to logs), `"mute"` (no setup alerts at all). Mute affects SETUP alerts only — the 07:45 digest, plan-zone alerts and Rule 0.4/9 warnings (they concern already-open positions) keep flowing.
+
+- [ ] **Step 1:** Failing tests: `WatcherState.notify_level` defaults to `"all"`, persists via the kv store, rejects unknown values; `/notify` renders the three options with the current one marked and its callbacks switch the level and edit the message; the slash-menu registration lists `notify` and no longer lists `strategy`; watcher: with level `"star"` a regular setup produces NO send_message but IS journal-recorded and its dedup fingerprint still updates (un-muting must not flood with stale setups); with `"mute"` a star setup is suppressed the same way (recorded, deduped, not sent); Rule 0.4 warnings and the digest path ignore the level.
+- [ ] **Step 2:** Implement. `/strategy` command, its buttons and `set_profile` UI wiring are removed (engine profile plumbing stays — conservative is simply the only shipped profile); `set_profile`'s dedup-clearing behavior is no longer reachable from the UI and its tests are updated accordingly.
+- [ ] **Step 3:** Full pytest + flake8; commit `feat: global notification level replaces strategy picker`.
+
 ### Task 5: Roster + config + docs
 
 **Files:**
