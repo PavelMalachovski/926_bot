@@ -75,6 +75,16 @@ class SMCSettings(BaseSettings):
         "2026-08-06: a label, not a skip). 0 = warn as soon as price has moved "
         "past the entry at all; a large value removes the warning",
     )
+    tp1_r: float = Field(
+        default=2.0,
+        description="Hybrid exit (Phase 2 sniper redesign): TP1 multiple of "
+        "risk, taken on half the position",
+    )
+    runner_r: float = Field(
+        default=3.0,
+        description="Hybrid exit (Phase 2 sniper redesign): runner TP "
+        "multiple of risk, taken on the rest of the position",
+    )
     risk_pct: float = Field(default=2.0, description="Risk percent per trade")
     deposit: Optional[float] = Field(
         default=None, description="Deposit size in USD for lot calculation"
