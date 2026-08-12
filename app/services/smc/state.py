@@ -17,6 +17,14 @@ logger = structlog.get_logger(__name__)
 # `_normalise_zone`, which accepts either shape and returns this one.
 PlanZone = Tuple[float, float, Optional[str]]
 
+# Global notification level (owner decision 2026-08-12, Phase 2 Task 4b):
+# replaces the retired per-pair /strategy picker. "all" = star loud + quiet
+# regular (today's default two-tier behavior); "star" = star only, regular
+# setups are journal-recorded and logged but not sent; "mute" = no setup
+# alerts at all. This affects SETUP alerts only -- the 07:45 digest,
+# plan-zone alerts and Rule 0.4/9 warnings keep flowing regardless.
+NOTIFY_LEVELS: Tuple[str, ...] = ("all", "star", "mute")
+
 
 class WatcherState:
     """Runtime state shared by the scheduler and the command bot."""
@@ -67,6 +75,14 @@ class WatcherState:
         # same as no plan at all.
         self.plan_zones: Dict[str, List[PlanZone]] = db.kv_get("plan_zones") or {}
         self.plan_zones_date: str = db.kv_get("plan_zones_date") or ""
+        # global setup-alert level: "all" | "star" | "mute" (Task 4b). A
+        # stored value outside the known set (should not happen -- only
+        # `set_notify_level` writes it, and it validates) falls back to the
+        # default rather than propagating garbage into the gate check.
+        raw_notify_level = db.kv_get("notify_level")
+        self.notify_level: str = (
+            raw_notify_level if raw_notify_level in NOTIFY_LEVELS else "all"
+        )
 
     def save(self) -> None:
         self.db.kv_set("pairs", self.pairs)
@@ -83,6 +99,7 @@ class WatcherState:
         self.db.kv_set("plan_zones_date", self.plan_zones_date)
         self.db.kv_set("auto_plan_sent", self.auto_plan_sent)
         self.db.kv_set("plan_summary", self.plan_summary)
+        self.db.kv_set("notify_level", self.notify_level)
 
     # ------------------------------------------------------------ plan zones
 
@@ -151,6 +168,19 @@ class WatcherState:
 
     def set_paused(self, paused: bool) -> None:
         self.paused = paused
+        self.save()
+
+    def set_notify_level(self, level: str) -> None:
+        """Set the global setup-alert level (`/notify`, Task 4b).
+
+        Rejects anything outside `NOTIFY_LEVELS` rather than silently
+        coercing it -- a caller passing something other than the three
+        defined levels has a bug, not a preference the state layer should
+        paper over.
+        """
+        if level not in NOTIFY_LEVELS:
+            raise ValueError(f"Unknown notify level: {level!r}")
+        self.notify_level = level
         self.save()
 
     def set_profile(self, key: str, profile_key: str) -> None:

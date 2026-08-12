@@ -159,10 +159,18 @@ tracking → live-card edits on fill/TP/SL events.
   points: direction (H4 CHoCH on FLAT trend), FVG size, H1 zone selection
   (`max_zone_touches`), and FVG scope. `fvg_size_factor` is a **multiplier** on
   the per-instrument minimum FVG — per-instrument thresholds stay in
-  `instruments.py`, never hardcode a profile-specific size elsewhere. Changing
-  a pair's profile (`/strategy`, `WatcherState.set_profile`) clears that pair's
-  dedup keys (`last_setup`, `zone_pinged`) so the new profile's first alert
-  isn't suppressed by a stale fingerprint.
+  `instruments.py`, never hardcode a profile-specific size elsewhere. The
+  per-pair `/strategy` picker UI is retired (owner request 2026-08-12, one
+  strategy ships): profiles remain code-level plumbing only —
+  `WatcherState.set_profile` still clears that pair's dedup keys
+  (`last_setup`, `zone_pinged`) when called, it is just no longer reachable
+  from any command.
+- **`/notify`** (`WatcherState.notify_level`, replaces `/strategy`) is a
+  GLOBAL setup-alert level — `"all"` (⭐ loud + regular quiet, default),
+  `"star"` (⭐ only; regular setups are still journal-recorded and
+  dedup-fingerprinted, just not sent), or `"mute"` (no setup alerts sent at
+  all, same record/dedup guarantee) — and never touches the 07:45 digest,
+  plan-zone alerts, or Rule 0.4/9 warnings.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.

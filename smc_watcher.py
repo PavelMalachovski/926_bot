@@ -306,10 +306,6 @@ class Watcher:
             on_plan=self.on_plan,
             on_stored_plan=self.on_stored_plan,
             trade_journal=self.trade_journal,
-            on_set_profile=self.state.set_profile,
-            pair_profiles=lambda: dict(self.state.pair_profile),
-            default_profile=settings.smc.default_profile,
-            on_set_all_profiles=self.state.set_all_profiles,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         self.planbook = PlanBook()
@@ -602,6 +598,20 @@ class Watcher:
             return await self._send_star_alert(key, result, fingerprint)
         return await self._send_quiet_alert(key, result, fingerprint)
 
+    def _alert_send_suppressed(self, tier_star: bool) -> bool:
+        """Whether `state.notify_level` (Task 4b, owner decision 2026-08-12)
+        blocks the real Telegram send for this tier. "mute" blocks both
+        tiers; "star" blocks only the regular (non-⭐) tier; "all" blocks
+        nothing. This gates the send only — the caller still records the
+        setup in the journal and advances the dedup fingerprint either way,
+        so un-muting later does not replay a backlog of stale setups."""
+        level = self.state.notify_level
+        if level == "mute":
+            return True
+        if level == "star":
+            return not tier_star
+        return False
+
     async def _send_star_alert(
         self, key: str, result: AnalysisResult, fingerprint: str
     ) -> bool:
@@ -614,6 +624,13 @@ class Watcher:
         # Nothing between here and `attach_message` reads the journal.
         text = format_result(result, in_plan=self._plan_provenance(key, result))
         signal = self.journal.record(result)
+        if self._alert_send_suppressed(tier_star=True):
+            # notify_level says "mute" — record + dedup still happen, only
+            # the Telegram send (and everything downstream of it: pin,
+            # chart, live card) is skipped.
+            self.state.last_setup[key] = fingerprint
+            self.state.save()
+            return False
         keyboard = {
             "inline_keyboard": [
                 [
@@ -653,6 +670,12 @@ class Watcher:
         """
         text = format_quiet_setup(result)
         signal = self.journal.record(result)
+        if self._alert_send_suppressed(tier_star=False):
+            # notify_level says "star" or "mute" — record + dedup still
+            # happen, only the Telegram send is skipped.
+            self.state.last_setup[key] = fingerprint
+            self.state.save()
+            return False
         message_id = await self.notifier.send(text)
         if not message_id:
             self.journal.discard(signal["id"])

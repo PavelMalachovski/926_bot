@@ -527,6 +527,127 @@ class TestTwoTierAlerting:
         assert len(watcher.journal.signals) == 1
 
 
+class TestNotifyLevelGating:
+    """Phase 2 Task 4b: `state.notify_level` gates the real Telegram send in
+    `_send_alert`'s two tiers, but never the journal record or the dedup
+    fingerprint -- a suppressed setup must still occupy its dedup slot so
+    un-muting later does not replay a backlog of stale setups (owner
+    decision 2026-08-12)."""
+
+    class _RecordingNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, reply_markup=None, disable_notification=False):
+            self.sent.append((text, reply_markup))
+            return len(self.sent)
+
+        async def send_photo(self, photo, caption=None, reply_to=None):
+            return 999
+
+        async def pin(self, message_id):
+            pass
+
+    def _watcher(self, tmp_path):
+        from app.services.smc.db import Database
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._RecordingNotifier()
+        return watcher
+
+    @pytest.mark.asyncio
+    async def test_star_level_suppresses_a_regular_setup_but_still_records(
+        self, tmp_path
+    ):
+        watcher = self._watcher(tmp_path)
+        watcher.state.set_notify_level("star")
+        result = _fingerprint_result()
+        result.setup.tier_star = False
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+        result.setup.tier_missed = ["room"]
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-regular")
+
+        assert sent is False
+        assert watcher.notifier.sent == []  # nothing actually went to Telegram
+        assert len(watcher.journal.signals) == 1  # still journal-recorded
+        assert watcher.state.last_setup["ETHUSD"] == "fp-regular"  # dedup advanced
+
+    @pytest.mark.asyncio
+    async def test_star_level_still_sends_a_star_setup(self, tmp_path):
+        watcher = self._watcher(tmp_path)
+        watcher.state.set_notify_level("star")
+        result = _fingerprint_result()
+        result.setup.tier_star = True
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-star")
+
+        assert sent is True
+        assert len(watcher.notifier.sent) == 1
+        assert watcher.state.last_setup["ETHUSD"] == "fp-star"
+
+    @pytest.mark.asyncio
+    async def test_mute_level_suppresses_a_star_setup_but_still_records(
+        self, tmp_path
+    ):
+        watcher = self._watcher(tmp_path)
+        watcher.state.set_notify_level("mute")
+        result = _fingerprint_result()
+        result.setup.tier_star = True
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-star")
+
+        assert sent is False
+        assert watcher.notifier.sent == []
+        assert len(watcher.journal.signals) == 1
+        assert watcher.state.last_setup["ETHUSD"] == "fp-star"
+
+    @pytest.mark.asyncio
+    async def test_mute_level_suppresses_a_regular_setup_but_still_records(
+        self, tmp_path
+    ):
+        watcher = self._watcher(tmp_path)
+        watcher.state.set_notify_level("mute")
+        result = _fingerprint_result()
+        result.setup.tier_star = False
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+        result.setup.tier_missed = ["room"]
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-regular")
+
+        assert sent is False
+        assert watcher.notifier.sent == []
+        assert len(watcher.journal.signals) == 1
+        assert watcher.state.last_setup["ETHUSD"] == "fp-regular"
+
+    @pytest.mark.asyncio
+    async def test_all_level_is_unaffected(self, tmp_path):
+        """Control: the default level keeps today's two-tier behavior."""
+        watcher = self._watcher(tmp_path)
+        assert watcher.state.notify_level == "all"
+        result = _fingerprint_result()
+        result.setup.tier_star = True
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-star")
+
+        assert sent is True
+        assert len(watcher.notifier.sent) == 1
+
+
 class TestCorrelationGuard:
     @staticmethod
     def _approved(symbol, direction):
