@@ -51,8 +51,12 @@ class SMCSettings(BaseSettings):
     """Triple Sync + Imbalance strategy watcher configuration."""
 
     pairs: str = Field(
-        default="ETHUSD,USDJPY",
-        description="Comma-separated default pairs (runtime changes via /pairs)",
+        default="ETHUSD,USDJPY,USDCAD",
+        description="Comma-separated default pairs (runtime changes via /pairs). "
+        "EURUSD and GBPUSD dropped from the default roster (sniper redesign "
+        "2026-08-12: EURUSD loses under every tested rule over the year, "
+        "GBPUSD negative on the shipped conservative profile) — still "
+        "addable at runtime via /pairs",
     )
     interval_minutes: int = Field(
         default=15, description="Check interval outside sessions, minutes"
@@ -74,6 +78,16 @@ class SMCSettings(BaseSettings):
         "limit would sit far from market (owner decisions 2026-08-05 / "
         "2026-08-06: a label, not a skip). 0 = warn as soon as price has moved "
         "past the entry at all; a large value removes the warning",
+    )
+    tp1_r: float = Field(
+        default=2.0,
+        description="Hybrid exit (Phase 2 sniper redesign): TP1 multiple of "
+        "risk, taken on half the position",
+    )
+    runner_r: float = Field(
+        default=3.0,
+        description="Hybrid exit (Phase 2 sniper redesign): runner TP "
+        "multiple of risk, taken on the rest of the position",
     )
     risk_pct: float = Field(default=2.0, description="Risk percent per trade")
     deposit: Optional[float] = Field(

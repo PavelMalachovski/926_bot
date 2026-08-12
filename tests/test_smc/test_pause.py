@@ -50,6 +50,18 @@ class TestPausedWatcher:
         watcher.state.set_paused(False)
         assert "PAUSED" not in watcher.status_text()
 
+    def test_status_shows_notify_level_not_retired_profiles_picker(
+        self, watcher
+    ):
+        """Task 6 fix wave: the per-pair /strategy picker was retired
+        (owner decision 2026-08-12, global notify_level replaced it) but
+        /status kept printing a stale "Profiles:" line. It now reports the
+        current notification level instead."""
+        watcher.state.set_notify_level("star")
+        text = watcher.status_text()
+        assert "Notify: star" in text
+        assert "Profiles:" not in text
+
 
 class _State:
     def __init__(self):

@@ -13,6 +13,62 @@ def test_signal_profile_key_column(tmp_path):
     assert "profile_key" in cols
 
 
+class TestHybridLifecycleColumns:
+    """Phase 2 sniper redesign: tp1/runner_tp/tier/result_r/tp1_at back the
+    partial-close lifecycle (journal.evaluate_signal) and must exist on
+    both a fresh schema and a DB file created before they did."""
+
+    NEW_COLUMNS = {"tp1", "runner_tp", "tier", "result_r", "tp1_at"}
+
+    def test_fresh_schema_has_the_new_columns(self, tmp_path):
+        from app.services.smc.db import SIGNAL_COLUMNS
+
+        assert self.NEW_COLUMNS <= set(SIGNAL_COLUMNS)
+        db = Database(str(tmp_path / "fresh.db"))
+        cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(signals)")}
+        assert self.NEW_COLUMNS <= cols
+
+    def test_old_schema_db_file_migrates_in_place_and_keeps_rows(self, tmp_path):
+        """A DB file built on the schema as it existed before this task (no
+        tp1/runner_tp/tier/result_r/tp1_at columns) must gain them in place —
+        without losing the row that was already there."""
+        path = str(tmp_path / "old.db")
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """CREATE TABLE signals (
+                id TEXT PRIMARY KEY, pair TEXT NOT NULL, direction TEXT NOT NULL,
+                entry REAL NOT NULL, stop_loss REAL NOT NULL,
+                take_profit REAL, rr REAL NOT NULL, session TEXT,
+                created_at TEXT NOT NULL, expires_at TEXT, status TEXT NOT NULL,
+                filled_at TEXT, resolved_at TEXT, checked_until TEXT,
+                taken INTEGER, message_id INTEGER, alert_text TEXT,
+                profile_key TEXT)"""
+        )
+        conn.execute(
+            "INSERT INTO signals (id, pair, direction, entry, stop_loss, "
+            "take_profit, rr, session, created_at, status) VALUES "
+            "('old1', 'ETHUSD', 'long', 100.0, 90.0, 120.0, 2.0, "
+            "'New York', '2026-01-01T00:00:00+00:00', 'tp')"
+        )
+        conn.commit()
+        conn.close()
+
+        db = Database(path)
+        cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(signals)")}
+        assert self.NEW_COLUMNS <= cols
+
+        rows = db.signals_all()
+        assert len(rows) == 1
+        assert rows[0]["id"] == "old1"
+        assert rows[0]["status"] == "tp"
+        # migrated columns default to NULL on a pre-existing row
+        assert rows[0]["tp1"] is None
+        assert rows[0]["runner_tp"] is None
+        assert rows[0]["tier"] is None
+        assert rows[0]["result_r"] is None
+        assert rows[0]["tp1_at"] is None
+
+
 class TestDatabaseOpen:
     def test_creates_missing_parent_directories(self, tmp_path):
         path = tmp_path / "nested" / "dirs" / "smc.db"

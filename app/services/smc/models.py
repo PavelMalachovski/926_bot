@@ -122,6 +122,14 @@ class TradeSetup:
     order_block: Optional["Zone"] = None
     ladder: List["LiquidityLevel"] = field(default_factory=list)
     zones_ahead: List["Zone"] = field(default_factory=list)
+    # Phase 2 sniper redesign: hybrid exit levels (entry +/- tp1_r/runner_r *
+    # risk) and the star-tier verdict (room/sweep/premium-discount/stale —
+    # see app/services/smc/sniper.py). Detector mode: these never suppress,
+    # they only label.
+    tp1: Optional[float] = None
+    runner_tp: Optional[float] = None
+    tier_star: bool = False
+    tier_missed: List[str] = field(default_factory=list)
 
 
 @dataclass

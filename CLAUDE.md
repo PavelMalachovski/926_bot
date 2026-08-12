@@ -74,6 +74,12 @@ app/services/smc/
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
 │                         nearest_liquidity (Rule 7 take-profit target) and
 │                         liquidity_ladder (five rungs shown in the alert)
+├── sniper.py             sniper-tier primitives (Phase 2 redesign): room_r
+│                         (H1/H4 liquidity room ahead of entry), sweep_label
+│                         (named pool taken by the touch→CHoCH excursion),
+│                         pd_state (premium/discount vs. the H1 dealing
+│                         range), classify (the ⭐ verdict, checked after a
+│                         setup already fully formed — detector mode unchanged)
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
 ├── sessions.py           trading hours 08:00-18:30 Prague, two blocks split
@@ -159,10 +165,26 @@ tracking → live-card edits on fill/TP/SL events.
   points: direction (H4 CHoCH on FLAT trend), FVG size, H1 zone selection
   (`max_zone_touches`), and FVG scope. `fvg_size_factor` is a **multiplier** on
   the per-instrument minimum FVG — per-instrument thresholds stay in
-  `instruments.py`, never hardcode a profile-specific size elsewhere. Changing
-  a pair's profile (`/strategy`, `WatcherState.set_profile`) clears that pair's
-  dedup keys (`last_setup`, `zone_pinged`) so the new profile's first alert
-  isn't suppressed by a stale fingerprint.
+  `instruments.py`, never hardcode a profile-specific size elsewhere. The
+  per-pair `/strategy` picker UI is retired (owner request 2026-08-12, one
+  strategy ships): profiles remain code-level plumbing only —
+  `WatcherState.set_profile` still clears that pair's dedup keys
+  (`last_setup`, `zone_pinged`) when called, it is just no longer reachable
+  from any command.
+- **`/notify`** (`WatcherState.notify_level`, replaces `/strategy`) is a
+  GLOBAL setup-alert level — `"all"` (⭐ loud + regular quiet, default),
+  `"star"` (⭐ only; regular setups are still journal-recorded and
+  dedup-fingerprinted, just not sent), or `"mute"` (no setup alerts sent at
+  all, same record/dedup guarantee) — and never touches the 07:45 digest,
+  plan-zone alerts, or Rule 0.4/9 warnings.
+- **Sniper tier** (`sniper.py`, Phase 2 redesign): a completed setup earns
+  ⭐ when room >= 1.0R on H1/H4 liquidity (or unmeasurable), a pool was
+  swept, premium/discount is ok (or unmeasurable), and the entry isn't
+  stale beyond `SMC_MAX_ENTRY_GAP_R` (0.75R) — two alert tiers, both still
+  sent (detector mode). Every fill uses the hybrid exit regardless of tier:
+  TP1 at `SMC_TP1_R` (2R) closes half and moves SL to break-even, the
+  runner rides to `SMC_RUNNER_R` (3R) — journal statuses `tp1_be`
+  (BE stop after TP1) and `tp1_runner` (runner target hit) track it.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.
@@ -185,7 +207,7 @@ tracking → live-card edits on fill/TP/SL events.
 
 ## Workflow
 
-- Work on a feature branch (currently `feat/detector-mode`), PRs to `master` via `gh`
+- Work on a feature branch (currently `feat/sniper-redesign`), PRs to `master` via `gh`
   (installed at `C:\Program Files\GitHub CLI` on the owner's machine; add to
   PATH in bash). The owner merges; Railway deploys master.
 - PR template lives in `.github/pull_request_template.md` — follow it.

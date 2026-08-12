@@ -23,6 +23,7 @@ from app.services.smc.models import (
 )
 from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
 from app.services.smc.sessions import active_session
+from app.services.smc import sniper
 from app.services.smc.structure import (
     detect_trend,
     find_choch,
@@ -57,6 +58,8 @@ class TripleSyncEngine:
         sl_buffer: Optional[float] = None,
         min_rr: float = 1.0,
         max_entry_gap_r: float = 0.75,
+        tp1_r: float = 2.0,
+        runner_r: float = 3.0,
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
@@ -75,6 +78,8 @@ class TripleSyncEngine:
         )
         self.min_rr = min_rr
         self.max_entry_gap_r = max_entry_gap_r
+        self.tp1_r = tp1_r
+        self.runner_r = runner_r
         self.risk_pct = risk_pct
         self.deposit = deposit
         self.enforce_sessions = enforce_sessions
@@ -295,10 +300,34 @@ class TripleSyncEngine:
         # the entry, so market entries never trigger it.
         price = result.price or m5[-1].close
         gap = price - entry if direction == Direction.LONG else entry - price
-        if gap > self.max_entry_gap_r * risk:
+        stale = gap > self.max_entry_gap_r * risk
+        if stale:
             result.warnings.append(
                 f"price has run {gap / risk:.1f}R past the imbalance"
             )
+
+        # Phase 2 sniper redesign (owner decision 2026-08-12): hybrid exit
+        # levels — TP1 at tp1_r*risk for half the position, a runner at
+        # runner_r*risk for the rest — plus the star-tier verdict (room,
+        # sweep, premium/discount, staleness; see sniper.py). Detector mode
+        # unchanged: the tier only labels the setup, it never suppresses it.
+        # `stale` above reuses the exact Rule 5.1 comparison, computed once.
+        if direction == Direction.LONG:
+            tp1 = entry + self.tp1_r * risk
+            runner_tp = entry + self.runner_r * risk
+        else:
+            tp1 = entry - self.tp1_r * risk
+            runner_tp = entry - self.runner_r * risk
+
+        # Same raw per-instrument tolerance the Rule 7 block below uses (a
+        # property of the chart, not of the profile).
+        tier_tolerance = self.instrument.min_fvg
+        sweep = sniper.sweep_label(
+            m5, h1, direction, touch, choch, tier_tolerance, result.checked_at
+        )
+        pd = sniper.pd_state(direction, entry, sniper.dealing_range(h1))
+        room = sniper.room_r(h1, h4, direction, entry, risk, tier_tolerance)
+        tier = sniper.classify(room, sweep, pd, stale)
 
         # Rule 7 (owner decision 2026-08-05, demoted to a label 2026-08-06) —
         # the nearest unswept liquidity is the pool the move is reaching for,
@@ -378,6 +407,10 @@ class TripleSyncEngine:
             order_block=order_block,
             ladder=ladder,
             zones_ahead=zones_ahead,
+            tp1=round(tp1, d),
+            runner_tp=round(runner_tp, d),
+            tier_star=tier.star,
+            tier_missed=tier.missed,
         )
         result.verdict = (
             Verdict.APPROVED_MARKET if entry_is_market else Verdict.APPROVED_LIMIT

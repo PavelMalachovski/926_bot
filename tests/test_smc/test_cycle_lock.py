@@ -205,6 +205,82 @@ class TestSendAlertDiscardsOrphanRow:
         assert watcher.db.signals_all() == []
 
 
+# ---------------------------------------------------- (c) honest muting
+
+
+class _UnreachableNotifier:
+    """`send`/`pin`/`send_photo` must never run once notify_level mutes the
+    real Telegram send for this tier — calling any of them is a bug, not a
+    simulated outage."""
+
+    def __init__(self):
+        self.sent = []
+
+    async def send(self, text, reply_markup=None, disable_notification=False):
+        raise AssertionError("send must not run once the level mutes the alert")
+
+    async def pin(self, message_id):
+        raise AssertionError("pin must not run once the level mutes the alert")
+
+    async def send_photo(self, *args, **kwargs):
+        raise AssertionError(
+            "send_photo must not run once the level mutes the alert"
+        )
+
+
+def _muted_watcher(tmp_path):
+    from smc_watcher import Watcher
+
+    db = Database(str(tmp_path / "smc.db"))
+    watcher = Watcher.__new__(Watcher)
+    watcher.db = db
+    watcher.state = WatcherState(db)
+    watcher.state.pairs = ["ETHUSD"]
+    watcher.state.set_notify_level("mute")
+    watcher.journal = SignalJournal(db)
+    watcher.notifier = _UnreachableNotifier()
+    watcher.news = None
+    watcher.last_results = {}
+    watcher.planbook = PlanBook()
+
+    async def _no_track(*args, **kwargs):
+        return None
+
+    watcher._track_journal = _no_track
+
+    async def _check_pair(key):
+        return "setup line", _approved_result(key)
+
+    watcher.check_pair = _check_pair
+    return watcher
+
+
+class TestMutedWordingDiffersFromFailedWording:
+    """Task 6 fix wave: a deliberate `notify_level='mute'` used to produce
+    the exact same heartbeat line as a real Telegram send failure — the
+    owner could not tell "I muted this" from "Telegram is down". The
+    suppressed path now gets its own wording, decided from state.notify_level
+    before the send is even attempted, so it can never collide with the
+    real-failure wording."""
+
+    @pytest.mark.asyncio
+    async def test_run_cycle_heartbeat_reports_suppression_not_failure(
+        self, tmp_path
+    ):
+        watcher = _muted_watcher(tmp_path)
+        summary = await watcher.run_cycle()
+
+        assert (
+            "ETHUSD: setup found — alert suppressed by notification level"
+            in summary
+        )
+        assert "alert failed to send" not in summary
+        assert "SETUP FOUND — details above!" not in summary
+        # unlike a real failure, the setup is still journal-recorded
+        assert len(watcher.journal.signals) == 1
+        assert len(watcher.db.signals_all()) == 1
+
+
 # --------------------------------------------------------- lock plumbing
 
 

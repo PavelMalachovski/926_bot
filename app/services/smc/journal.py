@@ -2,13 +2,34 @@
 
 Lifecycle of a signal:
 
-    pending  — limit order waiting for price to reach the entry
-    open     — entry touched, position "live"
-    tp / sl  — take-profit or stop-loss hit first (same candle -> sl,
-               conservative)
-    expired  — entry never touched before the session ended (Rule 10:
-               a pending order does not survive its session)
-    timeout  — open too long without resolution (safety valve)
+    pending      — limit order waiting for price to reach the entry
+    open         — entry touched, position "live"
+    tp / sl      — take-profit or stop-loss hit first (same candle -> sl,
+                   conservative). Legacy path (no tp1) and any signal
+                   without hybrid TP levels always resolves this way.
+    expired      — entry never touched before the session ended (Rule 10:
+                   a pending order does not survive its session)
+    timeout      — open too long without resolution (safety valve)
+
+Phase 2 sniper redesign adds a hybrid partial-close lifecycle, active only
+when the signal carries `tp1`/`runner_tp` (actual price levels, set by the
+engine — see models.TradeSetup):
+
+    open         — entry touched. TP1 not yet tagged.
+    open_runner  — TP1 touched (half closed, stop moved to break-even);
+                   internal state, never a terminal status. BE/runner are
+                   judged starting the candle AFTER the TP1 candle.
+    tp1_be       — stopped at break-even after TP1 (or an OPEN_TIMEOUT while
+                   running the runner leg — TP1 is already banked, so this
+                   times out to BE rather than a bare "timeout").
+    tp1_runner   — runner leg hit its target.
+
+`result_r` carries the realized R once a signal resolves (hybrid path
+only): -1.0 (sl), +tp1_r*0.5 (tp1_be), +tp1_r*0.5 + runner_r*0.5
+(tp1_runner), 0.0 (expired/timeout). Ported from the validated `sn_exit.py`
+replay harness (see C:\\temp\\926_bot_data\\scripts\\sn_exit.py), with one
+deliberate difference: timeout-after-TP1 resolves as tp1_be instead of a
+bare timeout (a known Phase 1 harness simplification, fixed here).
 
 Signals live in the SQLite database (see db.py); outcomes are evaluated from
 closed M5 candles, incrementally per cycle.
@@ -22,6 +43,7 @@ import structlog
 
 from app.services.smc.db import Database
 from app.services.smc.models import AnalysisResult, Candle, Direction
+from app.services.smc.notifier import escape_html
 from app.services.smc.sessions import session_end_utc, to_prague
 
 logger = structlog.get_logger(__name__)
@@ -71,13 +93,31 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
     """Advance one signal's state using closed candles. Returns the signal.
 
     Only candles that finished after the last evaluation are considered.
+
+    The hybrid partial-close branch (open_runner/tp1_be/tp1_runner) only
+    engages when `signal.get("tp1")` is truthy — a legacy row or a signal
+    with no hybrid TP levels keeps the plain pending/open/tp/sl/expired/
+    timeout lifecycle byte-for-byte.
     """
-    if signal["status"] not in ("pending", "open"):
+    hybrid = bool(signal.get("tp1"))
+    active_statuses = (
+        ("pending", "open", "open_runner") if hybrid else ("pending", "open")
+    )
+    if signal["status"] not in active_statuses:
         return signal
 
     is_long = signal["direction"] == Direction.LONG.value
     entry, sl, tp = signal["entry"], signal["stop_loss"], signal["take_profit"]
     watermark = _parse(signal.get("checked_until") or signal["created_at"])
+
+    tp1_r = runner_r = 0.0
+    tp1 = runner_tp = None
+    if hybrid:
+        risk = abs(entry - sl)
+        tp1, runner_tp = signal["tp1"], signal["runner_tp"]
+        if risk:  # malformed (risk<=0) setups never reach the journal
+            tp1_r = abs(tp1 - entry) / risk
+            runner_r = abs(runner_tp - entry) / risk
 
     for candle in candles:
         candle_end = candle.timestamp + timedelta(minutes=5)
@@ -94,20 +134,48 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
 
         if signal["status"] == "open":
             hit_sl = candle.low <= sl if is_long else candle.high >= sl
-            # Detector mode: a setup with no unswept liquidity ahead has no
-            # take-profit. It still fills and still stops out — "TP hit" is
-            # simply impossible for it, and no target is invented.
-            if tp is None:
-                hit_tp = False
+            if hybrid:
+                hit_tp1 = candle.high >= tp1 if is_long else candle.low <= tp1
+                if hit_sl:  # both in one candle -> conservative: count the stop
+                    signal["status"] = "sl"
+                    signal["result_r"] = -1.0
+                elif hit_tp1:
+                    signal["status"] = "open_runner"
+                    signal["tp1_at"] = candle.timestamp.isoformat()
+                    # The candle that tags TP1 necessarily also spans the
+                    # entry region it just left — judging BE/runner on it
+                    # would be double jeopardy on an intra-candle path we
+                    # cannot see. The next candle judges both.
+                    continue
             else:
-                hit_tp = candle.high >= tp if is_long else candle.low <= tp
-            if hit_sl:  # both in one candle -> conservative: count the stop
-                signal["status"] = "sl"
-            elif hit_tp:
-                signal["status"] = "tp"
-            if signal["status"] in ("tp", "sl"):
-                signal["resolved_at"] = candle.timestamp.isoformat()
-                break
+                # Detector mode: a setup with no unswept liquidity ahead has
+                # no take-profit. It still fills and still stops out — "TP
+                # hit" is simply impossible for it, and no target invented.
+                hit_tp = (
+                    False
+                    if tp is None
+                    else (candle.high >= tp if is_long else candle.low <= tp)
+                )
+                if hit_sl:  # both in one candle -> conservative: count stop
+                    signal["status"] = "sl"
+                elif hit_tp:
+                    signal["status"] = "tp"
+
+        if hybrid and signal["status"] == "open_runner":
+            hit_be = candle.low <= entry if is_long else candle.high >= entry
+            hit_run = (
+                candle.high >= runner_tp if is_long else candle.low <= runner_tp
+            )
+            if hit_be:  # adverse first, always: runner+BE same candle -> BE
+                signal["status"] = "tp1_be"
+                signal["result_r"] = 0.5 * tp1_r
+            elif hit_run:
+                signal["status"] = "tp1_runner"
+                signal["result_r"] = 0.5 * tp1_r + 0.5 * runner_r
+
+        if signal["status"] in ("tp", "sl", "tp1_be", "tp1_runner"):
+            signal["resolved_at"] = candle.timestamp.isoformat()
+            break
 
     if candles:
         signal["checked_until"] = (
@@ -120,9 +188,26 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
         if expires and now > _parse(expires):
             signal["status"] = "expired"
             signal["resolved_at"] = now.isoformat()
-    elif signal["status"] == "open":
+            if hybrid:
+                signal["result_r"] = 0.0
+    elif signal["status"] in ("open", "open_runner"):
         if now - _parse(signal["created_at"]) > OPEN_TIMEOUT:
-            signal["status"] = "timeout"
+            if hybrid and signal["status"] == "open_runner":
+                # Phase 2 fix (THE deliberate divergence from sn_exit.py):
+                # TP1 is already banked when the runner leg times out —
+                # resolve it as BE, not a bare timeout that would silently
+                # erase the banked R. Known Phase 1 harness simplification.
+                signal["status"] = "tp1_be"
+                signal["result_r"] = 0.5 * tp1_r
+                logger.info(
+                    "Signal timed out with TP1 already banked — "
+                    "resolving as tp1_be (timeout-from-runner)",
+                    id=signal.get("id"),
+                )
+            else:
+                signal["status"] = "timeout"
+                if hybrid:
+                    signal["result_r"] = 0.0
             signal["resolved_at"] = now.isoformat()
     return signal
 
@@ -178,6 +263,10 @@ class SignalJournal:
             "message_id": None,
             "alert_text": None,
             "profile_key": getattr(result, "profile_key", "conservative"),
+            "tp1": setup.tp1,
+            "runner_tp": setup.runner_tp,
+            "tier": "star" if setup.tier_star else "regular",
+            "result_r": None,
         }
         self.signals.append(signal)
         self._persist(signal)
@@ -272,7 +361,7 @@ class SignalJournal:
             {
                 s["pair"]
                 for s in self.signals
-                if s["status"] in ("pending", "open")
+                if s["status"] in ("pending", "open", "open_runner")
             }
         )
 
@@ -280,20 +369,28 @@ class SignalJournal:
         """Evaluate all unresolved signals of a pair.
 
         Returns state-change events as (signal, event) tuples, where event is
-        "filled", "tp", "sl", "expired" or "timeout" — used to live-update the
-        alert card in Telegram.
+        "filled", "tp", "sl", "expired", "timeout", "tp1_be" or "tp1_runner"
+        — used to live-update the alert card in Telegram. "open_runner" (TP1
+        tagged, runner still live) is an internal state and never an event
+        — the card only needs to know when the signal is fully resolved.
         """
         now = datetime.now(tz=timezone.utc)
         events: List[Tuple[Dict, str]] = []
         for signal in self.signals:
-            if signal["pair"] != pair or signal["status"] not in ("pending", "open"):
+            if signal["pair"] != pair or signal["status"] not in (
+                "pending", "open", "open_runner",
+            ):
                 continue
             before = signal["status"]
             evaluate_signal(signal, candles, now)
             after = signal["status"]
-            if before == "pending" and after in ("open", "tp", "sl"):
+            if before == "pending" and after in (
+                "open", "open_runner", "tp", "sl", "tp1_be", "tp1_runner",
+            ):
                 events.append((signal, "filled"))
-            if after != before and after in ("tp", "sl", "expired", "timeout"):
+            if after != before and after in (
+                "tp", "sl", "expired", "timeout", "tp1_be", "tp1_runner",
+            ):
                 events.append((signal, after))
                 logger.info(
                     "Signal resolved", id=signal["id"], pair=pair, outcome=after
@@ -315,22 +412,38 @@ class SignalJournal:
         def count(status, pool=recent):
             return sum(1 for s in pool if s["status"] == status)
 
-        tp, sl = count("tp"), count("sl")
+        def wins(pool=recent):
+            # Phase 2 hybrid lifecycle: a partial close that banked TP1 (BE
+            # or runner) is a win, same as a plain "tp" — both close R>0.
+            return (
+                count("tp", pool) + count("tp1_be", pool) + count("tp1_runner", pool)
+            )
+
+        win_total, sl = wins(), count("sl")
         taken = [s for s in recent if s.get("taken") == 1]
-        t_tp, t_sl = count("tp", taken), count("sl", taken)
+        t_win, t_sl = wins(taken), count("sl", taken)
+        active = count("pending") + count("open") + count("open_runner")
 
         lines = [
             f"📒 <b>Signal journal — last {days} days</b>",
             f"Signals: {len(recent)} | marked taken: {len(taken)}",
-            f"🎯 TP {tp} | 🛑 SL {sl} | ⏳ active "
-            f"{count('pending') + count('open')} | 🗑 expired {count('expired')}",
-            f"Winrate (signals): {_winrate_bar(tp, sl)}",
+            f"🎯 TP {win_total} | 🛑 SL {sl} | ⏳ active "
+            f"{active} | 🗑 expired {count('expired')}",
+            f"Winrate (signals): {_winrate_bar(win_total, sl)}",
         ]
-        if t_tp + t_sl:
-            lines.append(f"Winrate (taken):   {_winrate_bar(t_tp, t_sl)}")
+        if t_win + t_sl:
+            lines.append(f"Winrate (taken):   {_winrate_bar(t_win, t_sl)}")
         spark = _sparkline(recent)
         if spark:
             lines.append(f"Last outcomes: {spark}")
+
+        resolved_r = [s["result_r"] for s in recent if s.get("result_r") is not None]
+        if resolved_r:
+            lines.append(
+                f"Realized R (hybrid-tracked): {sum(resolved_r):+.1f}R total, "
+                f"avg {sum(resolved_r) / len(resolved_r):+.2f}R "
+                f"over {len(resolved_r)} resolved"
+            )
 
         by_pair: Dict[str, List[Dict]] = {}
         for s in recent:
@@ -340,9 +453,33 @@ class SignalJournal:
         for pair in sorted(by_pair):
             group = by_pair[pair]
             lines.append(
-                f"• {pair}: {len(group)} setups, "
-                f"TP {count('tp', group)} / SL {count('sl', group)}"
+                f"• {escape_html(pair)}: {len(group)} setups, "
+                f"TP {wins(group)} / SL {count('sl', group)}"
             )
+
+        # Spec watch item: per-pair ⭐ tier performance must stay visible even
+        # when it is negative (e.g. USDJPY) — the whole point of the tier
+        # split is to catch a star setup underperforming a regular one.
+        star_lines = []
+        for pair in sorted(by_pair):
+            star = [
+                s
+                for s in by_pair[pair]
+                if s.get("tier") == "star" and s.get("result_r") is not None
+            ]
+            if not star:
+                continue
+            star_r = sum(s["result_r"] for s in star)
+            star_wins = sum(1 for s in star if s["result_r"] > 0)
+            star_lines.append(
+                f"• {escape_html(pair)}: {len(star)} resolved, {star_wins}W, "
+                f"{star_r:+.1f}R"
+            )
+        if star_lines:
+            lines.append("")
+            lines.append("<b>⭐ Star tier by pair:</b>")
+            lines.extend(star_lines)
+
         # Detector mode: a setup with no unswept liquidity ahead has no
         # take-profit and carries rr 0.0 — averaging those zeros in would
         # deflate the figure into meaninglessness. They have no planned RR;
@@ -384,8 +521,16 @@ def _winrate_bar(tp: int, sl: int) -> str:
 
 
 def _sparkline(signals: List[Dict], limit: int = 10) -> str:
-    """Emoji strip of the most recent closed outcomes: 🟩 tp, 🟥 sl, ⬜ expired."""
-    icons = {"tp": "🟩", "sl": "🟥", "expired": "⬜", "timeout": "⬜"}
+    """Emoji strip of the most recent closed outcomes: 🟩 tp/tp1_be/tp1_runner
+    (all wins), 🟥 sl, ⬜ expired/timeout."""
+    icons = {
+        "tp": "🟩",
+        "tp1_be": "🟩",
+        "tp1_runner": "🟩",
+        "sl": "🟥",
+        "expired": "⬜",
+        "timeout": "⬜",
+    }
     closed = [s for s in signals if s["status"] in icons]
     closed.sort(key=lambda s: s.get("resolved_at") or s["created_at"])
     return "".join(icons[s["status"]] for s in closed[-limit:])

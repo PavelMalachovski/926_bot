@@ -42,6 +42,7 @@ from app.services.smc.notifier import (
     format_no_setup,
     format_plan,
     format_plan_summary,
+    format_quiet_setup,
     format_result,
     format_zone_alert,
     plan_summary_keyboard,
@@ -134,6 +135,8 @@ def _build_engine(
         instrument=instrument,
         min_rr=smc.min_rr,
         max_entry_gap_r=smc.max_entry_gap_r,
+        tp1_r=smc.tp1_r,
+        runner_r=smc.runner_r,
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,
@@ -211,6 +214,20 @@ def _card_footer(signal: Dict) -> str:
         lines.append(f"🎯 <b>TP HIT</b>{when} — planned +{signal['rr']:.1f}R")
     elif status == "sl":
         lines.append(f"🛑 <b>SL HIT</b>{when} — −1R")
+    elif status == "tp1_be":
+        # Phase 2 hybrid lifecycle: TP1 banked, the rest closed at
+        # break-even (or timed out with TP1 already banked — same result).
+        r = signal.get("result_r")
+        lines.append(
+            f"🎯 <b>TP1 → BE</b>{when}"
+            + (f" — +{r:.1f}R" if r is not None else "")
+        )
+    elif status == "tp1_runner":
+        r = signal.get("result_r")
+        lines.append(
+            f"🏆 <b>RUNNER HIT</b>{when}"
+            + (f" — +{r:.1f}R" if r is not None else "")
+        )
     elif status == "expired":
         lines.append("🗑 Expired unfilled — order dies with its session (Rule 10)")
     elif status == "timeout":
@@ -289,10 +306,6 @@ class Watcher:
             on_plan=self.on_plan,
             on_stored_plan=self.on_stored_plan,
             trade_journal=self.trade_journal,
-            on_set_profile=self.state.set_profile,
-            pair_profiles=lambda: dict(self.state.pair_profile),
-            default_profile=settings.smc.default_profile,
-            on_set_all_profiles=self.state.set_all_profiles,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         self.planbook = PlanBook()
@@ -506,6 +519,17 @@ class Watcher:
                         )
                         continue
                     approved.append(result)
+                    # Known ahead of the call: `_alert_send_suppressed` is a
+                    # pure function of state.notify_level + the setup's tier,
+                    # so whether this attempt is a deliberate mute (not a
+                    # failure) is decided before `_send_alert` ever touches
+                    # the network. An exception below means something broke
+                    # instead — that always reports as a real failure, never
+                    # as "suppressed", even if notify_level happens to be
+                    # muted at the time.
+                    muted_by_level = self._alert_send_suppressed(
+                        result.setup.tier_star
+                    )
                     try:
                         sent = await self._send_alert(key, result, fingerprint)
                     except Exception as e:
@@ -522,11 +546,20 @@ class Watcher:
                             exc_info=True,
                         )
                         sent = False
-                    heartbeat_lines.append(
-                        f"🚨 {key}: SETUP FOUND — details above!"
-                        if sent
-                        else f"⚠️ {key}: setup found but the alert failed to send"
-                    )
+                        muted_by_level = False
+                    if sent:
+                        heartbeat_lines.append(
+                            f"🚨 {key}: SETUP FOUND — details above!"
+                        )
+                    elif muted_by_level:
+                        heartbeat_lines.append(
+                            f"🔇 {key}: setup found — alert suppressed by "
+                            "notification level"
+                        )
+                    else:
+                        heartbeat_lines.append(
+                            f"⚠️ {key}: setup found but the alert failed to send"
+                        )
                 else:
                     await self._maybe_plan_zone_alert(key, result)
                     heartbeat_lines.append(line)
@@ -552,7 +585,20 @@ class Watcher:
     async def _send_alert(
         self, key: str, result: AnalysisResult, fingerprint: str
     ) -> bool:
-        """Urgent alert: message with Took/Skipped buttons + setup chart.
+        """Two-tier routing (Phase 2 sniper redesign, owner decision
+        2026-08-12): `result.setup.tier_star` picks the presentation.
+
+        ⭐ (star) — a setup that cleared room/sweep/premium-discount/
+        staleness (sniper.classify) — gets today's full path unchanged:
+        message with Took/Skipped buttons, pinned, chart PNG attached.
+        Every other completed setup ("regular") is still announced —
+        detector mode (CLAUDE.md) never suppresses a formed setup — but as
+        one short plain message: no pin, no chart, no buttons.
+
+        Both tiers share the same dedup fingerprint and the same journal
+        recording (`journal.record` reads `setup.tier_star` itself, Task 3),
+        so a setup that flickers between tiers within one fingerprint still
+        alerts exactly once.
 
         Returns True once the alert actually reached Telegram, False if
         `notifier.send` failed (it swallows Telegram/network errors and
@@ -568,6 +614,28 @@ class Watcher:
         isolate theirs, instead of letting it silently drop every remaining
         pair in this cycle's `for key in ...` loop.
         """
+        if result.setup.tier_star:
+            return await self._send_star_alert(key, result, fingerprint)
+        return await self._send_quiet_alert(key, result, fingerprint)
+
+    def _alert_send_suppressed(self, tier_star: bool) -> bool:
+        """Whether `state.notify_level` (Task 4b, owner decision 2026-08-12)
+        blocks the real Telegram send for this tier. "mute" blocks both
+        tiers; "star" blocks only the regular (non-⭐) tier; "all" blocks
+        nothing. This gates the send only — the caller still records the
+        setup in the journal and advances the dedup fingerprint either way,
+        so un-muting later does not replay a backlog of stale setups."""
+        level = self.state.notify_level
+        if level == "mute":
+            return True
+        if level == "star":
+            return not tier_star
+        return False
+
+    async def _send_star_alert(
+        self, key: str, result: AnalysisResult, fingerprint: str
+    ) -> bool:
+        """⭐-tier: message with Took/Skipped buttons + setup chart, pinned."""
         # Render first, record second. The caller isolates a failure in here
         # (most plausibly `format_result`) per pair — but a signal recorded
         # before that failure survives as a `pending` row with no message and
@@ -576,6 +644,13 @@ class Watcher:
         # Nothing between here and `attach_message` reads the journal.
         text = format_result(result, in_plan=self._plan_provenance(key, result))
         signal = self.journal.record(result)
+        if self._alert_send_suppressed(tier_star=True):
+            # notify_level says "mute" — record + dedup still happen, only
+            # the Telegram send (and everything downstream of it: pin,
+            # chart, live card) is skipped.
+            self.state.last_setup[key] = fingerprint
+            self.state.save()
+            return False
         keyboard = {
             "inline_keyboard": [
                 [
@@ -598,6 +673,35 @@ class Watcher:
         self.journal.attach_message(signal["id"], message_id, text)
         await self.notifier.pin(message_id)
         await self._send_chart(result, message_id)
+        return True
+
+    async def _send_quiet_alert(
+        self, key: str, result: AnalysisResult, fingerprint: str
+    ) -> bool:
+        """Non-⭐ ("regular") tier: exactly one plain `send_message`, no pin,
+        no chart, no Took/Skipped buttons. Still journal-recorded — the
+        signal is not linked to a message (no `attach_message`), so it never
+        grows a live card: `_handle_journal_events` only edits signals that
+        carry both a `message_id` and `alert_text`, and a quiet signal
+        carries neither. That is deliberate, not an oversight — a live card
+        would re-add the Took/Skipped keyboard on the next status change
+        (`_handle_journal_events`'s `keep_buttons` defaults to True), which
+        is exactly the button-free presentation this tier promises.
+        """
+        text = format_quiet_setup(result)
+        signal = self.journal.record(result)
+        if self._alert_send_suppressed(tier_star=False):
+            # notify_level says "star" or "mute" — record + dedup still
+            # happen, only the Telegram send is skipped.
+            self.state.last_setup[key] = fingerprint
+            self.state.save()
+            return False
+        message_id = await self.notifier.send(text)
+        if not message_id:
+            self.journal.discard(signal["id"])
+            return False
+        self.state.last_setup[key] = fingerprint
+        self.state.save()
         return True
 
     def _plan_provenance(self, key: str, result: AnalysisResult) -> Optional[bool]:
@@ -732,7 +836,9 @@ class Watcher:
                     signal["alert_text"] + footer,
                     reply_markup=keyboard,
                 )
-                if event in ("tp", "sl", "expired", "timeout"):
+                if event in (
+                    "tp", "sl", "expired", "timeout", "tp1_be", "tp1_runner",
+                ):
                     await self.notifier.unpin(signal["message_id"])
             # Rule 0.2 proxy: the second taken stop of the day closes trading
             if (
@@ -1185,12 +1291,21 @@ class Watcher:
             logger.info("Plan-zone alert sent", pair=key)
 
     async def _rule_04_warnings(self) -> None:
-        """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""
+        """Rule 0.4: active signal + red news soon -> SL to BU / pull the order.
+
+        `open_runner` (Phase 2 hybrid exit, journal.py: TP1 already closed
+        half the position, the runner leg is still open) is included here
+        alongside `open` — a runner-leg position is still live and exposed
+        to the news release exactly like a plain `open` one (reviewer
+        finding, carried into Task 4's scope). Before this fix the filter
+        only checked `("pending", "open")` and a runner-leg signal got no
+        pre-news warning at all.
+        """
         now = datetime.now(tz=timezone.utc)
         horizon = timedelta(minutes=30)
         changed = False
         for signal in self.journal.signals:
-            if signal["status"] not in ("pending", "open"):
+            if signal["status"] not in ("pending", "open", "open_runner"):
                 continue
             instrument = get_instrument(signal["pair"])
             for event in self.news.upcoming(relevant_currencies(instrument), horizon):
@@ -1198,16 +1313,17 @@ class Watcher:
                 if warn_key in self.state.news_warned:
                     continue
                 minutes_left = int((event.time - now).total_seconds() // 60)
+                is_open_position = signal["status"] in ("open", "open_runner")
                 action = (
                     "move the SL to breakeven"
-                    if signal["status"] == "open"
+                    if is_open_position
                     else "cancel the pending order"
                 )
                 await self.notifier.send(
                     f"⚠️ <b>RULE 0.4:</b> {signal['pair']} — 🔴 {escape_html(event.title)} "
                     f"({event.currency}) in {minutes_left} min "
                     f"({event.prague_hhmm()} Prague). You have "
-                    f"{'an open position' if signal['status'] == 'open' else 'an active limit order'} "
+                    f"{'an open position' if is_open_position else 'an active limit order'} "
                     f"— {action}!"
                 )
                 self.state.news_warned[warn_key] = now.isoformat()
@@ -1272,14 +1388,7 @@ class Watcher:
         if self.state.paused:
             lines.append("⏸ <b>PAUSED</b> — no alerts, /resume to continue")
         lines.append(f"Pairs: {', '.join(self.state.pairs) or 'none'}")
-        from app.services.smc.profiles import get_profile
-
-        profiles_line = ", ".join(
-            f"{k} {get_profile(self.state.pair_profile.get(k, settings.smc.default_profile)).label}"
-            for k in self.state.pairs
-        )
-        if profiles_line:
-            lines.append(f"Profiles: {profiles_line}")
+        lines.append(f"Notify: {self.state.notify_level}")
         try:
             forex_source = _forex_source()
         except ConfigurationError:

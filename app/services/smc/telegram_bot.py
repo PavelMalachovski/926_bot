@@ -18,9 +18,16 @@ import httpx
 import structlog
 
 from app.services.smc.instruments import INSTRUMENTS
-from app.services.smc.state import WatcherState
+from app.services.smc.state import NOTIFY_LEVELS, WatcherState
 
 logger = structlog.get_logger(__name__)
+
+# Labels for the /notify keyboard (Task 4b). Order follows NOTIFY_LEVELS.
+NOTIFY_LABELS = {
+    "all": "🔔 All (⭐ loud + regular quiet)",
+    "star": "⭐ Star only (regular setups logged, not sent)",
+    "mute": "🔇 Mute (no setup alerts)",
+}
 
 HELP_TEXT = (
     "<b>SMC Watcher</b> — Triple Sync + Imbalance\n\n"
@@ -29,7 +36,7 @@ HELP_TEXT = (
     "(no-setup checks go to the logs)\n\n"
     "<b>Commands:</b>\n"
     "/pairs — choose currency pairs\n"
-    "/strategy — switch a pair between 🛡 Conservative and ⚡ Aggressive\n"
+    "/notify — global alert level: all setups, ⭐ only, or mute\n"
     "/status — current settings and last verdicts\n"
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
@@ -60,10 +67,6 @@ class TelegramCommandBot:
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         on_stored_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         trade_journal: Optional[Any] = None,
-        on_set_profile: Optional[Callable[[str, str], None]] = None,
-        pair_profiles: Optional[Callable[[], Dict[str, str]]] = None,
-        default_profile: str = "conservative",
-        on_set_all_profiles: Optional[Callable[[str], None]] = None,
     ):
         self.bot_token = bot_token
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
@@ -77,10 +80,6 @@ class TelegramCommandBot:
         self.on_plan = on_plan
         self.on_stored_plan = on_stored_plan
         self.trade_journal = trade_journal
-        self.on_set_profile = on_set_profile
-        self.pair_profiles = pair_profiles
-        self.default_profile = default_profile
-        self.on_set_all_profiles = on_set_all_profiles
         self._offset: Optional[int] = None
         # Strong references for fire-and-forget plan tasks (see _spawn) — an
         # asyncio.Task with nothing else holding it can be garbage-collected
@@ -238,8 +237,8 @@ class TelegramCommandBot:
             commands=[
                 {"command": "pairs", "description": "Choose currency pairs"},
                 {
-                    "command": "strategy",
-                    "description": "Conservative / Aggressive per pair",
+                    "command": "notify",
+                    "description": "Alert level: all / star only / mute",
                 },
                 {"command": "check", "description": "Run the strategy check now"},
                 {"command": "plan", "description": "Pre-market plan for a pair"},
@@ -297,14 +296,11 @@ class TelegramCommandBot:
                 "Select pairs to watch (tap to toggle):",
                 reply_markup=self._pairs_keyboard(),
             )
-        elif command == "/strategy":
-            if not self.on_set_profile:
-                await self.send("Strategy switch is not available.")
-            else:
-                await self.send(
-                    "Strategy per pair (tap to toggle):",
-                    reply_markup=self._strategy_keyboard(),
-                )
+        elif command == "/notify":
+            await self.send(
+                "Notification level (tap to switch):",
+                reply_markup=self._notify_keyboard(),
+            )
         elif command == "/status":
             await self.send(self.status_text())
         elif command == "/pause":
@@ -481,39 +477,21 @@ class TelegramCommandBot:
                 )
             await self._api("answerCallbackQuery", **answer)
             return
-        if data.startswith("strat_") and self.on_set_profile:
-            key = data[len("strat_"):]
-            profiles = self.pair_profiles() if self.pair_profiles else {}
-            current = profiles.get(key, self.default_profile)
-            new = "aggressive" if current == "conservative" else "conservative"
-            self.on_set_profile(key, new)
-            answer["text"] = f"{key}: {new}"
-            message = callback.get("message", {})
-            if message:
-                await self._api(
-                    "editMessageReplyMarkup",
-                    chat_id=message["chat"]["id"],
-                    message_id=message["message_id"],
-                    reply_markup=self._strategy_keyboard(),
-                )
-            await self._api("answerCallbackQuery", **answer)
-            return
-        if data.startswith("stratall_") and self.on_set_profile:
-            profile_key = data[len("stratall_"):]
-            if self.on_set_all_profiles:
-                self.on_set_all_profiles(profile_key)
+        if data.startswith("notify_"):
+            level = data[len("notify_"):]
+            if level in NOTIFY_LEVELS:
+                self.state.set_notify_level(level)
+                answer["text"] = f"Notifications: {level}"
+                message = callback.get("message", {})
+                if message:
+                    await self._api(
+                        "editMessageReplyMarkup",
+                        chat_id=message["chat"]["id"],
+                        message_id=message["message_id"],
+                        reply_markup=self._notify_keyboard(),
+                    )
             else:
-                for key in INSTRUMENTS:
-                    self.on_set_profile(key, profile_key)
-            answer["text"] = f"All pairs: {profile_key}"
-            message = callback.get("message", {})
-            if message:
-                await self._api(
-                    "editMessageReplyMarkup",
-                    chat_id=message["chat"]["id"],
-                    message_id=message["message_id"],
-                    reply_markup=self._strategy_keyboard(),
-                )
+                answer["text"] = f"Unknown level {level}"
             await self._api("answerCallbackQuery", **answer)
             return
         await self._api("answerCallbackQuery", **answer)
@@ -562,21 +540,15 @@ class TelegramCommandBot:
             answer["text"] = "Error while processing"
             await self._api("answerCallbackQuery", **answer)
 
-    def _strategy_keyboard(self) -> Dict:
-        from app.services.smc.profiles import get_profile
-
-        profiles = self.pair_profiles() if self.pair_profiles else {}
+    def _notify_keyboard(self) -> Dict:
+        current = self.state.notify_level
         rows = []
-        for key in INSTRUMENTS:
-            current = get_profile(profiles.get(key, self.default_profile))
+        for level in NOTIFY_LEVELS:
+            mark = "✅ " if level == current else ""
             rows.append([{
-                "text": f"{current.label} {key}",
-                "callback_data": f"strat_{key}",
+                "text": f"{mark}{NOTIFY_LABELS[level]}",
+                "callback_data": f"notify_{level}",
             }])
-        rows.append([
-            {"text": "🛡 All conservative", "callback_data": "stratall_conservative"},
-            {"text": "⚡ All aggressive", "callback_data": "stratall_aggressive"},
-        ])
         return {"inline_keyboard": rows}
 
     def _pairs_keyboard(self) -> Dict:

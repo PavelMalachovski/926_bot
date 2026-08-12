@@ -439,6 +439,115 @@ class TestLiquidityTarget:
         assert "inside the stop buffer" in " ".join(result.warnings)
 
 
+class TestHybridTPAndTier:
+    """Phase 2 sniper redesign (task-2): the engine computes hybrid TP levels
+    (tp1/runner_tp, fixed multiples of risk) and a star-tier verdict on every
+    completed setup — detector mode unchanged, nothing here suppresses.
+    """
+
+    def _long(self, **kwargs):
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        return _engine(**kwargs).evaluate(
+            h4=h4, h1=h1, m5=m5_long_trigger_deep_sweep(), result=_fresh_result()
+        )
+
+    def _short(self, **kwargs):
+        h4 = make_candles(H4_DOWNTREND_CLOSES, step_minutes=240)
+        h1 = make_candles(H1_RALLY_INTO_SUPPLY_CLOSES, step_minutes=60)
+        return _engine(**kwargs).evaluate(
+            h4=h4, h1=h1, m5=m5_short_trigger_deep_sweep(), result=_fresh_result()
+        )
+
+    def test_long_tp1_and_runner_are_fixed_r_multiples(self):
+        # entry 3140.5, risk 16.5 (see TestSweepStop/TestLiquidityTarget)
+        result = self._long()
+        setup = result.setup
+        assert setup is not None, result.reasons
+        assert setup.tp1 == 3140.5 + 2.0 * 16.5
+        assert setup.runner_tp == 3140.5 + 3.0 * 16.5
+
+    def test_short_tp1_and_runner_are_fixed_r_multiples(self):
+        # entry 3129.5, risk 16.5 (see TestLiquidityTarget.test_short_tp_...)
+        result = self._short()
+        setup = result.setup
+        assert setup is not None, result.reasons
+        assert setup.tp1 == 3129.5 - 2.0 * 16.5
+        assert setup.runner_tp == 3129.5 - 3.0 * 16.5
+
+    def test_tp1_and_runner_are_configurable(self):
+        result = self._long(tp1_r=1.0, runner_r=1.5)
+        setup = result.setup
+        assert setup is not None, result.reasons
+        assert setup.tp1 == 3140.5 + 1.0 * 16.5
+        assert setup.runner_tp == 3140.5 + 1.5 * 16.5
+
+    def test_full_setup_earns_the_star(self):
+        # Hand-verified against sniper.py directly: sweep="swingL" (an M5
+        # swing low at 3140.0 is inside the touch..CHoCH excursion), pd="ok"
+        # (entry 3140.5 <= dealing-range midpoint 3176.0, discount side),
+        # room=4.88R (nearest H1/H4 pool, the swing high at 3221.0, far past
+        # MIN_ROOM_R), gap=9.5 well inside the default max_entry_gap_r=99.0 —
+        # all four conditions pass.
+        result = self._long()
+        setup = result.setup
+        assert setup is not None, result.reasons
+        assert setup.tier_star is True
+        assert setup.tier_missed == []
+
+    def test_no_swept_pool_misses_sweep(self, monkeypatch):
+        import app.services.smc.engine as E
+        monkeypatch.setattr(E.sniper, "sweep_label", lambda *a, **k: None)
+        result = self._long()
+        assert result.setup is not None
+        assert result.setup.tier_star is False
+        assert "sweep" in result.setup.tier_missed
+
+    def test_stale_entry_misses_stale_and_keeps_the_existing_warning(self):
+        # Same arithmetic as TestGatesAreNowLabels.test_stale_entry_is_...:
+        # price 3160.0 with max_entry_gap_r=0.5 -> gap 19.5 > 0.5*16.5=8.25.
+        result = _fresh_result()
+        result.price = 3160.0
+        result = _engine(max_entry_gap_r=0.5).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(),
+            result=result,
+        )
+        assert result.setup is not None
+        assert result.setup.tier_star is False
+        assert result.setup.tier_missed == ["stale"]
+        # the pre-existing Rule 5.1 warning is untouched
+        assert any("past the imbalance" in w for w in result.warnings)
+        assert "1.2R" in " ".join(result.warnings)
+
+    def test_bad_premium_discount_misses_pd(self, monkeypatch):
+        import app.services.smc.engine as E
+        monkeypatch.setattr(E.sniper, "pd_state", lambda *a, **k: "bad")
+        result = self._long()
+        assert result.setup is not None
+        assert result.setup.tier_star is False
+        assert "pd" in result.setup.tier_missed
+
+    def test_no_dealing_range_does_not_miss_pd(self, monkeypatch):
+        # pd_state returns None when the H1 dealing range can't be judged
+        # (no confirmed swings) — an unmeasurable condition, per sniper.py's
+        # classify(): it must not appear in tier_missed.
+        import app.services.smc.engine as E
+        monkeypatch.setattr(E.sniper, "pd_state", lambda *a, **k: None)
+        result = self._long()
+        assert result.setup is not None
+        assert "pd" not in result.setup.tier_missed
+
+    def test_near_pool_misses_room(self, monkeypatch):
+        import app.services.smc.engine as E
+        monkeypatch.setattr(E.sniper, "room_r", lambda *a, **k: 0.99)
+        result = self._long()
+        assert result.setup is not None
+        assert result.setup.tier_star is False
+        assert "room" in result.setup.tier_missed
+
+
 class TestEntryStalenessGate:
     """Rule 5.1 (2026-08-05): a limit far below market rarely fills. Since
     2026-08-06 (detector mode) the measurement is a warning, not a skip —
@@ -509,6 +618,18 @@ class TestEntryStalenessGate:
         # provisional 0.5 produced zero conservative alerts in 59 days.
         assert TripleSyncEngine().max_entry_gap_r == 0.75
         assert SMCSettings().max_entry_gap_r == 0.75
+
+    def test_shipped_roster_and_hybrid_exit_defaults(self):
+        # Pins config.py's production defaults: the sniper-redesign roster
+        # (ETHUSD/USDJPY/USDCAD; EURUSD/GBPUSD dropped — the year replay
+        # shows EURUSD losing under every tested rule and GBPUSD negative on
+        # the shipped conservative profile, docs/superpowers/specs/
+        # 2026-08-12-sniper-redesign-design.md section 1) and the hybrid-exit
+        # R multiples (2.0R half-close at TP1, 3.0R runner).
+        settings = SMCSettings()
+        assert settings.default_pairs() == ["ETHUSD", "USDJPY", "USDCAD"]
+        assert settings.tp1_r == 2.0
+        assert settings.runner_r == 3.0
 
 
 class TestGatesAreNowLabels:
