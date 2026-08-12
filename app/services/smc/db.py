@@ -43,6 +43,7 @@ SIGNAL_COLUMNS = [
     "runner_tp",
     "tier",
     "result_r",
+    "tp1_at",  # ISO timestamp of the candle that tagged TP1 (journal.py)
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -96,7 +97,8 @@ SIGNALS_TABLE_SQL = """
                     tp1 REAL,
                     runner_tp REAL,
                     tier TEXT,
-                    result_r REAL
+                    result_r REAL,
+                    tp1_at TEXT
                 )
 """
 
@@ -185,6 +187,7 @@ class Database:
                     ("runner_tp", "REAL"),
                     ("tier", "TEXT"),
                     ("result_r", "REAL"),
+                    ("tp1_at", "TEXT"),
                 ):
                     if column not in existing:
                         self.conn.execute(

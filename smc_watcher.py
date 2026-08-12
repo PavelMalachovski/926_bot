@@ -519,6 +519,17 @@ class Watcher:
                         )
                         continue
                     approved.append(result)
+                    # Known ahead of the call: `_alert_send_suppressed` is a
+                    # pure function of state.notify_level + the setup's tier,
+                    # so whether this attempt is a deliberate mute (not a
+                    # failure) is decided before `_send_alert` ever touches
+                    # the network. An exception below means something broke
+                    # instead — that always reports as a real failure, never
+                    # as "suppressed", even if notify_level happens to be
+                    # muted at the time.
+                    muted_by_level = self._alert_send_suppressed(
+                        result.setup.tier_star
+                    )
                     try:
                         sent = await self._send_alert(key, result, fingerprint)
                     except Exception as e:
@@ -535,11 +546,20 @@ class Watcher:
                             exc_info=True,
                         )
                         sent = False
-                    heartbeat_lines.append(
-                        f"🚨 {key}: SETUP FOUND — details above!"
-                        if sent
-                        else f"⚠️ {key}: setup found but the alert failed to send"
-                    )
+                        muted_by_level = False
+                    if sent:
+                        heartbeat_lines.append(
+                            f"🚨 {key}: SETUP FOUND — details above!"
+                        )
+                    elif muted_by_level:
+                        heartbeat_lines.append(
+                            f"🔇 {key}: setup found — alert suppressed by "
+                            "notification level"
+                        )
+                    else:
+                        heartbeat_lines.append(
+                            f"⚠️ {key}: setup found but the alert failed to send"
+                        )
                 else:
                     await self._maybe_plan_zone_alert(key, result)
                     heartbeat_lines.append(line)
@@ -1368,14 +1388,7 @@ class Watcher:
         if self.state.paused:
             lines.append("⏸ <b>PAUSED</b> — no alerts, /resume to continue")
         lines.append(f"Pairs: {', '.join(self.state.pairs) or 'none'}")
-        from app.services.smc.profiles import get_profile
-
-        profiles_line = ", ".join(
-            f"{k} {get_profile(self.state.pair_profile.get(k, settings.smc.default_profile)).label}"
-            for k in self.state.pairs
-        )
-        if profiles_line:
-            lines.append(f"Profiles: {profiles_line}")
+        lines.append(f"Notify: {self.state.notify_level}")
         try:
             forex_source = _forex_source()
         except ConfigurationError:

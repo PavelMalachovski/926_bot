@@ -207,7 +207,7 @@ tracking → live-card edits on fill/TP/SL events.
 
 ## Workflow
 
-- Work on a feature branch (currently `feat/detector-mode`), PRs to `master` via `gh`
+- Work on a feature branch (currently `feat/sniper-redesign`), PRs to `master` via `gh`
   (installed at `C:\Program Files\GitHub CLI` on the owner's machine; add to
   PATH in bash). The owner merges; Railway deploys master.
 - PR template lives in `.github/pull_request_template.md` — follow it.

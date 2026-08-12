@@ -14,11 +14,11 @@ def test_signal_profile_key_column(tmp_path):
 
 
 class TestHybridLifecycleColumns:
-    """Phase 2 sniper redesign: tp1/runner_tp/tier/result_r back the
+    """Phase 2 sniper redesign: tp1/runner_tp/tier/result_r/tp1_at back the
     partial-close lifecycle (journal.evaluate_signal) and must exist on
     both a fresh schema and a DB file created before they did."""
 
-    NEW_COLUMNS = {"tp1", "runner_tp", "tier", "result_r"}
+    NEW_COLUMNS = {"tp1", "runner_tp", "tier", "result_r", "tp1_at"}
 
     def test_fresh_schema_has_the_new_columns(self, tmp_path):
         from app.services.smc.db import SIGNAL_COLUMNS
@@ -30,7 +30,7 @@ class TestHybridLifecycleColumns:
 
     def test_old_schema_db_file_migrates_in_place_and_keeps_rows(self, tmp_path):
         """A DB file built on the schema as it existed before this task (no
-        tp1/runner_tp/tier/result_r columns) must gain them in place —
+        tp1/runner_tp/tier/result_r/tp1_at columns) must gain them in place —
         without losing the row that was already there."""
         path = str(tmp_path / "old.db")
         conn = sqlite3.connect(path)
@@ -66,6 +66,7 @@ class TestHybridLifecycleColumns:
         assert rows[0]["runner_tp"] is None
         assert rows[0]["tier"] is None
         assert rows[0]["result_r"] is None
+        assert rows[0]["tp1_at"] is None
 
 
 class TestDatabaseOpen:

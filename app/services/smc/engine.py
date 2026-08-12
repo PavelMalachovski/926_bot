@@ -300,11 +300,11 @@ class TripleSyncEngine:
         # the entry, so market entries never trigger it.
         price = result.price or m5[-1].close
         gap = price - entry if direction == Direction.LONG else entry - price
-        if gap > self.max_entry_gap_r * risk:
+        stale = gap > self.max_entry_gap_r * risk
+        if stale:
             result.warnings.append(
                 f"price has run {gap / risk:.1f}R past the imbalance"
             )
-        stale = gap > self.max_entry_gap_r * risk
 
         # Phase 2 sniper redesign (owner decision 2026-08-12): hybrid exit
         # levels — TP1 at tp1_r*risk for half the position, a runner at
