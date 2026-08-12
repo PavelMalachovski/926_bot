@@ -118,6 +118,32 @@ mode, closed-candles-only fetchers, per-instrument params in
 - Maximum-profit parameter mining on this same year is overfitting and is
   explicitly out of scope; any optimisation runs train-on-H1/test-on-H2.
 
+## Phase 2 locked decisions (owner, 2026-08-12, post-replay)
+
+Superseding the corresponding provisional lines above:
+
+1. **Runner = 3.0R** (owner pick; train-optimal, all three candidates within
+   1 SE — see sniper-replay.md §5/§9.1).
+2. **Entry = M5 FVG** (Rule 5 as it ships today). The OB entry is demoted
+   back to the info line: it cost 21.5–25.3 pp of fills for no measured R
+   payoff, and the H1-bracket experiment (h1-entry-report.md) was
+   structurally unmeasurable (14 brackets/year). The third sync (M5
+   CHoCH + FVG) stays law.
+3. **⭐ tier = V2 + staleness** (variants-report.md): room_r ≥ 2.5 (H1/H4
+   pools only; no pool = pass) AND sweep label present AND pd ∈ {ok, None}
+   (unjudgeable dealing range passes — this recovers the 2025-09-29
+   +21.84R winner) AND no Rule 5.1 "run past" warning (gap ≤ 0.75R — the
+   validated study population). Sweep stays REQUIRED: dropping it wins
+   in-sample and loses out-of-sample by > 1 SE.
+4. **Pre-merge validation re-cut:** tier inputs in the replay were computed
+   at `entry_used` (OB when present). Phase 2 re-cuts tiers + outcomes on
+   the FVG-entry basis with the final config (runner 3.0, V2+staleness)
+   and must re-confirm the green light (star R positive both halves) before
+   the bot code merges.
+5. Watch item: USDJPY star tier is net negative on both halves under every
+   variant — carried by ETHUSD. Not a roster change (owner kept USDJPY);
+   journal should make per-pair star performance visible.
+
 ## Implementation order
 
 1. Replay harness extension + year run + report (analysis only, no bot code).
