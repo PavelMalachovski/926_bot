@@ -213,6 +213,20 @@ def _card_footer(signal: Dict) -> str:
         lines.append(f"🎯 <b>TP HIT</b>{when} — planned +{signal['rr']:.1f}R")
     elif status == "sl":
         lines.append(f"🛑 <b>SL HIT</b>{when} — −1R")
+    elif status == "tp1_be":
+        # Phase 2 hybrid lifecycle: TP1 banked, the rest closed at
+        # break-even (or timed out with TP1 already banked — same result).
+        r = signal.get("result_r")
+        lines.append(
+            f"🎯 <b>TP1 → BE</b>{when}"
+            + (f" — +{r:.1f}R" if r is not None else "")
+        )
+    elif status == "tp1_runner":
+        r = signal.get("result_r")
+        lines.append(
+            f"🏆 <b>RUNNER HIT</b>{when}"
+            + (f" — +{r:.1f}R" if r is not None else "")
+        )
     elif status == "expired":
         lines.append("🗑 Expired unfilled — order dies with its session (Rule 10)")
     elif status == "timeout":
@@ -734,7 +748,9 @@ class Watcher:
                     signal["alert_text"] + footer,
                     reply_markup=keyboard,
                 )
-                if event in ("tp", "sl", "expired", "timeout"):
+                if event in (
+                    "tp", "sl", "expired", "timeout", "tp1_be", "tp1_runner",
+                ):
                     await self.notifier.unpin(signal["message_id"])
             # Rule 0.2 proxy: the second taken stop of the day closes trading
             if (

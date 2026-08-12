@@ -34,6 +34,15 @@ SIGNAL_COLUMNS = [
     "message_id",  # Telegram message id of the alert (live setup card)
     "alert_text",  # original alert body, re-used when editing the card
     "profile_key",  # conservative | aggressive
+    # Phase 2 sniper redesign: hybrid partial-close lifecycle (journal.py's
+    # evaluate_signal). tp1/runner_tp are actual price levels (entry +/-
+    # tp1_r/runner_r * risk, computed by the engine); tier mirrors
+    # TradeSetup.tier_star ("star"/"regular"); result_r is set once the
+    # signal resolves (tp/sl/expired/timeout/tp1_be/tp1_runner).
+    "tp1",
+    "runner_tp",
+    "tier",
+    "result_r",
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -83,7 +92,11 @@ SIGNALS_TABLE_SQL = """
                     taken INTEGER,
                     message_id INTEGER,
                     alert_text TEXT,
-                    profile_key TEXT
+                    profile_key TEXT,
+                    tp1 REAL,
+                    runner_tp REAL,
+                    tier TEXT,
+                    result_r REAL
                 )
 """
 
@@ -168,6 +181,10 @@ class Database:
                     ("message_id", "INTEGER"),
                     ("alert_text", "TEXT"),
                     ("profile_key", "TEXT"),
+                    ("tp1", "REAL"),
+                    ("runner_tp", "REAL"),
+                    ("tier", "TEXT"),
+                    ("result_r", "REAL"),
                 ):
                     if column not in existing:
                         self.conn.execute(

@@ -315,20 +315,26 @@ class TestTradeMarksAndDiscipline:
 
 
 class TestLiveCardEvents:
-    def test_update_pair_reports_fill_and_tp(self, tmp_path):
+    def test_update_pair_reports_fill_and_tp1_runner(self, tmp_path):
+        """Phase 2 sniper redesign: every setup the real engine approves now
+        carries tp1/runner_tp (engine.py, Task 2), so a freshly recorded
+        signal always runs the hybrid partial-close lifecycle, not the plain
+        tp/sl one. entry=3139.5, sl=3128.0 -> risk=11.5, tp1=3162.5 (2R),
+        runner_tp=3174.0 (3R)."""
         journal = SignalJournal(Database(str(tmp_path / "j.db")))
         result = _approved_result()
         signal = journal.record(result)
+        assert signal["tp1"] == 3162.5 and signal["runner_tp"] == 3174.0
         start = datetime(2026, 7, 6, 15, 45, tzinfo=timezone.utc)
-        # TP is now the nearest unswept liquidity: H1 swing high 3221.0 minus
-        # the $2 buffer = 3219.0 (see TestLiquidityTarget for the arithmetic).
         candles = [
             candle(3142, 3143, 3139.0, 3141, start=start, index=0),  # fills 3139.5
-            candle(3141, 3225, 3140, 3222, start=start, index=1),  # hits TP 3219.0
+            candle(3141, 3163, 3140, 3162, start=start, index=1),  # tags TP1 3162.5
+            candle(3162, 3180, 3170, 3178, start=start, index=2),  # runner 3174.0
         ]
         events = journal.update_pair("ETHUSD", candles)
-        assert [e for _, e in events] == ["filled", "tp"]
-        assert signal["status"] == "tp"
+        assert [e for _, e in events] == ["filled", "tp1_runner"]
+        assert signal["status"] == "tp1_runner"
+        assert signal["result_r"] == pytest.approx(2.5)
 
     def test_signal_without_a_take_profit_still_fills_and_stops(self, tmp_path):
         """Detector mode: a setup with no unswept liquidity ahead is recorded
