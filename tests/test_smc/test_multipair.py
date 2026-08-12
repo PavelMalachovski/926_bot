@@ -372,6 +372,161 @@ class TestAlertPlanProvenance:
         assert "new zone — not in the plan" in watcher.notifier.sent[0]
 
 
+class TestTwoTierAlerting:
+    """Phase 2 sniper redesign, Task 4: `_send_alert` routes by
+    `result.setup.tier_star` — ⭐ gets today's full path (buttons + pin +
+    chart), everything else gets one quiet plain message. Dedup is shared
+    and unchanged across both tiers (spec: a setup flickering tiers within
+    one fingerprint must not re-alert)."""
+
+    class _RecordingNotifier:
+        def __init__(self):
+            self.sent = []  # list of (text, reply_markup)
+            self.photos = []
+            self.pinned = []
+
+        async def send(self, text, reply_markup=None, disable_notification=False):
+            self.sent.append((text, reply_markup))
+            return len(self.sent)
+
+        async def send_photo(self, photo, caption=None, reply_to=None):
+            self.photos.append(photo)
+            return 999
+
+        async def pin(self, message_id):
+            self.pinned.append(message_id)
+
+    def _watcher(self, tmp_path):
+        from app.services.smc.db import Database
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._RecordingNotifier()
+        return watcher
+
+    @pytest.mark.asyncio
+    async def test_star_result_uses_the_full_path(self, tmp_path):
+        watcher = self._watcher(tmp_path)
+        result = _fingerprint_result()
+        result.setup.tier_star = True
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-star")
+
+        assert sent is True
+        assert len(watcher.notifier.sent) == 1
+        text, keyboard = watcher.notifier.sent[0]
+        assert "⭐" in text
+        assert keyboard is not None and "inline_keyboard" in keyboard
+        assert watcher.notifier.pinned == [1]
+        signal = watcher.journal.signals[0]
+        assert signal["tier"] == "star"
+        assert signal["message_id"] == 1
+        assert signal["alert_text"] == text
+        assert watcher.state.last_setup["ETHUSD"] == "fp-star"
+
+    @pytest.mark.asyncio
+    async def test_regular_result_sends_exactly_one_plain_message(self, tmp_path):
+        watcher = self._watcher(tmp_path)
+        result = _fingerprint_result()
+        result.setup.tier_star = False
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+        result.setup.tier_missed = ["room", "sweep"]
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-regular")
+
+        assert sent is True
+        assert len(watcher.notifier.sent) == 1
+        text, keyboard = watcher.notifier.sent[0]
+        assert keyboard is None
+        assert "Missed for ⭐" in text
+        assert watcher.notifier.pinned == []
+        assert watcher.notifier.photos == []
+        signal = watcher.journal.signals[0]
+        assert signal["tier"] == "regular"
+        # No live card: message_id/alert_text are never attached for the
+        # quiet tier (deliberate — see _send_quiet_alert's docstring).
+        assert signal["message_id"] is None
+        assert signal["alert_text"] is None
+        assert watcher.state.last_setup["ETHUSD"] == "fp-regular"
+
+    @pytest.mark.asyncio
+    async def test_chart_failure_still_delivers_the_star_alert(
+        self, monkeypatch, tmp_path
+    ):
+        import app.services.smc.chart as chart_mod
+
+        def failing_render(result):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(chart_mod, "render_setup_chart", failing_render)
+        watcher = self._watcher(tmp_path)
+        result = _fingerprint_result()
+        result.setup.tier_star = True
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-star")
+
+        assert sent is True
+        assert len(watcher.notifier.sent) == 1
+        assert watcher.notifier.pinned == [1]
+        assert watcher.notifier.photos == []  # the failed render sent nothing
+
+    @pytest.mark.asyncio
+    async def test_dedup_fingerprint_is_shared_across_a_tier_flip(
+        self, monkeypatch, tmp_path
+    ):
+        """A setup that flickers between ⭐ and regular within one fingerprint
+        must alert exactly once, not once per tier."""
+        from app.services.smc.planbook import PlanBook
+
+        watcher = self._watcher(tmp_path)
+        watcher.state.pairs = ["ETHUSD"]
+        watcher.news = None
+        watcher.last_results = {}
+        watcher.planbook = PlanBook()
+
+        star_result = _fingerprint_result()
+        star_result.setup.tier_star = True
+        star_result.setup.tp1 = star_result.setup.entry + 20
+        star_result.setup.runner_tp = star_result.setup.entry + 40
+
+        regular_result = _fingerprint_result()
+        regular_result.setup.tier_star = False
+        regular_result.setup.tp1 = regular_result.setup.entry + 20
+        regular_result.setup.runner_tp = regular_result.setup.entry + 40
+        regular_result.setup.tier_missed = ["room"]
+
+        calls = {"n": 0}
+
+        async def fake_check_pair(key):
+            calls["n"] += 1
+            result = star_result if calls["n"] == 1 else regular_result
+            return "line", result
+
+        monkeypatch.setattr(watcher, "check_pair", fake_check_pair)
+
+        async def no_op_track_journal():
+            return None
+
+        monkeypatch.setattr(watcher, "_track_journal", no_op_track_journal)
+
+        await watcher.run_cycle()
+        await watcher.run_cycle()
+
+        assert len(watcher.notifier.sent) == 1
+        assert calls["n"] == 2  # both cycles actually ran check_pair
+        assert len(watcher.journal.signals) == 1
+
+
 class TestCorrelationGuard:
     @staticmethod
     def _approved(symbol, direction):
@@ -463,6 +618,10 @@ class TestAlertSendIsolation:
             direction=Direction.LONG, entry=1.0, stop_loss=0.9,
             take_profit=1.2, rr=2.0,
             fvg=FVG(0, 0.95, 1.0, True, result.checked_at),
+            # These tests exercise the format_result failure-isolation
+            # contract, which only the ⭐ path calls (Task 4: the non-star
+            # path renders via format_quiet_setup instead).
+            tier_star=True,
         )
         return result
 

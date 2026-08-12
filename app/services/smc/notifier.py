@@ -196,6 +196,14 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         f"🚨 <b>SETUP READY — {escape_html(result.symbol)} · {side}</b>"
         f" · {_direction_source_label(result, is_long)}"
     ]
+    if setup.tier_star:
+        # Phase 2 sniper redesign (owner decision 2026-08-12): the loud
+        # ⭐-tier header — room + sweep + premium/discount + staleness all
+        # cleared (app/services/smc/sniper.py). Detector mode: every
+        # completed setup is still announced (smc_watcher._send_alert routes
+        # everything else through the quiet one-liner instead), this line
+        # only labels the higher-confidence ones.
+        lines.append("⭐ <b>SNIPER</b>")
     if in_plan is True:
         lines.append("   from this morning's plan")
     elif in_plan is False:
@@ -239,6 +247,14 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         f"🛑 Swept liquidity      {extreme:.{d}f}"
         f"   ← stop behind the wick ({setup.stop_loss:.{d}f} with buffer)"
     )
+    # Phase 2 hybrid exit (Task 2, engine.py): TP1 closes half the position
+    # at tp1_r*risk, the runner rides to runner_r*risk. Both are computed for
+    # every completed setup, star or not — only the ⭐ header above is tier-
+    # gated, these levels are not.
+    if setup.tp1 is not None and setup.runner_tp is not None:
+        lines.append(
+            f"🔫 TP1 (half): {setup.tp1:.{d}f} · runner: {setup.runner_tp:.{d}f}"
+        )
 
     lines.append("")
     lines.extend(_ladder_lines(setup, instrument))
@@ -298,6 +314,34 @@ def format_no_setup(result: AnalysisResult) -> str:
         )
     reason = escape_html(result.reasons[0] if result.reasons else "conditions not met")
     return f"🔍 {result.symbol} {time_str} — no setup. {reason}."
+
+
+def format_quiet_setup(result: AnalysisResult) -> str:
+    """One-line quiet alert for a non-⭐ ("regular") setup.
+
+    Detector mode still announces every setup that fully forms (CLAUDE.md) —
+    the two-tier split (Phase 2 sniper redesign, owner decision 2026-08-12)
+    only changes how loud the announcement is. A setup that missed the ⭐ bar
+    (room/sweep/premium-discount/staleness — see sniper.classify) gets this
+    short message instead of the full card: no ladder, no `<pre>` block, no
+    chart/pin/buttons (smc_watcher._send_alert routes those separately) —
+    just the levels and which conditions it missed, so the owner can judge
+    for himself whether it is still worth taking.
+    """
+    setup = result.setup
+    d = result.price_decimals
+    is_long = setup.direction == Direction.LONG
+    side = "LONG" if is_long else "SHORT"
+    tp1 = f"{setup.tp1:.{d}f}" if setup.tp1 is not None else "n/a"
+    runner = f"{setup.runner_tp:.{d}f}" if setup.runner_tp is not None else "n/a"
+    missed = ", ".join(setup.tier_missed) if setup.tier_missed else "—"
+    time_str = to_prague(result.checked_at).strftime("%d.%m %H:%M")
+    return (
+        f"🔹 <b>{escape_html(result.symbol)} {side}</b> · "
+        f"entry {setup.entry:.{d}f} · SL {setup.stop_loss:.{d}f} · "
+        f"TP1 {tp1} · runner {runner}\n"
+        f"Missed for ⭐: {escape_html(missed)} · {time_str} Prague"
+    )
 
 
 def format_setup_still_active(result: AnalysisResult) -> str:

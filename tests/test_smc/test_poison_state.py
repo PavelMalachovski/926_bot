@@ -92,6 +92,68 @@ class TestRuleO4WarningsPruneSurvivesPoison:
         assert calls["n"] == 0, "nothing changed — must not write to the DB"
 
 
+class TestRule04WarningsCoverTheRunnerLeg:
+    """Reviewer finding, carried into Phase 2 Task 4's scope: `open_runner`
+    (journal.py — TP1 already closed half the position, the runner leg is
+    still open) used to be missing from `_rule_04_warnings`'s status filter,
+    which only checked `("pending", "open")`. A runner-leg position is still
+    live and exposed to the news release exactly like a plain `open` one, so
+    it must still get the pre-news warning."""
+
+    class _FakeNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, **kwargs):
+            self.sent.append(text)
+            return 1
+
+    def _watcher(self, tmp_path, status):
+        from smc_watcher import Watcher
+        from app.services.smc.news import NewsCalendar, NewsEvent
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._FakeNotifier()
+        watcher.news = NewsCalendar()
+        # ETHUSD is crypto -> relevant_currencies is {"USD"} (news.py).
+        # 15 minutes out sits inside _rule_04_warnings' 30-minute horizon,
+        # comfortably clear of the real wall clock at test-run time.
+        event_time = datetime.now(tz=timezone.utc) + timedelta(minutes=15)
+        watcher.news.events = [
+            NewsEvent(time=event_time, currency="USD", title="Fed Speech")
+        ]
+        watcher.journal.signals.append(
+            {"id": "sig1", "pair": "ETHUSD", "status": status}
+        )
+        return watcher
+
+    @pytest.mark.asyncio
+    async def test_open_runner_signal_gets_the_pre_news_warning(self, tmp_path):
+        watcher = self._watcher(tmp_path, "open_runner")
+
+        await watcher._rule_04_warnings()
+
+        assert watcher.notifier.sent, "a runner-leg signal must still warn"
+        message = watcher.notifier.sent[0]
+        assert "ETHUSD" in message
+        assert "RULE 0.4" in message
+        assert "an open position" in message
+
+    @pytest.mark.asyncio
+    async def test_a_resolved_signal_still_does_not_warn(self, tmp_path):
+        """Control: a signal that has already resolved (e.g. "tp") is not an
+        active position or order, so the filter must keep excluding it."""
+        watcher = self._watcher(tmp_path, "tp")
+
+        await watcher._rule_04_warnings()
+
+        assert watcher.notifier.sent == []
+
+
 # --------------------------------------------------------------- (b) journal
 
 

@@ -42,6 +42,7 @@ from app.services.smc.notifier import (
     format_no_setup,
     format_plan,
     format_plan_summary,
+    format_quiet_setup,
     format_result,
     format_zone_alert,
     plan_summary_keyboard,
@@ -568,7 +569,20 @@ class Watcher:
     async def _send_alert(
         self, key: str, result: AnalysisResult, fingerprint: str
     ) -> bool:
-        """Urgent alert: message with Took/Skipped buttons + setup chart.
+        """Two-tier routing (Phase 2 sniper redesign, owner decision
+        2026-08-12): `result.setup.tier_star` picks the presentation.
+
+        ⭐ (star) — a setup that cleared room/sweep/premium-discount/
+        staleness (sniper.classify) — gets today's full path unchanged:
+        message with Took/Skipped buttons, pinned, chart PNG attached.
+        Every other completed setup ("regular") is still announced —
+        detector mode (CLAUDE.md) never suppresses a formed setup — but as
+        one short plain message: no pin, no chart, no buttons.
+
+        Both tiers share the same dedup fingerprint and the same journal
+        recording (`journal.record` reads `setup.tier_star` itself, Task 3),
+        so a setup that flickers between tiers within one fingerprint still
+        alerts exactly once.
 
         Returns True once the alert actually reached Telegram, False if
         `notifier.send` failed (it swallows Telegram/network errors and
@@ -584,6 +598,14 @@ class Watcher:
         isolate theirs, instead of letting it silently drop every remaining
         pair in this cycle's `for key in ...` loop.
         """
+        if result.setup.tier_star:
+            return await self._send_star_alert(key, result, fingerprint)
+        return await self._send_quiet_alert(key, result, fingerprint)
+
+    async def _send_star_alert(
+        self, key: str, result: AnalysisResult, fingerprint: str
+    ) -> bool:
+        """⭐-tier: message with Took/Skipped buttons + setup chart, pinned."""
         # Render first, record second. The caller isolates a failure in here
         # (most plausibly `format_result`) per pair — but a signal recorded
         # before that failure survives as a `pending` row with no message and
@@ -614,6 +636,29 @@ class Watcher:
         self.journal.attach_message(signal["id"], message_id, text)
         await self.notifier.pin(message_id)
         await self._send_chart(result, message_id)
+        return True
+
+    async def _send_quiet_alert(
+        self, key: str, result: AnalysisResult, fingerprint: str
+    ) -> bool:
+        """Non-⭐ ("regular") tier: exactly one plain `send_message`, no pin,
+        no chart, no Took/Skipped buttons. Still journal-recorded — the
+        signal is not linked to a message (no `attach_message`), so it never
+        grows a live card: `_handle_journal_events` only edits signals that
+        carry both a `message_id` and `alert_text`, and a quiet signal
+        carries neither. That is deliberate, not an oversight — a live card
+        would re-add the Took/Skipped keyboard on the next status change
+        (`_handle_journal_events`'s `keep_buttons` defaults to True), which
+        is exactly the button-free presentation this tier promises.
+        """
+        text = format_quiet_setup(result)
+        signal = self.journal.record(result)
+        message_id = await self.notifier.send(text)
+        if not message_id:
+            self.journal.discard(signal["id"])
+            return False
+        self.state.last_setup[key] = fingerprint
+        self.state.save()
         return True
 
     def _plan_provenance(self, key: str, result: AnalysisResult) -> Optional[bool]:
@@ -1203,12 +1248,21 @@ class Watcher:
             logger.info("Plan-zone alert sent", pair=key)
 
     async def _rule_04_warnings(self) -> None:
-        """Rule 0.4: active signal + red news soon -> SL to BU / pull the order."""
+        """Rule 0.4: active signal + red news soon -> SL to BU / pull the order.
+
+        `open_runner` (Phase 2 hybrid exit, journal.py: TP1 already closed
+        half the position, the runner leg is still open) is included here
+        alongside `open` — a runner-leg position is still live and exposed
+        to the news release exactly like a plain `open` one (reviewer
+        finding, carried into Task 4's scope). Before this fix the filter
+        only checked `("pending", "open")` and a runner-leg signal got no
+        pre-news warning at all.
+        """
         now = datetime.now(tz=timezone.utc)
         horizon = timedelta(minutes=30)
         changed = False
         for signal in self.journal.signals:
-            if signal["status"] not in ("pending", "open"):
+            if signal["status"] not in ("pending", "open", "open_runner"):
                 continue
             instrument = get_instrument(signal["pair"])
             for event in self.news.upcoming(relevant_currencies(instrument), horizon):
@@ -1216,16 +1270,17 @@ class Watcher:
                 if warn_key in self.state.news_warned:
                     continue
                 minutes_left = int((event.time - now).total_seconds() // 60)
+                is_open_position = signal["status"] in ("open", "open_runner")
                 action = (
                     "move the SL to breakeven"
-                    if signal["status"] == "open"
+                    if is_open_position
                     else "cancel the pending order"
                 )
                 await self.notifier.send(
                     f"⚠️ <b>RULE 0.4:</b> {signal['pair']} — 🔴 {escape_html(event.title)} "
                     f"({event.currency}) in {minutes_left} min "
                     f"({event.prague_hhmm()} Prague). You have "
-                    f"{'an open position' if signal['status'] == 'open' else 'an active limit order'} "
+                    f"{'an open position' if is_open_position else 'an active limit order'} "
                     f"— {action}!"
                 )
                 self.state.news_warned[warn_key] = now.isoformat()
