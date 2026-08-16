@@ -47,12 +47,14 @@ from app.services.smc.notifier import (
     format_zone_alert,
     plan_summary_keyboard,
     redact_secrets,
+    zone_alert_keyboard,
 )
 from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
 from app.services.smc.sessions import (
-    PRAGUE, active_session, session_block, to_prague,
+    PRAGUE, active_session, mute_deadline, prague_hhmm, session_block,
+    to_prague,
 )
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
@@ -307,6 +309,7 @@ class Watcher:
             on_trade_mark=self.mark_trade,
             on_plan=self.on_plan,
             on_stored_plan=self.on_stored_plan,
+            on_zone_mute=self.mark_zone_mute,
             trade_journal=self.trade_journal,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
@@ -753,6 +756,21 @@ class Watcher:
             f"{signal['pair']} marked as taken — tracking your stats; "
             f"muted for {hours:.0f}h"
         )
+
+    async def mark_zone_mute(self, key: str) -> str:
+        """🔕 button: silence this pair's zone alerts until the current
+        session block ends (or tomorrow's open, in the last block of the
+        day). Setup alerts and Rule 0.4 warnings are untouched (D3).
+
+        Returns the Prague HH:MM deadline; the bot builds both the callback
+        answer and the replacement button label from it.
+        """
+        key = key.upper()
+        until = self.state.mute_zone_alerts(
+            key, mute_deadline(datetime.now(tz=timezone.utc))
+        )
+        logger.info("Zone alerts muted", pair=key, until=until)
+        return until
 
     def _cooldown_left(self, key: str) -> Optional[str]:
         """Human 'Nh Mm' remaining on a taken-trade mute, or None if expired,
@@ -1277,7 +1295,10 @@ class Watcher:
         ):
             return
         sent = await self.notifier.send(
-            format_zone_alert(key, scenario, result.price_decimals)
+            format_zone_alert(key, scenario, result.price_decimals),
+            reply_markup=zone_alert_keyboard(
+                key, prague_hhmm(mute_deadline(result.checked_at))
+            ),
         )
         if sent:
             # mark AFTER the send: a failed delivery must retry next cycle

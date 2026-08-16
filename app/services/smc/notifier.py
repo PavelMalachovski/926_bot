@@ -538,6 +538,20 @@ def format_zone_alert(pair, scenario, decimals: int) -> str:
     )
 
 
+def zone_alert_keyboard(pair: str, until_hhmm: str) -> dict:
+    """The 🔕 button under a zone alert (owner decision 2026-08-16).
+
+    Silences this pair's ZONE alerts only — setup alerts, Rule 0.4 news
+    warnings and the digest are unaffected (D3). The label shows the
+    deadline that applies at send time; the authoritative deadline is
+    recomputed when the button is actually pressed.
+    """
+    return {"inline_keyboard": [[{
+        "text": f"🔕 Mute {pair} zone alerts till {until_hhmm}",
+        "callback_data": f"zmute_{pair}",
+    }]]}
+
+
 class TelegramNotifier:
     """Minimal standalone Telegram sender (no DB dependencies)."""
 

@@ -66,6 +66,7 @@ class TelegramCommandBot:
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         on_stored_plan: Optional[Callable[[str], Awaitable[None]]] = None,
+        on_zone_mute: Optional[Callable[[str], Awaitable[str]]] = None,
         trade_journal: Optional[Any] = None,
     ):
         self.bot_token = bot_token
@@ -79,6 +80,7 @@ class TelegramCommandBot:
         self.on_trade_mark = on_trade_mark
         self.on_plan = on_plan
         self.on_stored_plan = on_stored_plan
+        self.on_zone_mute = on_zone_mute
         self.trade_journal = trade_journal
         self._offset: Optional[int] = None
         # Strong references for fire-and-forget plan tasks (see _spawn) — an
@@ -442,6 +444,26 @@ class TelegramCommandBot:
                 )
             await self._api("answerCallbackQuery", **answer)
             await self.send("▶️ <b>Resumed</b> — watching pairs again.")
+            return
+        if data.startswith("zmute_") and self.on_zone_mute:
+            key = data[len("zmute_"):]
+            # The hook returns the Prague HH:MM deadline and nothing else,
+            # so neither string below has to be parsed back out of a
+            # sentence.
+            until = await self.on_zone_mute(key)
+            answer["text"] = f"{key} zone alerts muted till {until}"
+            message = callback.get("message", {})
+            if message:
+                await self._api(
+                    "editMessageReplyMarkup",
+                    chat_id=message["chat"]["id"],
+                    message_id=message["message_id"],
+                    reply_markup={"inline_keyboard": [[{
+                        "text": f"🔕 Muted till {until}",
+                        "callback_data": "noop",
+                    }]]},
+                )
+            await self._api("answerCallbackQuery", **answer)
             return
         if data.startswith("aplan_") and self.on_stored_plan:
             key = data[len("aplan_"):]
