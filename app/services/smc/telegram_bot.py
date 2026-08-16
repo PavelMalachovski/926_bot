@@ -47,6 +47,7 @@ HELP_TEXT = (
     "/news — today's red news (Forex Factory)\n"
     "/pause — mute all alerts until /resume\n"
     "/resume — resume alerts\n"
+    "/unmute — un-mute zone alerts for every pair\n"
     "/help — this help"
 )
 
@@ -250,6 +251,10 @@ class TelegramCommandBot:
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
                 {"command": "pause", "description": "Mute all alerts until /resume"},
                 {"command": "resume", "description": "Resume alerts"},
+                {
+                    "command": "unmute",
+                    "description": "Un-mute zone alerts for every pair",
+                },
                 {"command": "help", "description": "What this bot does"},
             ],
         )
@@ -318,6 +323,14 @@ class TelegramCommandBot:
         elif command == "/resume":
             self.state.set_paused(False)
             await self.send("▶️ <b>Resumed</b> — watching pairs again.")
+        elif command == "/unmute":
+            freed = self.state.clear_zone_mutes()
+            if freed:
+                await self.send(
+                    "🔔 Zone alerts un-muted for: " + ", ".join(freed)
+                )
+            else:
+                await self.send("No pairs are muted.")
         elif command == "/journal":
             if self.trade_journal:
                 await self.send(self.trade_journal.stats_text())

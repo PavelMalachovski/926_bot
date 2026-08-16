@@ -1426,6 +1426,13 @@ class Watcher:
         ]
         if muted:
             lines.append(f"🔕 Muted (taken): {', '.join(muted)}")
+        zone_muted = [
+            f"{k} (till {until})"
+            for k in self.state.pairs
+            if (until := self.state.zone_muted_until(k))
+        ]
+        if zone_muted:
+            lines.append(f"🔕 Zone alerts muted: {', '.join(zone_muted)}")
         if self.last_results:
             lines.append("")
             lines.append("<b>Last check:</b>")

@@ -108,3 +108,47 @@ class TestAlertCarriesTheButton:
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", _result()))
         _text, markup = w.notifier.sent[0]
         assert markup["inline_keyboard"][0][0]["callback_data"] == "zmute_ETHUSD"
+
+
+class _UnmuteState(_State):
+    clear_zone_mutes = WatcherState.clear_zone_mutes
+
+
+class _CommandBot(_Bot):
+    def __init__(self):
+        super().__init__(None)
+        self.state = _UnmuteState()
+        self.sent = []
+
+    async def send(self, text, reply_markup=None):
+        self.sent.append(text)
+        return 1
+
+
+class TestUnmuteCommand:
+    def test_unmute_frees_every_pair(self):
+        bot = _CommandBot()
+        bot.state.mute_zone_alerts("USDCAD", _utc(14, 0))
+        bot.state.mute_zone_alerts("ETHUSD", _utc(14, 0))
+        asyncio.run(bot._handle_command("/unmute"))
+        assert bot.state.zone_muted == {}
+        assert "USDCAD" in bot.sent[0] and "ETHUSD" in bot.sent[0]
+
+    def test_unmute_with_nothing_muted(self):
+        bot = _CommandBot()
+        asyncio.run(bot._handle_command("/unmute"))
+        assert "No pairs are muted" in bot.sent[0]
+
+
+class TestStatusLine:
+    def test_status_lists_muted_pairs(self, monkeypatch):
+        from smc_watcher import Watcher
+
+        w = Watcher.__new__(Watcher)
+        w.state = _UnmuteState()
+        w.state.pairs = ["ETHUSD", "USDCAD"]
+        w.state.pair_cooldown = {}
+        w.state.notify_level = "all"
+        w.last_results = {}
+        w.state.mute_zone_alerts("USDCAD", _utc(23, 59))
+        assert "🔕 Zone alerts muted: USDCAD (till 23:59)" in w.status_text()
