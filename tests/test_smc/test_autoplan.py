@@ -553,7 +553,7 @@ class TestPlanZoneAlert:
     def test_touch_alerts_with_plan_numbers_once(self, monkeypatch):
         w, r = self._armed_watcher(monkeypatch)
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
-        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))  # same episode
+        asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))  # same block, no re-arm
         assert len(w.notifier.sent) == 1
         text = w.notifier.sent[0][0]
         assert "🔔" in text and "Buy Limit 3138.00" in text

@@ -113,7 +113,7 @@ app/services/smc/
 │                         Took/Skipped callbacks; serves ONLY the owner chat
 ├── notifier.py           send/edit_message/pin/send_photo + escape_html
 ├── state.py              runtime state (pairs, dedup keys, zone-alert
-                          mutes) on SQLite kv
+│                         mutes) on SQLite kv
 └── db.py                 SQLite wrapper (signals + kv), column auto-migration,
                           legacy JSON import, fallback to a local file if the
                           volume is unwritable

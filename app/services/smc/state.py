@@ -52,10 +52,13 @@ class WatcherState:
         # pair -> [[bottom, top, direction, block_id], ...]: every plan zone
         # already alerted in the CURRENT session block (owner decision
         # 2026-08-16). One alert per zone per block; nothing re-arms it
-        # inside the block. Entries from other blocks, and every legacy
-        # shape (the pre-auto-plan bool, the flat 4-element record keyed by
-        # Prague date), are dropped on load — the key self-heals, no
-        # migration.
+        # inside the block. Every legacy shape (the pre-auto-plan bool, the
+        # flat 4-element record keyed by Prague date) is dropped right here
+        # on load — the key self-heals, no migration. Entries from OTHER
+        # blocks are NOT filtered here: `remember_zone_ping` prunes those on
+        # the next write, and `zone_already_pinged` filters by block id on
+        # every read in between, so a stale entry is harmless but can sit in
+        # this list until the pair's next alert.
         raw_pinged = db.kv_get("zone_pinged") or {}
         self.zone_pinged: Dict[str, List[list]] = {
             k: [e for e in v if isinstance(e, list) and len(e) == 4]
