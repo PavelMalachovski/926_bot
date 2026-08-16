@@ -14,7 +14,7 @@ scope) and the news digest all derive from it. Never hardcode the hours
 anywhere else.
 """
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import List, Optional, Tuple
 
 import pytz
@@ -91,3 +91,49 @@ def same_session(utc_a: datetime, utc_b: datetime) -> bool:
         if a_in or b_in:
             return a_in and b_in
     return False
+
+
+def session_block(utc_dt: datetime) -> Optional[str]:
+    """Stable identity of the session block containing `utc_dt`, or None
+    outside trading hours: "2026-08-16/Frankfurt-London".
+
+    The unit of zone-alert silence (owner decision 2026-08-16): one alert
+    per zone per block. The Prague date prefix keeps yesterday's London
+    block distinct from today's.
+    """
+    local = to_prague(utc_dt)
+    current = local.time()
+    for start, end, name in WINDOWS:
+        if start <= current < end:
+            return f"{local.date().isoformat()}/{name.replace('/', '-')}"
+    return None
+
+
+def mute_deadline(utc_dt: datetime) -> datetime:
+    """UTC instant at which a mute pressed at `utc_dt` expires.
+
+    Inside a block that is not the last of the day -> that block's end
+    (the owner's "until 14:00"). Inside the last block, or outside trading
+    hours altogether -> the next trading day's open (his "until tomorrow
+    morning"). Weekends need no special case: nothing is watched then, and
+    the mute simply expires unused.
+    """
+    local = to_prague(utc_dt)
+    current = local.time()
+    for index, (start, end, _) in enumerate(WINDOWS):
+        if start <= current < end and index < len(WINDOWS) - 1:
+            return PRAGUE.localize(
+                datetime.combine(local.date(), end), is_dst=None
+            ).astimezone(pytz.UTC)
+    open_time = WINDOWS[0][0]
+    day = local.date()
+    if current >= open_time:
+        day = day + timedelta(days=1)
+    return PRAGUE.localize(
+        datetime.combine(day, open_time), is_dst=None
+    ).astimezone(pytz.UTC)
+
+
+def prague_hhmm(utc_dt: datetime) -> str:
+    """Prague wall-clock HH:MM — for button labels and status lines."""
+    return to_prague(utc_dt).strftime("%H:%M")
