@@ -14,7 +14,7 @@ scope) and the news digest all derive from it. Never hardcode the hours
 anywhere else.
 """
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import List, Optional, Tuple
 
 import pytz
@@ -91,3 +91,57 @@ def same_session(utc_a: datetime, utc_b: datetime) -> bool:
         if a_in or b_in:
             return a_in and b_in
     return False
+
+
+def session_block(utc_dt: datetime) -> Optional[str]:
+    """Stable identity of the session block containing `utc_dt`, or None
+    outside trading hours: "2026-08-16/Frankfurt-London".
+
+    The unit of zone-alert silence (owner decision 2026-08-16): one alert
+    per zone per block. The Prague date prefix keeps yesterday's London
+    block distinct from today's.
+    """
+    local = to_prague(utc_dt)
+    current = local.time()
+    for start, end, name in WINDOWS:
+        if start <= current < end:
+            return f"{local.date().isoformat()}/{name.replace('/', '-')}"
+    return None
+
+
+def block_mute_deadline(block_id: str) -> Optional[datetime]:
+    """UTC instant at which a mute anchored to `block_id` expires, or None
+    when the id names no known block.
+
+    Anchored to the block the ALERT was sent in, not to the press moment
+    (owner decision 2026-08-16): the button silences exactly the stretch its
+    label promises. A press arriving after that block has ended yields a
+    deadline already in the past, which the caller treats as a no-op rather
+    than silencing a stretch the owner never agreed to.
+
+    A block that is not the day's last expires at its own end; the day's
+    last block expires at the next day's open, so a mute taken in the
+    afternoon covers the rest of the trading day.
+    """
+    try:
+        date_str, name = block_id.split("/", 1)
+        day = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except (ValueError, AttributeError):
+        return None
+    for index, (start, end, window_name) in enumerate(WINDOWS):
+        if window_name.replace("/", "-") != name:
+            continue
+        if index < len(WINDOWS) - 1:
+            return PRAGUE.localize(
+                datetime.combine(day, end), is_dst=None
+            ).astimezone(pytz.UTC)
+        open_time = WINDOWS[0][0]
+        return PRAGUE.localize(
+            datetime.combine(day + timedelta(days=1), open_time), is_dst=None
+        ).astimezone(pytz.UTC)
+    return None
+
+
+def prague_hhmm(utc_dt: datetime) -> str:
+    """Prague wall-clock HH:MM — for button labels and status lines."""
+    return to_prague(utc_dt).strftime("%H:%M")

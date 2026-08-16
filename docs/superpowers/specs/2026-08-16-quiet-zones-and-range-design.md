@@ -1,0 +1,327 @@
+# Quiet zone alerts, OB+FVG zones of interest, and range trading
+
+Owner decisions of 2026-08-16. Three deliveries, three PRs, in this order.
+Delivery 1 ships alone and first — it removes noise the owner is living with
+today. Deliveries 2 and 3 follow once 1 is on Railway and quiet.
+
+## Problem
+
+**Noise.** On 2026-08-13 USDCAD sent the identical plan-zone alert four times
+(16:20, 16:35, 16:55, 17:25 Prague) for the same zone 1.39448–1.39584, and
+ETHUSD twice for 1875.49–1883.18. The owner wants one alert per zone, plus a
+button to silence a pair when he has seen enough.
+
+Root cause is in `_maybe_plan_zone_alert` (`smc_watcher.py:1240`). An episode
+survives only while the *latest closed M5 candle still overlaps the zone*:
+
+```python
+same_episode = (
+    p_date == today
+    and last.low <= p_high and last.high >= p_low   # <- the hole
+    and current is not None
+    and current.zone_bottom == p_low
+    and current.zone_top == p_high
+    and current.direction.value == p_dir
+)
+```
+
+One candle that does not touch the zone pops the mark. Price hovering on a
+zone edge therefore re-arms the alert on every exit and re-entry. The
+identical message text confirms this was exit/re-entry on one stable zone,
+not a zone replacement.
+
+**Missing strategy coverage.** Two gaps between what the owner trades and
+what the bot detects:
+
+- Zones of interest are order blocks *and* imbalances. The bot only ever
+  treats an H1 order block as a zone; an FVG is checked later, on M5, inside
+  that zone. An H1 FVG standing alone is invisible.
+- When H4 and H1 are both flat the bot goes silent. The owner trades that
+  case: he marks the range, waits for a boundary, and targets the opposite
+  boundary.
+
+## Owner decisions (2026-08-16)
+
+| # | Decision |
+|---|---|
+| D1 | Zone-alert unit of silence is the **session block**, not the day |
+| D2 | Same direction + **any overlap** = the same zone (reverses the 2026-08-11 rule) |
+| D3 | Mute button silences **zone alerts of that pair only**; 🚨 setups and Rule 0.4 always pass |
+| D4 | H1 zone of interest = OB **or** FVG; **OB always wins** when both are valid |
+| D5 | Inside an H1 zone, mark M5 OB and M5 FVG — as detail in the one alert, never a second alert |
+| D6 | H4/H1 trend disagreement does not suppress; it is labelled and costs the ⭐ |
+| D7 | Range boundaries come from clustered confirmed H1 pivots with ≥2 touches each |
+| D8 | Range boundary alert first, full 🚨 only after M5 CHoCH + FVG |
+| D9 | A wick through a boundary that closes back inside is liquidity taken — range survives, setup earns ⭐ |
+
+---
+
+# Delivery 1 — Quiet
+
+## 1.1 Session block
+
+`sessions.py` owns the trading day and must keep owning it. Add:
+
+```python
+def session_block(utc_dt: datetime) -> Optional[str]:
+    """Stable identity of the session block containing utc_dt, e.g.
+    "2026-08-16/Frankfurt-London". None outside trading hours."""
+```
+
+Derived from `WINDOWS` — never a hardcoded 14:00. The Prague date prefix
+makes the identity unique across days.
+
+## 1.2 Dedup state
+
+`WatcherState.zone_pinged` changes shape:
+
+| | before | after |
+|---|---|---|
+| value | `[bottom, top, direction, prague_date]` | `List[[bottom, top, direction, block_id]]` |
+| meaning | the one zone pinged in this episode | every zone pinged, one entry per alert |
+
+On load, entries whose `block_id` is not the current block are dropped, as
+are values of any legacy shape (bool, or the flat 4-element list). The key
+self-heals; no DB migration.
+
+`set_profile` keeps clearing the key (`.pop`) — unchanged.
+
+## 1.3 New alert decision
+
+`_maybe_plan_zone_alert` becomes:
+
+1. `zone_ping` disabled, no result, no session, or no M5 candles → return.
+2. Pair muted (§1.4) and mute not expired → return.
+3. `result.verdict in APPROVED` → return (the 🚨 alert covers this touch).
+4. `scenario = planbook.scenario_for_touch(key, last.low, last.high)`; None → return.
+5. `_cooldown_left(key)` → return.
+6. **Already fired?** For each recorded entry of the current block: same
+   direction and `entry_bottom <= scenario.zone_top and scenario.zone_bottom
+   <= entry_top` → return.
+7. Send, and only on success append `[zone_bottom, zone_top, direction,
+   block_id]` and save.
+
+The "price still inside the zone" condition is gone. Nothing re-arms an
+alert inside a block — not an exit, not a drifting boundary, not a plan
+recompute.
+
+**Why any-overlap and not exact bounds.** The plan is recomputed every five
+minutes; a new H1 pivot shifts a zone by a fraction of a pip and the exact
+comparison reads it as a different zone. Any overlap is coarse in the safe
+direction: a genuinely new zone in the same direction that does not touch
+the old one still alerts.
+
+## 1.4 Mute button
+
+`format_zone_alert` gains a keyboard:
+
+```python
+def zone_alert_keyboard(pair: str, until_hhmm: str) -> dict:
+    # [[{"text": f"🔕 Mute {pair} till {until_hhmm}",
+    #    "callback_data": f"zmute_{pair}"}]]
+```
+
+- Deadline is computed at press time from `WINDOWS`: inside a block that is
+  not the last of the day → that block's end (14:00); inside the last block
+  of the day, or outside trading hours entirely → the next trading day's
+  open (08:00). Stored as an ISO UTC string in
+  `WatcherState.zone_muted: Dict[str, str]` (kv key `zone_muted`).
+- The button label shows the deadline that *would* apply at send time; the
+  authoritative deadline is computed on press.
+- On press the keyboard is replaced with a single inert
+  `🔕 Muted till HH:MM` button (`callback_data: "noop"`), matching how
+  Took/Skipped already collapse.
+- The callback lives in `telegram_bot._handle_callback` next to `aplan_`,
+  behind a new `on_zone_mute` hook the watcher wires up.
+
+Mute is checked **only** in `_maybe_plan_zone_alert` and (Delivery 3) in the
+range boundary alert. Setup alerts, Rule 0.4 warnings, the 07:45 digest and
+the 07:55/13:55 plan snapshots ignore it entirely.
+
+## 1.5 Commands
+
+- `/status` lists active mutes: `🔕 USDCAD till 14:00`.
+- `/unmute` clears every mute and confirms which pairs were freed.
+
+## 1.6 Tests (`tests/test_smc/test_zone_dedup.py`)
+
+Regression on the observed production failure first:
+
+- price enters the zone, leaves it, re-enters within the block → exactly one send;
+- zone bounds shift by one pip between cycles, overlap holds → one send;
+- the block rolls over at 14:00 → the same zone may alert once more;
+- a same-direction zone with no overlap → a second send;
+- muted pair → no send; deadline passed → send;
+- mute does not suppress a 🚨 setup alert or a Rule 0.4 warning;
+- `session_block` returns distinct ids for 13:59 and 14:01 Prague, and None at 07:00;
+- legacy `zone_pinged` values (bool, flat list) are dropped on load.
+
+## 1.7 Files
+
+`app/services/smc/sessions.py`, `state.py`, `notifier.py`, `telegram_bot.py`,
+`smc_watcher.py`, `CLAUDE.md`, new `tests/test_smc/test_zone_dedup.py`.
+
+---
+
+# Delivery 2 — OB and imbalance as zones of interest
+
+## 2.1 H1 FVG as a zone candidate
+
+`fvg.py` already detects and validates imbalances; point it at H1 candles.
+Add to `structure.py` (or a thin wrapper next to `find_h1_zone`):
+
+```python
+def find_h1_zone(candles, direction, max_touches=0) -> Optional[Zone]
+    # unchanged: the order block
+def find_h1_fvg_zone(candles, direction, instrument) -> Optional[Zone]
+    # the freshest unfilled H1 FVG on the trade's side, as a Zone
+def find_zone_of_interest(candles, direction, instrument, max_touches=0)
+    # D4: order block if valid, else the FVG
+```
+
+Freshness for an FVG mirrors `touches == 0` for an OB: the gap must be
+unfilled — no candle body has closed through it. Minimum size is the
+per-instrument `min_fvg` scaled by the profile factor, as everywhere else;
+never a new hardcoded threshold.
+
+`plan._scenario` and `engine` Rule 2 both switch to `find_zone_of_interest`.
+The zone's kind (`OB` / `FVG`) travels on the `Zone` dataclass so messages
+and charts can name it. The runner-up zone, when both exist, joins the
+existing zone ladder.
+
+## 2.2 M5 detail inside the zone
+
+When price is inside the H1 zone, the alert adds one line naming what the
+owner would actually buy from:
+
+```
+🔎 5m OB 159.070–159.140 · 5m FVG 159.137–159.174
+```
+
+`find_order_block` currently requires the CHoCH index as its upper bound.
+For the marking use it is called with the zone-touch span alone, so a block
+is visible while the CHoCH is still pending. Its use inside the engine —
+the deeper-entry check with its "strictly deeper than entry, strictly inside
+the stop" guard — is untouched.
+
+## 2.3 Trend disagreement label (D6)
+
+The alert header gains `H4 UP · H1 UP` or `H4 UP · H1 DOWN ⚠️ counter-hourly`.
+`sniper.classify` gains disagreement as a ⭐-denying condition, alongside
+room, sweep, premium/discount and staleness. Detector mode is unchanged:
+the alert is still sent.
+
+## 2.4 Charts
+
+- Plan chart (H1): both zone candidates drawn and labelled, OB and FVG in
+  distinct colours.
+- Alert chart (M5): the 5m OB and 5m FVG boxes.
+- `chart.py` stays matplotlib-only, no pandas — rendering must never block
+  an alert.
+
+## 2.5 Tests
+
+H1 FVG detection and freshness; OB-wins-over-FVG selection; FVG used when no
+valid OB exists; M5 OB found before a CHoCH exists; the engine's deeper-entry
+guard unchanged; disagreement denies ⭐ but still sends; chart smoke tests.
+
+## 2.6 Files
+
+`fvg.py`, `structure.py`, `models.py` (`Zone.kind`), `plan.py`, `engine.py`,
+`sniper.py`, `notifier.py`, `chart.py`, `CLAUDE.md`, plus tests.
+
+---
+
+# Delivery 3 — Range (боковик)
+
+## 3.1 Detection — new module `app/services/smc/range.py`
+
+```python
+@dataclass
+class Range:
+    top: float
+    bottom: float
+    touches_top: int
+    touches_bottom: int
+    broken: bool
+
+def detect_range(candles, instrument, window: int = 120) -> Optional[Range]
+```
+
+Over the last `window` closed H1 candles, using the same confirmed fractal-5
+pivots as everywhere else:
+
+1. Cluster pivot highs within `instrument.min_fvg` of each other; the
+   largest cluster's mean is `top`. Same for lows → `bottom`.
+   The tolerance is the raw per-instrument `min_fvg`, matching sweep
+   detection — never the profile-scaled value.
+2. Require `touches_top >= 2` and `touches_bottom >= 2`.
+3. Require `top - bottom >= 3 * min_fvg`, else it is chop, not a range.
+4. `broken` when an H1 **body** has closed beyond either boundary after the
+   cluster formed. A wick beyond that closes back inside does not break it
+   (D9) — it is liquidity taken, and it is recorded as such.
+
+Range boundaries coincide with EQH/EQL pools by construction, so this is the
+same liquidity hunt applied to a range.
+
+## 3.2 When the range is in play
+
+`detect_trend(h4) == FLAT` and `detect_range` returns an unbroken range.
+That is exactly the state in which the bot is silent today, so no trending
+day gains chatter.
+
+## 3.3 Alerts
+
+Boundary touch → one message, under Delivery 1's dedup and mute:
+
+```
+🔔 USDJPY: price is at the range HIGH 159.478
+📋 Plan: SHORT — target the range LOW 158.687 | 🛑 SL 159.55
+Watching M5 for a bearish CHoCH + FVG.
+```
+
+Then the normal 🚨 on M5 CHoCH into the range plus a valid FVG:
+
+- direction: at the high → SHORT, at the low → LONG;
+- entry: the M5 FVG edge, or the deeper M5 OB;
+- SL: beyond the boundary + `instrument.sl_buffer`;
+- TP: the opposite boundary − `sl_buffer`;
+- the 2R/runner hybrid exit applies unchanged when the opposite boundary
+  leaves room for it;
+- ⭐ when the boundary was swept by a wick and reclaimed (D9).
+
+## 3.4 Charts
+
+Both boundaries as black dashed lines labelled `RANGE HIGH` / `RANGE LOW`,
+on the H1 plan chart and the M5 alert chart.
+
+## 3.5 Journal
+
+Range setups are journal-recorded like any other, with `zone_kind="RANGE"`
+so `/stats` can separate them from trend setups later.
+
+## 3.6 Tests
+
+Clustering with and without enough touches; the 3× `min_fvg` height floor;
+body close beyond a boundary marks `broken`; wick-and-reclaim does not;
+range ignored when H4 trends; boundary alert direction; SL/TP geometry;
+⭐ on the reclaimed sweep; chart smoke test.
+
+## 3.7 Files
+
+New `range.py`; `engine.py`, `plan.py`, `planbook.py`, `notifier.py`,
+`chart.py`, `journal.py`, `db.py` (the `zone_kind` column, added to
+`SIGNAL_COLUMNS`, the `CREATE TABLE` and the migration list), `smc_watcher.py`,
+`CLAUDE.md`, plus tests.
+
+---
+
+## Out of scope
+
+- Changing the H4-first / H1-fallback direction rule (D6: label, do not gate).
+- Any change to the 07:45 news digest or the 07:55/13:55 snapshot mechanics —
+  they already hold the plan behind a button, which is what the owner asked
+  for.
+- Reviving the per-pair `/strategy` picker.
+- Replay validation of Delivery 2 and 3 — worth doing, but a separate task
+  with its own plan.

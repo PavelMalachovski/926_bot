@@ -112,7 +112,8 @@ app/services/smc/
 ├── telegram_bot.py       long-polling commands, slash-menu registration,
 │                         Took/Skipped callbacks; serves ONLY the owner chat
 ├── notifier.py           send/edit_message/pin/send_photo + escape_html
-├── state.py              runtime state (pairs, dedup keys) on SQLite kv
+├── state.py              runtime state (pairs, dedup keys, zone-alert
+│                         mutes) on SQLite kv
 └── db.py                 SQLite wrapper (signals + kv), column auto-migration,
                           legacy JSON import, fallback to a local file if the
                           volume is unwritable
@@ -193,17 +194,26 @@ tracking → live-card edits on fill/TP/SL events.
   pool behind a swing extreme. Rule 7 aims at liquidity; Rule 2 enters at a
   zone. Sweep detection is wick-based with a tolerance of the raw per-
   instrument `min_fvg` — never the profile-scaled value.
-- **Plan-centric zone alert** (spec 2026-08-11 §5, replaced the old engine-
-  zone ping): fires when price first touches a zone named by the pair's
+- **Plan-centric zone alert** (spec 2026-08-11 §5, dedup rewritten by owner
+  decision 2026-08-16): fires when price touches a zone named by the pair's
   *current* plan (`planbook.scenario_for_touch`), carrying that scenario's
-  projected bracket. `state.zone_pinged[key]` stores the pinged zone's own
-  bounds + direction + Prague date (no longer a bool); the episode resets
-  only on an exact bounds+direction mismatch against the *current* touching
-  scenario — a shifted-but-overlapping zone is a new episode and alerts
-  again. `state.remember_plan_zones` (the separate "from this morning's
-  plan" provenance, spec 2026-08-06 §6) is written **only** by the
+  projected bracket. It fires **once per zone per session block** —
+  `sessions.session_block` supplies the block id, and
+  `state.zone_pinged[key]` holds every `[bottom, top, direction, block_id]`
+  already alerted. Two zones count as the same zone when the direction
+  matches and the bounds overlap at all; the old rule (exact bounds, and
+  the episode ending as soon as price left the zone) re-armed the alert
+  every time price oscillated on a zone edge and sent USDCAD four identical
+  messages on 2026-08-13. Nothing re-arms an alert inside a block. The 🔕
+  button under the alert writes `state.zone_muted[pair]` (ISO UTC deadline
+  from `sessions.mute_deadline`: this block's end, or tomorrow's open in
+  the day's last block) and silences that pair's zone alerts only — setup
+  alerts, Rule 0.4 warnings and the 07:45 digest ignore it. `/unmute`
+  clears every mute; `/status` lists them.
+  `state.remember_plan_zones` (the separate "from this morning's plan"
+  provenance, spec 2026-08-06 §6) is still written **only** by the
   07:55/13:55 snapshots and manual `/plan` — never by the 5-minute
-  recompute, or comparing a plan against itself would always match.
+  recompute.
 
 ## Workflow
 

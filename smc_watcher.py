@@ -47,11 +47,15 @@ from app.services.smc.notifier import (
     format_zone_alert,
     plan_summary_keyboard,
     redact_secrets,
+    zone_alert_keyboard,
 )
 from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
-from app.services.smc.sessions import PRAGUE, active_session, to_prague
+from app.services.smc.sessions import (
+    PRAGUE, active_session, block_mute_deadline, prague_hhmm, session_block,
+    to_prague,
+)
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
 from app.services.smc.trade_journal import TradeJournal
@@ -305,6 +309,7 @@ class Watcher:
             on_trade_mark=self.mark_trade,
             on_plan=self.on_plan,
             on_stored_plan=self.on_stored_plan,
+            on_zone_mute=self.mark_zone_mute,
             trade_journal=self.trade_journal,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
@@ -751,6 +756,31 @@ class Watcher:
             f"{signal['pair']} marked as taken — tracking your stats; "
             f"muted for {hours:.0f}h"
         )
+
+    async def mark_zone_mute(
+        self, key: str, block_id: Optional[str]
+    ) -> Optional[str]:
+        """🔕 button: silence this pair's zone alerts until the block the
+        alert was sent in ends (or tomorrow's open, if that was the day's
+        last block). Setup alerts and Rule 0.4 warnings are untouched (D3).
+
+        `block_id` is the block the ALERT belonged to (owner decision
+        2026-08-16: the button does exactly what its label says, anchored
+        to send time rather than press time). `None` covers a legacy
+        callback payload with no block part, sent before this deploy; it
+        falls back to the block the press itself falls in.
+
+        Returns the Prague HH:MM deadline, or None when that block has
+        already ended — nothing is muted, and the caller tells the owner so.
+        """
+        key = key.upper()
+        block = block_id or session_block(datetime.now(tz=timezone.utc))
+        deadline = block_mute_deadline(block) if block else None
+        if deadline is None or deadline <= datetime.now(tz=timezone.utc):
+            return None
+        until = self.state.mute_zone_alerts(key, deadline)
+        logger.info("Zone alerts muted", pair=key, until=until)
+        return until
 
     def _cooldown_left(self, key: str) -> Optional[str]:
         """Human 'Nh Mm' remaining on a taken-trade mute, or None if expired,
@@ -1240,55 +1270,62 @@ class Watcher:
     async def _maybe_plan_zone_alert(
         self, key: str, result: Optional[AnalysisResult]
     ) -> None:
-        """Price first entered a zone the CURRENT plan names: one alert per
-        episode, carrying the plan's projected bracket (spec 2026-08-11 §5;
-        replaced the engine-zone ping — owner decision). An episode ends
-        when price leaves the zone, the plan stops naming it, or the Prague
-        day rolls over."""
+        """Price entered a zone the CURRENT plan names: one alert per zone
+        per session block (owner decision 2026-08-16, spec §1.3), carrying
+        the plan's projected bracket.
+
+        The 2026-08-11 "episode" rule is gone. It kept the alert armed as
+        soon as the last closed M5 candle stopped overlapping the zone, so
+        price oscillating on a zone edge re-alerted every few cycles —
+        USDCAD sent the identical message four times on 2026-08-13. Silence
+        now lasts the whole block and survives exits, re-entries and the
+        five-minute plan recompute; the owner can end it early only by the
+        block ending, or extend it with the 🔕 button.
+        """
         if not settings.smc.zone_ping or result is None:
             return
         if not result.session_name or not result.m5_candles:
             return  # Rule 0.1: get-ready alerts belong to the session
-        last = result.m5_candles[-1]
-        today = WatcherState._prague_day()
-        pinged = self.state.zone_pinged.get(key)
-        if pinged:
-            p_low, p_high, p_dir, p_date = pinged
-            # has_zone() is a fuzzy overlap check (Task 2) — not enough here:
-            # a replacement zone can overlap the old one and still be a
-            # different zone, so the reset check needs an exact match on
-            # the pinged zone's own bounds via the current touching scenario.
-            current = self.planbook.scenario_for_touch(key, last.low, last.high)
-            same_episode = (
-                p_date == today
-                and last.low <= p_high and last.high >= p_low
-                and current is not None
-                and current.zone_bottom == p_low
-                and current.zone_top == p_high
-                and current.direction.value == p_dir
-            )
-            if same_episode:
-                return
-            self.state.zone_pinged.pop(key, None)
-            self.state.save()
+        block = session_block(result.checked_at)
+        if block is None:
+            return
+        if self.state.zone_muted_until(key, result.checked_at):
+            return  # the owner silenced this pair's zone alerts (D3)
         if result.verdict in APPROVED:
             return  # the full 🚨 alert covers this touch
+        last = result.m5_candles[-1]
         scenario = self.planbook.scenario_for_touch(key, last.low, last.high)
         if scenario is None:
             return
         if self._cooldown_left(key):
             return  # already managing a position here
+        if self.state.zone_already_pinged(
+            key, scenario.zone_bottom, scenario.zone_top,
+            scenario.direction.value, block,
+        ):
+            return
+        # The label promises exactly the deadline a press would produce
+        # (owner decision 2026-08-16): both sides call block_mute_deadline
+        # on the same block. block_mute_deadline cannot return None for a
+        # block session_block itself just produced, but if it somehow did,
+        # an alert must never be lost to a button problem — send it with no
+        # keyboard rather than skip it.
+        deadline = block_mute_deadline(block)
+        reply_markup = (
+            zone_alert_keyboard(key, prague_hhmm(deadline), block)
+            if deadline is not None else None
+        )
         sent = await self.notifier.send(
-            format_zone_alert(key, scenario, result.price_decimals)
+            format_zone_alert(key, scenario, result.price_decimals),
+            reply_markup=reply_markup,
         )
         if sent:
             # mark AFTER the send: a failed delivery must retry next cycle
-            self.state.zone_pinged[key] = [
-                scenario.zone_bottom, scenario.zone_top,
-                scenario.direction.value, today,
-            ]
-            self.state.save()
-            logger.info("Plan-zone alert sent", pair=key)
+            self.state.remember_zone_ping(
+                key, scenario.zone_bottom, scenario.zone_top,
+                scenario.direction.value, block,
+            )
+            logger.info("Plan-zone alert sent", pair=key, block=block)
 
     async def _rule_04_warnings(self) -> None:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order.
@@ -1408,6 +1445,13 @@ class Watcher:
         ]
         if muted:
             lines.append(f"🔕 Muted (taken): {', '.join(muted)}")
+        zone_muted = [
+            f"{k} (till {until})"
+            for k in self.state.pairs
+            if (until := self.state.zone_muted_until(k))
+        ]
+        if zone_muted:
+            lines.append(f"🔕 Zone alerts muted: {', '.join(zone_muted)}")
         if self.last_results:
             lines.append("")
             lines.append("<b>Last check:</b>")

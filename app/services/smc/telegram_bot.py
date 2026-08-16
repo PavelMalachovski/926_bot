@@ -47,6 +47,7 @@ HELP_TEXT = (
     "/news — today's red news (Forex Factory)\n"
     "/pause — mute all alerts until /resume\n"
     "/resume — resume alerts\n"
+    "/unmute — un-mute zone alerts for every pair\n"
     "/help — this help"
 )
 
@@ -66,6 +67,9 @@ class TelegramCommandBot:
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         on_stored_plan: Optional[Callable[[str], Awaitable[None]]] = None,
+        on_zone_mute: Optional[
+            Callable[[str, Optional[str]], Awaitable[Optional[str]]]
+        ] = None,
         trade_journal: Optional[Any] = None,
     ):
         self.bot_token = bot_token
@@ -79,6 +83,7 @@ class TelegramCommandBot:
         self.on_trade_mark = on_trade_mark
         self.on_plan = on_plan
         self.on_stored_plan = on_stored_plan
+        self.on_zone_mute = on_zone_mute
         self.trade_journal = trade_journal
         self._offset: Optional[int] = None
         # Strong references for fire-and-forget plan tasks (see _spawn) — an
@@ -248,6 +253,10 @@ class TelegramCommandBot:
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
                 {"command": "pause", "description": "Mute all alerts until /resume"},
                 {"command": "resume", "description": "Resume alerts"},
+                {
+                    "command": "unmute",
+                    "description": "Un-mute zone alerts for every pair",
+                },
                 {"command": "help", "description": "What this bot does"},
             ],
         )
@@ -316,6 +325,14 @@ class TelegramCommandBot:
         elif command == "/resume":
             self.state.set_paused(False)
             await self.send("▶️ <b>Resumed</b> — watching pairs again.")
+        elif command == "/unmute":
+            freed = self.state.clear_zone_mutes()
+            if freed:
+                await self.send(
+                    "🔔 Zone alerts un-muted for: " + ", ".join(freed)
+                )
+            else:
+                await self.send("No pairs are muted.")
         elif command == "/journal":
             if self.trade_journal:
                 await self.send(self.trade_journal.stats_text())
@@ -442,6 +459,51 @@ class TelegramCommandBot:
                 )
             await self._api("answerCallbackQuery", **answer)
             await self.send("▶️ <b>Resumed</b> — watching pairs again.")
+            return
+        if data.startswith("zmute_") and self.on_zone_mute:
+            # "zmute_<PAIR>_<block_id>" — instrument keys carry no
+            # underscore, so splitting on the first one recovers both
+            # parts. A payload with no block part (an alert message sent
+            # before this deploy) yields block_id=None; the hook falls
+            # back to the block the press itself falls in.
+            parts = data[len("zmute_"):].split("_", 1)
+            key = parts[0]
+            block_id = parts[1] if len(parts) > 1 else None
+            # The hook returns the Prague HH:MM deadline and nothing else,
+            # so neither string below has to be parsed back out of a
+            # sentence — or None when that block has already ended and
+            # nothing was muted.
+            until = await self.on_zone_mute(key, block_id)
+            message = callback.get("message", {})
+            if until is None:
+                answer["text"] = (
+                    f"{key}: that alert's session block already ended — "
+                    "nothing muted"
+                )
+                if message:
+                    await self._api(
+                        "editMessageReplyMarkup",
+                        chat_id=message["chat"]["id"],
+                        message_id=message["message_id"],
+                        reply_markup={"inline_keyboard": [[{
+                            "text": "🔕 Block already ended",
+                            "callback_data": "noop",
+                        }]]},
+                    )
+                await self._api("answerCallbackQuery", **answer)
+                return
+            answer["text"] = f"{key} zone alerts muted till {until}"
+            if message:
+                await self._api(
+                    "editMessageReplyMarkup",
+                    chat_id=message["chat"]["id"],
+                    message_id=message["message_id"],
+                    reply_markup={"inline_keyboard": [[{
+                        "text": f"🔕 Muted till {until}",
+                        "callback_data": "noop",
+                    }]]},
+                )
+            await self._api("answerCallbackQuery", **answer)
             return
         if data.startswith("aplan_") and self.on_stored_plan:
             key = data[len("aplan_"):]
