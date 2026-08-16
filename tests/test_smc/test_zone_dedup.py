@@ -155,3 +155,80 @@ class TestMuteGate:
         w.state.mute_zone_alerts("ETHUSD", _utc(14, 0))
         asyncio.run(w._maybe_plan_zone_alert("USDCAD", _result(at=_utc(9, 30))))
         assert len(w.notifier.sent) == 1
+
+
+class TestMuteDoesNotAffectOtherAlerts:
+    """D3: the 🔕 button silences this pair's ZONE alerts only. 🚨 setup
+    alerts and Rule 0.4 news warnings always pass, muted or not — the
+    promise that makes the button safe on a detector-mode bot where "once a
+    setup forms, the alert always fires" (CLAUDE.md). This exercises the
+    real `_send_alert` / `_rule_04_warnings` code paths, not a mock, using
+    the same real-`WatcherState` harness as
+    `test_multipair.py::TestNotifyLevelGating` and the real-`Watcher`
+    harness as `test_autoplan.py` / `test_poison_state.py`.
+    """
+
+    class _RecordingNotifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, reply_markup=None, disable_notification=False):
+            self.sent.append((text, reply_markup))
+            return len(self.sent)
+
+        async def send_photo(self, photo, caption=None, reply_to=None):
+            return 999
+
+        async def pin(self, message_id):
+            pass
+
+    def _watcher(self, tmp_path):
+        from app.services.smc.db import Database
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        db = Database(str(tmp_path / "smc.db"))
+        watcher = Watcher.__new__(Watcher)
+        watcher.db = db
+        watcher.state = WatcherState(db)
+        watcher.journal = SignalJournal(db)
+        watcher.notifier = self._RecordingNotifier()
+        return watcher
+
+    def test_muted_pair_still_gets_its_setup_alert(self, tmp_path):
+        from tests.test_smc.test_multipair import _fingerprint_result
+
+        watcher = self._watcher(tmp_path)
+        watcher.state.mute_zone_alerts("ETHUSD", _utc(14, 0))
+        result = _fingerprint_result()
+        result.setup.tier_star = True
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+
+        sent = asyncio.run(watcher._send_alert("ETHUSD", result, "fp-star"))
+
+        assert sent is True
+        assert len(watcher.notifier.sent) == 1
+
+    def test_muted_pair_still_gets_its_rule_04_warning(self, tmp_path):
+        from app.services.smc.news import NewsCalendar, NewsEvent
+
+        watcher = self._watcher(tmp_path)
+        watcher.state.mute_zone_alerts("ETHUSD", _utc(14, 0))
+        watcher.news = NewsCalendar()
+        event_time = datetime.now(tz=timezone.utc) + timedelta(minutes=15)
+        watcher.news.events = [
+            NewsEvent(time=event_time, currency="USD", title="Fed Speech")
+        ]
+        watcher.journal.signals.append(
+            {"id": "sig1", "pair": "ETHUSD", "status": "open"}
+        )
+
+        asyncio.run(watcher._rule_04_warnings())
+
+        assert watcher.notifier.sent, (
+            "a muted pair must still get its Rule 0.4 warning"
+        )
+        message = watcher.notifier.sent[0][0]
+        assert "ETHUSD" in message
+        assert "RULE 0.4" in message
