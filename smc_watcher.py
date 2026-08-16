@@ -51,7 +51,9 @@ from app.services.smc.notifier import (
 from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
-from app.services.smc.sessions import PRAGUE, active_session, to_prague
+from app.services.smc.sessions import (
+    PRAGUE, active_session, session_block, to_prague,
+)
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
 from app.services.smc.trade_journal import TradeJournal
@@ -1240,55 +1242,50 @@ class Watcher:
     async def _maybe_plan_zone_alert(
         self, key: str, result: Optional[AnalysisResult]
     ) -> None:
-        """Price first entered a zone the CURRENT plan names: one alert per
-        episode, carrying the plan's projected bracket (spec 2026-08-11 §5;
-        replaced the engine-zone ping — owner decision). An episode ends
-        when price leaves the zone, the plan stops naming it, or the Prague
-        day rolls over."""
+        """Price entered a zone the CURRENT plan names: one alert per zone
+        per session block (owner decision 2026-08-16, spec §1.3), carrying
+        the plan's projected bracket.
+
+        The 2026-08-11 "episode" rule is gone. It kept the alert armed as
+        soon as the last closed M5 candle stopped overlapping the zone, so
+        price oscillating on a zone edge re-alerted every few cycles —
+        USDCAD sent the identical message four times on 2026-08-13. Silence
+        now lasts the whole block and survives exits, re-entries and the
+        five-minute plan recompute; the owner can end it early only by the
+        block ending, or extend it with the 🔕 button.
+        """
         if not settings.smc.zone_ping or result is None:
             return
         if not result.session_name or not result.m5_candles:
             return  # Rule 0.1: get-ready alerts belong to the session
-        last = result.m5_candles[-1]
-        today = WatcherState._prague_day()
-        pinged = self.state.zone_pinged.get(key)
-        if pinged:
-            p_low, p_high, p_dir, p_date = pinged
-            # has_zone() is a fuzzy overlap check (Task 2) — not enough here:
-            # a replacement zone can overlap the old one and still be a
-            # different zone, so the reset check needs an exact match on
-            # the pinged zone's own bounds via the current touching scenario.
-            current = self.planbook.scenario_for_touch(key, last.low, last.high)
-            same_episode = (
-                p_date == today
-                and last.low <= p_high and last.high >= p_low
-                and current is not None
-                and current.zone_bottom == p_low
-                and current.zone_top == p_high
-                and current.direction.value == p_dir
-            )
-            if same_episode:
-                return
-            self.state.zone_pinged.pop(key, None)
-            self.state.save()
+        block = session_block(result.checked_at)
+        if block is None:
+            return
+        if self.state.zone_muted_until(key, result.checked_at):
+            return  # the owner silenced this pair's zone alerts (D3)
         if result.verdict in APPROVED:
             return  # the full 🚨 alert covers this touch
+        last = result.m5_candles[-1]
         scenario = self.planbook.scenario_for_touch(key, last.low, last.high)
         if scenario is None:
             return
         if self._cooldown_left(key):
             return  # already managing a position here
+        if self.state.zone_already_pinged(
+            key, scenario.zone_bottom, scenario.zone_top,
+            scenario.direction.value, block,
+        ):
+            return
         sent = await self.notifier.send(
             format_zone_alert(key, scenario, result.price_decimals)
         )
         if sent:
             # mark AFTER the send: a failed delivery must retry next cycle
-            self.state.zone_pinged[key] = [
-                scenario.zone_bottom, scenario.zone_top,
-                scenario.direction.value, today,
-            ]
-            self.state.save()
-            logger.info("Plan-zone alert sent", pair=key)
+            self.state.remember_zone_ping(
+                key, scenario.zone_bottom, scenario.zone_top,
+                scenario.direction.value, block,
+            )
+            logger.info("Plan-zone alert sent", pair=key, block=block)
 
     async def _rule_04_warnings(self) -> None:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order.

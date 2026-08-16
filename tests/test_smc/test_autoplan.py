@@ -197,11 +197,23 @@ class TestZoneAlertFormat:
 
 
 class _StubState:
+    # The zone dedup/mute methods are borrowed from the real WatcherState:
+    # they touch nothing but zone_pinged/zone_muted and save(), and a
+    # hand-written copy here would silently drift from production.
+    from app.services.smc.state import WatcherState as _Real
+
+    zone_already_pinged = _Real.zone_already_pinged
+    remember_zone_ping = _Real.remember_zone_ping
+    zone_muted_until = _Real.zone_muted_until
+    mute_zone_alerts = _Real.mute_zone_alerts
+    del _Real
+
     def __init__(self):
         self.pairs = ["ETHUSD"]
         self.pair_profile = {}
         self.pair_cooldown = {}
         self.zone_pinged = {}
+        self.zone_muted = {}
         self.auto_plan_sent = {}
         self.plan_summary = {}
         self.plan_zones = {}
@@ -527,9 +539,10 @@ class TestSummaryEditMissingPair:
 
 
 class TestPlanZoneAlert:
-    """The plan-centric zone alert (spec §5): fires once per episode when
-    the last closed M5 candle first overlaps a scenario zone of the CURRENT
-    plan, quoting the plan's numbers. The old engine-zone ping is gone."""
+    """The plan-centric zone alert (spec §5, dedup rule per owner decision
+    2026-08-16 §1.3): fires once per zone per session block when the last
+    closed M5 candle overlaps a scenario zone of the CURRENT plan, quoting
+    the plan's numbers. The old engine-zone ping is gone."""
 
     def _armed_watcher(self, monkeypatch, price=3137.0):
         monkeypatch.setattr(settings.smc, "zone_ping", True)
@@ -550,23 +563,28 @@ class TestPlanZoneAlert:
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
         assert w.notifier.sent == []
 
-    def test_exit_resets_episode(self, monkeypatch):
+    def test_exit_and_reentry_stays_silent(self, monkeypatch):
+        """Owner decision 2026-08-16 (reverses spec 2026-08-11 §5): price
+        leaving the zone no longer re-arms the alert. This is the exact
+        USDCAD 2026-08-13 failure — four identical messages while price
+        oscillated on the zone edge."""
         w, r = self._armed_watcher(monkeypatch)
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
         away = _result_with_candles(price=3160.0)
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", away))  # left the zone
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))     # re-entry
-        assert len(w.notifier.sent) == 2
+        assert len(w.notifier.sent) == 1
 
-    def test_plan_dropping_the_zone_resets_episode(self, monkeypatch):
+    def test_overlapping_replacement_zone_stays_silent(self, monkeypatch):
+        """A zone whose bounds drifted between plan recomputes is the same
+        trading idea (D2), so it does not earn a second alert."""
         w, r = self._armed_watcher(monkeypatch)
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
-        # plan moves to a different zone that the same candle also touches
         w.planbook.update(
             "ETHUSD", _fetched_entry("ETHUSD", [_scenario(bottom=3135.0, top=3141.0)])
         )
         asyncio.run(w._maybe_plan_zone_alert("ETHUSD", r))
-        assert len(w.notifier.sent) == 2
+        assert len(w.notifier.sent) == 1
 
     def test_off_session_is_silent(self, monkeypatch):
         w, r = self._armed_watcher(monkeypatch)
