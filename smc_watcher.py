@@ -53,7 +53,7 @@ from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
 from app.services.smc.sessions import (
-    PRAGUE, active_session, mute_deadline, prague_hhmm, session_block,
+    PRAGUE, active_session, block_mute_deadline, prague_hhmm, session_block,
     to_prague,
 )
 from app.services.smc.state import WatcherState
@@ -757,18 +757,28 @@ class Watcher:
             f"muted for {hours:.0f}h"
         )
 
-    async def mark_zone_mute(self, key: str) -> str:
-        """🔕 button: silence this pair's zone alerts until the current
-        session block ends (or tomorrow's open, in the last block of the
-        day). Setup alerts and Rule 0.4 warnings are untouched (D3).
+    async def mark_zone_mute(
+        self, key: str, block_id: Optional[str]
+    ) -> Optional[str]:
+        """🔕 button: silence this pair's zone alerts until the block the
+        alert was sent in ends (or tomorrow's open, if that was the day's
+        last block). Setup alerts and Rule 0.4 warnings are untouched (D3).
 
-        Returns the Prague HH:MM deadline; the bot builds both the callback
-        answer and the replacement button label from it.
+        `block_id` is the block the ALERT belonged to (owner decision
+        2026-08-16: the button does exactly what its label says, anchored
+        to send time rather than press time). `None` covers a legacy
+        callback payload with no block part, sent before this deploy; it
+        falls back to the block the press itself falls in.
+
+        Returns the Prague HH:MM deadline, or None when that block has
+        already ended — nothing is muted, and the caller tells the owner so.
         """
         key = key.upper()
-        until = self.state.mute_zone_alerts(
-            key, mute_deadline(datetime.now(tz=timezone.utc))
-        )
+        block = block_id or session_block(datetime.now(tz=timezone.utc))
+        deadline = block_mute_deadline(block) if block else None
+        if deadline is None or deadline <= datetime.now(tz=timezone.utc):
+            return None
+        until = self.state.mute_zone_alerts(key, deadline)
         logger.info("Zone alerts muted", pair=key, until=until)
         return until
 
@@ -1294,11 +1304,20 @@ class Watcher:
             scenario.direction.value, block,
         ):
             return
+        # The label promises exactly the deadline a press would produce
+        # (owner decision 2026-08-16): both sides call block_mute_deadline
+        # on the same block. block_mute_deadline cannot return None for a
+        # block session_block itself just produced, but if it somehow did,
+        # an alert must never be lost to a button problem — send it with no
+        # keyboard rather than skip it.
+        deadline = block_mute_deadline(block)
+        reply_markup = (
+            zone_alert_keyboard(key, prague_hhmm(deadline), block)
+            if deadline is not None else None
+        )
         sent = await self.notifier.send(
             format_zone_alert(key, scenario, result.price_decimals),
-            reply_markup=zone_alert_keyboard(
-                key, prague_hhmm(mute_deadline(result.checked_at))
-            ),
+            reply_markup=reply_markup,
         )
         if sent:
             # mark AFTER the send: a failed delivery must retry next cycle

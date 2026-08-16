@@ -538,17 +538,20 @@ def format_zone_alert(pair, scenario, decimals: int) -> str:
     )
 
 
-def zone_alert_keyboard(pair: str, until_hhmm: str) -> dict:
+def zone_alert_keyboard(pair: str, until_hhmm: str, block_id: str) -> dict:
     """The 🔕 button under a zone alert (owner decision 2026-08-16).
 
     Silences this pair's ZONE alerts only — setup alerts, Rule 0.4 news
-    warnings and the digest are unaffected (D3). The label shows the
-    deadline that applies at send time; the authoritative deadline is
-    recomputed when the button is actually pressed.
+    warnings and the digest are unaffected (D3). `block_id` travels in the
+    callback data so a press is anchored to the block the alert was sent
+    in, not to whatever block the press itself happens to land in
+    (2026-08-16 owner decision after a 13:55 alert's mute silenced the
+    whole evening session when pressed at 14:02). Instrument keys contain
+    no underscore, so `pair` and `block_id` split cleanly on the first `_`.
     """
     return {"inline_keyboard": [[{
         "text": f"🔕 Mute {pair} zone alerts till {until_hhmm}",
-        "callback_data": f"zmute_{pair}",
+        "callback_data": f"zmute_{pair}_{block_id}",
     }]]}
 
 

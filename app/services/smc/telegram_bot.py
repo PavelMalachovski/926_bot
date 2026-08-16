@@ -67,7 +67,9 @@ class TelegramCommandBot:
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         on_stored_plan: Optional[Callable[[str], Awaitable[None]]] = None,
-        on_zone_mute: Optional[Callable[[str], Awaitable[str]]] = None,
+        on_zone_mute: Optional[
+            Callable[[str, Optional[str]], Awaitable[Optional[str]]]
+        ] = None,
         trade_journal: Optional[Any] = None,
     ):
         self.bot_token = bot_token
@@ -459,13 +461,38 @@ class TelegramCommandBot:
             await self.send("▶️ <b>Resumed</b> — watching pairs again.")
             return
         if data.startswith("zmute_") and self.on_zone_mute:
-            key = data[len("zmute_"):]
+            # "zmute_<PAIR>_<block_id>" — instrument keys carry no
+            # underscore, so splitting on the first one recovers both
+            # parts. A payload with no block part (an alert message sent
+            # before this deploy) yields block_id=None; the hook falls
+            # back to the block the press itself falls in.
+            parts = data[len("zmute_"):].split("_", 1)
+            key = parts[0]
+            block_id = parts[1] if len(parts) > 1 else None
             # The hook returns the Prague HH:MM deadline and nothing else,
             # so neither string below has to be parsed back out of a
-            # sentence.
-            until = await self.on_zone_mute(key)
-            answer["text"] = f"{key} zone alerts muted till {until}"
+            # sentence — or None when that block has already ended and
+            # nothing was muted.
+            until = await self.on_zone_mute(key, block_id)
             message = callback.get("message", {})
+            if until is None:
+                answer["text"] = (
+                    f"{key}: that alert's session block already ended — "
+                    "nothing muted"
+                )
+                if message:
+                    await self._api(
+                        "editMessageReplyMarkup",
+                        chat_id=message["chat"]["id"],
+                        message_id=message["message_id"],
+                        reply_markup={"inline_keyboard": [[{
+                            "text": "🔕 Block already ended",
+                            "callback_data": "noop",
+                        }]]},
+                    )
+                await self._api("answerCallbackQuery", **answer)
+                return
+            answer["text"] = f"{key} zone alerts muted till {until}"
             if message:
                 await self._api(
                     "editMessageReplyMarkup",

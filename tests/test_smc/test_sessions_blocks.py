@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from app.services.smc.sessions import (
     PRAGUE,
-    mute_deadline,
+    block_mute_deadline,
     prague_hhmm,
     session_block,
 )
@@ -47,21 +47,26 @@ class TestSessionBlock:
         assert session_block(_utc(2026, 8, 16, 18, 35)) is None
 
 
-class TestMuteDeadline:
-    def test_london_mute_expires_at_the_ny_open(self):
-        assert mute_deadline(_utc(2026, 8, 16, 9, 30)) == _utc(2026, 8, 16, 14, 0)
+class TestBlockMuteDeadline:
+    def test_non_last_block_expires_at_its_own_end(self):
+        assert block_mute_deadline("2026-08-16/Frankfurt-London") == _utc(
+            2026, 8, 16, 14, 0
+        )
 
-    def test_ny_mute_expires_at_tomorrows_open(self):
-        assert mute_deadline(_utc(2026, 8, 16, 15, 30)) == _utc(2026, 8, 17, 8, 0)
+    def test_last_block_expires_at_the_next_days_open(self):
+        assert block_mute_deadline("2026-08-16/New York") == _utc(
+            2026, 8, 17, 8, 0
+        )
 
-    def test_evening_mute_expires_at_tomorrows_open(self):
-        assert mute_deadline(_utc(2026, 8, 16, 21, 0)) == _utc(2026, 8, 17, 8, 0)
+    def test_unknown_window_name_returns_none(self):
+        assert block_mute_deadline("2026-08-16/Tokyo") is None
 
-    def test_pre_dawn_mute_expires_at_todays_open(self):
-        assert mute_deadline(_utc(2026, 8, 16, 3, 0)) == _utc(2026, 8, 16, 8, 0)
+    def test_malformed_id_returns_none(self):
+        assert block_mute_deadline("garbage") is None
 
     def test_deadline_is_utc_aware(self):
-        assert mute_deadline(_utc(2026, 8, 16, 9, 30)).tzinfo is not None
+        deadline = block_mute_deadline("2026-08-16/Frankfurt-London")
+        assert deadline.tzinfo is not None
 
 
 class TestPragueHhmm:

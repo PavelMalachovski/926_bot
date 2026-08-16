@@ -109,29 +109,37 @@ def session_block(utc_dt: datetime) -> Optional[str]:
     return None
 
 
-def mute_deadline(utc_dt: datetime) -> datetime:
-    """UTC instant at which a mute pressed at `utc_dt` expires.
+def block_mute_deadline(block_id: str) -> Optional[datetime]:
+    """UTC instant at which a mute anchored to `block_id` expires, or None
+    when the id names no known block.
 
-    Inside a block that is not the last of the day -> that block's end
-    (the owner's "until 14:00"). Inside the last block, or outside trading
-    hours altogether -> the next trading day's open (his "until tomorrow
-    morning"). Weekends need no special case: nothing is watched then, and
-    the mute simply expires unused.
+    Anchored to the block the ALERT was sent in, not to the press moment
+    (owner decision 2026-08-16): the button silences exactly the stretch its
+    label promises. A press arriving after that block has ended yields a
+    deadline already in the past, which the caller treats as a no-op rather
+    than silencing a stretch the owner never agreed to.
+
+    A block that is not the day's last expires at its own end; the day's
+    last block expires at the next day's open, so a mute taken in the
+    afternoon covers the rest of the trading day.
     """
-    local = to_prague(utc_dt)
-    current = local.time()
-    for index, (start, end, _) in enumerate(WINDOWS):
-        if start <= current < end and index < len(WINDOWS) - 1:
+    try:
+        date_str, name = block_id.split("/", 1)
+        day = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except (ValueError, AttributeError):
+        return None
+    for index, (start, end, window_name) in enumerate(WINDOWS):
+        if window_name.replace("/", "-") != name:
+            continue
+        if index < len(WINDOWS) - 1:
             return PRAGUE.localize(
-                datetime.combine(local.date(), end), is_dst=None
+                datetime.combine(day, end), is_dst=None
             ).astimezone(pytz.UTC)
-    open_time = WINDOWS[0][0]
-    day = local.date()
-    if current >= open_time:
-        day = day + timedelta(days=1)
-    return PRAGUE.localize(
-        datetime.combine(day, open_time), is_dst=None
-    ).astimezone(pytz.UTC)
+        open_time = WINDOWS[0][0]
+        return PRAGUE.localize(
+            datetime.combine(day + timedelta(days=1), open_time), is_dst=None
+        ).astimezone(pytz.UTC)
+    return None
 
 
 def prague_hhmm(utc_dt: datetime) -> str:
