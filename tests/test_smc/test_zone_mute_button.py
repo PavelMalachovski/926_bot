@@ -1,11 +1,11 @@
 """The 🔕 button under a zone alert: keyboard, callback, watcher hook."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.core.config import settings
 from app.services.smc.notifier import zone_alert_keyboard
-from app.services.smc.sessions import PRAGUE
+from app.services.smc.sessions import PRAGUE, prague_hhmm
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
 
@@ -150,5 +150,9 @@ class TestStatusLine:
         w.state.pair_cooldown = {}
         w.state.notify_level = "all"
         w.last_results = {}
-        w.state.mute_zone_alerts("USDCAD", _utc(23, 59))
-        assert "🔕 Zone alerts muted: USDCAD (till 23:59)" in w.status_text()
+        # Compute a deadline a bit in the future, so the test passes
+        # whenever it runs (not a time bomb like hardcoded 23:59).
+        future = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+        expected_hhmm = prague_hhmm(future)
+        w.state.mute_zone_alerts("USDCAD", future)
+        assert f"🔕 Zone alerts muted: USDCAD (till {expected_hhmm})" in w.status_text()
