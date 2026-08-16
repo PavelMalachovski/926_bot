@@ -7,7 +7,7 @@ import structlog
 
 from app.services.smc.db import Database
 from app.services.smc.instruments import DEFAULT_PAIRS, INSTRUMENTS
-from app.services.smc.sessions import to_prague
+from app.services.smc.sessions import prague_hhmm, to_prague
 
 logger = structlog.get_logger(__name__)
 
@@ -49,17 +49,23 @@ class WatcherState:
         self.day_stop_notified: str = db.kv_get("day_stop_notified") or ""
         # pair -> ISO expiry: no new alerts for the pair until then (Took it)
         self.pair_cooldown: Dict[str, str] = db.kv_get("pair_cooldown") or {}
-        # pair -> [zone_bottom, zone_top, direction, prague_date] of the
-        # plan zone already alerted this episode (reset when price leaves,
-        # the plan drops the zone, or the day changes). Legacy bool values
-        # from the pre-auto-plan ping are dropped: they carry no bounds to
-        # compare against. Anything not a 4-element list (legacy bool, a
-        # partially-written record) is dropped the same way.
+        # pair -> [[bottom, top, direction, block_id], ...]: every plan zone
+        # already alerted in the CURRENT session block (owner decision
+        # 2026-08-16). One alert per zone per block; nothing re-arms it
+        # inside the block. Entries from other blocks, and every legacy
+        # shape (the pre-auto-plan bool, the flat 4-element record keyed by
+        # Prague date), are dropped on load — the key self-heals, no
+        # migration.
         raw_pinged = db.kv_get("zone_pinged") or {}
-        self.zone_pinged: Dict[str, list] = {
-            k: v for k, v in raw_pinged.items()
-            if isinstance(v, list) and len(v) == 4
+        self.zone_pinged: Dict[str, List[list]] = {
+            k: [e for e in v if isinstance(e, list) and len(e) == 4]
+            for k, v in raw_pinged.items()
+            if isinstance(v, list) and all(isinstance(e, list) for e in v)
         }
+        # pair -> ISO UTC deadline: the owner pressed 🔕 under a zone alert
+        # and wants no more zone alerts for this pair until then. Zone
+        # alerts only — setups, Rule 0.4 and the digest ignore it (D3).
+        self.zone_muted: Dict[str, str] = db.kv_get("zone_muted") or {}
         self.pair_profile: Dict[str, str] = db.kv_get("pair_profile") or {}
         # auto-plan snapshot gate: slot "HH:MM" -> Prague date it fired
         self.auto_plan_sent: Dict[str, str] = db.kv_get("auto_plan_sent") or {}
@@ -93,6 +99,7 @@ class WatcherState:
         self.db.kv_set("day_stop_notified", self.day_stop_notified)
         self.db.kv_set("pair_cooldown", self.pair_cooldown)
         self.db.kv_set("zone_pinged", self.zone_pinged)
+        self.db.kv_set("zone_muted", self.zone_muted)
         self.db.kv_set("pair_profile", self.pair_profile)
         self.db.kv_set("paused", self.paused)
         self.db.kv_set("plan_zones", self.plan_zones)
@@ -165,6 +172,82 @@ class WatcherState:
             if z_low <= high and low <= z_high:
                 return True
         return False
+
+    # ------------------------------------------------------- zone alert dedup
+
+    def zone_already_pinged(
+        self, key: str, bottom: float, top: float, direction: str, block_id: str
+    ) -> bool:
+        """Whether an overlapping zone in the same direction already alerted
+        in this session block.
+
+        Overlap rather than equality (owner decision 2026-08-16): the plan
+        is recomputed every five minutes and a newly confirmed pivot shifts
+        a zone by a fraction of a pip, which an exact comparison reads as a
+        new zone — that is what sent USDCAD four identical alerts on
+        2026-08-13. A genuinely different zone on the same side, one that
+        does not touch the alerted one, still gets its own alert.
+        """
+        low, high = min(bottom, top), max(bottom, top)
+        for entry in self.zone_pinged.get(key.upper(), []):
+            e_bottom, e_top, e_dir, e_block = entry
+            if e_block != block_id or e_dir != direction:
+                continue
+            e_low, e_high = min(e_bottom, e_top), max(e_bottom, e_top)
+            if e_low <= high and low <= e_high:
+                return True
+        return False
+
+    def remember_zone_ping(
+        self, key: str, bottom: float, top: float, direction: str, block_id: str
+    ) -> None:
+        """Record a sent zone alert, dropping records of earlier blocks."""
+        key = key.upper()
+        kept = [e for e in self.zone_pinged.get(key, []) if e[3] == block_id]
+        kept.append([
+            min(bottom, top), max(bottom, top), direction, block_id,
+        ])
+        self.zone_pinged[key] = kept
+        self.save()
+
+    # -------------------------------------------------------- zone alert mute
+
+    def mute_zone_alerts(self, key: str, until_utc: datetime) -> str:
+        """Silence this pair's zone alerts until `until_utc`. Returns the
+        Prague HH:MM label to show the owner."""
+        self.zone_muted[key.upper()] = until_utc.isoformat()
+        self.save()
+        return prague_hhmm(until_utc)
+
+    def zone_muted_until(
+        self, key: str, now: Optional[datetime] = None
+    ) -> Optional[str]:
+        """Prague HH:MM while this pair's zone-alert mute is live, else None.
+
+        Read-only, like `Watcher._cooldown_left`: a poisoned or expired
+        value reads as "not muted" and is cleaned up by `clear_zone_mutes`
+        or overwritten by the next press — a status line must never write
+        to the DB.
+        """
+        raw = self.zone_muted.get(key.upper())
+        if not raw:
+            return None
+        try:
+            deadline = datetime.fromisoformat(raw)
+        except (ValueError, TypeError):
+            return None
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        if deadline <= (now or datetime.now(tz=timezone.utc)):
+            return None
+        return prague_hhmm(deadline)
+
+    def clear_zone_mutes(self) -> List[str]:
+        """Drop every zone-alert mute; returns the pairs that were muted."""
+        freed = sorted(self.zone_muted)
+        self.zone_muted = {}
+        self.save()
+        return freed
 
     def set_paused(self, paused: bool) -> None:
         self.paused = paused

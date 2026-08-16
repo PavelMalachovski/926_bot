@@ -103,12 +103,12 @@ class TestStatePlumbing:
         db.kv_set("zone_pinged", {
             "ETHUSD": True,
             "USDJPY": [1.0, 2.0],  # wrong-length list: also dropped
-            "EURUSD": [1.0, 2.0, "long", "2026-08-11"],
+            "EURUSD": [1.0, 2.0, "long", "2026-08-11"],  # flat 4-list: legacy, dropped
         })
         state = WatcherState(db)
         assert "ETHUSD" not in state.zone_pinged
         assert "USDJPY" not in state.zone_pinged
-        assert state.zone_pinged["EURUSD"] == [1.0, 2.0, "long", "2026-08-11"]
+        assert "EURUSD" not in state.zone_pinged
 
 
 class TestSilentSend:
