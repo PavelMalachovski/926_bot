@@ -76,6 +76,11 @@ class Zone:
     tested: bool = False
     touches: int = 0
     invalidated: bool = False
+    # What kind of zone this is: "OB" (an order block built from a pivot
+    # candle, the historical default) or "FVG" (an untouched H1 imbalance,
+    # spec 2026-08-16 §2.1). Messages and charts name it; nothing branches
+    # on it for geometry — both kinds are a price band price reacts from.
+    kind: str = "OB"
 
     def contains(self, price: float) -> bool:
         return self.bottom <= price <= self.top
@@ -141,6 +146,12 @@ class AnalysisResult:
     checked_at: datetime
     price: float = 0.0
     h4_trend: Trend = Trend.FLAT
+    # The H1 trend, computed unconditionally alongside h4_trend (Task 4,
+    # owner decision D6) so `trends_disagree` can compare them regardless of
+    # which branch of Rule 1 supplied the trade direction. None only when
+    # Rule 1 returned before reaching the trend computation at all (e.g. the
+    # off-session/market-closed early returns).
+    h1_trend: Optional[Trend] = None
     # Where the trade direction came from: "h4" (a real H4 trend, the normal
     # case), "h1" (H4 was flat, H1 has a clean trend — owner decision
     # 2026-08-06, H1 is a trend too, just a lower one, not a counter-trend

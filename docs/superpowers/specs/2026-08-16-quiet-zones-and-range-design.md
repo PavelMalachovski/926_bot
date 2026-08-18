@@ -53,6 +53,7 @@ what the bot detects:
 | D7 | Range boundaries come from clustered confirmed H1 pivots with ≥2 touches each |
 | D8 | Range boundary alert first, full 🚨 only after M5 CHoCH + FVG |
 | D9 | A wick through a boundary that closes back inside is liquidity taken — range survives, setup earns ⭐ |
+| D10 | An H1 FVG counts as a fresh zone of interest only while price has **not entered it at all** — the exact mirror of an untested order block (owner decision 2026-08-18) |
 
 ---
 
@@ -179,8 +180,13 @@ def find_zone_of_interest(candles, direction, instrument, max_touches=0)
     # D4: order block if valid, else the FVG
 ```
 
-Freshness for an FVG mirrors `touches == 0` for an OB: the gap must be
-unfilled — no candle body has closed through it. Minimum size is the
+Freshness for an FVG mirrors `touches == 0` for an OB exactly (D10, owner
+decision 2026-08-18): the gap must be **untouched** — no candle since it
+formed has traded into it at all, so `measure_fill` reports zero
+penetration. A partially filled gap is not a zone the bot is still waiting
+for; price already arrived. This is deliberately stricter than Rule 4's
+`fill < 50%` test for the M5 entry imbalance, which judges a gap price is
+trading in right now rather than one being waited on. Minimum size is the
 per-instrument `min_fvg` scaled by the profile factor, as everywhere else;
 never a new hardcoded threshold.
 

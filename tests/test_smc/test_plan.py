@@ -1,10 +1,12 @@
 """Tests for the Pre-Market Plan builder, formatter and H1 chart."""
 
 import dataclasses
+import re
+from datetime import datetime, timezone
 
 from app.services.smc.chart import render_plan_chart
 from app.services.smc.instruments import get_instrument
-from app.services.smc.models import Direction, Trend
+from app.services.smc.models import Direction, Trend, Zone
 from app.services.smc.notifier import format_plan
 from app.services.smc.plan import build_plan
 from app.services.smc.profiles import AGGRESSIVE, CONSERVATIVE
@@ -108,6 +110,103 @@ class TestBuildPlan:
         assert "no positive reward" in plan.note
 
 
+class TestRunnerUpZone:
+    """spec 2026-08-16 §2.4: the plan chart draws the OB/FVG runner-up
+    alongside the winning zone. `PlanScenario.runner_up` carries it."""
+
+    def test_no_runner_up_when_the_untouched_imbalance_is_not_below_price(self):
+        # H1_PULLBACK_CLOSES has a genuine untouched imbalance at
+        # 3146.0-3159.6 (unmocked, real find_h1_fvg_zone) — but at price
+        # 3145.0 that gap sits above price, not on the pullback side, so it
+        # must not be attached even though it exists.
+        h4, h1, m5 = _uptrend_data(3145.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        assert plan.scenarios[0].kind == "OB"
+        assert plan.scenarios[0].runner_up is None
+
+    def test_real_runner_up_attached_when_price_clears_both_zones(self):
+        # Same fixture, price 3160.0: the 3146.0-3159.6 imbalance now sits
+        # below price too — unmocked end-to-end confirmation that the real
+        # find_h1_fvg_zone call, not just a monkeypatched one, gets wired in.
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        s = plan.scenarios[0]
+        assert s.kind == "OB"
+        assert s.runner_up is not None
+        assert s.runner_up.kind == "FVG"
+        assert (s.runner_up.bottom, s.runner_up.top) == (3146.0, 3159.6)
+
+    def test_runner_up_attached_when_it_sits_on_the_pullback_side(self, monkeypatch):
+        import app.services.smc.plan as P
+
+        h4, h1, m5 = _uptrend_data(3160.0)
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        below_price = Zone(
+            bottom=3120.0, top=3125.0, is_demand=True, pivot_index=0,
+            timestamp=ts, kind="FVG",
+        )
+        monkeypatch.setattr(P, "find_h1_fvg_zone", lambda *a, **k: below_price)
+
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        s = plan.scenarios[0]
+        assert s.kind == "OB"  # the winner is unchanged, still the order block
+        assert s.runner_up is below_price
+
+    def test_runner_up_dropped_when_price_already_traded_through_it(
+        self, monkeypatch
+    ):
+        """A gap price has already passed is not a zone the owner is
+        waiting at — drawing it would be noise (spec's own wording)."""
+        import app.services.smc.plan as P
+
+        h4, h1, m5 = _uptrend_data(3160.0)
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        above_price = Zone(
+            bottom=3161.0, top=3165.0, is_demand=True, pivot_index=0,
+            timestamp=ts, kind="FVG",
+        )
+        monkeypatch.setattr(P, "find_h1_fvg_zone", lambda *a, **k: above_price)
+
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        assert plan.scenarios[0].runner_up is None
+
+    def test_runner_up_never_attached_when_the_winner_is_itself_the_imbalance(
+        self, monkeypatch
+    ):
+        """kind == "FVG" means no order block qualified — there is nothing
+        left to be beaten, so `_scenario` must not even look for a
+        runner-up (unmocked: the order block genuinely does not exist on
+        this H1, same fixture as TestEngineWithAnH1ImbalanceZone)."""
+        import app.services.smc.plan as P
+
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles([3100, 3101, 3102, 3120, 3121, 3122], step_minutes=60)
+        m5 = make_candles([3125.0], step_minutes=5)
+
+        calls = {"n": 0}
+        real_find_h1_fvg_zone = P.find_h1_fvg_zone
+
+        def spy(*a, **k):
+            calls["n"] += 1
+            return real_find_h1_fvg_zone(*a, **k)
+
+        monkeypatch.setattr(P, "find_h1_fvg_zone", spy)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=0.01)
+
+        assert len(plan.scenarios) == 1
+        assert plan.scenarios[0].kind == "FVG"
+        assert plan.scenarios[0].runner_up is None
+        # The one call was `find_zone_of_interest`'s own fallback lookup
+        # inside structure.py (module-internal, not through `P`'s imported
+        # name) — so a call count of 0 here proves `_scenario`'s runner-up
+        # branch never fired for an FVG winner.
+        assert calls["n"] == 0
+
+
 class TestPlanBlocker:
     """Spec §6: when the plan has no scenario it names the stage it stopped
     at, in the live checklist's own words — never a generic sentence, and
@@ -170,7 +269,16 @@ class TestPlanBlocker:
             if plan.scenarios:
                 continue
             assert "CHoCH" not in plan.blocker
-            assert "FVG" not in plan.blocker and "imbalance" not in plan.blocker
+            assert "FVG" not in plan.blocker
+            # "imbalance" alone used to mean only the M5 trigger the plan
+            # cannot evaluate (it never scans M5). Owner decision D4 (spec
+            # 2026-08-16 §2.1) made the H1 imbalance a zone of interest the
+            # plan *does* evaluate via find_zone_of_interest, so a bare
+            # "no untouched H1 imbalance" is now legitimate. The guard keeps
+            # protecting the real rule (spec 2026-08-06 §6: never promise an
+            # M5 stage) by requiring every "imbalance" to be the H1-qualified
+            # phrase — a bare or "M5 imbalance" occurrence still fails.
+            assert re.search(r"(?<!H1 )imbalance", plan.blocker) is None
 
     def test_market_closed_has_no_structural_blocker(self):
         h4, h1, m5 = _uptrend_data(3160.0)
@@ -325,6 +433,41 @@ class TestRule1DirectionParity:
         plan = self._plan(self.FLAT_H4, self.H1_UP, 3160.0, CONSERVATIVE)
         text = format_plan(plan)
         assert "H4 flat — direction from H1 uptrend" in text
+
+
+class TestNoZoneWordingParity:
+    """The plan reports the stage it stopped at in the live checklist's own
+    words (spec 2026-08-06 §6), so `plan._zone_note` and the engine's Rule 2
+    watch note are one sentence written twice. Pin them equal — and keep it
+    a sentence, not a chain of parentheticals."""
+
+    def _no_zone_h1(self):
+        # No pivot can form on identical candles and no gap can open, so
+        # neither an order block nor an imbalance exists.
+        return make_candles([3000.0] * 12, step_minutes=60)
+
+    def test_plan_blocker_is_the_engines_watch_note_word_for_word(self):
+        from datetime import datetime, timezone
+
+        from app.services.smc.engine import TripleSyncEngine
+        from app.services.smc.models import AnalysisResult, Verdict
+
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = self._no_zone_h1()
+        m5 = make_candles([3000.0], step_minutes=5)
+
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        result = TripleSyncEngine(instrument=ETH).evaluate(
+            h4=h4, h1=h1, m5=m5,
+            result=AnalysisResult(
+                symbol="ETHUSD", verdict=Verdict.SKIP,
+                checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
+            ),
+        )
+        assert result.verdict == Verdict.WATCH
+        assert result.watch_notes
+        assert plan.blocker == result.watch_notes[0]
+        assert "(" not in plan.blocker  # one sentence, no parentheticals
 
 
 class TestPlanKeyboard:

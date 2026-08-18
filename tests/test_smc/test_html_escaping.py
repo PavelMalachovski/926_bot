@@ -386,6 +386,41 @@ class TestDetectorAlert:
         assert "3300.00 – 3320.00" in text
         assert "0 touches" in text
 
+    def test_each_ladder_rung_names_its_zone_kind(self):
+        """Final-review finding 3: the D4 runner-up splice puts the beaten
+        H1 imbalance on the ladder, and "here is the imbalance the order
+        block beat" is the whole point of it — a rung that renders like
+        every other one never carries that. An imbalance also has no touch
+        count: `_mark_zone_state` never runs on one."""
+        ts = datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc)
+        result = _hand_built(ladder=[])
+        result.setup.zones_ahead = [
+            Zone(bottom=3300.0, top=3320.0, is_demand=False, pivot_index=4,
+                 timestamp=ts, kind="FVG"),
+            Zone(bottom=3340.0, top=3360.0, is_demand=False, pivot_index=6,
+                 timestamp=ts, kind="OB", touches=1),
+        ]
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "3300.00 – 3320.00   (FVG · untouched)" in text
+        assert "3340.00 – 3360.00   (OB · 1 touch)" in text
+
+    def test_the_watch_screen_names_the_zone_kind(self):
+        """Final-review finding 4: an imbalance zone lives its whole life on
+        this screen — the owner is waiting for price to arrive and the loud
+        alert may never come."""
+        result = _result_with_reason(
+            "Price has not reached the H1 Demand zone (3131.00–3138.00) yet"
+        )
+        result.h1_zone = Zone(
+            bottom=3131.0, top=3138.0, is_demand=True, pivot_index=4,
+            timestamp=datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc),
+            kind="FVG",
+        )
+        text = format_result(result)
+        _assert_valid_telegram_html(text)
+        assert "H1 zone (Demand · FVG)" in text
+
     def test_ladder_pre_block_opens_and_closes_exactly_once(self):
         """Spec 2026-08-06 §2: the ladder is wrapped in `<pre>` so its
         columns line up in Telegram's proportional font. The tag must not

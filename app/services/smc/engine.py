@@ -21,14 +21,19 @@ from app.services.smc.models import (
     Trend,
     Verdict,
 )
-from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
+from app.services.smc.profiles import (
+    CONSERVATIVE,
+    StrategyProfile,
+    effective_min_fvg,
+)
 from app.services.smc.sessions import active_session
 from app.services.smc import sniper
 from app.services.smc.structure import (
     detect_trend,
     find_choch,
-    find_h1_zone,
+    find_h1_fvg_zone,
     find_order_block,
+    find_zone_of_interest,
     first_zone_touch,
     h4_choch_direction,
     sweep_extreme,
@@ -46,6 +51,29 @@ FUNDING_DANGER = 0.001  # 0.1%
 # A market whose newest M5 candle is older than this is considered closed
 # (forex weekend); crypto trades 24/7 and never triggers it.
 MARKET_STALE_AFTER = timedelta(minutes=30)
+
+
+def trends_disagree(h4_trend, h1_trend) -> bool:
+    """True only when BOTH timeframes trend and they point opposite ways.
+
+    An H4 FLAT is not a disagreement — it is the H1-fallback case the owner
+    approved on 2026-08-06, and it must keep earning the star exactly as it
+    does today. An H1 FLAT under a trending H4 is likewise no conflict:
+    nothing is arguing.
+    """
+    trending = (Trend.UP, Trend.DOWN)
+    return (
+        h4_trend in trending and h1_trend in trending and h4_trend != h1_trend
+    )
+
+
+def _is_deeper_than(zone, direction: Direction, entry: float) -> bool:
+    """True if `zone` sits further out than `entry` on the trade's own
+    side — the same "further out" convention `zone_ladder` uses (`beyond`
+    there is this function's `entry`): `zone.bottom > entry` for a SHORT
+    (supply further above), `zone.top < entry` for a LONG (demand further
+    below)."""
+    return zone.bottom > entry if direction == Direction.SHORT else zone.top < entry
 
 
 class TripleSyncEngine:
@@ -72,7 +100,11 @@ class TripleSyncEngine:
         self.min_fvg_size = (
             min_fvg_size if min_fvg_size is not None else self.instrument.min_fvg
         )
-        self._effective_min_fvg = self.min_fvg_size * self.profile.fvg_size_factor
+        # One shared expression with plan._scenario and the watcher's
+        # m5_marks call — see profiles.effective_min_fvg for the only way
+        # they can legitimately differ (an explicit min_fvg_size override,
+        # which production never passes).
+        self._effective_min_fvg = effective_min_fvg(self.min_fvg_size, self.profile)
         self.sl_buffer = (
             sl_buffer if sl_buffer is not None else self.instrument.sl_buffer
         )
@@ -144,8 +176,13 @@ class TripleSyncEngine:
         """Evaluate rules 1-8 on the given candles (pure, testable)."""
         result.profile_key = self.profile.key
 
-        # Rule 1 — H4 global trend
+        # Rule 1 — H4 global trend. H1 is computed unconditionally right
+        # alongside it (Task 4, owner decision D6) so `trends_disagree` can
+        # compare the two regardless of which branch below supplies the
+        # trade direction — the FLAT branch just reuses this value instead
+        # of calling detect_trend(h1) a second time.
         result.h4_trend = detect_trend(h4)
+        result.h1_trend = detect_trend(h1)
         direction = None
         result.direction_source = "h4"
         if result.h4_trend == Trend.UP:
@@ -159,7 +196,7 @@ class TripleSyncEngine:
             # aggressive profile's first-leg H4-CHoCH entry below, which
             # keeps its own label. Applies to both profiles: it is a property
             # of how the owner reads a chart, not a profile decision point.
-            h1_trend = detect_trend(h1)
+            h1_trend = result.h1_trend
             if h1_trend == Trend.UP:
                 direction, result.direction_source = Direction.LONG, "h1"
             elif h1_trend == Trend.DOWN:
@@ -182,18 +219,30 @@ class TripleSyncEngine:
             )
             return result
 
-        # Rule 2 — H1 zone
-        zone = find_h1_zone(h1, direction, max_touches=self.profile.max_zone_touches)
+        # Rule 2 — H1 zone of interest: order block first, untouched
+        # imbalance as the fallback (owner decision D4, spec §2.1). The
+        # minimum gap size is the per-instrument floor scaled by the
+        # profile, exactly as Rule 4 scales the M5 imbalance.
+        zone = find_zone_of_interest(
+            h1,
+            direction,
+            min_size=self._effective_min_fvg,
+            max_touches=self.profile.max_zone_touches,
+        )
         if zone is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
                 f"H4 is {'bullish' if direction == Direction.LONG else 'bearish'}, "
                 "but H1 has no valid untested "
-                f"{'Demand' if direction == Direction.LONG else 'Supply'} zone"
+                f"{'Demand' if direction == Direction.LONG else 'Supply'} zone "
+                "(no order block, no untouched H1 imbalance)"
             )
+            # Kept word-for-word identical to plan._zone_note: the plan
+            # reports this stage in the live checklist's own words.
             result.watch_notes.append(
-                "Wait for a fresh H1 zone to form (an untested "
-                f"{'HL' if direction == Direction.LONG else 'LH'})"
+                "Wait for a fresh H1 zone to form — an untested "
+                f"{'HL' if direction == Direction.LONG else 'LH'}"
+                " order block or an untouched H1 imbalance"
             )
             return result
         result.h1_zone = zone
@@ -327,7 +376,10 @@ class TripleSyncEngine:
         )
         pd = sniper.pd_state(direction, entry, sniper.dealing_range(h1))
         room = sniper.room_r(h1, h4, direction, entry, risk, tier_tolerance)
-        tier = sniper.classify(room, sweep, pd, stale)
+        tier = sniper.classify(
+            room, sweep, pd, stale,
+            trend_disagrees=trends_disagree(result.h4_trend, result.h1_trend),
+        )
 
         # Rule 7 (owner decision 2026-08-05, demoted to a label 2026-08-06) —
         # the nearest unswept liquidity is the pool the move is reaching for,
@@ -385,6 +437,13 @@ class TripleSyncEngine:
         # The ladder is the OTHER untested zones on the trade's own side, so
         # the live entry zone is excluded rather than shown as its own rung.
         zones_ahead = zone_ladder(h1, direction, entry, exclude=zone)
+        # D4's runner-up: when the order block won Rule 2, the untouched
+        # imbalance it beat still belongs in the ladder if it is a genuine
+        # deeper entry (spec §2.1) — otherwise it is simply lost.
+        if zone.kind == "OB":
+            runner_up = find_h1_fvg_zone(h1, direction, self._effective_min_fvg)
+            if runner_up is not None and _is_deeper_than(runner_up, direction, entry):
+                zones_ahead = [runner_up] + zones_ahead
 
         # Rule 8 — position size hint
         lot_hint = self._lot_hint(entry, risk)

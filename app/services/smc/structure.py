@@ -2,7 +2,8 @@
 
 from typing import List, Optional, Tuple
 
-from app.services.smc.models import Candle, Direction, Pivot, Trend, Zone
+from app.services.smc.fvg import find_fvgs, measure_fill
+from app.services.smc.models import Candle, Direction, FVG, Pivot, Trend, Zone
 
 # A pivot needs `PIVOT_WING` candles on each side and at least
 # `CONFIRMATION_CANDLES` closed candles after it to be considered confirmed
@@ -145,8 +146,8 @@ def find_order_block(
     direction: Direction,
     before_index: int,
     since_index: int,
-    entry: float,
-    stop_loss: float,
+    entry: Optional[float] = None,
+    stop_loss: Optional[float] = None,
 ) -> Optional[Zone]:
     """The last candle opposing the trade before the impulse (owner
     definition, 2026-08-06). Price reacts to it on the retest, and it sits
@@ -176,6 +177,14 @@ def find_order_block(
     risk (or, past the stop, on a collapsed one) while being read as the
     better option.
 
+    `entry`/`stop_loss` are optional. When either is omitted the guard is
+    skipped and the function becomes a plain "last opposing candle in this
+    window" finder — used to mark a zone the owner is watching before any
+    setup exists, i.e. before there is an entry or a stop to compare against
+    (spec §2.2, `m5_marks`). The engine's own call is unchanged: it still
+    passes both, so the "strictly deeper than entry, strictly inside the
+    stop" guard still applies there exactly as before.
+
     The returned Zone's `pivot_index`/`timestamp` carry the order-block
     candle's own index and timestamp — it is the zone's origin candle, not a
     fractal pivot, even though it reuses the same field.
@@ -190,14 +199,79 @@ def find_order_block(
             zone = Zone(bottom=c.low, top=c.body_high, is_demand=True,
                         pivot_index=i, timestamp=c.timestamp)
             ob_entry = zone.top
-            deeper = stop_loss < ob_entry < entry
+            deeper = entry is None or stop_loss is None or (
+                stop_loss < ob_entry < entry
+            )
         else:
             zone = Zone(bottom=c.body_low, top=c.high, is_demand=False,
                         pivot_index=i, timestamp=c.timestamp)
             ob_entry = zone.bottom
-            deeper = entry < ob_entry < stop_loss
+            deeper = entry is None or stop_loss is None or (
+                entry < ob_entry < stop_loss
+            )
         return zone if deeper else None
     return None
+
+
+def m5_marks(
+    m5: List[Candle],
+    direction: Direction,
+    zone_bottom: float,
+    zone_top: float,
+    min_size: float,
+) -> Tuple[Optional[Zone], Optional[FVG]]:
+    """The M5 order block and imbalance inside the current excursion into
+    `[zone_bottom, zone_top]` — what the owner would actually buy from once
+    price is in the zone (owner decision D5, spec §2.2).
+
+    Marking only: no verdict, no suppression, no message of its own. Both
+    halves are optional and independent — an excursion often shows one and
+    not the other, and `(None, None)` simply means the zone alert prints no
+    detail line.
+
+    The window is `zone_touch_span`'s latest excursion `[start, end]`, the
+    same window the engine searches for the CHoCH and the FVG, so the marks
+    name the same stretch of price action a setup would form in. Unlike the
+    engine's use, this runs BEFORE any CHoCH exists — that is the point: the
+    alert fires when price arrives, and the owner wants the levels then. The
+    gap search is bounded at `end` as well as `start`: a gap that formed
+    after the excursion ended is not one the owner is waiting at inside this
+    touch, even if `m5` happens to hold later candles.
+
+    The gap is the EARLIEST qualifying one of the window, which is
+    `select_valid_fvg`'s rule and is picked for its reason: the first gap of
+    an impulse leg is the best entry price. Taking the newest instead made
+    this line name a different imbalance than the 🚨 alert's ⚡ line minutes
+    later on the same excursion, and the owner has no way to tell that the
+    two messages mean one gap.
+
+    Rule 4's session-scope and fill checks are deliberately NOT applied to
+    the gap here. This is a label on a zone being watched, not a trade
+    trigger; the M5 setup path still runs the full Rule 4 validation when
+    the setup actually forms.
+    """
+    if not m5:
+        return None, None
+    band = Zone(
+        bottom=zone_bottom, top=zone_top, is_demand=direction == Direction.LONG,
+        pivot_index=0, timestamp=m5[0].timestamp,
+    )
+    span = zone_touch_span(m5, band)
+    if span is None:
+        return None, None
+    start, end = span
+    block = find_order_block(m5, direction, before_index=end + 1, since_index=start)
+    gap = None
+    for candidate in find_fvgs(m5, direction, from_index=start):
+        if candidate.index > end:
+            break  # formed after the excursion ended — not this window
+        if candidate.size < min_size:
+            continue
+        if measure_fill(m5, candidate).closed_through:
+            continue
+        gap = candidate
+        break
+    return block, gap
 
 
 def zone_ladder(
@@ -256,6 +330,68 @@ def find_h1_zone(
         if not zone.invalidated and zone.touches <= max_touches:
             return zone
     return None
+
+
+def find_h1_fvg_zone(
+    candles: List[Candle], direction: Direction, min_size: float
+) -> Optional[Zone]:
+    """The most recent UNTOUCHED H1 imbalance on the trade's side, as a Zone.
+
+    A zone of interest the owner waits for, alongside the order block
+    (spec 2026-08-16 §2.1). Freshness is D10 (owner decision 2026-08-18):
+    the gap must have zero penetration — the exact mirror of `find_h1_zone`'s
+    `touches == 0`. A partially filled gap is not something the bot is still
+    waiting for, because price already arrived; announcing it would fire the
+    zone alert late. This is deliberately stricter than Rule 4's
+    `fill < 50%`, which judges the M5 entry imbalance price is trading in
+    right now.
+
+    `min_size` is `Instrument.min_fvg * StrategyProfile.fvg_size_factor`,
+    computed by the caller — this module stays free of the instrument and
+    profile registries.
+
+    The returned Zone's `pivot_index`/`timestamp` carry the gap's own
+    formation candle, not a fractal pivot, the same way `find_order_block`
+    reuses those fields.
+    """
+    for gap in reversed(find_fvgs(candles, direction, from_index=0)):
+        if gap.size < min_size:
+            continue
+        if measure_fill(candles, gap).fill_pct > 0:
+            continue  # D10: price has already traded into it
+        return Zone(
+            bottom=gap.bottom,
+            top=gap.top,
+            is_demand=direction == Direction.LONG,
+            pivot_index=gap.index,
+            timestamp=gap.timestamp,
+            kind="FVG",
+        )
+    return None
+
+
+def find_zone_of_interest(
+    candles: List[Candle],
+    direction: Direction,
+    min_size: float,
+    max_touches: int = 0,
+) -> Optional[Zone]:
+    """The H1 zone the owner waits for: the order block if one qualifies,
+    otherwise the untouched imbalance (owner decision D4, 2026-08-16).
+
+    The order block wins because it is the footprint of a filled order —
+    price reacted there once and the level is proven. An imbalance is a
+    gap nobody has traded back into yet, which is a weaker claim; it earns
+    the slot only when no valid order block exists.
+
+    Both are the same object downstream: a price band the setup enters
+    from. `Zone.kind` records which one this is so messages and charts can
+    name it.
+    """
+    block = find_h1_zone(candles, direction, max_touches=max_touches)
+    if block is not None:
+        return block
+    return find_h1_fvg_zone(candles, direction, min_size)
 
 
 def find_choch(
@@ -331,12 +467,46 @@ def zone_touch_span(
     the zone, or None if price never entered.
 
     Intended for M5 candles against an H1 zone. `start` is the origin for the
-    CHoCH/FVG search (the bug this replaces returned only the last candle, so
-    the M5 CHoCH inside the zone was invisible while price sat in the zone).
+    CHoCH/FVG search, for Rule 4's floor and for `sweep_extreme` (the Rule 6
+    stop reference), so it must be the first candle of a genuine RETURN into
+    the band — the bug this replaces returned only the last candle, so the M5
+    CHoCH inside the zone was invisible while price sat in the zone.
+
+    Two conditions make a candle part of an excursion:
+
+    1. It exists at or after the zone's own timestamp. Candles that crossed
+       the band on the way to drawing it are the zone's birth, not a
+       pullback into it — `first_zone_touch` guards its anchor the same way
+       and for the same reason. The filter is on `zone.timestamp` and never
+       on `pivot_index`: this function is called with M5 candles while an
+       H1 zone's index space is the H1 array, so index comparisons across
+       the two are meaningless.
+    2. It trades strictly INSIDE the band. A candle that only meets an edge
+       (`low == zone.top`) has not traded in the zone, and counting it broke
+       the FVG-kind zone completely: a gap's band is by construction one
+       price just left, and the newest candle of the triple has its low
+       exactly at the band's edge. `measure_fill` already measures
+       penetration this way — zero penetration is what makes an H1 gap a
+       fresh zone under D10 — so the two must agree about whether price is
+       in the band, and now do.
+
+    Both conditions are kind-agnostic: an order block price never returned
+    to is no more "touched" than an untouched imbalance.
+
+    Condition 1 is skipped when the candle list ENDS before the zone formed:
+    such a window and such a zone come from different eras, so there is no
+    "after the zone" part of it to filter down to and the time filter can
+    say nothing. `engine.evaluate` already carries the same fallback for
+    `first_zone_touch` ("candle lists that predate the zone's pivot
+    timestamp"). Live data never takes this branch — a closed H1 candle
+    always opened before the newest closed M5 one.
     """
+    anchored = candles and candles[-1].timestamp >= zone.timestamp
     start = end = None
     for i, c in enumerate(candles):
-        in_zone = c.low <= zone.top and c.high >= zone.bottom
+        if anchored and c.timestamp < zone.timestamp:
+            continue  # the zone did not exist yet — approach, not a touch
+        in_zone = c.low < zone.top and c.high > zone.bottom
         if in_zone:
             if start is None or (end is not None and i > end + 1):
                 start = i  # begin a new run

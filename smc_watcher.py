@@ -1315,8 +1315,26 @@ class Watcher:
             zone_alert_keyboard(key, prague_hhmm(deadline), block)
             if deadline is not None else None
         )
+        marks = None
+        try:
+            from app.services.smc.profiles import effective_min_fvg, get_profile
+            from app.services.smc.structure import m5_marks
+
+            instrument = get_instrument(key)
+            profile = get_profile(
+                self.state.pair_profile.get(key, settings.smc.default_profile)
+            )
+            marks = m5_marks(
+                result.m5_candles,
+                scenario.direction,
+                scenario.zone_bottom,
+                scenario.zone_top,
+                effective_min_fvg(instrument.min_fvg, profile),
+            )
+        except Exception as e:  # marking must never cost the owner an alert
+            logger.warning("M5 marks failed", pair=key, error=str(e))
         sent = await self.notifier.send(
-            format_zone_alert(key, scenario, result.price_decimals),
+            format_zone_alert(key, scenario, result.price_decimals, marks=marks),
             reply_markup=reply_markup,
         )
         if sent:

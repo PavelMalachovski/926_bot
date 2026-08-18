@@ -6,6 +6,7 @@ from typing import List, Optional
 import httpx
 import structlog
 
+from app.services.smc.engine import trends_disagree
 from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
@@ -154,9 +155,17 @@ def _zone_lines(setup, decimals: int) -> List[str]:
     was hiding (USDCAD 1.40710, 2026-08-06)."""
     out = ["🧱 Untested zones further out   ← deeper entries"]
     for zone in setup.zones_ahead:
-        touches = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
+        if zone.kind == "FVG":
+            # An imbalance never goes through `_mark_zone_state`, so its
+            # `touches` is an untouched default, not a count anybody took —
+            # and D10 admits a gap only while penetration is zero, so state
+            # that instead of printing a number that was never measured.
+            state = "untouched"
+        else:
+            state = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
         out.append(
-            f"     {zone.bottom:.{decimals}f} – {zone.top:.{decimals}f}   ({touches})"
+            f"     {zone.bottom:.{decimals}f} – {zone.top:.{decimals}f}"
+            f"   ({zone.kind} · {state})"
         )
     return out
 
@@ -196,6 +205,18 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         f"🚨 <b>SETUP READY — {escape_html(result.symbol)} · {side}</b>"
         f" · {_direction_source_label(result, is_long)}"
     ]
+    if result.h1_trend is not None:
+        # `h4_trend` defaults to Trend.FLAT and is never None, so only the
+        # H1 half of this guard ever decided anything: h1_trend is None when
+        # Rule 1 returned before computing the trends at all.
+        # D6 (owner decision 2026-08-16): H4/H1 trend agreement, always
+        # shown — the counter-hourly marker only appears when they actually
+        # disagree, which is also what denies the ⭐ below. This never
+        # suppresses; it only labels.
+        agree = f"H4 {result.h4_trend.value} · H1 {result.h1_trend.value}"
+        if trends_disagree(result.h4_trend, result.h1_trend):
+            agree += " ⚠️ counter-hourly"
+        lines.append(agree)
     if setup.tier_star:
         # Phase 2 sniper redesign (owner decision 2026-08-12): the loud
         # ⭐-tier header — room + sweep + premium/discount + staleness all
@@ -214,7 +235,7 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     if result.h1_zone:
         kind = "Demand" if result.h1_zone.is_demand else "Supply"
         lines.append(
-            f"📍 H1 {kind} zone      "
+            f"📍 H1 {kind} zone ({result.h1_zone.kind})  "
             f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
         )
     lines.append(
@@ -381,8 +402,12 @@ def format_result(result: AnalysisResult, in_plan: Optional[bool] = None) -> str
 
     if result.h1_zone:
         zone_kind = "Demand" if result.h1_zone.is_demand else "Supply"
+        # The kind (OB / FVG) belongs here more than anywhere: this is the
+        # screen the owner reads WHILE waiting for price to arrive, which
+        # is the whole life of an imbalance zone — the loud alert may never
+        # come.
         lines.append(
-            f"<b>H1 zone ({zone_kind}):</b> "
+            f"<b>H1 zone ({zone_kind} · {result.h1_zone.kind}):</b> "
             f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
         )
 
@@ -518,24 +543,40 @@ def plan_summary_keyboard(pairs) -> dict:
     return {"inline_keyboard": rows}
 
 
-def format_zone_alert(pair, scenario, decimals: int) -> str:
+def format_zone_alert(pair, scenario, decimals: int, marks=None) -> str:
     """Price reached a plan zone: the get-ready moment, with the plan's own
     projected bracket so the owner sees the scenario without pressing
     anything (spec 2026-08-11 §5). SL here is the plan's preliminary one —
-    the live 🚨 alert re-anchors it (Rule 6)."""
+    the live 🚨 alert re-anchors it (Rule 6).
+
+    `marks` is the optional `(order_block, fvg)` pair from `structure.m5_marks`
+    (owner decision D5, spec §2.2): the M5 order block and imbalance inside
+    the zone, i.e. what the owner would actually buy from. It rides along as
+    one extra line on this same message, never a message of its own — with
+    no marks the text is byte-identical to before this parameter existed.
+    """
     d = decimals
     is_long = scenario.direction == Direction.LONG
     kind = "Demand" if is_long else "Supply"
     side = "Buy" if is_long else "Sell"
     spec = " (speculative)" if scenario.speculative else ""
-    return (
+    lines = [
         f"🔔 <b>{escape_html(pair)}</b>: price reached the {kind} zone "
-        f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}\n"
+        f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}",
         f"📋 Plan: {'LONG' if is_long else 'SHORT'} — {side} Limit "
         f"{scenario.entry:.{d}f} | 🛑 SL {scenario.stop_loss:.{d}f} "
-        f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}\n"
-        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG."
-    )
+        f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}",
+        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG.",
+    ]
+    block, gap = marks if marks else (None, None)
+    if block or gap:
+        parts = []
+        if block:
+            parts.append(f"5m OB {block.bottom:.{d}f}–{block.top:.{d}f}")
+        if gap:
+            parts.append(f"5m FVG {gap.bottom:.{d}f}–{gap.top:.{d}f}")
+        lines.append("🔎 " + " · ".join(parts))
+    return "\n".join(lines)
 
 
 def zone_alert_keyboard(pair: str, until_hhmm: str, block_id: str) -> dict:
