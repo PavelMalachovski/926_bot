@@ -460,12 +460,46 @@ def zone_touch_span(
     the zone, or None if price never entered.
 
     Intended for M5 candles against an H1 zone. `start` is the origin for the
-    CHoCH/FVG search (the bug this replaces returned only the last candle, so
-    the M5 CHoCH inside the zone was invisible while price sat in the zone).
+    CHoCH/FVG search, for Rule 4's floor and for `sweep_extreme` (the Rule 6
+    stop reference), so it must be the first candle of a genuine RETURN into
+    the band — the bug this replaces returned only the last candle, so the M5
+    CHoCH inside the zone was invisible while price sat in the zone.
+
+    Two conditions make a candle part of an excursion:
+
+    1. It exists at or after the zone's own timestamp. Candles that crossed
+       the band on the way to drawing it are the zone's birth, not a
+       pullback into it — `first_zone_touch` guards its anchor the same way
+       and for the same reason. The filter is on `zone.timestamp` and never
+       on `pivot_index`: this function is called with M5 candles while an
+       H1 zone's index space is the H1 array, so index comparisons across
+       the two are meaningless.
+    2. It trades strictly INSIDE the band. A candle that only meets an edge
+       (`low == zone.top`) has not traded in the zone, and counting it broke
+       the FVG-kind zone completely: a gap's band is by construction one
+       price just left, and the newest candle of the triple has its low
+       exactly at the band's edge. `measure_fill` already measures
+       penetration this way — zero penetration is what makes an H1 gap a
+       fresh zone under D10 — so the two must agree about whether price is
+       in the band, and now do.
+
+    Both conditions are kind-agnostic: an order block price never returned
+    to is no more "touched" than an untouched imbalance.
+
+    Condition 1 is skipped when the candle list ENDS before the zone formed:
+    such a window and such a zone come from different eras, so there is no
+    "after the zone" part of it to filter down to and the time filter can
+    say nothing. `engine.evaluate` already carries the same fallback for
+    `first_zone_touch` ("candle lists that predate the zone's pivot
+    timestamp"). Live data never takes this branch — a closed H1 candle
+    always opened before the newest closed M5 one.
     """
+    anchored = candles and candles[-1].timestamp >= zone.timestamp
     start = end = None
     for i, c in enumerate(candles):
-        in_zone = c.low <= zone.top and c.high >= zone.bottom
+        if anchored and c.timestamp < zone.timestamp:
+            continue  # the zone did not exist yet — approach, not a touch
+        in_zone = c.low < zone.top and c.high > zone.bottom
         if in_zone:
             if start is None or (end is not None and i > end + 1):
                 start = i  # begin a new run
