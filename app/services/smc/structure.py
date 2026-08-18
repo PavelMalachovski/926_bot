@@ -3,7 +3,7 @@
 from typing import List, Optional, Tuple
 
 from app.services.smc.fvg import find_fvgs, measure_fill
-from app.services.smc.models import Candle, Direction, Pivot, Trend, Zone
+from app.services.smc.models import Candle, Direction, FVG, Pivot, Trend, Zone
 
 # A pivot needs `PIVOT_WING` candles on each side and at least
 # `CONFIRMATION_CANDLES` closed candles after it to be considered confirmed
@@ -146,8 +146,8 @@ def find_order_block(
     direction: Direction,
     before_index: int,
     since_index: int,
-    entry: float,
-    stop_loss: float,
+    entry: Optional[float] = None,
+    stop_loss: Optional[float] = None,
 ) -> Optional[Zone]:
     """The last candle opposing the trade before the impulse (owner
     definition, 2026-08-06). Price reacts to it on the retest, and it sits
@@ -177,6 +177,14 @@ def find_order_block(
     risk (or, past the stop, on a collapsed one) while being read as the
     better option.
 
+    `entry`/`stop_loss` are optional. When either is omitted the guard is
+    skipped and the function becomes a plain "last opposing candle in this
+    window" finder — used to mark a zone the owner is watching before any
+    setup exists, i.e. before there is an entry or a stop to compare against
+    (spec §2.2, `m5_marks`). The engine's own call is unchanged: it still
+    passes both, so the "strictly deeper than entry, strictly inside the
+    stop" guard still applies there exactly as before.
+
     The returned Zone's `pivot_index`/`timestamp` carry the order-block
     candle's own index and timestamp — it is the zone's origin candle, not a
     fractal pivot, even though it reuses the same field.
@@ -191,14 +199,67 @@ def find_order_block(
             zone = Zone(bottom=c.low, top=c.body_high, is_demand=True,
                         pivot_index=i, timestamp=c.timestamp)
             ob_entry = zone.top
-            deeper = stop_loss < ob_entry < entry
+            deeper = entry is None or stop_loss is None or (
+                stop_loss < ob_entry < entry
+            )
         else:
             zone = Zone(bottom=c.body_low, top=c.high, is_demand=False,
                         pivot_index=i, timestamp=c.timestamp)
             ob_entry = zone.bottom
-            deeper = entry < ob_entry < stop_loss
+            deeper = entry is None or stop_loss is None or (
+                entry < ob_entry < stop_loss
+            )
         return zone if deeper else None
     return None
+
+
+def m5_marks(
+    m5: List[Candle],
+    direction: Direction,
+    zone_bottom: float,
+    zone_top: float,
+    min_size: float,
+) -> Tuple[Optional[Zone], Optional[FVG]]:
+    """The M5 order block and imbalance inside the current excursion into
+    `[zone_bottom, zone_top]` — what the owner would actually buy from once
+    price is in the zone (owner decision D5, spec §2.2).
+
+    Marking only: no verdict, no suppression, no message of its own. Both
+    halves are optional and independent — an excursion often shows one and
+    not the other, and `(None, None)` simply means the zone alert prints no
+    detail line.
+
+    The window is `zone_touch_span`'s latest excursion, the same window the
+    engine searches for the CHoCH and the FVG, so the marks name the same
+    stretch of price action a setup would form in. Unlike the engine's use,
+    this runs BEFORE any CHoCH exists — that is the point: the alert fires
+    when price arrives, and the owner wants the levels then.
+
+    Rule 4's session-scope and fill checks are deliberately NOT applied to
+    the gap here. This is a label on a zone being watched, not a trade
+    trigger; the M5 setup path still runs the full Rule 4 validation when
+    the setup actually forms.
+    """
+    if not m5:
+        return None, None
+    band = Zone(
+        bottom=zone_bottom, top=zone_top, is_demand=direction == Direction.LONG,
+        pivot_index=0, timestamp=m5[0].timestamp,
+    )
+    span = zone_touch_span(m5, band)
+    if span is None:
+        return None, None
+    start, end = span
+    block = find_order_block(m5, direction, before_index=end + 1, since_index=start)
+    gap = None
+    for candidate in reversed(find_fvgs(m5, direction, from_index=start)):
+        if candidate.size < min_size:
+            continue
+        if measure_fill(m5, candidate).closed_through:
+            continue
+        gap = candidate
+        break
+    return block, gap
 
 
 def zone_ladder(

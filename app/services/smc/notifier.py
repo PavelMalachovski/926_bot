@@ -518,24 +518,40 @@ def plan_summary_keyboard(pairs) -> dict:
     return {"inline_keyboard": rows}
 
 
-def format_zone_alert(pair, scenario, decimals: int) -> str:
+def format_zone_alert(pair, scenario, decimals: int, marks=None) -> str:
     """Price reached a plan zone: the get-ready moment, with the plan's own
     projected bracket so the owner sees the scenario without pressing
     anything (spec 2026-08-11 §5). SL here is the plan's preliminary one —
-    the live 🚨 alert re-anchors it (Rule 6)."""
+    the live 🚨 alert re-anchors it (Rule 6).
+
+    `marks` is the optional `(order_block, fvg)` pair from `structure.m5_marks`
+    (owner decision D5, spec §2.2): the M5 order block and imbalance inside
+    the zone, i.e. what the owner would actually buy from. It rides along as
+    one extra line on this same message, never a message of its own — with
+    no marks the text is byte-identical to before this parameter existed.
+    """
     d = decimals
     is_long = scenario.direction == Direction.LONG
     kind = "Demand" if is_long else "Supply"
     side = "Buy" if is_long else "Sell"
     spec = " (speculative)" if scenario.speculative else ""
-    return (
+    lines = [
         f"🔔 <b>{escape_html(pair)}</b>: price reached the {kind} zone "
-        f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}\n"
+        f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}",
         f"📋 Plan: {'LONG' if is_long else 'SHORT'} — {side} Limit "
         f"{scenario.entry:.{d}f} | 🛑 SL {scenario.stop_loss:.{d}f} "
-        f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}\n"
-        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG."
-    )
+        f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}",
+        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG.",
+    ]
+    block, gap = marks if marks else (None, None)
+    if block or gap:
+        parts = []
+        if block:
+            parts.append(f"5m OB {block.bottom:.{d}f}–{block.top:.{d}f}")
+        if gap:
+            parts.append(f"5m FVG {gap.bottom:.{d}f}–{gap.top:.{d}f}")
+        lines.append("🔎 " + " · ".join(parts))
+    return "\n".join(lines)
 
 
 def zone_alert_keyboard(pair: str, until_hhmm: str, block_id: str) -> dict:
