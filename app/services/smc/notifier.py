@@ -205,7 +205,10 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         f"🚨 <b>SETUP READY — {escape_html(result.symbol)} · {side}</b>"
         f" · {_direction_source_label(result, is_long)}"
     ]
-    if result.h4_trend is not None and result.h1_trend is not None:
+    if result.h1_trend is not None:
+        # `h4_trend` defaults to Trend.FLAT and is never None, so only the
+        # H1 half of this guard ever decided anything: h1_trend is None when
+        # Rule 1 returned before computing the trends at all.
         # D6 (owner decision 2026-08-16): H4/H1 trend agreement, always
         # shown — the counter-hourly marker only appears when they actually
         # disagree, which is also what denies the ⭐ below. This never

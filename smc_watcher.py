@@ -1317,7 +1317,7 @@ class Watcher:
         )
         marks = None
         try:
-            from app.services.smc.profiles import get_profile
+            from app.services.smc.profiles import effective_min_fvg, get_profile
             from app.services.smc.structure import m5_marks
 
             instrument = get_instrument(key)
@@ -1329,7 +1329,7 @@ class Watcher:
                 scenario.direction,
                 scenario.zone_bottom,
                 scenario.zone_top,
-                instrument.min_fvg * profile.fvg_size_factor,
+                effective_min_fvg(instrument.min_fvg, profile),
             )
         except Exception as e:  # marking must never cost the owner an alert
             logger.warning("M5 marks failed", pair=key, error=str(e))

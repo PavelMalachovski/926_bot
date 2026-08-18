@@ -337,6 +337,41 @@ class TestRule1DirectionParity:
         assert "H4 flat — direction from H1 uptrend" in text
 
 
+class TestNoZoneWordingParity:
+    """The plan reports the stage it stopped at in the live checklist's own
+    words (spec 2026-08-06 §6), so `plan._zone_note` and the engine's Rule 2
+    watch note are one sentence written twice. Pin them equal — and keep it
+    a sentence, not a chain of parentheticals."""
+
+    def _no_zone_h1(self):
+        # No pivot can form on identical candles and no gap can open, so
+        # neither an order block nor an imbalance exists.
+        return make_candles([3000.0] * 12, step_minutes=60)
+
+    def test_plan_blocker_is_the_engines_watch_note_word_for_word(self):
+        from datetime import datetime, timezone
+
+        from app.services.smc.engine import TripleSyncEngine
+        from app.services.smc.models import AnalysisResult, Verdict
+
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = self._no_zone_h1()
+        m5 = make_candles([3000.0], step_minutes=5)
+
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        result = TripleSyncEngine(instrument=ETH).evaluate(
+            h4=h4, h1=h1, m5=m5,
+            result=AnalysisResult(
+                symbol="ETHUSD", verdict=Verdict.SKIP,
+                checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
+            ),
+        )
+        assert result.verdict == Verdict.WATCH
+        assert result.watch_notes
+        assert plan.blocker == result.watch_notes[0]
+        assert "(" not in plan.blocker  # one sentence, no parentheticals
+
+
 class TestPlanKeyboard:
     def _bot(self, pairs):
         from app.services.smc.telegram_bot import TelegramCommandBot

@@ -21,7 +21,11 @@ from app.services.smc.models import (
     Trend,
     Verdict,
 )
-from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
+from app.services.smc.profiles import (
+    CONSERVATIVE,
+    StrategyProfile,
+    effective_min_fvg,
+)
 from app.services.smc.sessions import active_session
 from app.services.smc import sniper
 from app.services.smc.structure import (
@@ -96,7 +100,11 @@ class TripleSyncEngine:
         self.min_fvg_size = (
             min_fvg_size if min_fvg_size is not None else self.instrument.min_fvg
         )
-        self._effective_min_fvg = self.min_fvg_size * self.profile.fvg_size_factor
+        # One shared expression with plan._scenario and the watcher's
+        # m5_marks call — see profiles.effective_min_fvg for the only way
+        # they can legitimately differ (an explicit min_fvg_size override,
+        # which production never passes).
+        self._effective_min_fvg = effective_min_fvg(self.min_fvg_size, self.profile)
         self.sl_buffer = (
             sl_buffer if sl_buffer is not None else self.instrument.sl_buffer
         )
@@ -229,10 +237,12 @@ class TripleSyncEngine:
                 f"{'Demand' if direction == Direction.LONG else 'Supply'} zone "
                 "(no order block, no untouched H1 imbalance)"
             )
+            # Kept word-for-word identical to plan._zone_note: the plan
+            # reports this stage in the live checklist's own words.
             result.watch_notes.append(
-                "Wait for a fresh H1 zone to form (an untested "
-                f"{'HL' if direction == Direction.LONG else 'LH'})"
-                " (no order block, no untouched H1 imbalance)"
+                "Wait for a fresh H1 zone to form — an untested "
+                f"{'HL' if direction == Direction.LONG else 'LH'}"
+                " order block or an untouched H1 imbalance"
             )
             return result
         result.h1_zone = zone

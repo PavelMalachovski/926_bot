@@ -15,7 +15,11 @@ from typing import List, Optional, Tuple
 from app.services.smc.instruments import Instrument
 from app.services.smc.liquidity import find_liquidity, nearest_liquidity
 from app.services.smc.models import Candle, Direction, Trend
-from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
+from app.services.smc.profiles import (
+    CONSERVATIVE,
+    StrategyProfile,
+    effective_min_fvg,
+)
 from app.services.smc.structure import (
     detect_trend,
     find_zone_of_interest,
@@ -88,10 +92,13 @@ H4_STRUCTURE_NOTE = (
 
 
 def _zone_note(direction: Direction) -> str:
+    """Word-for-word the engine's own Rule 2 watch note (engine.py) — the
+    plan reports the stage it stopped at in the live checklist's words, and
+    a test pins the two sentences equal."""
     return (
-        "Wait for a fresh H1 zone to form (an untested "
-        f"{'HL' if direction == Direction.LONG else 'LH'})"
-        " (no order block, no untouched H1 imbalance)"
+        "Wait for a fresh H1 zone to form — an untested "
+        f"{'HL' if direction == Direction.LONG else 'LH'}"
+        " order block or an untouched H1 imbalance"
     )
 
 
@@ -129,7 +136,9 @@ def _scenario(
     zone = find_zone_of_interest(
         h1,
         direction,
-        min_size=instrument.min_fvg * profile.fvg_size_factor,
+        # The engine computes this with the same helper, so the plan and
+        # the live checklist cannot name different H1 zones.
+        min_size=effective_min_fvg(instrument.min_fvg, profile),
         max_touches=profile.max_zone_touches,
     )
     if zone is None:

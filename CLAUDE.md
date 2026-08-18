@@ -224,7 +224,25 @@ tracking → live-card edits on fill/TP/SL events.
   ladder candidate that fails the deeper-entry check. `m5_marks` (the M5
   order block + imbalance inside a touched zone, shown on the 🔔 alert's
   `🔎` line) is label-only: no verdict, no suppression, no message of its
-  own, and Rule 4's session/fill checks deliberately do not apply to it.
+  own, and Rule 4's session/fill checks deliberately do not apply to it —
+  but it does take the **earliest** qualifying gap of the excursion, which
+  is `select_valid_fvg`'s rule, so the 🔎 line and the 🚨 alert's ⚡ line
+  name one imbalance rather than two.
+- **An excursion into a zone begins after the zone exists**
+  (`zone_touch_span`): a candle joins the span only when its timestamp is
+  at/after `zone.timestamp` AND it trades *strictly* inside the band —
+  meeting an edge is not a touch, which is exactly how `measure_fill`
+  already measures penetration, so the two can never disagree about
+  whether price is in the band. Without both conditions a fresh H1
+  imbalance read as "price is in the zone" from the moment it formed (a
+  gap is a band price just left, and the impulse candle sits on its edge):
+  Rule 3's pullback-wait state became unreachable and the touch anchor fed
+  a pre-zone index to the M5 CHoCH search, Rule 4's floor and
+  `sweep_extreme` — the Rule 6 stop reference. Both conditions are
+  kind-agnostic; nothing branches on `Zone.kind` for geometry. The time
+  filter stands down only when the whole candle list ends before the zone
+  formed (incoherent fixtures; live data cannot produce it), the same
+  fallback `engine.evaluate` already carries for `first_zone_touch`.
 - **Plan-centric zone alert** (spec 2026-08-11 §5, dedup rewritten by owner
   decision 2026-08-16): fires when price touches a zone named by the pair's
   *current* plan (`planbook.scenario_for_touch`), carrying that scenario's
