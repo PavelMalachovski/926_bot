@@ -35,7 +35,15 @@ GRID = "#2a2e39"
 DEMAND_COLOR = "#2962ff"
 SUPPLY_COLOR = "#f23645"
 TP_COLOR = "#089981"
+# The 5m order-block box on the setup chart and the H1 zone bands on the
+# plan chart (spec 2026-08-16 §2.4) share this amber for the same reason:
+# on either chart, amber means order block. This is a deliberate split from
+# the level lines, which stay coloured by direction (DEMAND_COLOR/
+# SUPPLY_COLOR) everywhere — do not "fix" plan-chart zone bands to match
+# the level-line colours, that would erase the OB/FVG distinction §2.4
+# exists to draw.
 OB_COLOR = "#ffb300"
+FVG_COLOR = "#ab47bc"
 
 
 def _draw_candles(ax, candles) -> None:
@@ -284,6 +292,49 @@ def render_setup_chart(
     return buffer.getvalue()
 
 
+# Plan-chart zone-band weighting (spec 2026-08-16 §2.4): the winning zone
+# is what the plan is actually built on and should read first; the
+# runner-up is a deeper alternative shown behind it — dimmer fill, dashed
+# edge in the same colour, so the eye lands on the winner first.
+WINNER_ZONE_ALPHA = 0.14
+RUNNER_UP_ZONE_ALPHA = 0.08
+
+
+def _zone_kind_color(kind: str) -> str:
+    """OB_COLOR/FVG_COLOR by `Zone.kind` — see the comment at those
+    constants for why the plan chart colours zones by kind while its level
+    lines stay coloured by direction."""
+    return OB_COLOR if kind == "OB" else FVG_COLOR
+
+
+def _zone_band(
+    ax, bottom: float, top: float, kind: str, alpha: float, dashed: bool = False,
+) -> None:
+    """Shade one H1 zone band on the plan chart, coloured by kind. The
+    runner-up variant (`dashed=True`) gets a dashed edge in the same colour
+    at a lower alpha (RUNNER_UP_ZONE_ALPHA) so it reads as secondary."""
+    color = _zone_kind_color(kind)
+    ax.axhspan(
+        bottom, top,
+        facecolor=color,
+        edgecolor=color if dashed else "none",
+        linestyle="--" if dashed else "-",
+        linewidth=1.2 if dashed else 0,
+        alpha=alpha,
+        zorder=1,
+    )
+
+
+def _zone_label(ax, bottom: float, top: float, text: str, color: str) -> None:
+    """Name a zone band at its left edge, vertically centred in the band —
+    placed off the candles (which start at x=0) so it never collides with
+    them."""
+    ax.text(
+        -0.6, (bottom + top) / 2, text, color=color, fontsize=8,
+        fontweight="bold", va="center", ha="left", zorder=5,
+    )
+
+
 def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[bytes]:
     """Render a pre-market plan on H1 candles: zones + projected E/SL/TP.
 
@@ -301,16 +352,32 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
     x_right = len(candles) + 6
 
     for s in plan.scenarios:
-        zone_color = DEMAND_COLOR if s.direction == Direction.LONG else SUPPLY_COLOR
-        ax.axhspan(s.zone_bottom, s.zone_top, color=zone_color, alpha=0.12, zorder=1)
+        side = "Demand" if s.direction == Direction.LONG else "Supply"
+        _zone_band(ax, s.zone_bottom, s.zone_top, s.kind, WINNER_ZONE_ALPHA)
+        _zone_label(
+            ax, s.zone_bottom, s.zone_top, f"{side} {s.kind}",
+            _zone_kind_color(s.kind),
+        )
+        if s.runner_up is not None:
+            ru = s.runner_up
+            _zone_band(
+                ax, ru.bottom, ru.top, ru.kind, RUNNER_UP_ZONE_ALPHA, dashed=True,
+            )
+            _zone_label(
+                ax, ru.bottom, ru.top, f"{side} {ru.kind} (alt)",
+                _zone_kind_color(ru.kind),
+            )
 
     # Clamp the y-axis to the H1 candle range (extended to bracket every
-    # scenario's entry/SL) before drawing levels — same fix as the alert
-    # chart (Important finding 1): a liquidity take-profit projected off H4
-    # can sit far outside the visible candles.
+    # scenario's entry/SL, and every drawn zone band including the
+    # runner-up) before drawing levels — same fix as the alert chart
+    # (Important finding 1): a liquidity take-profit projected off H4 can
+    # sit far outside the visible candles, and so can a runner-up zone.
     in_range: List[Optional[float]] = []
     for s in plan.scenarios:
         in_range.extend([s.entry, s.stop_loss])
+        if s.runner_up is not None:
+            in_range.extend([s.runner_up.bottom, s.runner_up.top])
     ylim = _price_ylim(candles, in_range)
     ax.set_ylim(*ylim)
 

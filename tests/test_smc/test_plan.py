@@ -2,10 +2,11 @@
 
 import dataclasses
 import re
+from datetime import datetime, timezone
 
 from app.services.smc.chart import render_plan_chart
 from app.services.smc.instruments import get_instrument
-from app.services.smc.models import Direction, Trend
+from app.services.smc.models import Direction, Trend, Zone
 from app.services.smc.notifier import format_plan
 from app.services.smc.plan import build_plan
 from app.services.smc.profiles import AGGRESSIVE, CONSERVATIVE
@@ -107,6 +108,103 @@ class TestBuildPlan:
         plan = build_plan(big_buffer, h4, h1, m5, min_rr=0.1, profile=CONSERVATIVE)
         assert plan.scenarios == []
         assert "no positive reward" in plan.note
+
+
+class TestRunnerUpZone:
+    """spec 2026-08-16 §2.4: the plan chart draws the OB/FVG runner-up
+    alongside the winning zone. `PlanScenario.runner_up` carries it."""
+
+    def test_no_runner_up_when_the_untouched_imbalance_is_not_below_price(self):
+        # H1_PULLBACK_CLOSES has a genuine untouched imbalance at
+        # 3146.0-3159.6 (unmocked, real find_h1_fvg_zone) — but at price
+        # 3145.0 that gap sits above price, not on the pullback side, so it
+        # must not be attached even though it exists.
+        h4, h1, m5 = _uptrend_data(3145.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        assert plan.scenarios[0].kind == "OB"
+        assert plan.scenarios[0].runner_up is None
+
+    def test_real_runner_up_attached_when_price_clears_both_zones(self):
+        # Same fixture, price 3160.0: the 3146.0-3159.6 imbalance now sits
+        # below price too — unmocked end-to-end confirmation that the real
+        # find_h1_fvg_zone call, not just a monkeypatched one, gets wired in.
+        h4, h1, m5 = _uptrend_data(3160.0)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        s = plan.scenarios[0]
+        assert s.kind == "OB"
+        assert s.runner_up is not None
+        assert s.runner_up.kind == "FVG"
+        assert (s.runner_up.bottom, s.runner_up.top) == (3146.0, 3159.6)
+
+    def test_runner_up_attached_when_it_sits_on_the_pullback_side(self, monkeypatch):
+        import app.services.smc.plan as P
+
+        h4, h1, m5 = _uptrend_data(3160.0)
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        below_price = Zone(
+            bottom=3120.0, top=3125.0, is_demand=True, pivot_index=0,
+            timestamp=ts, kind="FVG",
+        )
+        monkeypatch.setattr(P, "find_h1_fvg_zone", lambda *a, **k: below_price)
+
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        s = plan.scenarios[0]
+        assert s.kind == "OB"  # the winner is unchanged, still the order block
+        assert s.runner_up is below_price
+
+    def test_runner_up_dropped_when_price_already_traded_through_it(
+        self, monkeypatch
+    ):
+        """A gap price has already passed is not a zone the owner is
+        waiting at — drawing it would be noise (spec's own wording)."""
+        import app.services.smc.plan as P
+
+        h4, h1, m5 = _uptrend_data(3160.0)
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        above_price = Zone(
+            bottom=3161.0, top=3165.0, is_demand=True, pivot_index=0,
+            timestamp=ts, kind="FVG",
+        )
+        monkeypatch.setattr(P, "find_h1_fvg_zone", lambda *a, **k: above_price)
+
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        assert len(plan.scenarios) == 1
+        assert plan.scenarios[0].runner_up is None
+
+    def test_runner_up_never_attached_when_the_winner_is_itself_the_imbalance(
+        self, monkeypatch
+    ):
+        """kind == "FVG" means no order block qualified — there is nothing
+        left to be beaten, so `_scenario` must not even look for a
+        runner-up (unmocked: the order block genuinely does not exist on
+        this H1, same fixture as TestEngineWithAnH1ImbalanceZone)."""
+        import app.services.smc.plan as P
+
+        h4 = make_candles(H4_UPTREND_CLOSES, step_minutes=240)
+        h1 = make_candles([3100, 3101, 3102, 3120, 3121, 3122], step_minutes=60)
+        m5 = make_candles([3125.0], step_minutes=5)
+
+        calls = {"n": 0}
+        real_find_h1_fvg_zone = P.find_h1_fvg_zone
+
+        def spy(*a, **k):
+            calls["n"] += 1
+            return real_find_h1_fvg_zone(*a, **k)
+
+        monkeypatch.setattr(P, "find_h1_fvg_zone", spy)
+        plan = build_plan(ETH, h4, h1, m5, min_rr=0.01)
+
+        assert len(plan.scenarios) == 1
+        assert plan.scenarios[0].kind == "FVG"
+        assert plan.scenarios[0].runner_up is None
+        # The one call was `find_zone_of_interest`'s own fallback lookup
+        # inside structure.py (module-internal, not through `P`'s imported
+        # name) — so a call count of 0 here proves `_scenario`'s runner-up
+        # branch never fired for an FVG winner.
+        assert calls["n"] == 0
 
 
 class TestPlanBlocker:

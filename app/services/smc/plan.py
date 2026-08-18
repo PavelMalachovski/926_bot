@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 
 from app.services.smc.instruments import Instrument
 from app.services.smc.liquidity import find_liquidity, nearest_liquidity
-from app.services.smc.models import Candle, Direction, Trend
+from app.services.smc.models import Candle, Direction, Trend, Zone
 from app.services.smc.profiles import (
     CONSERVATIVE,
     StrategyProfile,
@@ -22,6 +22,7 @@ from app.services.smc.profiles import (
 )
 from app.services.smc.structure import (
     detect_trend,
+    find_h1_fvg_zone,
     find_zone_of_interest,
     h4_choch_direction,
 )
@@ -41,6 +42,15 @@ class PlanScenario:
     # or "FVG" (untouched H1 imbalance) — mirrors Zone.kind (Task 1). Charts
     # and messages name it; nothing branches on it.
     kind: str = "OB"
+    # The runner-up zone the winner beat (spec 2026-08-16 §2.4): only set
+    # when `kind` is "OB" and an untouched H1 imbalance also qualifies
+    # positionally (see `_scenario`'s pullback-side test) — a deeper
+    # alternative the plan chart draws alongside the winner, dimmer and
+    # dashed. None whenever the winner was itself the imbalance (nothing
+    # was beaten) or no positional candidate exists. Deliberately excluded
+    # from `planbook.plan_fingerprint`: its appearance/disappearance is not
+    # a change of trading idea.
+    runner_up: Optional[Zone] = None
 
 
 @dataclass
@@ -111,6 +121,19 @@ _NO_ZONE = 1
 Reason = Tuple[int, str, Optional[Tuple[float, float, str]]]
 
 
+def _is_pullback_side(zone: Zone, direction: Direction, price: float) -> bool:
+    """True when `zone` sits on the correct side of price for a pullback —
+    below price for a LONG, above for a SHORT. The exact test `_scenario`
+    already applies to the winning zone (below, as `zone.top >= price` /
+    `zone.bottom <= price` rejections); factored out so the OB/FVG
+    runner-up is judged by the same rule rather than a second one. A zone
+    price has already traded through is not one the owner is still
+    waiting at."""
+    if direction == Direction.LONG:
+        return zone.top < price
+    return zone.bottom > price
+
+
 def _scenario(
     instrument: Instrument,
     h4: List[Candle],
@@ -133,13 +156,12 @@ def _scenario(
     """
     d = instrument.price_decimals
     kind = "Demand" if direction == Direction.LONG else "Supply"
+    # The engine computes this with the same helper, so the plan and the
+    # live checklist cannot name different H1 zones — also reused below for
+    # the runner-up lookup, so both candidates share one min-size floor.
+    min_size = effective_min_fvg(instrument.min_fvg, profile)
     zone = find_zone_of_interest(
-        h1,
-        direction,
-        # The engine computes this with the same helper, so the plan and
-        # the live checklist cannot name different H1 zones.
-        min_size=effective_min_fvg(instrument.min_fvg, profile),
-        max_touches=profile.max_zone_touches,
+        h1, direction, min_size=min_size, max_touches=profile.max_zone_touches,
     )
     if zone is None:
         return None, (_NO_ZONE, _zone_note(direction), None)
@@ -162,7 +184,7 @@ def _scenario(
         # a pullback-to-demand plan: the zone must sit at/below current price
         if zone.contains(price):
             return None, named(_LIVE_ZONE, inside)
-        if zone.top >= price:
+        if not _is_pullback_side(zone, direction, price):
             return None, named(
                 _NO_ZONE,
                 f"Price is below the {zone_label} — wait for a fresh untested "
@@ -172,7 +194,7 @@ def _scenario(
     else:
         if zone.contains(price):
             return None, named(_LIVE_ZONE, inside)
-        if zone.bottom <= price:
+        if not _is_pullback_side(zone, direction, price):
             return None, named(
                 _NO_ZONE,
                 f"Price is above the {zone_label} — wait for a fresh untested "
@@ -222,6 +244,16 @@ def _scenario(
             "structure",
         )
 
+    # D4's runner-up (spec 2026-08-16 §2.4): when the order block won zone
+    # selection, the untouched imbalance it beat is still worth drawing —
+    # but only when it is a genuine pullback candidate in its own right, not
+    # a gap price has already run past.
+    runner_up = None
+    if zone.kind == "OB":
+        candidate = find_h1_fvg_zone(h1, direction, min_size)
+        if candidate is not None and _is_pullback_side(candidate, direction, price):
+            runner_up = candidate
+
     return PlanScenario(
         direction=direction,
         entry=round(entry, d),
@@ -232,6 +264,7 @@ def _scenario(
         zone_top=round(zone.top, d),
         speculative=speculative,
         kind=zone.kind,
+        runner_up=runner_up,
     ), None
 
 

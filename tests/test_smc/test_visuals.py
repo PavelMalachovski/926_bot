@@ -591,6 +591,236 @@ class TestZoneKindOnCharts:
         assert any("Entry 3140.00 (FVG)" in t for t in texts)
 
 
+def _zone_bands(ax):
+    """The axhspan-drawn zone-band rectangles on a plan chart — full-width
+    in axes-fraction x (x=0, width=1) — as opposed to the per-candle body
+    rectangles from `_draw_candles`, which sit at data-coordinate x and are
+    narrower than the full axes width."""
+    import matplotlib.patches as mpatches
+
+    return [
+        p for p in ax.patches
+        if isinstance(p, mpatches.Rectangle)
+        and p.get_x() == 0 and p.get_width() == 1
+    ]
+
+
+class TestPlanChartRunnerUpZone:
+    """spec 2026-08-16 §2.4: both zone candidates drawn and labelled, OB and
+    FVG in distinct colours."""
+
+    def _plan_with_runner_up(self, runner_up_kind="FVG"):
+        from app.services.smc.models import Direction, Trend, Zone
+        from app.services.smc.plan import PairPlan, PlanScenario
+
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        runner_up = Zone(
+            bottom=3120.0, top=3129.0, is_demand=True, pivot_index=0,
+            timestamp=ts, kind=runner_up_kind,
+        )
+        return PairPlan(
+            pair="ETHUSD",
+            price=3160.0,
+            price_decimals=2,
+            h4_trend=Trend.UP,
+            scenarios=[
+                PlanScenario(
+                    direction=Direction.LONG, entry=3138.0, stop_loss=3128.0,
+                    take_profit=3170.0, rr=2.0, zone_bottom=3131.0,
+                    zone_top=3138.0, speculative=False, kind="OB",
+                    runner_up=runner_up,
+                ),
+            ],
+        )
+
+    def _render_captured(self, plan, monkeypatch):
+        import app.services.smc.chart as chart_mod
+
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            captured["ax"] = ax
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+        png = chart_mod.render_plan_chart(plan, h1)
+        return png, captured
+
+    def test_both_bands_are_drawn(self, monkeypatch):
+        """A scenario with a runner-up draws two zone bands, not one — the
+        gap this feature closes: the branch used to be text-only."""
+        plan = self._plan_with_runner_up()
+        png, captured = self._render_captured(plan, monkeypatch)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        bands = _zone_bands(captured["ax"])
+        assert len(bands) == 2
+        bounds = sorted((round(b.get_y(), 2), round(b.get_y() + b.get_height(), 2)) for b in bands)
+        assert bounds == [(3120.0, 3129.0), (3131.0, 3138.0)]
+
+    def test_ob_and_fvg_bands_use_distinct_colours(self, monkeypatch):
+        """OB -> OB_COLOR (amber, shared with the setup chart's order-block
+        box); FVG -> the new violet FVG_COLOR. Never the same colour."""
+        import matplotlib.colors as mcolors
+
+        import app.services.smc.chart as chart_mod
+
+        plan = self._plan_with_runner_up(runner_up_kind="FVG")
+        _, captured = self._render_captured(plan, monkeypatch)
+        bands = _zone_bands(captured["ax"])
+        assert len(bands) == 2
+
+        winner = next(b for b in bands if round(b.get_y(), 2) == 3131.0)
+        runner = next(b for b in bands if round(b.get_y(), 2) == 3120.0)
+
+        ob_rgb = mcolors.to_rgb(chart_mod.OB_COLOR)
+        fvg_rgb = mcolors.to_rgb(chart_mod.FVG_COLOR)
+        assert mcolors.to_rgb(winner.get_facecolor()) == pytest.approx(ob_rgb)
+        assert mcolors.to_rgb(runner.get_facecolor()) == pytest.approx(fvg_rgb)
+        assert ob_rgb != fvg_rgb
+
+    def test_winner_is_more_opaque_than_the_runner_up(self, monkeypatch):
+        """The winner is what the plan is actually built on and should read
+        first; the runner-up is dimmer, so the eye lands on the winner."""
+        import app.services.smc.chart as chart_mod
+
+        plan = self._plan_with_runner_up()
+        _, captured = self._render_captured(plan, monkeypatch)
+        bands = _zone_bands(captured["ax"])
+
+        winner = next(b for b in bands if round(b.get_y(), 2) == 3131.0)
+        runner = next(b for b in bands if round(b.get_y(), 2) == 3120.0)
+
+        assert winner.get_alpha() == pytest.approx(chart_mod.WINNER_ZONE_ALPHA)
+        assert runner.get_alpha() == pytest.approx(chart_mod.RUNNER_UP_ZONE_ALPHA)
+        assert winner.get_alpha() > runner.get_alpha()
+
+    def test_runner_up_band_has_a_dashed_edge_the_winner_does_not(self, monkeypatch):
+        plan = self._plan_with_runner_up()
+        _, captured = self._render_captured(plan, monkeypatch)
+        bands = _zone_bands(captured["ax"])
+
+        winner = next(b for b in bands if round(b.get_y(), 2) == 3131.0)
+        runner = next(b for b in bands if round(b.get_y(), 2) == 3120.0)
+
+        assert runner.get_linestyle() in ("--", "dashed")
+        assert winner.get_linestyle() not in ("--", "dashed")
+
+    def test_bands_are_labelled_by_direction_and_kind(self, monkeypatch):
+        plan = self._plan_with_runner_up(runner_up_kind="FVG")
+        _, captured = self._render_captured(plan, monkeypatch)
+        texts = captured["ax"].texts
+        by_text = {t.get_text(): t for t in texts}
+
+        assert "Demand OB" in by_text
+        assert "Demand FVG (alt)" in by_text
+        # left edge of the plot, not on top of the candles (which start x=0)
+        assert by_text["Demand OB"].get_position()[0] < 0
+        assert by_text["Demand FVG (alt)"].get_position()[0] < 0
+        # vertically centred in its own band
+        assert by_text["Demand OB"].get_position()[1] == pytest.approx(
+            (3131.0 + 3138.0) / 2
+        )
+        assert by_text["Demand FVG (alt)"].get_position()[1] == pytest.approx(
+            (3120.0 + 3129.0) / 2
+        )
+
+    def test_no_runner_up_draws_one_band_and_no_alt_label(self, monkeypatch):
+        """A scenario with no runner-up (the default, and every scenario
+        before this feature) must render exactly as before: one band, no
+        "(alt)" label, no dashed edge anywhere."""
+        from app.services.smc.models import Direction, Trend
+        from app.services.smc.plan import PairPlan, PlanScenario
+
+        plan = PairPlan(
+            pair="ETHUSD",
+            price=3160.0,
+            price_decimals=2,
+            h4_trend=Trend.UP,
+            scenarios=[
+                PlanScenario(
+                    direction=Direction.LONG, entry=3138.0, stop_loss=3128.0,
+                    take_profit=3170.0, rr=2.0, zone_bottom=3131.0,
+                    zone_top=3138.0, speculative=False, kind="OB",
+                ),
+            ],
+        )
+        png, captured = self._render_captured(plan, monkeypatch)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        bands = _zone_bands(captured["ax"])
+        assert len(bands) == 1
+        assert bands[0].get_linestyle() not in ("--", "dashed")
+        texts = [t.get_text() for t in captured["ax"].texts]
+        assert not any("(alt)" in t for t in texts)
+
+    def test_ylim_brackets_a_runner_up_outside_the_candle_range(self, monkeypatch):
+        """A runner-up zone can sit outside the visible H1 candles; the
+        y-axis must extend to include it or the band clips invisibly (the
+        same failure mode the far-away take-profit fix guards against on
+        the setup chart)."""
+        import app.services.smc.chart as chart_mod
+        from app.services.smc.models import Direction, Trend, Zone
+        from app.services.smc.plan import PairPlan, PlanScenario
+
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        candle_lo = min(c.low for c in h1)
+        far_below = candle_lo - 500.0
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        runner_up = Zone(
+            bottom=far_below, top=far_below + 5.0, is_demand=True,
+            pivot_index=0, timestamp=ts, kind="FVG",
+        )
+        plan = PairPlan(
+            pair="ETHUSD",
+            price=3160.0,
+            price_decimals=2,
+            h4_trend=Trend.UP,
+            scenarios=[
+                PlanScenario(
+                    direction=Direction.LONG, entry=3138.0, stop_loss=3128.0,
+                    take_profit=3170.0, rr=2.0, zone_bottom=3131.0,
+                    zone_top=3138.0, speculative=False, kind="OB",
+                    runner_up=runner_up,
+                ),
+            ],
+        )
+
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            real_set_ylim = ax.set_ylim
+
+            def spy_set_ylim(*a, **kw):
+                out = real_set_ylim(*a, **kw)
+                captured["ylim"] = ax.get_ylim()
+                return out
+
+            ax.set_ylim = spy_set_ylim
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+        png = chart_mod.render_plan_chart(plan, h1)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        assert "ylim" in captured
+        ylo, _ = captured["ylim"]
+        assert ylo <= runner_up.bottom
+
+    def test_ylim_ignores_a_runner_up_that_was_never_attached(self, monkeypatch):
+        """Regression guard for the opposite mistake: reading `runner_up`
+        unconditionally would crash on the (default, common) None case."""
+        plan = self._plan_with_runner_up()
+        plan.scenarios[0].runner_up = None
+        png, captured = self._render_captured(plan, monkeypatch)
+        assert png is not None and png[:4] == b"\x89PNG"
+
+
 class TestChartOffTheEventLoop:
     """Review-hardening Task 6: matplotlib renders (~seconds of CPU for a
     2200x660 PNG) used to run synchronously inside the coroutine — during a
