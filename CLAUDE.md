@@ -192,7 +192,7 @@ tracking → live-card edits on fill/TP/SL events.
   ⭐ when room >= 1.0R on H1/H4 liquidity (or unmeasurable), a pool was
   swept, premium/discount is ok (or unmeasurable), the entry isn't stale
   beyond `SMC_MAX_ENTRY_GAP_R` (0.75R), and H4/H1 trend do not point
-  opposite ways (owner decision D6, 2026-08-18) — two alert tiers, both
+  opposite ways (owner decision D6, 2026-08-16) — two alert tiers, both
   still sent (detector mode): a disagreeing setup fires without the star,
   and the alert header labels the disagreement (`⚠️ counter-hourly`).
   Every fill uses the hybrid exit regardless of tier: TP1 at `SMC_TP1_R`
@@ -217,10 +217,14 @@ tracking → live-card edits on fill/TP/SL events.
   (`find_h1_fvg_zone`), the exact mirror of an untested order block and
   deliberately stricter than Rule 4's `fill < 50%` for the M5 entry
   imbalance — H1 is a zone the bot is still *waiting* for, M5 is a zone
-  it is *entering*. `m5_marks` (the M5 order block + imbalance inside a
-  touched zone, shown on the 🔔 alert's `🔎` line) is label-only: no
-  verdict, no suppression, no message of its own, and Rule 4's session/
-  fill checks deliberately do not apply to it.
+  it is *entering*. The beaten imbalance is not simply discarded: when the
+  order block wins, `engine.py` looks it up again with `find_h1_fvg_zone`
+  and, if it is a genuinely deeper entry than the live one, prepends it to
+  `zones_ahead` (the zone ladder) — otherwise it is lost, same as any
+  ladder candidate that fails the deeper-entry check. `m5_marks` (the M5
+  order block + imbalance inside a touched zone, shown on the 🔔 alert's
+  `🔎` line) is label-only: no verdict, no suppression, no message of its
+  own, and Rule 4's session/fill checks deliberately do not apply to it.
 - **Plan-centric zone alert** (spec 2026-08-11 §5, dedup rewritten by owner
   decision 2026-08-16): fires when price touches a zone named by the pair's
   *current* plan (`planbook.scenario_for_touch`), carrying that scenario's
@@ -244,7 +248,7 @@ tracking → live-card edits on fill/TP/SL events.
 
 ## Workflow
 
-- Work on a feature branch (currently `feat/sniper-redesign`), PRs to `master` via `gh`
+- Work on a feature branch, PRs to `master` via `gh`
   (installed at `C:\Program Files\GitHub CLI` on the owner's machine; add to
   PATH in bash). The owner merges; Railway deploys master.
 - PR template lives in `.github/pull_request_template.md` — follow it.
