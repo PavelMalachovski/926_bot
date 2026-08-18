@@ -581,10 +581,14 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
             "FVG inside the zone"
         )
         if s.kind == "RANGE" and s.swept:
-            # Range.swept_top/swept_bottom (D9): this boundary was pierced
-            # by a wick and reclaimed at some point — liquidity already
-            # taken there, so the pool behind it may be thinner than a
-            # boundary that has never been raided.
+            # Range.swept_top/swept_bottom (D9/D16): this boundary was
+            # pierced and reclaimed at some point — liquidity already taken
+            # there, so the pool behind it may be thinner than a boundary
+            # that has never been raided. D16 widened the pierce from
+            # wick-only to any pierce price came back inside from, and the
+            # sentence holds either way: it claims the level was raided,
+            # never that the raid was shallow. A deeper raid took MORE of
+            # the pool, which is the same warning only more so.
             lines.append(
                 "   ⚠️ this boundary has already been swept once — "
                 "liquidity may be thinner here"

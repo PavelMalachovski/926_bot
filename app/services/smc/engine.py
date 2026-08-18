@@ -513,8 +513,11 @@ class TripleSyncEngine:
             m5, h1, direction, touch, choch, tier_tolerance, result.checked_at
         )
         if sweep is None and boundary is not None:
-            # D9 (owner decision 2026-08-18): a boundary pierced by a wick and
-            # reclaimed is liquidity taken. `sweep_label` names it only while
+            # D9/D16 (owner decisions 2026-08-18): a boundary pierced and
+            # reclaimed is liquidity taken, whether the pierce closed beyond
+            # the boundary or only wicked through it — D15 made the
+            # body-close raid tradeable, and that raid is the one the owner
+            # calls a sweep. `sweep_label` names it only while
             # the boundary's EQH/EQL pool survives `find_liquidity`'s own
             # sweep filter — a pierce deeper than the tolerance deletes the
             # pool, so the label goes blank exactly when the sweep was most

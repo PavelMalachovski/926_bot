@@ -93,8 +93,9 @@ app/services/smc/
 │                         each needing 2+ touches and the box at least
 │                         3x tolerance tall, or it's chop, not a range;
 │                         broken on an H1 body close beyond a boundary —
-│                         a wick that closes back inside does not break
-│                         it (D9); boundary_zone exposes a boundary as a
+│                         a pierce that closes back inside does not break
+│                         it (D9/D15), it is a sweep (boundary_swept,
+│                         D16); boundary_zone exposes a boundary as a
 │                         Zone(kind="RANGE") for the existing pipeline;
 │                         boundary_excursion_start heals the excursion a
 │                         raid splits, so Rule 6's stop clears the whole
@@ -262,11 +263,13 @@ tracking → live-card edits on fill/TP/SL events.
   Rule 7's nearest unswept liquidity — taken full size, with no hybrid exit
   (D14). Messages name a boundary a boundary: never "H1 Supply/Demand
   zone", and the range alert carries the box, the target and its RR on both
-  tiers. `range.boundary_swept` (D9, owner decision 2026-08-18) counts a
-  wick that pierces a boundary and closes back inside as liquidity taken.
-  The stop is read the same way: a boundary band is one tolerance thick, so
-  a raid printing a candle wholly outside it splits the excursion
-  `zone_touch_span` measures;
+  tiers. `range.boundary_swept` (D9/D16, owner decision 2026-08-18) counts
+  any pierce of a boundary that price came back inside from as liquidity
+  taken — the pierce may close beyond the boundary or merely wick through
+  it, because D15 made the body-close raid tradeable and that raid is the
+  one the owner calls a sweep. The stop follows the same reading: a
+  boundary band is one tolerance thick, so a raid printing a candle wholly
+  outside it splits the excursion `zone_touch_span` measures;
   `range.boundary_excursion_start` walks that split back so Rule 6 anchors
   beyond **every** candle of the raid, and it is used for RANGE zones only
   (the OB/FVG paths and `m5_marks` keep `zone_touch_span` untouched).

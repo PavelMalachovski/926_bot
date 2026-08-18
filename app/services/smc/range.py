@@ -37,7 +37,8 @@ class Range:
     broken: bool
     top_at: datetime      # timestamp of the most recent pivot in the top cluster
     bottom_at: datetime   # same for the bottom cluster
-    # A wick closed back inside after piercing the boundary (D9), measured
+    # A pierce of the boundary that price came back inside from (D9/D16,
+    # a wick or a body close alike), measured
     # over EVERY candle since that boundary's own latest pivot. It says the
     # level has been raided at some point, not that any particular setup did
     # the raiding — the ⭐ asks the same question of the setup's own
@@ -281,8 +282,23 @@ def _is_broken(candles: List[Candle], top: float, bottom: float) -> bool:
 
 
 def boundary_swept(candles: List[Candle], level: float, above: bool) -> bool:
-    """D9: a wick pierced the level but the body closed back inside it —
-    liquidity taken, not a breakout.
+    """D9/D16: the level was pierced and price came back inside — liquidity
+    taken, not a breakout.
+
+    D16 (owner decision 2026-08-18) widened this from a wick-only pierce to
+    any pierce that is reclaimed. D15 had already made a body close beyond a
+    boundary tradeable whenever the break did not hold, and that raid is the
+    one the owner calls a sweep; leaving the ⭐ on the narrower wick-only
+    reading let the bot trade a setup while denying it the star the same
+    rule promises. A pierce is `high > level` (or `low < level`); "back
+    inside" is a close at or inside the level — the wick-only candle
+    satisfies both on its own, exactly as it did before, so the old reading
+    survives whole inside the new one.
+
+    Reclaim tracking is `_is_broken`'s, run the other way round: once a
+    pierce is seen, the first close back inside settles it as a sweep. A
+    pierce that never closes back inside within `candles` is a break, and
+    `_is_broken`/`engine._zone_broken` are the ones that judge it.
 
     Public because the same predicate is asked at two scopes, and one
     definition of "swept" is the point: `detect_range` asks it of every
@@ -291,11 +307,14 @@ def boundary_swept(candles: List[Candle], level: float, above: bool) -> bool:
     touch→CHoCH excursion the setup actually formed in (D13, owner decision
     2026-08-18) before granting the ⭐.
     """
+    pierced = False
     for c in candles:
         if above:
-            if c.high > level and c.body_high <= level:
+            pierced = pierced or c.high > level
+            if pierced and c.close <= level:
                 return True
         else:
-            if c.low < level and c.body_low >= level:
+            pierced = pierced or c.low < level
+            if pierced and c.close >= level:
                 return True
     return False

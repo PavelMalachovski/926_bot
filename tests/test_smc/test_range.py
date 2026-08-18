@@ -1,7 +1,11 @@
 """Range detection from clustered H1 pivots (spec §3.1, D7, D9)."""
 
 from app.services.smc.models import Zone
-from app.services.smc.range import boundary_excursion_start, detect_range
+from app.services.smc.range import (
+    boundary_excursion_start,
+    boundary_swept,
+    detect_range,
+)
 from tests.test_smc.helpers import SESSION_BASE, candle, make_candles
 
 # Four clean swings between ~100 and ~120: two highs clustering near 119.8,
@@ -306,3 +310,53 @@ class TestBoundaryExcursionStart:
         assert boundary_excursion_start(
             candles, _band(98.0, 100.0, False), 0
         ) == 0
+
+
+class TestBoundarySweptCountsABodyClosePierce:
+    """D16 (owner decision 2026-08-18): a pierce that closed beyond the
+    boundary and was reclaimed is a sweep, not only a wick-only pierce.
+    D15 had already made that raid tradeable; the two rules must agree
+    about it."""
+
+    def test_a_wick_only_pierce_is_still_a_sweep(self):
+        candles = _m5([(98.5, 101.0, 98.4, 99.5)])
+        assert boundary_swept(candles, 100.0, above=True) is True
+
+    def test_a_body_close_beyond_that_is_reclaimed_is_a_sweep(self):
+        candles = _m5([
+            (98.5, 101.0, 98.4, 100.5),   # closes above the boundary
+            (100.5, 100.6, 98.5, 99.0),   # reclaimed
+        ])
+        assert boundary_swept(candles, 100.0, above=True) is True
+
+    def test_a_pierce_that_never_comes_back_is_not_a_sweep(self):
+        candles = _m5([
+            (98.5, 101.0, 98.4, 100.5),
+            (100.5, 103.0, 100.2, 102.5),
+        ])
+        assert boundary_swept(candles, 100.0, above=True) is False
+
+    def test_an_untouched_boundary_is_not_a_sweep(self):
+        candles = _m5([(98.5, 99.9, 98.4, 99.5)])
+        assert boundary_swept(candles, 100.0, above=True) is False
+
+    def test_the_bottom_boundary_mirrors_it(self):
+        reclaimed = _m5([
+            (101.5, 101.6, 99.0, 99.5),   # closes below the boundary
+            (99.5, 101.5, 99.4, 101.0),   # reclaimed
+        ])
+        held = _m5([
+            (101.5, 101.6, 99.0, 99.5),
+            (99.5, 99.8, 97.0, 97.5),
+        ])
+        assert boundary_swept(reclaimed, 100.0, above=False) is True
+        assert boundary_swept(held, 100.0, above=False) is False
+
+    def test_detect_range_reports_the_reclaimed_body_close_as_swept(self):
+        """The same fixture D15 keeps unbroken — under D16 it is also
+        reported as swept, which is what the plan message says about it."""
+        candles = make_candles(RANGING + [126.0, 128.0, 114.0, 110.0],
+                               step_minutes=60)
+        rng = detect_range(candles, 1.0, 120)
+        assert rng is not None and rng.broken is False
+        assert rng.swept_top is True

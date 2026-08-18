@@ -52,9 +52,10 @@ class PlanScenario:
     # from `planbook.plan_fingerprint`: its appearance/disappearance is not
     # a change of trading idea.
     runner_up: Optional[Zone] = None
-    # True when `kind == "RANGE"` and this boundary was pierced by a wick
-    # and reclaimed at some point since its own latest confirmed pivot
-    # (Range.swept_top/swept_bottom, D9) -- worth a note on the plan message
+    # True when `kind == "RANGE"` and this boundary was pierced and
+    # reclaimed at some point since its own latest confirmed pivot -- by a
+    # wick or by a body close alike
+    # (Range.swept_top/swept_bottom, D9/D16) -- worth a note on the plan message
     # because a pool already raided once may have less liquidity behind it
     # than a boundary that has never been tested. Always False for OB/FVG
     # scenarios, which have no such flag to report.

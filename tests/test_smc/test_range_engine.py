@@ -720,9 +720,22 @@ class TestTheBoundaryIsNotOfferedAsADeeperEntry:
         assert [(z.bottom, z.top) for z in rungs] == [(3196.0, 3200.6)]
 
 
+def m5_at_top_body_pierced():
+    """m5_at_top with the excursion's highest candle closing ABOVE the top
+    (body 3199.0-3203.5 against a boundary of 3200.8) and the next candle
+    closing back inside — the raid D15 made tradeable, which is not a
+    wick-only pierce."""
+    spec = list(_M5_AT_TOP_SPEC)
+    open_, _, low, _ = spec[8]
+    spec[8] = (open_, 3204.0, low, 3203.5)
+    return _candles(spec)
+
+
 class TestRangeStarTier:
-    """D9: a boundary pierced by a wick and reclaimed is liquidity taken.
-    D13: only when the piercing happened in the setup's own excursion."""
+    """D9: a boundary pierced and reclaimed is liquidity taken. D13: only
+    when the piercing happened in the setup's own excursion. D16: the
+    pierce counts whether it closed beyond the boundary or only wicked
+    through it."""
 
     def test_an_untouched_boundary_misses_the_sweep(self):
         setup = _run().setup
@@ -756,3 +769,25 @@ class TestRangeStarTier:
         setup = _run(h1=h1, m5=m5).setup
         assert setup.tier_star is False
         assert setup.tier_missed == ["sweep"]
+
+    def test_a_reclaimed_body_close_pierce_earns_the_star(self):
+        """D16 (owner decision 2026-08-18): the raid D15 made tradeable is
+        the same raid the owner calls a sweep, so the two rules must agree
+        about it. The pierce is deeper than the tolerance and the H1 pool
+        was already taken, so `sweep_label` has nothing left to name — the
+        boundary predicate is the only thing that can star this setup."""
+        h1, m5 = h1_ranging_swept(3204.0), m5_at_top_body_pierced()
+        assert m5[8].body_high > RANGE_TOP  # not a wick-only pierce
+        assert m5[9].close < RANGE_TOP      # but price came back inside
+        assert _sweep_label_at_top(h1, m5) is None
+        setup = _run(h1=h1, m5=m5).setup
+        assert setup.tier_star is True
+        assert setup.tier_missed == []
+
+    def test_a_pierce_that_never_comes_back_is_no_sweep(self):
+        """The other half of D16: only a RECLAIMED pierce is a sweep. Here
+        the break still holds, so Rule 3 invalidates the boundary and there
+        is no setup to star at all (D15)."""
+        result = _run(m5=m5_top_pierced_and_held())
+        assert result.verdict == Verdict.SKIP
+        assert result.setup is None
