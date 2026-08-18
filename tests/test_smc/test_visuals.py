@@ -19,7 +19,14 @@ from tests.test_smc.helpers import (
     make_candles,
 )
 
-NOW = datetime(2026, 7, 16, 14, 0, tzinfo=timezone.utc)
+# Deliberately relative to the real clock, never a fixed calendar date:
+# `journal.stats_text` only reports the last 30 days, so a hardcoded NOW
+# silently ages out of that window and the journal reads empty. This file
+# failed for exactly that reason once. Every consumer either stamps a signal
+# with this instant or passes it straight to `discipline_block`, which
+# compares Prague dates on both sides — so any single consistent instant
+# works, as long as it stays inside the stats window.
+NOW = datetime.now(tz=timezone.utc) - timedelta(days=1)
 
 
 def _approved_result() -> AnalysisResult:
