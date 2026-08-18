@@ -35,6 +35,7 @@ GRID = "#2a2e39"
 DEMAND_COLOR = "#2962ff"
 SUPPLY_COLOR = "#f23645"
 TP_COLOR = "#089981"
+OB_COLOR = "#ffb300"
 
 
 def _draw_candles(ax, candles) -> None:
@@ -205,6 +206,26 @@ def render_setup_chart(
         )
     )
 
+    # 5m order block box (the deeper M5 limit option, engine.py) — a second,
+    # narrower entry option the owner may take instead of the FVG entry.
+    # Optional: not every setup has a qualifying candidate (find_order_block).
+    order_block = setup.order_block
+    if order_block is not None:
+        ob_start = max(
+            0, len(candles) - (len(result.m5_candles) - order_block.pivot_index)
+        )
+        ax.add_patch(
+            Rectangle(
+                (ob_start, order_block.bottom),
+                x_right - ob_start,
+                order_block.top - order_block.bottom,
+                facecolor=OB_COLOR,
+                alpha=0.18,
+                edgecolor="none",
+                zorder=1,
+            )
+        )
+
     # Clamp the y-axis to the candle range (extended to bracket entry/SL,
     # which sit close to price by construction) before drawing levels. A
     # liquidity take-profit can be an H4 pool hundreds of points away; left
@@ -297,7 +318,10 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         is_long = s.direction == Direction.LONG
         zone_color = DEMAND_COLOR if is_long else SUPPLY_COLOR
         tag = "L" if is_long else "S"
-        _level(ax, s.entry, zone_color, f"{tag} Entry {s.entry:.{d}f}", x_right, ylim)
+        _level(
+            ax, s.entry, zone_color, f"{tag} Entry {s.entry:.{d}f} ({s.kind})",
+            x_right, ylim,
+        )
         _level(ax, s.stop_loss, SUPPLY_COLOR, f"{tag} SL {s.stop_loss:.{d}f}", x_right, ylim)
         _level(ax, s.take_profit, TP_COLOR, f"{tag} TP {s.take_profit:.{d}f}", x_right, ylim)
 

@@ -484,6 +484,112 @@ class TestChart:
         finally:
             plt.close(fig)
 
+    def test_draws_the_order_block_box_when_present(self, monkeypatch):
+        """§2.4's "5m OB box": `setup.order_block` (the deeper M5 limit
+        option, engine.py) gets its own shaded rectangle, in the style of the
+        existing FVG box, spanning its own bottom/top."""
+        import app.services.smc.chart as chart_mod
+
+        result = _approved_result()
+        ob = result.setup.order_block
+        assert ob is not None  # fixture sanity: this setup has one
+
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            captured["ax"] = ax
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+        png = chart_mod.render_setup_chart(result)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        ob_boxes = [
+            p for p in captured["ax"].patches
+            if isinstance(p, chart_mod.Rectangle)
+            and p.get_y() == pytest.approx(ob.bottom)
+            and p.get_height() == pytest.approx(ob.top - ob.bottom)
+        ]
+        assert len(ob_boxes) == 1
+
+    def test_skips_the_order_block_box_when_absent(self):
+        """No order block found -> the chart still renders (rendering must
+        never block an alert), just without that rectangle."""
+        from app.services.smc.chart import render_setup_chart
+
+        result = _approved_result()
+        result.setup.order_block = None
+        png = render_setup_chart(result)
+        assert png is not None and png[:4] == b"\x89PNG"
+
+
+class TestZoneKindOnCharts:
+    def test_setup_chart_renders_with_an_fvg_zone(self):
+        """A zone of kind FVG renders exactly like an OB one — the kind is a
+        label, not a geometry change."""
+        from app.services.smc.chart import render_setup_chart
+
+        result_ob = _approved_result()
+        result_fvg = _approved_result()
+        assert result_fvg.h1_zone.kind == "OB"  # fixture default, sanity check
+        result_fvg.h1_zone.kind = "FVG"
+
+        png_ob = render_setup_chart(result_ob)
+        png_fvg = render_setup_chart(result_fvg)
+
+        assert png_fvg is not None and png_fvg[:4] == b"\x89PNG"
+        assert len(png_fvg) > 1000
+        # The H1 zone band is colored by is_demand, never labelled by kind on
+        # this chart — changing only the kind must not move a single pixel.
+        assert png_fvg == png_ob
+
+    def test_plan_chart_renders_with_both_zone_kinds(self, monkeypatch):
+        """Two scenarios, one OB and one FVG, both draw — and the entry
+        label on each names its own kind."""
+        import app.services.smc.chart as chart_mod
+        from app.services.smc.models import Direction, Trend
+        from app.services.smc.plan import PairPlan, PlanScenario
+
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        plan = PairPlan(
+            pair="ETHUSD",
+            price=3135.0,
+            price_decimals=2,
+            h4_trend=Trend.UP,
+            scenarios=[
+                PlanScenario(
+                    direction=Direction.LONG, entry=3138.0, stop_loss=3128.0,
+                    take_profit=3170.0, rr=2.0, zone_bottom=3131.0,
+                    zone_top=3138.0, speculative=False, kind="OB",
+                ),
+                PlanScenario(
+                    direction=Direction.SHORT, entry=3140.0, stop_loss=3150.0,
+                    take_profit=3100.0, rr=2.0, zone_bottom=3140.0,
+                    zone_top=3145.0, speculative=False, kind="FVG",
+                ),
+            ],
+        )
+
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            captured["ax"] = ax
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+
+        png = chart_mod.render_plan_chart(plan, h1)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        assert len(png) > 1000
+        texts = [t.get_text() for t in captured["ax"].texts]
+        assert any("Entry 3138.00 (OB)" in t for t in texts)
+        assert any("Entry 3140.00 (FVG)" in t for t in texts)
+
 
 class TestChartOffTheEventLoop:
     """Review-hardening Task 6: matplotlib renders (~seconds of CPU for a

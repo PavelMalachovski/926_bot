@@ -33,6 +33,10 @@ class PlanScenario:
     zone_bottom: float
     zone_top: float
     speculative: bool  # True for the flat-pair both-direction brackets
+    # What kind of zone this scenario is projected from: "OB" (order block)
+    # or "FVG" (untouched H1 imbalance) — mirrors Zone.kind (Task 1). Charts
+    # and messages name it; nothing branches on it.
+    kind: str = "OB"
 
 
 @dataclass
@@ -218,6 +222,7 @@ def _scenario(
         zone_bottom=round(zone.bottom, d),
         zone_top=round(zone.top, d),
         speculative=speculative,
+        kind=zone.kind,
     ), None
 
 
