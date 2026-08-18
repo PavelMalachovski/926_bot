@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from app.core.config import SMCSettings
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import get_instrument
-from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
+from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict, Zone
 from app.services.smc.profiles import AGGRESSIVE, CONSERVATIVE
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
@@ -834,3 +834,56 @@ class TestZoneOfInterestInEngine:
         )
         assert res.verdict == Verdict.APPROVED_LIMIT
         assert res.h1_zone is not None and res.h1_zone.kind == "OB"
+
+
+class TestRunnerUpImbalanceInLadder:
+    """D4 spec §2.1: when the order block wins Rule 2, the untouched
+    imbalance it beat still belongs in the zone ladder — a genuine deeper
+    entry the owner would otherwise never see — as long as it really is
+    deeper than the entry on the trade's own side."""
+
+    def _run(self, **kwargs):
+        return _engine(max_entry_gap_r=99.0, **kwargs).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(),
+            result=_fresh_result(),
+        )
+
+    def test_deeper_untouched_imbalance_is_prepended_to_the_ladder(self, monkeypatch):
+        import app.services.smc.engine as E
+
+        setup = self._run().setup
+        assert setup is not None
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        runner_up = Zone(
+            bottom=setup.entry - 10, top=setup.entry - 5, is_demand=True,
+            pivot_index=0, timestamp=ts, kind="FVG",
+        )
+        monkeypatch.setattr(E, "find_h1_fvg_zone", lambda *a, **k: runner_up)
+
+        setup2 = self._run().setup
+        assert setup2 is not None
+        assert setup2.zones_ahead[0].kind == "FVG"
+        assert (setup2.zones_ahead[0].bottom, setup2.zones_ahead[0].top) == (
+            runner_up.bottom, runner_up.top,
+        )
+
+    def test_imbalance_not_deeper_than_entry_never_joins_the_ladder(self, monkeypatch):
+        import app.services.smc.engine as E
+
+        setup = self._run().setup
+        assert setup is not None
+        ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+        not_deeper = Zone(
+            bottom=setup.entry, top=setup.entry + 5, is_demand=True,
+            pivot_index=0, timestamp=ts, kind="FVG",
+        )
+        monkeypatch.setattr(E, "find_h1_fvg_zone", lambda *a, **k: not_deeper)
+
+        setup2 = self._run().setup
+        assert setup2 is not None
+        # This fixture's own ladder is empty (H1_PULLBACK_CLOSES has no
+        # other untested zone) — a passing "not deeper" filter must leave
+        # it that way rather than smuggling `not_deeper` in regardless.
+        assert setup2.zones_ahead == []
