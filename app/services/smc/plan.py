@@ -20,6 +20,7 @@ from app.services.smc.profiles import (
     StrategyProfile,
     effective_min_fvg,
 )
+from app.services.smc.range import Range, boundary_zone, detect_range
 from app.services.smc.structure import (
     detect_trend,
     find_h1_fvg_zone,
@@ -51,6 +52,13 @@ class PlanScenario:
     # from `planbook.plan_fingerprint`: its appearance/disappearance is not
     # a change of trading idea.
     runner_up: Optional[Zone] = None
+    # True when `kind == "RANGE"` and this boundary was pierced by a wick
+    # and reclaimed at some point since its own latest confirmed pivot
+    # (Range.swept_top/swept_bottom, D9) -- worth a note on the plan message
+    # because a pool already raided once may have less liquidity behind it
+    # than a boundary that has never been tested. Always False for OB/FVG
+    # scenarios, which have no such flag to report.
+    swept: bool = False
 
 
 @dataclass
@@ -268,6 +276,87 @@ def _scenario(
     ), None
 
 
+def _range_scenario(
+    instrument: Instrument, rng: Range, direction: Direction, min_rr: float,
+) -> Tuple[Optional[PlanScenario], Optional[Reason]]:
+    """Project one boundary of an in-play range as a scenario (D11/D12).
+
+    Entry is the boundary itself, SL sits one `sl_buffer` beyond it, and TP
+    is the OPPOSITE boundary pulled in by one `sl_buffer` — the same
+    geometry `engine.py`'s range branch builds for the live setup (Rule 6/7
+    there), so the plan can never show a different bracket than the live
+    checklist would once price arrives. No M5 data exists yet at plan time,
+    so — like every other scenario here — the stop is preliminary and never
+    the live alert's swept-extreme re-anchor.
+    """
+    d = instrument.price_decimals
+    tolerance = instrument.min_fvg
+    zone = boundary_zone(rng, direction, tolerance)
+    if direction == Direction.SHORT:
+        entry, stop_loss = rng.top, rng.top + instrument.sl_buffer
+        take_profit = rng.bottom + instrument.sl_buffer
+        swept = rng.swept_top
+    else:
+        entry, stop_loss = rng.bottom, rng.bottom - instrument.sl_buffer
+        take_profit = rng.top - instrument.sl_buffer
+        swept = rng.swept_bottom
+
+    def named(sentence: str) -> Reason:
+        return _LIVE_ZONE, sentence, (
+            round(zone.bottom, d), round(zone.top, d), direction.value,
+        )
+
+    risk = abs(entry - stop_loss)
+    if risk <= 0:
+        return None, named(
+            "Range boundary is live, but entry and stop coincide — no risk "
+            "to measure"
+        )
+    reward = (
+        (take_profit - entry) if direction == Direction.LONG
+        else (entry - take_profit)
+    )
+    if reward <= 0:
+        return None, named(
+            "Range boundary is live, but the opposite boundary sits inside "
+            "the SL buffer — no positive reward"
+        )
+    rr = reward / risk
+    if rr < min_rr:
+        return None, named(
+            f"Range boundary is live, but the target gives 1:{rr:.1f} — "
+            "waiting for other structure"
+        )
+    return PlanScenario(
+        direction=direction,
+        entry=round(entry, d),
+        stop_loss=round(stop_loss, d),
+        take_profit=round(take_profit, d),
+        rr=round(rr, 2),
+        zone_bottom=round(zone.bottom, d),
+        zone_top=round(zone.top, d),
+        speculative=False,
+        kind="RANGE",
+        swept=swept,
+    ), None
+
+
+def _range_scenarios(
+    instrument: Instrument, rng: Range, min_rr: float,
+) -> Tuple[List[PlanScenario], List[Reason]]:
+    """Both boundaries of an in-play range, one scenario each (D12: these
+    REPLACE the speculative both-way brackets, they never join them)."""
+    scenarios: List[PlanScenario] = []
+    reasons: List[Reason] = []
+    for direction in (Direction.SHORT, Direction.LONG):
+        scenario, reason = _range_scenario(instrument, rng, direction, min_rr)
+        if scenario:
+            scenarios.append(scenario)
+        elif reason:
+            reasons.append(reason)
+    return scenarios, reasons
+
+
 def build_plan(
     instrument: Instrument,
     h4: List[Candle],
@@ -294,6 +383,9 @@ def build_plan(
         return plan
 
     directions: List[Tuple[Direction, bool]] = []
+    range_in_play = False
+    range_scenarios: List[PlanScenario] = []
+    range_reasons: List[Reason] = []
     if trend == Trend.UP:
         directions = [(Direction.LONG, False)]
     elif trend == Trend.DOWN:
@@ -310,17 +402,36 @@ def build_plan(
         elif h1_trend == Trend.DOWN:
             directions = [(Direction.SHORT, False)]
             plan.direction_note = "H4 flat — direction from H1 downtrend"
-        elif profile.allow_h4_choch_entry:
-            choch = h4_choch_direction(h4)
-            if choch is not None:
-                directions = [(choch, False)]  # aggressive: first-leg direction
-                plan.direction_note = (
-                    "H4 flat — direction from CHoCH (first leg, not with-trend)"
+        else:
+            # D11 (owner decision 2026-08-18): both H4 and H1 read FLAT —
+            # exactly the engine's Rule 1 flat branch (engine.py, the `else`
+            # reached only once H1 UP/DOWN are both ruled out). A range in
+            # play REPLACES the speculative both-way brackets entirely
+            # (D12) rather than joining them, and takes precedence over the
+            # aggressive CHoCH branch the same way it does in the engine.
+            rng = detect_range(h1, instrument.min_fvg)
+            if rng is not None and not rng.broken:
+                range_in_play = True
+                range_scenarios, range_reasons = _range_scenarios(
+                    instrument, rng, min_rr,
                 )
-    if not directions and trend == Trend.FLAT:
+                plan.direction_note = (
+                    "H4 and H1 are both flat — trading the range boundaries"
+                )
+            elif profile.allow_h4_choch_entry:
+                choch = h4_choch_direction(h4)
+                if choch is not None:
+                    directions = [(choch, False)]  # aggressive: first-leg direction
+                    plan.direction_note = (
+                        "H4 flat — direction from CHoCH (first leg, not "
+                        "with-trend)"
+                    )
+    if range_in_play:
+        plan.scenarios = range_scenarios
+    elif not directions and trend == Trend.FLAT:
         directions = [(Direction.LONG, True), (Direction.SHORT, True)]
 
-    reasons: List[Reason] = []
+    reasons: List[Reason] = list(range_reasons)
     for direction, speculative in directions:
         scenario, reason = _scenario(
             instrument, h4, h1, direction, price, speculative, min_rr, profile,
@@ -336,8 +447,10 @@ def build_plan(
         # A direction the plan only guessed at (both-way flat brackets) is not
         # a missing zone — the missing thing is the H4 structure. A reason
         # about a zone that is actually live still beats it: that is the more
-        # specific stage.
-        speculative_only = all(spec for _, spec in directions)
+        # specific stage. A range in play is never speculative-only: its
+        # reasons are rank _LIVE_ZONE by construction (the boundary IS the
+        # zone), so they always qualify.
+        speculative_only = not range_in_play and all(spec for _, spec in directions)
         if best and (best[0] == _LIVE_ZONE or not speculative_only):
             plan.blocker, plan.blocker_zone = best[1], best[2]
         else:

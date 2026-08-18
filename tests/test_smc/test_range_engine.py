@@ -312,6 +312,58 @@ class TestRangeDirection:
         assert result.market_range is None
 
 
+def m5_top_invalidated():
+    """The top-boundary excursion, then a body close above the top — Rule
+    3's invalidation, before any CHoCH has a chance to form."""
+    spec = list(_M5_AT_TOP_SPEC[:9]) + [(3199.2, 3203.0, 3199.0, 3202.5)]
+    return _candles(spec)
+
+
+def m5_bottom_invalidated():
+    return _candles(_mirrored(list(_M5_AT_TOP_SPEC[:9]) + [
+        (3199.2, 3203.0, 3199.0, 3202.5)
+    ]))
+
+
+class TestRangeZoneInvalidationWording:
+    """Task 3 wording fix: Rule 3's invalidation sentence used to call every
+    zone an 'H1 Demand/Supply zone', which is wrong for a RANGE boundary."""
+
+    def test_top_boundary_invalidation_names_the_range_not_an_h1_zone(self):
+        result = _run(m5=m5_top_invalidated())
+        assert result.verdict == Verdict.SKIP
+        reason = " ".join(result.reasons)
+        assert "range HIGH boundary" in reason
+        assert "H1 Supply zone" not in reason
+
+    def test_bottom_boundary_invalidation_names_the_range_not_an_h1_zone(self):
+        result = _run(m5=m5_bottom_invalidated())
+        assert result.verdict == Verdict.SKIP
+        reason = " ".join(result.reasons)
+        assert "range LOW boundary" in reason
+        assert "H1 Demand zone" not in reason
+
+    def test_an_ordinary_h1_zone_invalidation_is_unchanged(self):
+        """The fix must not touch the wording for a real H1 Demand/Supply
+        zone — only a RANGE boundary gets the new sentence. Same fixture as
+        test_engine.py's TestZoneInvalidationMemory."""
+        from tests.test_smc.helpers import (
+            H1_PULLBACK_CLOSES,
+            H4_UPTREND_CLOSES,
+            m5_long_trigger_reentry,
+        )
+
+        m5_start = SESSION_BASE + timedelta(days=1)
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_reentry(invalidated=True, start=m5_start),
+            result=_fresh_result(),
+        )
+        assert result.verdict == Verdict.SKIP
+        assert any("H1 Demand zone" in r for r in result.reasons)
+
+
 class TestMarketRangeOnTheResult:
     def test_recorded_while_the_range_is_in_play(self):
         result = _run()

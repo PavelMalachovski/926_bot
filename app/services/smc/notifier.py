@@ -181,6 +181,12 @@ def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
         )
     if source == "h4_choch":
         return "⚠️ H4 flat — direction from CHoCH (first leg, not with-trend)"
+    if source == "range":
+        # D11: this direction only exists because BOTH H4 and H1 read FLAT
+        # and a range was found — "H4 flat" alone would be true but would
+        # hide that H1 was flat too and that the direction came from a
+        # boundary, not a trend at all.
+        return "⚠️ H4/H1 flat — direction from the range boundary"
     return f"H4 {TREND_LABEL[result.h4_trend]}"
 
 
@@ -484,6 +490,15 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
             f"   Trigger: M5 {'bullish' if is_long else 'bearish'} CHoCH + "
             "FVG inside the zone"
         )
+        if s.kind == "RANGE" and s.swept:
+            # Range.swept_top/swept_bottom (D9): this boundary was pierced
+            # by a wick and reclaimed at some point — liquidity already
+            # taken there, so the pool behind it may be thinner than a
+            # boundary that has never been raided.
+            lines.append(
+                "   ⚠️ this boundary has already been swept once — "
+                "liquidity may be thinner here"
+            )
 
     lines.append("")
     lines.append(
@@ -549,6 +564,13 @@ def format_zone_alert(pair, scenario, decimals: int, marks=None) -> str:
     anything (spec 2026-08-11 §5). SL here is the plan's preliminary one —
     the live 🚨 alert re-anchors it (Rule 6).
 
+    A RANGE scenario (Task 3, spec §3.3) is not an H1 Demand/Supply zone, so
+    it is not described as one — the header names the boundary itself
+    ("price is at the range HIGH/LOW") and the plan line targets the
+    OPPOSITE boundary rather than a projected TP off a zone. Everything
+    else — the shape of the message, the 🔕 mute keyboard, the marks line —
+    is the same for every scenario kind; only these two lines branch.
+
     `marks` is the optional `(order_block, fvg)` pair from `structure.m5_marks`
     (owner decision D5, spec §2.2): the M5 order block and imbalance inside
     the zone, i.e. what the owner would actually buy from. It rides along as
@@ -557,17 +579,29 @@ def format_zone_alert(pair, scenario, decimals: int, marks=None) -> str:
     """
     d = decimals
     is_long = scenario.direction == Direction.LONG
-    kind = "Demand" if is_long else "Supply"
-    side = "Buy" if is_long else "Sell"
     spec = " (speculative)" if scenario.speculative else ""
-    lines = [
-        f"🔔 <b>{escape_html(pair)}</b>: price reached the {kind} zone "
-        f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}",
-        f"📋 Plan: {'LONG' if is_long else 'SHORT'} — {side} Limit "
-        f"{scenario.entry:.{d}f} | 🛑 SL {scenario.stop_loss:.{d}f} "
-        f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}",
-        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG.",
-    ]
+    if scenario.kind == "RANGE":
+        this_side = "LOW" if is_long else "HIGH"
+        far_side = "HIGH" if is_long else "LOW"
+        lines = [
+            f"🔔 <b>{escape_html(pair)}</b>: price is at the range "
+            f"{this_side} {scenario.entry:.{d}f}",
+            f"📋 Plan: {'LONG' if is_long else 'SHORT'} — target the range "
+            f"{far_side} {scenario.take_profit:.{d}f} | 🛑 SL "
+            f"{scenario.stop_loss:.{d}f} | ~1:{scenario.rr:.1f}{spec}",
+            f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG.",
+        ]
+    else:
+        kind = "Demand" if is_long else "Supply"
+        side = "Buy" if is_long else "Sell"
+        lines = [
+            f"🔔 <b>{escape_html(pair)}</b>: price reached the {kind} zone "
+            f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}",
+            f"📋 Plan: {'LONG' if is_long else 'SHORT'} — {side} Limit "
+            f"{scenario.entry:.{d}f} | 🛑 SL {scenario.stop_loss:.{d}f} "
+            f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}",
+            f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG.",
+        ]
     block, gap = marks if marks else (None, None)
     if block or gap:
         parts = []

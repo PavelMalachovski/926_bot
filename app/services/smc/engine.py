@@ -74,6 +74,15 @@ def trends_disagree(h4_trend, h1_trend) -> bool:
     )
 
 
+def _zone_kind_label(zone: Zone) -> str:
+    """Name the zone Rule 3's invalidation message is about, in the owner's
+    own vocabulary for each kind — a RANGE boundary is not an H1 supply or
+    demand zone, so it must not be called one (Task 3 wording fix)."""
+    if zone.kind == "RANGE":
+        return "range LOW boundary" if zone.is_demand else "range HIGH boundary"
+    return f"H1 {'Demand' if zone.is_demand else 'Supply'} zone"
+
+
 def _is_deeper_than(zone, direction: Direction, entry: float) -> bool:
     """True if `zone` sits further out than `entry` on the trade's own
     side — the same "further out" convention `zone_ladder` uses (`beyond`
@@ -333,13 +342,15 @@ class TripleSyncEngine:
             if zone.is_demand and c.close < zone.bottom and c.body_low < zone.bottom:
                 result.verdict = Verdict.SKIP
                 result.reasons.append(
-                    f"Price closed below the H1 Demand zone ({zone.bottom:.2f}) — invalidated"
+                    f"Price closed below the {_zone_kind_label(zone)} "
+                    f"({zone.bottom:.2f}) — invalidated"
                 )
                 return result
             if not zone.is_demand and c.close > zone.top and c.body_high > zone.top:
                 result.verdict = Verdict.SKIP
                 result.reasons.append(
-                    f"Price closed above the H1 Supply zone ({zone.top:.2f}) — invalidated"
+                    f"Price closed above the {_zone_kind_label(zone)} "
+                    f"({zone.top:.2f}) — invalidated"
                 )
                 return result
 
