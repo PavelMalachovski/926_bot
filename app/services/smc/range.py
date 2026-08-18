@@ -77,6 +77,12 @@ def detect_range(
     top_latest = max(top_cluster, key=lambda p: p.index)
     bottom_latest = max(bottom_cluster, key=lambda p: p.index)
 
+    # The anchors differ on purpose: `broken` only makes sense once the box
+    # is fully formed, so it scans from after BOTH boundaries' last touch —
+    # a body close beyond one edge before the other edge even existed isn't
+    # a break of this range. Each `swept_*` flag only needs its OWN
+    # boundary to exist, so it scans from right after that boundary's own
+    # latest pivot.
     after = max(top_latest.index, bottom_latest.index)
     broken = _is_broken(windowed[after + 1:], top, bottom)
     swept_top = _swept(windowed[top_latest.index + 1:], top, above=True)
@@ -98,15 +104,24 @@ def detect_range(
 def _largest_cluster(
     pivots: List[Pivot], tolerance: float
 ) -> Optional[List[Pivot]]:
-    """Sort by price and walk, grouping consecutive pivots within
-    `tolerance` of the previous one into the same cluster. Returns the
-    largest cluster, ties broken by the most recent (highest index)."""
+    """Sort by price and walk, grouping pivots into the largest run whose
+    prices span at most `tolerance` end to end — one level, give or take
+    the tolerance. A candidate joins the current cluster only if doing so
+    keeps the cluster within `tolerance` of BOTH its own minimum and
+    maximum; comparing against the tail alone (chain/transitive grouping)
+    would let a staircase of one-tolerance steps merge into a cluster
+    spanning many tolerances, which is not a level at all. Since pivots are
+    processed in ascending price order, the candidate is always the
+    cluster's prospective new maximum, so checking it against the cluster's
+    minimum (its first, smallest member) is sufficient to bound the whole
+    span in one comparison. Returns the largest cluster, ties broken by the
+    most recent (highest index)."""
     if not pivots:
         return None
     ordered = sorted(pivots, key=lambda p: p.price)
     clusters: List[List[Pivot]] = [[ordered[0]]]
     for p in ordered[1:]:
-        if p.price - clusters[-1][-1].price <= tolerance:
+        if p.price - clusters[-1][0].price <= tolerance:
             clusters[-1].append(p)
         else:
             clusters.append([p])

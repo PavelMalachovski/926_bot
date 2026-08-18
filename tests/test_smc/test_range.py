@@ -15,6 +15,25 @@ RANGING = [
     104.0, 110.0, 114.0,
 ]
 
+# A staircase of four rallies, each peak 0.9 higher than the last (tolerance
+# below is 1.0, so every step is within tolerance of its neighbor), with
+# three tight dips back to ~79.0 between/after them. find_pivots resolves
+# this to confirmed highs 100.0, 100.9, 101.8, 102.7 (indices 4, 12, 20, 28)
+# and confirmed lows 79.0, 79.0, 79.0 (indices 8, 16, 24) — verified while
+# building this fixture. The highs are each a neighbor-step apart but span
+# 2.7 end to end (nearly three tolerances): a chain/transitive clustering
+# bug would merge all four into one "boundary" that is not a real level.
+STAIRCASE = [
+    80.0, 85.0, 90.0, 95.0, 99.0,
+    95.0, 90.0, 85.0, 80.0,
+    85.0, 90.0, 95.0, 99.9,
+    95.0, 90.0, 85.0, 80.0,
+    85.0, 90.0, 95.0, 100.8,
+    95.0, 90.0, 85.0, 80.0,
+    85.0, 90.0, 95.0, 101.7,
+    95.0, 90.0, 85.0,
+]
+
 
 def _range(closes=None, tolerance=1.0, window=120):
     return detect_range(
@@ -33,6 +52,34 @@ class TestDetectRange:
     def test_counts_touches_on_both_boundaries(self):
         rng = _range()
         assert rng.touches_top >= 2 and rng.touches_bottom >= 2
+
+    def test_a_genuine_near_equal_cluster_still_forms_one_boundary(self):
+        """The span-based clustering fix must not over-tighten: two real
+        highs 0.4 apart (well inside tolerance=1.0) still merge into a
+        single two-touch boundary, not two singletons."""
+        rng = _range()
+        assert rng is not None
+        assert rng.touches_top == 2
+        assert abs(rng.top - 119.8) < 0.01  # mean of the two merged highs
+
+    def test_a_staircase_does_not_collapse_into_one_boundary(self):
+        """D7: pivots each within tolerance of their neighbor, but drifting
+        several tolerances end to end, are a staircase, not one level.
+
+        STAIRCASE's highs are 100.0, 100.9, 101.8, 102.7 (tolerance=1.0):
+        every adjacent pair is a neighbor-step apart, but the whole run
+        spans 2.7 -- almost three tolerances. Chain/transitive clustering
+        (comparing only to the tail already accepted) would merge all four
+        into one cluster spanning 2.7, mean 101.35, touches_top=4 -- not a
+        level any real liquidity pool would sit at. The span-bounded fix
+        must instead split it into two-pivot runs and keep only the
+        largest (tied, so the most recent wins): (101.8, 102.7).
+        """
+        candles = make_candles(STAIRCASE, step_minutes=60)
+        rng = detect_range(candles, 1.0, 120)
+        assert rng is not None
+        assert rng.touches_top == 2  # not 4 -- the chain-merge bug's count
+        assert 101.8 <= rng.top <= 102.7  # span-bounded mean, not 101.35
 
     def test_one_touch_is_not_a_range(self):
         """A single swing high is a level, not a boundary."""
