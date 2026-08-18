@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from app.services.smc.models import Candle, Pivot
+from app.services.smc.models import Candle, Direction, Pivot, Zone
 from app.services.smc.structure import find_pivots
 
 # A band narrower than this multiple of tolerance is chop, not a range: the
@@ -39,6 +39,12 @@ class Range:
     bottom_at: datetime   # same for the bottom cluster
     swept_top: bool       # a wick closed back inside after piercing the top (D9)
     swept_bottom: bool
+    # Timestamp of the first candle after BOTH boundaries' latest pivot — the
+    # moment the box was fully printed, and the same anchor `broken` scans
+    # from. `boundary_zone` hands it to the boundary Zone so an M5 excursion
+    # is only counted once the range existed; see that function for why the
+    # pivot's own timestamp would not do.
+    printed_at: datetime
 
 
 def detect_range(
@@ -98,6 +104,57 @@ def detect_range(
         bottom_at=bottom_latest.timestamp,
         swept_top=swept_top,
         swept_bottom=swept_bottom,
+        printed_at=windowed[after + 1].timestamp,
+    )
+
+
+def boundary_zone(rng: Range, direction: Direction, tolerance: float) -> Zone:
+    """A range boundary as a `Zone` the existing pipeline can consume.
+
+    A SHORT trades the top, a LONG the bottom. The band is one `tolerance`
+    thick, measured INWARD — `[top - tolerance, top]` at the high,
+    `[bottom, bottom + tolerance]` at the low — so it is exactly the spread
+    the boundary was clustered with. Expressing it as a Zone is what lets
+    `zone_touch_span`, `find_choch`, `select_valid_fvg`, `find_order_block`
+    and `sweep_extreme` run on a range unchanged; only the stop and the
+    target come from the box itself.
+
+    `timestamp` is `printed_at`, NOT the boundary's own `top_at`/`bottom_at`.
+    The timestamp is the anchor `zone_touch_span` and `first_zone_touch` use
+    to decide which candles count as an excursion into the band, and for an
+    ordinary zone that anchor is the OPEN of the formation candle — so the
+    zone's own birth hour still reads as a touch of it (a known defect,
+    tracked separately). A boundary would inherit it in its worst form: the
+    cluster's latest pivot IS an extreme at the band by construction, so its
+    own hour would always read as an excursion into the boundary, and a box
+    price never returned to could anchor a stop in the hour that drew it.
+    `printed_at` is the first candle after both boundaries were in place,
+    which is strictly after that hour closed and is also the moment the box
+    became a box.
+
+    `pivot_index` is 0 for the same reason `structure.m5_marks` uses 0 on
+    its synthetic band: a boundary is a cluster of pivots, not one candle,
+    so no single index means anything here — and the index space of the H1
+    array is meaningless against the M5 candles this zone is consumed with.
+    Nothing reads it for a RANGE zone (`find_pivots` never returns index 0,
+    so `zone_ladder`'s identity check cannot collide with it either).
+    """
+    if direction == Direction.SHORT:
+        return Zone(
+            bottom=rng.top - tolerance,
+            top=rng.top,
+            is_demand=False,
+            pivot_index=0,
+            timestamp=rng.printed_at,
+            kind="RANGE",
+        )
+    return Zone(
+        bottom=rng.bottom,
+        top=rng.bottom + tolerance,
+        is_demand=True,
+        pivot_index=0,
+        timestamp=rng.printed_at,
+        kind="RANGE",
     )
 
 

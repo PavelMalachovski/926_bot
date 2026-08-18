@@ -6,9 +6,11 @@ from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    # liquidity.py imports Candle/Direction/Pivot from this module, so a
-    # top-level import here would cycle — the annotation stays a string.
+    # liquidity.py and range.py import Candle/Direction/Pivot/Zone from this
+    # module, so a top-level import here would cycle — the annotations stay
+    # strings.
     from app.services.smc.liquidity import LiquidityLevel
+    from app.services.smc.range import Range
 
 
 class Direction(str, Enum):
@@ -160,6 +162,11 @@ class AnalysisResult:
     # separate label). Task 4 renders the alert header from this.
     direction_source: str = "h4"
     h1_zone: Optional[Zone] = None
+    # The box price is trading inside, when both H4 and H1 read FLAT and one
+    # was found (D11, spec §3.2). Set whenever a live (unbroken) range is in
+    # play — including while price sits mid-range and there is nothing to
+    # trade yet — so messages and charts can draw the boundaries.
+    market_range: Optional["Range"] = None
     setup: Optional[TradeSetup] = None
     funding_rate: Optional[float] = None
     funding_warning: Optional[str] = None

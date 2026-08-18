@@ -20,12 +20,14 @@ from app.services.smc.models import (
     TradeSetup,
     Trend,
     Verdict,
+    Zone,
 )
 from app.services.smc.profiles import (
     CONSERVATIVE,
     StrategyProfile,
     effective_min_fvg,
 )
+from app.services.smc.range import Range, boundary_zone, detect_range
 from app.services.smc.sessions import active_session
 from app.services.smc import sniper
 from app.services.smc.structure import (
@@ -184,6 +186,10 @@ class TripleSyncEngine:
         result.h4_trend = detect_trend(h4)
         result.h1_trend = detect_trend(h1)
         direction = None
+        # The range boundary the setup forms at, when a range supplied the
+        # direction — Rule 2 takes it as the zone of interest, and Rules 6/7
+        # read the box off `result.market_range`.
+        boundary: Optional[Zone] = None
         result.direction_source = "h4"
         if result.h4_trend == Trend.UP:
             direction = Direction.LONG
@@ -201,15 +207,54 @@ class TripleSyncEngine:
                 direction, result.direction_source = Direction.LONG, "h1"
             elif h1_trend == Trend.DOWN:
                 direction, result.direction_source = Direction.SHORT, "h1"
-            elif self.profile.allow_h4_choch_entry:
-                # aggressive: catch the first leg. Only label the source when
-                # a direction actually came out — otherwise direction_source
-                # would say "h4_choch" while direction stays None, and the
-                # two must never disagree (a result heading for SKIP three
-                # lines below has no business claiming a direction source).
-                choch_direction = h4_choch_direction(h4)
-                if choch_direction is not None:
-                    direction, result.direction_source = choch_direction, "h4_choch"
+            else:
+                # D11 (owner decision 2026-08-18): both timeframes flat — the
+                # one state where the bot had nothing to say. A range gives it
+                # boundaries to trade between (spec §3.2). A trending H1 is
+                # checked first and still wins, so no signal the owner already
+                # gets can be replaced by a range one. The tolerance is the
+                # RAW per-instrument minimum FVG, like every other clustering
+                # and sweep measurement in this package — never the
+                # profile-scaled value.
+                market_range = detect_range(h1, self.instrument.min_fvg)
+                if market_range is not None and not market_range.broken:
+                    result.market_range = market_range
+                    boundary = self._boundary_in_play(market_range, m5)
+                    if boundary is not None:
+                        direction = (
+                            Direction.LONG if boundary.is_demand
+                            else Direction.SHORT
+                        )
+                        result.direction_source = "range"
+                if direction is None and self.profile.allow_h4_choch_entry:
+                    # aggressive: catch the first leg. Only label the source
+                    # when a direction actually came out — otherwise
+                    # direction_source would say "h4_choch" while direction
+                    # stays None, and the two must never disagree (a result
+                    # heading for SKIP below has no business claiming a
+                    # direction source).
+                    choch_direction = h4_choch_direction(h4)
+                    if choch_direction is not None:
+                        direction, result.direction_source = (
+                            choch_direction, "h4_choch"
+                        )
+                if direction is None and result.market_range is not None:
+                    # The box is there, price is between its edges: nothing to
+                    # trade YET, which is a WATCH rather than a SKIP — exactly
+                    # like Rule 2's "no zone" and Rule 3's "not reached" waits.
+                    live = result.market_range
+                    result.verdict = Verdict.WATCH
+                    result.reasons.append(
+                        "H4 and H1 are both flat inside a range "
+                        f"({live.bottom:.2f}–{live.top:.2f}), but price sits "
+                        "mid-range — no boundary to trade from yet"
+                    )
+                    result.watch_notes.append(
+                        f"Set alerts at {live.top:.2f} (short) and "
+                        f"{live.bottom:.2f} (long) — on a boundary touch, "
+                        "check M5 for a CHoCH + FVG"
+                    )
+                    return result
         if direction is None:
             result.verdict = Verdict.SKIP
             result.reasons.append("H4 is flat or CHoCH against the trend — no direction")
@@ -223,7 +268,10 @@ class TripleSyncEngine:
         # imbalance as the fallback (owner decision D4, spec §2.1). The
         # minimum gap size is the per-instrument floor scaled by the
         # profile, exactly as Rule 4 scales the M5 imbalance.
-        zone = find_zone_of_interest(
+        # A range setup enters at its boundary: the band Rule 1 already
+        # picked IS the zone of interest, and every rule below runs on it
+        # unchanged (that is the point of expressing a boundary as a Zone).
+        zone = boundary if boundary is not None else find_zone_of_interest(
             h1,
             direction,
             min_size=self._effective_min_fvg,
@@ -331,6 +379,16 @@ class TripleSyncEngine:
 
         # Rule 6 — stop behind the swept extreme of the zone excursion
         extreme = sweep_extreme(m5, direction, touch, choch)
+        if boundary is not None:
+            # A range stop belongs beyond the BOUNDARY, not merely beyond a
+            # wick that turned back inside it — but it must never sit inside
+            # the swept extreme either, so the further of the two wins and
+            # the buffer below is applied to it exactly as usual.
+            box = result.market_range
+            extreme = (
+                min(extreme, box.bottom) if direction == Direction.LONG
+                else max(extreme, box.top)
+            )
         if direction == Direction.LONG:
             stop_loss = extreme - self.sl_buffer
         else:
@@ -374,6 +432,20 @@ class TripleSyncEngine:
         sweep = sniper.sweep_label(
             m5, h1, direction, touch, choch, tier_tolerance, result.checked_at
         )
+        if sweep is None and boundary is not None:
+            # D9 (owner decision 2026-08-18): a boundary pierced by a wick and
+            # reclaimed is liquidity taken. `sweep_label` names it only while
+            # the boundary's EQH/EQL pool survives `find_liquidity`'s own
+            # sweep filter — a pierce deeper than the tolerance deletes the
+            # pool, so the label goes blank exactly when the sweep was most
+            # convincing. The range measured the pierce itself; use its flag.
+            box = result.market_range
+            swept = (
+                box.swept_bottom if direction == Direction.LONG
+                else box.swept_top
+            )
+            if swept:
+                sweep = "RangeL" if direction == Direction.LONG else "RangeH"
         pd = sniper.pd_state(direction, entry, sniper.dealing_range(h1))
         room = sniper.room_r(h1, h4, direction, entry, risk, tier_tolerance)
         tier = sniper.classify(
@@ -398,11 +470,39 @@ class TripleSyncEngine:
             + find_liquidity(h1, "H1", tolerance)
             + find_liquidity(h4, "H4", tolerance)
         )
-        target = nearest_liquidity(levels, direction, entry)
         ladder = liquidity_ladder(levels, direction, entry)
+        target = None
         take_profit = None
         rr = 0.0
-        if target is None:
+        if boundary is not None:
+            # Range mode: Rule 7's nearest pool is not the objective — the
+            # opposite boundary is, one buffer short of it so the trade is out
+            # before the level. No pool is named, and the "no unswept
+            # liquidity ahead" warning must not fire: this setup HAS an
+            # objective, it is simply not a liquidity level.
+            box = result.market_range
+            if direction == Direction.LONG:
+                take_profit = box.top - self.sl_buffer
+                reward = take_profit - entry
+            else:
+                take_profit = box.bottom + self.sl_buffer
+                reward = entry - take_profit
+            if reward <= 0:
+                # The opposite edge is closer than the buffer: the objective
+                # would land on the wrong side of the entry. Same treatment as
+                # a liquidity pool inside the buffer — report it, invent
+                # nothing.
+                take_profit = None
+                result.warnings.append(
+                    "the opposite boundary sits inside the stop buffer"
+                )
+            else:
+                rr = reward / risk
+                if rr < self.min_rr:
+                    result.warnings.append(
+                        f"RR to the opposite boundary is 1:{rr:.1f}"
+                    )
+        elif (target := nearest_liquidity(levels, direction, entry)) is None:
             result.warnings.append("no unswept liquidity ahead")
         else:
             if direction == Direction.LONG:
@@ -511,6 +611,39 @@ class TripleSyncEngine:
                 )
 
         return result
+
+    def _boundary_in_play(
+        self, market_range: Range, m5: List[Candle]
+    ) -> Optional[Zone]:
+        """The boundary price is working, as a Zone, or None mid-range.
+
+        "Price is at this boundary" is the question Rule 3 already asks of
+        every zone, so it is asked here in Rule 3's own words —
+        `zone_touch_span` — and the excursion it finds is the very one the
+        CHoCH, the FVG and the stop are then measured in. When price has
+        visited both edges, the later excursion is the live one; a single
+        candle reaching both (a spike across the whole box) is broken toward
+        the top — arbitrary, but deterministic.
+
+        The spec phrased this as "the latest closed M5 candle has reached the
+        band". Taken literally it can barely ever coexist with a finished
+        setup: a valid FVG is at least the minimum imbalance tall — the same
+        measure the band is one of — and its newest candle sits that whole
+        gap away from the band price fell from, so by the time Rule 4 passes
+        the last candle is out of the band by construction, and a range would
+        produce WATCHes and nothing else. Asking for the excursion keeps the
+        intent (price came to the boundary and turned) while letting the
+        setup that follows be announced.
+        """
+        tolerance = self.instrument.min_fvg
+        live: Optional[Zone] = None
+        latest = -1
+        for direction in (Direction.SHORT, Direction.LONG):
+            band = boundary_zone(market_range, direction, tolerance)
+            span = zone_touch_span(m5, band)
+            if span is not None and span[0] > latest:
+                live, latest = band, span[0]
+        return live
 
     def _fvg_size_label(self) -> str:
         """Human threshold: '$2.00' for crypto, '5 pips' for forex."""
