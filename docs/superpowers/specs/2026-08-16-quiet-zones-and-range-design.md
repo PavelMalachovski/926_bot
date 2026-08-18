@@ -59,6 +59,7 @@ what the bot detects:
 | D13 | A boundary sweep earns the ⭐ only when it happened in the **current excursion** to that boundary — the same scope every other sweep check in the bot uses (owner decision 2026-08-18) |
 | D14 | In range mode there is **no hybrid exit** — one target, the opposite boundary, full size (owner decision 2026-08-18) |
 | D15 | A close beyond a range boundary invalidates it only if the break **still holds** at the end of the excursion; pierce-and-reclaim is a sweep, not a breakout (owner decision 2026-08-18) |
+| D16 | A pierce that closes beyond a boundary and is reclaimed counts as a **sweep** for the ⭐, not only a wick-only pierce — the follow-through of D15 (owner decision 2026-08-18) |
 
 ---
 
@@ -320,8 +321,17 @@ Then the normal 🚨 on M5 CHoCH into the range plus a valid FVG:
   risk is anchored beyond the boundary plus a buffer, so RR to the opposite
   boundary is routinely under 2 and TP1 would land *outside* the box the
   setup is aiming at;
-- ⭐ when the boundary was swept by a wick and reclaimed **in this
-  excursion** (D9 scoped by D13). A pierce from days earlier does not
+- ⭐ when the boundary was swept and reclaimed **in this excursion** (D9,
+  scoped by D13, widened by D16). A pierce counts whether it closed beyond
+  the boundary or only wicked through it: D15 made the body-close raid
+  tradeable, and the same raid is what the owner calls a sweep, so the two
+  rules must agree about it.
+
+  The stop follows from the same reading. It must sit beyond **every**
+  candle of the raid, not merely beyond the leg price returned on: a raid
+  interrupted by a candle trading wholly outside the boundary band splits
+  the excursion in two, and anchoring on the later half puts the stop
+  inside the liquidity it was meant to hide behind. A pierce from days earlier does not
   count: every other sweep check in the bot is excursion-scoped, and an
   unscoped flag would mark almost every boundary eventually, leaving the ⭐
   with nothing to distinguish.
