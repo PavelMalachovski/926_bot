@@ -79,9 +79,11 @@ class Zone:
     touches: int = 0
     invalidated: bool = False
     # What kind of zone this is: "OB" (an order block built from a pivot
-    # candle, the historical default) or "FVG" (an untouched H1 imbalance,
-    # spec 2026-08-16 §2.1). Messages and charts name it; nothing branches
-    # on it for geometry — both kinds are a price band price reacts from.
+    # candle, the historical default), "FVG" (an untouched H1 imbalance,
+    # spec 2026-08-16 §2.1), or "RANGE" (a range boundary, spec §3.1 —
+    # see range.py's boundary_zone). Messages and charts name it; nothing
+    # branches on it for geometry — all three kinds are a price band price
+    # reacts from.
     kind: str = "OB"
 
     def contains(self, price: float) -> bool:

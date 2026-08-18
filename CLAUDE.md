@@ -15,9 +15,16 @@ zone of interest, an order block or, when none qualifies, an untouched H1
 imbalance (owner decision D4) → M5 CHoCH + FVG → SL behind the swept extreme
 → TP at the nearest unswept liquidity level → session windows → news
 blackouts → correlation limits) come from the owner's written trading
-system. Never relax or "improve" a strategy rule without the owner's
-explicit decision — implementation over-strictness may be fixed, the rules
-themselves may not. "Almost valid" does not exist in this system.
+system. When **both** H4 and H1 read FLAT — the one state that used to end
+in "no direction" — a valid range (`range.detect_range`, clustered H1
+pivots) gives the bot two boundaries to trade between instead of standing
+down (owner decision D11, 2026-08-18): the boundary price worked most
+recently supplies the direction, and rules 2 through 7 run on that boundary
+unchanged. The H1-trend fallback keeps precedence, so no signal the owner
+already gets is replaced by a range one. Never relax or "improve" a
+strategy rule without the owner's explicit decision — implementation
+over-strictness may be fixed, the rules themselves may not. "Almost valid"
+does not exist in this system.
 
 The bot is a **detector, not a prescriber** (owner decision 2026-08-06,
 "detector mode"): once a setup fully forms, the alert always fires.
@@ -79,6 +86,14 @@ app/services/smc/
 │                         than the entry and inside the stop), m5_marks (the
 │                         M5 order block + imbalance inside a touched zone,
 │                         label-only, for the 🔔 alert's 🔎 line)
+├── range.py              detect_range: clusters confirmed H1 pivots
+│                         (structure.find_pivots) into two boundaries,
+│                         each needing 2+ touches and the box at least
+│                         3x tolerance tall, or it's chop, not a range;
+│                         broken on an H1 body close beyond a boundary —
+│                         a wick that closes back inside does not break
+│                         it (D9); boundary_zone exposes a boundary as a
+│                         Zone(kind="RANGE") for the existing pipeline
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
 │                         nearest_liquidity (Rule 7 take-profit target) and
 │                         liquidity_ladder (five rungs shown in the alert)
@@ -228,6 +243,26 @@ tracking → live-card edits on fill/TP/SL events.
   but it does take the **earliest** qualifying gap of the excursion, which
   is `select_valid_fvg`'s rule, so the 🔎 line and the 🚨 alert's ⚡ line
   name one imbalance rather than two.
+- **A range boundary is a `Zone` with `Zone.kind == "RANGE"`**
+  (`range.boundary_zone`): expressing it that way is what lets the existing
+  Rule 3/4/6 pipeline — `zone_touch_span`, `find_choch`, `select_valid_fvg`,
+  `find_order_block`, `sweep_extreme` — run on a range boundary unchanged;
+  only the stop and the target differ. The stop sits beyond the boundary
+  itself (or the swept extreme, whichever is further out) plus `sl_buffer`;
+  the target is the **opposite boundary**, one `sl_buffer` short of it, not
+  Rule 7's nearest unswept liquidity. `range.boundary_swept` (D9, owner
+  decision 2026-08-18) counts a wick that pierces a boundary and closes
+  back inside as liquidity taken — a body close through the boundary is
+  `broken`, not a sweep. The ⭐ verdict asks the same sweep question at a
+  tighter scope (D13, owner decision 2026-08-18): only a sweep inside the
+  setup's own touch→CHoCH excursion earns it, the same excursion
+  `sweep_extreme` is anchored on, so a boundary raided once, long before
+  this setup formed, does not star every touch afterward. D11 (owner
+  decision 2026-08-18) puts the range behind the existing H1-trend
+  fallback in Rule 1's precedence — it only trades when **both** H4 and H1
+  read FLAT, so no signal the owner already gets is replaced. D12: when a
+  range is in play, its two boundary scenarios **replace** the plan's
+  speculative both-way breakout brackets rather than joining them.
 - **An excursion into a zone begins after the zone exists**
   (`zone_touch_span`): a candle joins the span only when its timestamp is
   at/after `zone.timestamp` AND it trades *strictly* inside the band —
