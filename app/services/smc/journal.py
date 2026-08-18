@@ -267,6 +267,7 @@ class SignalJournal:
             "runner_tp": setup.runner_tp,
             "tier": "star" if setup.tier_star else "regular",
             "result_r": None,
+            "zone_kind": result.h1_zone.kind if result.h1_zone else None,
         }
         self.signals.append(signal)
         self._persist(signal)

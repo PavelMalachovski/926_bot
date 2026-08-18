@@ -21,7 +21,14 @@ import pytest
 
 from app.services.smc.db import Database
 from app.services.smc.journal import OPEN_TIMEOUT, SignalJournal, evaluate_signal
-from app.services.smc.models import AnalysisResult, Direction, FVG, TradeSetup, Verdict
+from app.services.smc.models import (
+    AnalysisResult,
+    Direction,
+    FVG,
+    TradeSetup,
+    Verdict,
+    Zone,
+)
 from tests.test_smc.helpers import SESSION_BASE, candle
 
 CREATED = SESSION_BASE  # 2026-07-06 14:00 UTC
@@ -388,3 +395,61 @@ class TestStatsCountsHybridWins:
         journal.save()
         text = journal.stats_text(days=36500)
         assert "⭐ Star tier by pair" not in text
+
+
+class TestRecordPersistsZoneKind:
+    """Range trading (Task 5): record() carries `result.h1_zone.kind`
+    ("OB", "FVG" or "RANGE") onto the persisted row, so /stats can later
+    separate range setups from trend setups."""
+
+    @pytest.mark.parametrize("kind", ["OB", "FVG", "RANGE"])
+    def test_record_persists_zone_kind(self, tmp_path, kind):
+        db = Database(str(tmp_path / "j.db"))
+        journal = SignalJournal(db)
+        result = _approved_result_with_setup()
+        result.h1_zone = Zone(
+            bottom=95.0,
+            top=99.0,
+            is_demand=True,
+            pivot_index=0,
+            timestamp=datetime.now(tz=timezone.utc),
+            kind=kind,
+        )
+        signal = journal.record(result)
+        assert signal["zone_kind"] == kind
+
+        reloaded = SignalJournal(Database(str(tmp_path / "j.db")))
+        row = reloaded.get(signal["id"])
+        assert row["zone_kind"] == kind
+
+    def test_record_persists_none_when_no_h1_zone(self, tmp_path):
+        """Defensive: record() must not crash if h1_zone is somehow unset."""
+        db = Database(str(tmp_path / "j.db"))
+        journal = SignalJournal(db)
+        result = _approved_result_with_setup()
+        result.h1_zone = None
+        signal = journal.record(result)
+        assert signal["zone_kind"] is None
+
+
+class TestZoneKindLegacyRowSafety:
+    """A signal recorded before this column existed reads zone_kind as
+    NULL/missing. Neither the lifecycle tracker nor /stats may assume a
+    value is present."""
+
+    def test_evaluate_signal_ignores_missing_zone_kind(self):
+        signal = _hybrid_signal(status="open")
+        assert "zone_kind" not in signal  # legacy shape: key absent entirely
+        result = evaluate_signal(
+            signal, [_c(1, 100, 101, 89.5, 90)], datetime.now(tz=timezone.utc)
+        )
+        assert result["status"] == "sl"
+
+    def test_stats_text_ignores_null_zone_kind(self, tmp_path):
+        journal = SignalJournal(Database(str(tmp_path / "s.db")))
+        row = TestStatsCountsHybridWins._row("ETHUSD", "tp", result_r=1.0)
+        row["zone_kind"] = None
+        journal.signals = [row]
+        journal.save()
+        text = journal.stats_text(days=36500)
+        assert "🎯 TP 1" in text
