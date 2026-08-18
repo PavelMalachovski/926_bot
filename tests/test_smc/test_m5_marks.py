@@ -6,7 +6,7 @@ from app.services.smc.models import Direction, FVG, Zone
 from app.services.smc.notifier import format_zone_alert
 from app.services.smc.plan import PlanScenario
 from app.services.smc.structure import m5_marks
-from tests.test_smc.helpers import m5_long_trigger
+from tests.test_smc.helpers import candle, m5_long_trigger
 
 TS = datetime(2026, 8, 18, 9, 0, tzinfo=timezone.utc)
 
@@ -41,13 +41,30 @@ class TestM5Marks:
         m5 = m5_long_trigger()[:16]
         bottom, top = _band(m5)
         block, _gap = m5_marks(m5, Direction.LONG, bottom, top, min_size=0.01)
-        if block is not None:
-            assert block.is_demand is True and block.bottom < block.top
+        assert block is not None
+        assert block.is_demand is True and block.bottom < block.top
 
     def test_an_absurd_min_size_rejects_the_gap(self):
         m5 = m5_long_trigger()[:16]
         bottom, top = _band(m5)
         _block, gap = m5_marks(m5, Direction.LONG, bottom, top, min_size=1e9)
+        assert gap is None
+
+    def test_a_gap_formed_after_the_excursion_ended_is_not_returned(self):
+        """The gap search must stay bounded at `zone_touch_span`'s `end`,
+        not just its `start` — a gap that only forms once price has already
+        left the band is not one the owner is waiting at on this touch, even
+        though `find_fvgs`/`reversed()` would otherwise surface it first as
+        the most recent candidate (task-3 review finding 2)."""
+        m5 = [
+            candle(110.0, 111.0, 108.0, 109.0, index=0),  # above the band
+            candle(109.0, 110.0, 103.0, 104.0, index=1),  # enters the band
+            candle(104.0, 106.0, 101.0, 102.0, index=2),  # still inside
+            candle(107.0, 112.0, 106.0, 111.0, index=3),  # exits above — end=2
+            candle(111.0, 113.0, 110.0, 112.0, index=4),
+            candle(112.0, 120.0, 118.0, 119.0, index=5),  # gap forms here
+        ]
+        _block, gap = m5_marks(m5, Direction.LONG, 100.0, 105.0, min_size=0.5)
         assert gap is None
 
 

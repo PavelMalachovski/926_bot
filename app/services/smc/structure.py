@@ -229,11 +229,14 @@ def m5_marks(
     not the other, and `(None, None)` simply means the zone alert prints no
     detail line.
 
-    The window is `zone_touch_span`'s latest excursion, the same window the
-    engine searches for the CHoCH and the FVG, so the marks name the same
-    stretch of price action a setup would form in. Unlike the engine's use,
-    this runs BEFORE any CHoCH exists — that is the point: the alert fires
-    when price arrives, and the owner wants the levels then.
+    The window is `zone_touch_span`'s latest excursion `[start, end]`, the
+    same window the engine searches for the CHoCH and the FVG, so the marks
+    name the same stretch of price action a setup would form in. Unlike the
+    engine's use, this runs BEFORE any CHoCH exists — that is the point: the
+    alert fires when price arrives, and the owner wants the levels then. The
+    gap search is bounded at `end` as well as `start`: a gap that formed
+    after the excursion ended is not one the owner is waiting at inside this
+    touch, even if `m5` happens to hold later candles.
 
     Rule 4's session-scope and fill checks are deliberately NOT applied to
     the gap here. This is a label on a zone being watched, not a trade
@@ -253,6 +256,8 @@ def m5_marks(
     block = find_order_block(m5, direction, before_index=end + 1, since_index=start)
     gap = None
     for candidate in reversed(find_fvgs(m5, direction, from_index=start)):
+        if candidate.index > end:
+            continue  # formed after the excursion ended — not this window
         if candidate.size < min_size:
             continue
         if measure_fill(m5, candidate).closed_through:
