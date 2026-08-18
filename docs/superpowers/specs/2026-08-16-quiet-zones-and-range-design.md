@@ -56,6 +56,7 @@ what the bot detects:
 | D10 | An H1 FVG counts as a fresh zone of interest only while price has **not entered it at all** — the exact mirror of an untested order block (owner decision 2026-08-18) |
 | D11 | The range is in play only when **both** H4 and H1 read FLAT — the H1-trend fallback of 2026-08-06 keeps precedence over it (owner decision 2026-08-18) |
 | D12 | When a range is found, it **replaces** the plan's speculative both-way breakout brackets rather than joining them (owner decision 2026-08-18) |
+| D13 | A boundary sweep earns the ⭐ only when it happened in the **current excursion** to that boundary — the same scope every other sweep check in the bot uses (owner decision 2026-08-18) |
 
 ---
 
@@ -308,7 +309,11 @@ Then the normal 🚨 on M5 CHoCH into the range plus a valid FVG:
 - TP: the opposite boundary − `sl_buffer`;
 - the 2R/runner hybrid exit applies unchanged when the opposite boundary
   leaves room for it;
-- ⭐ when the boundary was swept by a wick and reclaimed (D9).
+- ⭐ when the boundary was swept by a wick and reclaimed **in this
+  excursion** (D9 scoped by D13). A pierce from days earlier does not
+  count: every other sweep check in the bot is excursion-scoped, and an
+  unscoped flag would mark almost every boundary eventually, leaving the ⭐
+  with nothing to distinguish.
 
 ## 3.4 Charts
 
