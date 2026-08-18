@@ -16,10 +16,14 @@ all of:
    the last confirmed H1 dealing range's midpoint, or the range itself
    cannot be judged (no confirmed H1 swings yet) — again, unmeasurable
    passes.
+4. **Trend agreement** (`engine.trends_disagree`, owner decision D6,
+   2026-08-16): H4 and H1 must not point opposite ways. An H4 FLAT is not a
+   disagreement (that is the H1-fallback direction case, owner decision
+   2026-08-06) and neither is an H1 FLAT under a trending H4.
 
 `classify` also takes `stale` (an already-computed staleness flag from the
-caller — Task 2) as a fourth, independent gate: even a clean room/sweep/pd
-read does not earn the star if the setup is stale.
+caller — Task 2) as a fifth, independent gate: even a clean room/sweep/pd/
+trend read does not earn the star if the setup is stale.
 
 Ported from the validated Phase 1 prototype
 (C:\\temp\\926_bot_data\\scripts\\sn_rules.py, replayed on a year of data,
@@ -187,15 +191,24 @@ def classify(
     sweep: Optional[str],
     pd: Optional[str],
     stale: bool,
+    trend_disagrees: bool = False,
     min_room_r: float = MIN_ROOM_R,
 ) -> TierVerdict:
     """Star iff room is unmeasurable-or-wide-enough, a pool was swept, pd is
-    ok-or-unmeasurable, and the setup is not stale."""
+    ok-or-unmeasurable, the setup is not stale, and H4/H1 do not point
+    opposite ways (owner decision D6, 2026-08-16).
+
+    `trend_disagrees` defaults to False so a caller that does not measure it
+    is treated as "nothing is arguing" rather than silently losing the star.
+    Detector mode is unchanged: a disagreeing setup is still announced, just
+    not as a ⭐.
+    """
     checks = (
         ("room", room is None or room >= min_room_r),
         ("sweep", sweep is not None),
         ("pd", pd in ("ok", None)),
         ("stale", not stale),
+        ("trend", not trend_disagrees),
     )
     missed = [name for name, ok in checks if not ok]
     return TierVerdict(star=not missed, missed=missed)

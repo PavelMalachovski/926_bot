@@ -6,6 +6,7 @@ from typing import List, Optional
 import httpx
 import structlog
 
+from app.services.smc.engine import trends_disagree
 from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.liquidity import LiquidityLevel
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
@@ -196,6 +197,15 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         f"🚨 <b>SETUP READY — {escape_html(result.symbol)} · {side}</b>"
         f" · {_direction_source_label(result, is_long)}"
     ]
+    if result.h4_trend is not None and result.h1_trend is not None:
+        # D6 (owner decision 2026-08-16): H4/H1 trend agreement, always
+        # shown — the counter-hourly marker only appears when they actually
+        # disagree, which is also what denies the ⭐ below. This never
+        # suppresses; it only labels.
+        agree = f"H4 {result.h4_trend.value} · H1 {result.h1_trend.value}"
+        if trends_disagree(result.h4_trend, result.h1_trend):
+            agree += " ⚠️ counter-hourly"
+        lines.append(agree)
     if setup.tier_star:
         # Phase 2 sniper redesign (owner decision 2026-08-12): the loud
         # ⭐-tier header — room + sweep + premium/discount + staleness all

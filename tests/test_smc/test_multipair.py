@@ -481,6 +481,34 @@ class TestTwoTierAlerting:
         assert watcher.notifier.photos == []  # the failed render sent nothing
 
     @pytest.mark.asyncio
+    async def test_disagreeing_trend_setup_is_still_sent_without_the_star(
+        self, tmp_path
+    ):
+        """D6: H4/H1 trend disagreement denies the star but detector mode
+        still announces the setup — one quiet message, same as any other
+        non-star miss."""
+        from app.services.smc.models import Trend
+
+        watcher = self._watcher(tmp_path)
+        result = _fingerprint_result()
+        result.h4_trend = Trend.UP
+        result.h1_trend = Trend.DOWN
+        result.setup.tier_star = False
+        result.setup.tp1 = result.setup.entry + 20
+        result.setup.runner_tp = result.setup.entry + 40
+        result.setup.tier_missed = ["trend"]
+
+        sent = await watcher._send_alert("ETHUSD", result, "fp-trend")
+
+        assert sent is True
+        assert len(watcher.notifier.sent) == 1
+        text, keyboard = watcher.notifier.sent[0]
+        assert "SNIPER" not in text
+        assert "Missed for ⭐" in text
+        signal = watcher.journal.signals[0]
+        assert signal["tier"] == "regular"
+
+    @pytest.mark.asyncio
     async def test_dedup_fingerprint_is_shared_across_a_tier_flip(
         self, monkeypatch, tmp_path
     ):
