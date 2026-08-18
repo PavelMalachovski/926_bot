@@ -54,6 +54,8 @@ what the bot detects:
 | D8 | Range boundary alert first, full 🚨 only after M5 CHoCH + FVG |
 | D9 | A wick through a boundary that closes back inside is liquidity taken — range survives, setup earns ⭐ |
 | D10 | An H1 FVG counts as a fresh zone of interest only while price has **not entered it at all** — the exact mirror of an untested order block (owner decision 2026-08-18) |
+| D11 | The range is in play only when **both** H4 and H1 read FLAT — the H1-trend fallback of 2026-08-06 keeps precedence over it (owner decision 2026-08-18) |
+| D12 | When a range is found, it **replaces** the plan's speculative both-way breakout brackets rather than joining them (owner decision 2026-08-18) |
 
 ---
 
@@ -272,9 +274,21 @@ same liquidity hunt applied to a range.
 
 ## 3.2 When the range is in play
 
-`detect_trend(h4) == FLAT` and `detect_range` returns an unbroken range.
-That is exactly the state in which the bot is silent today, so no trending
-day gains chatter.
+`detect_trend(h4) == FLAT` **and** `detect_trend(h1) == FLAT` and
+`detect_range` returns an unbroken range (D11, owner decision 2026-08-18).
+
+The original wording said H4 alone, and justified itself with "that is
+exactly the state in which the bot is silent today". Those two disagree: on
+a flat H4 the bot is *not* silent — Rule 1 falls back to the H1 trend (owner
+decision 2026-08-06) and trades it. Requiring both timeframes flat makes the
+justification true again: the range adds signal exactly where there is none
+today, and no existing H1-trend setup is replaced by a boundary trade.
+
+When the range is in play it also **replaces** the plan's speculative
+both-way breakout brackets (D12). Concrete boundaries with targets in each
+other are strictly better information about the same market state than "if
+it breaks up → long, if down → short", and showing both would put two
+different plans for one pair in one message.
 
 ## 3.3 Alerts
 
