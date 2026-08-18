@@ -95,7 +95,10 @@ app/services/smc/
 │                         broken on an H1 body close beyond a boundary —
 │                         a wick that closes back inside does not break
 │                         it (D9); boundary_zone exposes a boundary as a
-│                         Zone(kind="RANGE") for the existing pipeline
+│                         Zone(kind="RANGE") for the existing pipeline;
+│                         boundary_excursion_start heals the excursion a
+│                         raid splits, so Rule 6's stop clears the whole
+│                         raid
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
 │                         nearest_liquidity (Rule 7 take-profit target) and
 │                         liquidity_ladder (five rungs shown in the alert)
@@ -261,6 +264,12 @@ tracking → live-card edits on fill/TP/SL events.
   zone", and the range alert carries the box, the target and its RR on both
   tiers. `range.boundary_swept` (D9, owner decision 2026-08-18) counts a
   wick that pierces a boundary and closes back inside as liquidity taken.
+  The stop is read the same way: a boundary band is one tolerance thick, so
+  a raid printing a candle wholly outside it splits the excursion
+  `zone_touch_span` measures;
+  `range.boundary_excursion_start` walks that split back so Rule 6 anchors
+  beyond **every** candle of the raid, and it is used for RANGE zones only
+  (the OB/FVG paths and `m5_marks` keep `zone_touch_span` untouched).
   A body close beyond a boundary breaks it only while the break **still
   holds** (D15, owner decision 2026-08-18) — both for `Range.broken` on H1
   and for Rule 3's invalidation of a RANGE zone on M5 (`engine._zone_broken`,

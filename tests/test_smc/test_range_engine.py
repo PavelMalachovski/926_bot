@@ -510,14 +510,10 @@ class TestBoundaryPierceAndReclaim:
         assert result.verdict == Verdict.APPROVED_LIMIT
         assert result.direction_source == "range"
         assert "invalidated" not in " ".join(result.reasons)
-        # Rule 6 still anchors the stop beyond the raid: `sweep_extreme`
-        # measures the excursion `zone_touch_span` returns (the reclaim
-        # candle's run back into the band, high 3203.2), one buffer out —
-        # above every candle of the raid either way.
-        assert result.setup.stop_loss == 3205.20
-        assert result.setup.stop_loss > max(
-            c.high for c in m5_top_pierced_and_reclaimed()[8:11]
-        )
+        # Rule 6 anchors the stop one buffer beyond the RAID's own high
+        # (3203.5 at index 9), not beyond the leg price returned on (3203.2)
+        # — see TestTheStopHidesBehindTheWholeRaid for the property itself.
+        assert result.setup.stop_loss == 3205.50
         assert result.setup.take_profit == 3181.20
 
     def test_a_break_that_still_holds_invalidates(self):
@@ -544,6 +540,135 @@ class TestBoundaryPierceAndReclaim:
         )
         assert result.verdict == Verdict.SKIP
         assert "invalidated" in " ".join(result.reasons)
+
+
+def m5_top_raid_split_by_an_outside_candle():
+    """The reviewer's staged raid (2026-08-18): three candles run the stops
+    above the range high, and the MIDDLE one trades wholly above the band
+    (low 3204.0 against a band top of 3200.8). `zone_touch_span` therefore
+    sees two runs and returns only the second — the leg price had already
+    come back on — so Rule 6's stop reference misses the raid's own peak
+    (3215.0) entirely."""
+    spec = (
+        list(_M5_AT_TOP_SPEC[:8])
+        + [
+            (3199.0, 3202.5, 3198.8, 3202.0),  # pierce, still touching the band
+            (3202.0, 3215.0, 3204.0, 3205.0),  # WHOLLY above the band
+            (3205.0, 3205.5, 3199.0, 3199.5),  # reclaimed — back inside
+        ]
+        + list(_M5_AT_TOP_SPEC[9:])
+    )
+    return _candles(spec)
+
+
+def m5_top_raid_uninterrupted():
+    """The same shape with every raid candle still dipping into the band:
+    the excursion is never split, so the widened anchor must agree with the
+    one `zone_touch_span` alone would have given."""
+    spec = (
+        list(_M5_AT_TOP_SPEC[:8])
+        + [
+            (3199.0, 3203.0, 3198.7, 3202.5),
+            (3202.5, 3206.0, 3199.5, 3200.0),
+            (3200.0, 3200.5, 3197.0, 3197.5),
+        ]
+        + list(_M5_AT_TOP_SPEC[9:])
+    )
+    return _candles(spec)
+
+
+def _assert_stop_hides_behind(result, candles, raid, long=False):
+    """The property: the stop sits beyond EVERY candle of the raid — one
+    buffer past the raid's own extreme, not past the leg price returned on.
+
+    `raid` is the slice of candles the fixture's docstring calls the raid,
+    named there rather than recomputed here: recomputing it with the
+    production helper would only assert that the code agrees with itself.
+    """
+    setup = result.setup
+    assert setup is not None
+    if long:
+        deepest = min(c.low for c in candles[raid])
+        assert setup.stop_loss < deepest
+        assert setup.stop_loss == pytest.approx(deepest - 2.0)  # sl_buffer
+    else:
+        highest = max(c.high for c in candles[raid])
+        assert setup.stop_loss > highest
+        assert setup.stop_loss == pytest.approx(highest + 2.0)
+
+
+class TestTheStopHidesBehindTheWholeRaid:
+    """Rule 6 anchors the stop beyond the swept extreme so it cannot be
+    taken with the liquidity the sweep took. On a range boundary the band
+    is one tolerance thick (`boundary_zone`), so a raid that prints a
+    candle wholly outside it splits the excursion in two and the last-run
+    anchor lands INSIDE the raid — reachable only since D15 made the
+    body-close pierce tradeable (spec §3.3, reviewer 2026-08-18).
+
+    Every test here asserts the same property across a different raid
+    shape; none of them pins a number the fixture happens to produce.
+    """
+
+    def test_the_staged_raid_really_does_split_the_excursion(self):
+        """The precondition: without the split there is nothing to heal."""
+        m5 = m5_top_raid_split_by_an_outside_candle()
+        band = boundary_zone(
+            detect_range(h1_ranging(), TOLERANCE), Direction.SHORT, TOLERANCE
+        )
+        assert zone_touch_span(m5, band)[0] == 10  # the re-entry leg alone
+        assert m5[9].low > band.top  # the raid candle trades wholly outside
+
+    def test_a_raid_interrupted_by_a_candle_outside_the_band(self):
+        m5 = m5_top_raid_split_by_an_outside_candle()
+        result = _run(m5=m5)
+        _assert_stop_hides_behind(result, m5, slice(8, 11))
+
+    def test_a_single_candle_wick_raid(self):
+        """Today's common case: one clean wick through the boundary, no
+        split at all."""
+        m5 = m5_at_top_pierced(3204.0)
+        result = _run(h1=h1_ranging_swept(3204.0), m5=m5)
+        _assert_stop_hides_behind(result, m5, slice(8, 9))
+
+    def test_an_uninterrupted_multi_candle_raid(self):
+        m5 = m5_top_raid_uninterrupted()
+        result = _run(m5=m5)
+        _assert_stop_hides_behind(result, m5, slice(8, 11))
+
+    def test_a_visit_with_no_raid_anchors_on_the_boundary_itself(self):
+        """Nothing pierced the boundary, so the box's own edge is the
+        furthest reference and the stop sits one buffer beyond it — above
+        every candle of the visit either way."""
+        m5 = m5_at_top()
+        result = _run(m5=m5)
+        assert result.setup.stop_loss == RANGE_TOP + 2.0
+        assert result.setup.stop_loss > max(c.high for c in m5[7:10])
+
+    def test_the_long_side_mirrors_it(self):
+        m5 = _candles(_mirrored([
+            *_M5_AT_TOP_SPEC[:8],
+            (3199.0, 3202.5, 3198.8, 3202.0),
+            (3202.0, 3215.0, 3204.0, 3205.0),
+            (3205.0, 3205.5, 3199.0, 3199.5),
+            *_M5_AT_TOP_SPEC[9:],
+        ]))
+        result = _run(m5=m5)
+        assert result.setup.direction == Direction.LONG
+        _assert_stop_hides_behind(result, m5, slice(8, 11), long=True)
+
+    def test_the_setup_is_still_announced(self):
+        """Detector mode: a wider stop costs RR, and RR is a label. The
+        raid must not talk the bot out of the setup it just formed."""
+        result = _run(m5=m5_top_raid_split_by_an_outside_candle())
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert any("RR to the opposite boundary" in w
+                   for w in result.warnings)
+
+    def test_the_choch_and_fvg_search_still_anchor_on_the_touch(self):
+        """Only Rule 6's stop reference and the D13 sweep window widen; the
+        entry the setup reports comes from the same imbalance as ever."""
+        result = _run(m5=m5_top_raid_split_by_an_outside_candle())
+        assert result.setup.entry == 3194.0
 
 
 class TestTheBoundaryIsNotOfferedAsADeeperEntry:

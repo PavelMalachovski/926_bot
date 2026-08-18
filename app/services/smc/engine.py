@@ -29,6 +29,7 @@ from app.services.smc.profiles import (
 )
 from app.services.smc.range import (
     Range,
+    boundary_excursion_start,
     boundary_swept,
     boundary_zone,
     detect_range,
@@ -431,8 +432,22 @@ class TripleSyncEngine:
         # Rule 5 — entry level: proximal FVG boundary
         entry = fvg.top if direction == Direction.LONG else fvg.bottom
 
-        # Rule 6 — stop behind the swept extreme of the zone excursion
-        extreme = sweep_extreme(m5, direction, touch, choch)
+        # Rule 6 — stop behind the swept extreme of the zone excursion.
+        #
+        # A RANGE boundary's band is one tolerance thick, so a raid that
+        # prints a candle wholly outside it splits the excursion
+        # `zone_touch_span` measures and leaves `touch` on the leg price had
+        # already returned on — a stop anchored there sits inside the very
+        # wick that took the liquidity (spec §3.3, reviewer 2026-08-18).
+        # `boundary_excursion_start` heals that split for range setups only;
+        # every other zone keeps `touch` exactly as before, and the CHoCH and
+        # FVG searches above keep it in every case.
+        excursion_start = (
+            boundary_excursion_start(m5, zone, touch)
+            if boundary is not None
+            else touch
+        )
+        extreme = sweep_extreme(m5, direction, excursion_start, choch)
         if boundary is not None:
             # A range stop belongs beyond the BOUNDARY, not merely beyond a
             # wick that turned back inside it — but it must never sit inside
@@ -513,7 +528,11 @@ class TripleSyncEngine:
             # whose own excursion took nothing, and a boundary that was ever
             # raided would star every touch afterwards.
             box = result.market_range
-            excursion = m5[touch:choch + 1]
+            # The same widened window Rule 6 anchored the stop on: a raid
+            # that split the excursion left `touch` after the pierce, so
+            # measuring from there would miss the very sweep being asked
+            # about.
+            excursion = m5[excursion_start:choch + 1]
             if direction == Direction.LONG:
                 swept = boundary_swept(excursion, box.bottom, above=False)
             else:

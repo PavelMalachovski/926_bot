@@ -1,7 +1,8 @@
 """Range detection from clustered H1 pivots (spec §3.1, D7, D9)."""
 
-from app.services.smc.range import detect_range
-from tests.test_smc.helpers import make_candles
+from app.services.smc.models import Zone
+from app.services.smc.range import boundary_excursion_start, detect_range
+from tests.test_smc.helpers import SESSION_BASE, candle, make_candles
 
 # Four clean swings between ~100 and ~120: two highs clustering near 119.8,
 # two lows clustering near 99.7, nothing closing outside. make_candles builds
@@ -210,3 +211,98 @@ class TestDetectRange:
         candles = make_candles(RANGING, step_minutes=60)
         stamps = {c.timestamp for c in candles}
         assert rng.top_at in stamps and rng.bottom_at in stamps
+
+
+def _band(bottom: float, top: float, is_demand: bool) -> Zone:
+    """A boundary band the way `boundary_zone` builds one: one tolerance
+    thick, `printed_at` as its timestamp, `pivot_index` 0."""
+    return Zone(
+        bottom=bottom,
+        top=top,
+        is_demand=is_demand,
+        pivot_index=0,
+        timestamp=SESSION_BASE,
+        kind="RANGE",
+    )
+
+
+def _m5(spec, start=SESSION_BASE):
+    return [
+        candle(*row, index=i, start=start, step_minutes=5)
+        for i, row in enumerate(spec)
+    ]
+
+
+# A raid on a top boundary at 100.0 (band 98.0-100.0) whose middle candle
+# trades WHOLLY above the band, splitting the excursion in two runs.
+_SPLIT_RAID = [
+    (95.0, 96.0, 94.0, 95.5),        # 0 mid-box, nowhere near the band
+    (95.5, 99.0, 95.0, 98.5),        # 1 the visit begins
+    (98.5, 101.0, 98.4, 100.5),      # 2 pierce, body closes above 100.0
+    (100.5, 103.0, 100.2, 102.5),    # 3 WHOLLY above the band — the raid's peak
+    (102.5, 102.6, 98.5, 99.0),      # 4 reclaimed, back inside the band
+    (99.0, 99.5, 97.0, 97.5),        # 5 still in the band
+]
+
+
+class TestBoundaryExcursionStart:
+    """The raid a stop must hide behind is the WHOLE pierce episode, not
+    the leg price returned on (spec §3.3, reviewer 2026-08-18). A boundary
+    band is one tolerance thick, so a candle trading wholly outside it
+    splits the excursion `zone_touch_span` measures."""
+
+    def test_the_split_is_real(self):
+        """The precondition every assertion below leans on: without this,
+        the widening would have nothing to heal."""
+        from app.services.smc.structure import zone_touch_span
+
+        candles = _m5(_SPLIT_RAID)
+        assert zone_touch_span(candles, _band(98.0, 100.0, False)) == (4, 5)
+
+    def test_it_walks_back_over_a_candle_wholly_beyond_the_boundary(self):
+        candles = _m5(_SPLIT_RAID)
+        assert boundary_excursion_start(
+            candles, _band(98.0, 100.0, False), 4
+        ) == 1
+
+    def test_it_stops_where_price_left_the_boundary_for_the_box(self):
+        """Index 0 trades in the middle of the box: what came before it is
+        a previous visit, not this raid."""
+        candles = _m5(_SPLIT_RAID)
+        assert boundary_excursion_start(
+            candles, _band(98.0, 100.0, False), 1
+        ) == 1
+
+    def test_a_visit_with_no_raid_is_returned_unchanged(self):
+        candles = _m5([
+            (95.0, 96.0, 94.0, 95.5),
+            (95.5, 99.0, 95.0, 98.5),
+            (98.5, 99.5, 98.2, 99.0),
+        ])
+        assert boundary_excursion_start(
+            candles, _band(98.0, 100.0, False), 1
+        ) == 1
+
+    def test_the_bottom_boundary_mirrors_it(self):
+        mirrored = [
+            (200.0 - o, 200.0 - low, 200.0 - high, 200.0 - c)
+            for (o, high, low, c) in _SPLIT_RAID
+        ]
+        candles = _m5(mirrored)
+        assert boundary_excursion_start(
+            candles, _band(100.0, 102.0, True), 4
+        ) == 1
+
+    def test_it_never_steps_back_before_the_box_existed(self):
+        """The `zone.timestamp` guard mirrors `zone_touch_span`'s: candles
+        that predate the range are not part of any excursion into it."""
+        candles = _m5(_SPLIT_RAID)
+        zone = _band(98.0, 100.0, False)
+        zone.timestamp = candles[3].timestamp
+        assert boundary_excursion_start(candles, zone, 4) == 3
+
+    def test_an_excursion_starting_at_index_zero_is_safe(self):
+        candles = _m5(_SPLIT_RAID[1:])
+        assert boundary_excursion_start(
+            candles, _band(98.0, 100.0, False), 0
+        ) == 0

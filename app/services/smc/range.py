@@ -165,6 +165,58 @@ def boundary_zone(rng: Range, direction: Direction, tolerance: float) -> Zone:
     )
 
 
+def boundary_excursion_start(
+    candles: List[Candle], zone: Zone, touch_index: int
+) -> int:
+    """The index this visit to a range boundary really began at.
+
+    `structure.zone_touch_span` returns the LAST CONTIGUOUS run of candles
+    trading inside the band, and a boundary band is only one tolerance
+    thick (`boundary_zone`). A raid that prints even one candle wholly
+    beyond the boundary therefore splits one excursion into two runs, and
+    the caller is handed only the leg price had already returned on.
+    Anchoring Rule 6's stop there puts it INSIDE the wick that just took
+    the liquidity — the exact failure Rule 6 exists to prevent (spec §3.3,
+    reviewer 2026-08-18). D15 is what made that reachable: before it, a
+    body close beyond the boundary was an invalidation and the setup was
+    thrown away.
+
+    Walking back from `touch_index` over every candle that still belongs to
+    the same visit — inside the band, or beyond the boundary — heals the
+    split. The first candle that is neither ends the walk: price had left
+    the boundary for the middle of the box, so whatever came before is a
+    previous touch and not this raid. A single clean wick, and a visit with
+    no raid at all, stop the walk immediately and return `touch_index`
+    unchanged.
+
+    RANGE zones only, by construction and by intent: `zone_touch_span` is
+    shared with the OB/FVG paths and with `m5_marks`, and its behaviour
+    there must not move. This function is the range path's own private
+    widening of the window, applied to Rule 6's stop reference and to the
+    D13-scoped boundary sweep, never to the CHoCH/FVG search.
+
+    The `zone.timestamp` guard mirrors `zone_touch_span`'s condition 1
+    exactly, including its fallback for candle windows that end before the
+    zone existed: the walk must not step back into candles that predate the
+    box.
+    """
+    anchored = bool(candles) and candles[-1].timestamp >= zone.timestamp
+    start = touch_index
+    while start > 0:
+        prev = candles[start - 1]
+        if anchored and prev.timestamp < zone.timestamp:
+            break
+        if zone.is_demand:
+            beyond = prev.low < zone.bottom
+        else:
+            beyond = prev.high > zone.top
+        in_band = prev.low < zone.top and prev.high > zone.bottom
+        if not (beyond or in_band):
+            break
+        start -= 1
+    return start
+
+
 def _largest_cluster(
     pivots: List[Pivot], tolerance: float
 ) -> Optional[List[Pivot]]:
