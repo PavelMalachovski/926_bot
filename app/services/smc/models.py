@@ -166,6 +166,13 @@ class AnalysisResult:
     # was found (D11, spec §3.2). Set whenever a live (unbroken) range is in
     # play — including while price sits mid-range and there is nothing to
     # trade yet — so messages and charts can draw the boundaries.
+    #
+    # It being set does NOT mean the setup is a range setup: a box can be
+    # live while the direction, and therefore every level, came from
+    # somewhere else (the aggressive profile's H4 CHoCH taken mid-range).
+    # Anything that RENDERS a setup as a range trade must key on
+    # `direction_source == "range"`; only drawing the boundaries themselves
+    # may key on this field.
     market_range: Optional["Range"] = None
     setup: Optional[TradeSetup] = None
     funding_rate: Optional[float] = None
