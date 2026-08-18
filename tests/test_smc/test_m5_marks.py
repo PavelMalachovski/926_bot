@@ -2,13 +2,33 @@
 
 from datetime import datetime, timezone
 
+from app.services.smc.fvg import find_fvgs, select_valid_fvg
 from app.services.smc.models import Direction, FVG, Zone
 from app.services.smc.notifier import format_zone_alert
 from app.services.smc.plan import PlanScenario
-from app.services.smc.structure import m5_marks
+from app.services.smc.structure import m5_marks, zone_touch_span
 from tests.test_smc.helpers import candle, m5_long_trigger
 
 TS = datetime(2026, 8, 18, 9, 0, tzinfo=timezone.utc)
+
+
+def _two_gap_excursion():
+    """One excursion into the band 100-115 holding two bullish gaps: the
+    earlier 107.0-110.5 (candle 6) and the later 112.0-114.0 (candle 7).
+    Price leaves the band at candle 8, so both sit inside the excursion."""
+    spec = [
+        (120.0, 121.0, 118.0, 119.0),    # 0 above the band
+        (119.0, 120.0, 112.0, 113.0),    # 1 enters the band
+        (113.0, 114.0, 108.0, 109.0),    # 2
+        (109.0, 110.0, 104.0, 105.0),    # 3
+        (105.0, 107.0, 103.0, 106.0),    # 4 the low of the excursion
+        (106.0, 112.0, 105.5, 111.0),    # 5 reversal
+        (111.0, 116.0, 110.5, 115.0),    # 6 gap over candle 4's high
+        (115.0, 117.0, 114.0, 116.0),    # 7 gap over candle 5's high
+        (116.0, 118.0, 115.5, 117.0),    # 8 leaves the band
+        (117.0, 119.0, 116.0, 118.0),    # 9
+    ]
+    return [candle(*row, index=i) for i, row in enumerate(spec)]
 
 
 def _band(m5):
@@ -66,6 +86,36 @@ class TestM5Marks:
         ]
         _block, gap = m5_marks(m5, Direction.LONG, 100.0, 105.0, min_size=0.5)
         assert gap is None
+
+    def test_the_gap_is_the_one_the_engine_would_pick(self):
+        """Two qualifying gaps inside one excursion: the zone alert and the
+        🚨 alert must name the SAME imbalance. `select_valid_fvg` takes the
+        earliest gap of the impulse because that is the best entry price;
+        taking the newest here made the two messages disagree about which
+        gap the owner is looking at (final-review finding 5)."""
+        m5 = _two_gap_excursion()
+        band_bottom, band_top = 100.0, 115.0
+        start = zone_touch_span(
+            m5,
+            Zone(bottom=band_bottom, top=band_top, is_demand=True,
+                 pivot_index=0, timestamp=m5[0].timestamp),
+        )[0]
+        candidates = [
+            f for f in find_fvgs(m5, Direction.LONG, start) if f.size >= 1.0
+        ]
+        assert len(candidates) >= 2  # otherwise the test proves nothing
+
+        _block, gap = m5_marks(
+            m5, Direction.LONG, band_bottom, band_top, min_size=1.0
+        )
+        engine_gap = select_valid_fvg(
+            m5, Direction.LONG, start, min_size=1.0, same_day_scope=True
+        )
+        assert gap is not None and engine_gap is not None
+        assert (gap.index, gap.bottom, gap.top) == (
+            engine_gap.index, engine_gap.bottom, engine_gap.top,
+        )
+        assert gap.index == candidates[0].index  # the earliest, not the newest
 
 
 def _scenario():

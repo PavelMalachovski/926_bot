@@ -155,9 +155,17 @@ def _zone_lines(setup, decimals: int) -> List[str]:
     was hiding (USDCAD 1.40710, 2026-08-06)."""
     out = ["🧱 Untested zones further out   ← deeper entries"]
     for zone in setup.zones_ahead:
-        touches = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
+        if zone.kind == "FVG":
+            # An imbalance never goes through `_mark_zone_state`, so its
+            # `touches` is an untouched default, not a count anybody took —
+            # and D10 admits a gap only while penetration is zero, so state
+            # that instead of printing a number that was never measured.
+            state = "untouched"
+        else:
+            state = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
         out.append(
-            f"     {zone.bottom:.{decimals}f} – {zone.top:.{decimals}f}   ({touches})"
+            f"     {zone.bottom:.{decimals}f} – {zone.top:.{decimals}f}"
+            f"   ({zone.kind} · {state})"
         )
     return out
 
@@ -391,8 +399,12 @@ def format_result(result: AnalysisResult, in_plan: Optional[bool] = None) -> str
 
     if result.h1_zone:
         zone_kind = "Demand" if result.h1_zone.is_demand else "Supply"
+        # The kind (OB / FVG) belongs here more than anywhere: this is the
+        # screen the owner reads WHILE waiting for price to arrive, which
+        # is the whole life of an imbalance zone — the loud alert may never
+        # come.
         lines.append(
-            f"<b>H1 zone ({zone_kind}):</b> "
+            f"<b>H1 zone ({zone_kind} · {result.h1_zone.kind}):</b> "
             f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
         )
 

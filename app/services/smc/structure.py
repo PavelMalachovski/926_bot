@@ -238,6 +238,13 @@ def m5_marks(
     after the excursion ended is not one the owner is waiting at inside this
     touch, even if `m5` happens to hold later candles.
 
+    The gap is the EARLIEST qualifying one of the window, which is
+    `select_valid_fvg`'s rule and is picked for its reason: the first gap of
+    an impulse leg is the best entry price. Taking the newest instead made
+    this line name a different imbalance than the 🚨 alert's ⚡ line minutes
+    later on the same excursion, and the owner has no way to tell that the
+    two messages mean one gap.
+
     Rule 4's session-scope and fill checks are deliberately NOT applied to
     the gap here. This is a label on a zone being watched, not a trade
     trigger; the M5 setup path still runs the full Rule 4 validation when
@@ -255,9 +262,9 @@ def m5_marks(
     start, end = span
     block = find_order_block(m5, direction, before_index=end + 1, since_index=start)
     gap = None
-    for candidate in reversed(find_fvgs(m5, direction, from_index=start)):
+    for candidate in find_fvgs(m5, direction, from_index=start):
         if candidate.index > end:
-            continue  # formed after the excursion ended — not this window
+            break  # formed after the excursion ended — not this window
         if candidate.size < min_size:
             continue
         if measure_fill(m5, candidate).closed_through:
