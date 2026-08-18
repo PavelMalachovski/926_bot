@@ -19,12 +19,14 @@ system. When **both** H4 and H1 read FLAT — the one state that used to end
 in "no direction" — a valid range (`range.detect_range`, clustered H1
 pivots) gives the bot two boundaries to trade between instead of standing
 down (owner decision D11, 2026-08-18): the boundary price worked most
-recently supplies the direction, and rules 2 through 7 run on that boundary
-unchanged. The H1-trend fallback keeps precedence, so no signal the owner
-already gets is replaced by a range one. Never relax or "improve" a
-strategy rule without the owner's explicit decision — implementation
-over-strictness may be fixed, the rules themselves may not. "Almost valid"
-does not exist in this system.
+recently supplies the direction, standing in for Rule 2's H1 zone of
+interest; rules 3 through 5 run on that boundary unchanged, while the stop
+(Rule 6) and the target (Rule 7) come from the range itself instead (see
+the conventions section). The H1-trend fallback keeps precedence, so no
+signal the owner already gets is replaced by a range one. Never relax or
+"improve" a strategy rule without the owner's explicit decision —
+implementation over-strictness may be fixed, the rules themselves may not.
+"Almost valid" does not exist in this system.
 
 The bot is a **detector, not a prescriber** (owner decision 2026-08-06,
 "detector mode"): once a setup fully forms, the alert always fires.
