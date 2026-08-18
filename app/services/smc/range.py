@@ -104,28 +104,38 @@ def detect_range(
 def _largest_cluster(
     pivots: List[Pivot], tolerance: float
 ) -> Optional[List[Pivot]]:
-    """Sort by price and walk, grouping pivots into the largest run whose
-    prices span at most `tolerance` end to end — one level, give or take
-    the tolerance. A candidate joins the current cluster only if doing so
-    keeps the cluster within `tolerance` of BOTH its own minimum and
-    maximum; comparing against the tail alone (chain/transitive grouping)
-    would let a staircase of one-tolerance steps merge into a cluster
-    spanning many tolerances, which is not a level at all. Since pivots are
-    processed in ascending price order, the candidate is always the
-    cluster's prospective new maximum, so checking it against the cluster's
-    minimum (its first, smallest member) is sufficient to bound the whole
-    span in one comparison. Returns the largest cluster, ties broken by the
-    most recent (highest index)."""
+    """Sort by price and slide a two-pointer window over it, returning the
+    largest run whose prices span at most `tolerance` end to end — one
+    level, give or take the tolerance.
+
+    The right edge advances one pivot at a time; the left edge is pulled
+    forward whenever the window's span exceeds `tolerance`. Both edges
+    only ever move forward, so this is a single O(n) pass — but critically
+    every pivot gets tried as a potential window *start*, not just as a
+    window member decided once by whatever came before it. A fixed anchor
+    (grouping everything against the first pivot pulled into a cluster)
+    can lock out a pivot that would have started a bigger, tighter pool
+    one position later: a loose outlier followed by a tight pool of five
+    would have the outlier drag the first pool member into a two-member
+    cluster with it, burning that pivot as an anchor-mate instead of
+    letting the five-pivot pool form on its own.
+
+    Returns the largest window seen, ties broken by the most recent
+    (highest index)."""
     if not pivots:
         return None
     ordered = sorted(pivots, key=lambda p: p.price)
-    clusters: List[List[Pivot]] = [[ordered[0]]]
-    for p in ordered[1:]:
-        if p.price - clusters[-1][0].price <= tolerance:
-            clusters[-1].append(p)
-        else:
-            clusters.append([p])
-    return max(clusters, key=lambda c: (len(c), max(p.index for p in c)))
+    best: Optional[List[Pivot]] = None
+    best_key = None
+    left = 0
+    for right in range(len(ordered)):
+        while ordered[right].price - ordered[left].price > tolerance:
+            left += 1
+        window = ordered[left:right + 1]
+        key = (len(window), max(p.index for p in window))
+        if best_key is None or key > best_key:
+            best_key, best = key, window
+    return best
 
 
 def _is_broken(candles: List[Candle], top: float, bottom: float) -> bool:

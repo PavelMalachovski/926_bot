@@ -34,6 +34,21 @@ STAIRCASE = [
     95.0, 90.0, 85.0,
 ]
 
+# A loose outlier (50.0) immediately followed by a tight five-pivot pool
+# (51.0, 51.05, 51.10, 51.15, 51.20 -- span 0.20) with a dip to ~19.0
+# between each rally. 50.0 sits exactly `tolerance` (1.0) away from 51.0.
+# A left-anchor cluster walk locks 50.0 in first, pulls 51.0 into a
+# two-member cluster with it, and never revisits that choice -- so it
+# never finds the five-member pool that starts one pivot later and is
+# both bigger and tighter. find_pivots resolves this to confirmed highs
+# 50.0, 51.0, 51.05, 51.10, 51.15, 51.20 (indices 4, 12, 20, 28, 36, 44)
+# and six confirmed lows at 19.0 — verified while building this fixture.
+_OUTLIER_THEN_POOL_PEAKS = [50.0, 51.0, 51.05, 51.10, 51.15, 51.20]
+OUTLIER_THEN_POOL: list = []
+for _peak in _OUTLIER_THEN_POOL_PEAKS:
+    OUTLIER_THEN_POOL += [20.0, 25.0, 30.0, 35.0, _peak - 1.0, 35.0, 30.0, 25.0]
+OUTLIER_THEN_POOL += [20.0, 25.0, 30.0]  # trailing dip + confirmation candles
+
 
 def _range(closes=None, tolerance=1.0, window=120):
     return detect_range(
@@ -80,6 +95,25 @@ class TestDetectRange:
         assert rng is not None
         assert rng.touches_top == 2  # not 4 -- the chain-merge bug's count
         assert 101.8 <= rng.top <= 102.7  # span-bounded mean, not 101.35
+
+    def test_a_tight_pool_past_a_loose_outlier_keeps_all_its_members(self):
+        """The largest span-bounded cluster must be a genuine maximum, not
+        whatever a left-to-right anchor walk happens to lock in first.
+
+        OUTLIER_THEN_POOL's highs are 50.0, 51.0, 51.05, 51.10, 51.15,
+        51.20 (tolerance=1.0). 50.0 sits exactly one tolerance from 51.0.
+        A left-anchor walk merges [50.0, 51.0] first, and having spent
+        51.0 as an anchor-mate, can only find [51.05, 51.10, 51.15, 51.20]
+        (span 0.15) as the next cluster -- 4 touches, mean 51.125. The
+        true largest window drops the outlier and starts at 51.0 instead:
+        [51.0, 51.05, 51.10, 51.15, 51.20], span 0.20, still inside
+        tolerance -- 5 touches, mean 51.10.
+        """
+        candles = make_candles(OUTLIER_THEN_POOL, step_minutes=60)
+        rng = detect_range(candles, 1.0, 120)
+        assert rng is not None
+        assert rng.touches_top == 5  # not 4 -- the left-anchor undercount
+        assert abs(rng.top - 51.10) < 0.01  # mean of the 5-pivot pool, not 51.125
 
     def test_one_touch_is_not_a_range(self):
         """A single swing high is a level, not a boundary."""
