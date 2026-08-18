@@ -1008,9 +1008,27 @@ class TestPlanChartRangeBoundaries:
         assert "RANGE HIGH" in texts
         assert "RANGE LOW" in texts
 
+    def test_the_band_label_names_the_boundary_not_a_supply_zone(
+        self, monkeypatch
+    ):
+        """Vocabulary fix (review 2026-08-18): the shaded band under a RANGE
+        scenario used to be labelled "Supply RANGE" / "Demand RANGE" — a
+        boundary is neither."""
+        plan = self._range_plan()
+        _, captured = self._render_captured(plan, monkeypatch)
+        texts = [t.get_text().strip() for t in captured["ax"].texts]
+        assert "Supply RANGE" not in texts
+        assert "Demand RANGE" not in texts
+        # One band label per side, plus the boundary level labels.
+        assert texts.count("RANGE HIGH") == 2
+        assert texts.count("RANGE LOW") == 2
+
     def test_only_one_boundary_valid_draws_only_that_line(self, monkeypatch):
-        """Both directions are filtered independently by min_rr — one side
-        can qualify without the other. Only the known boundary is drawn."""
+        """Only the side present in the plan is drawn. In practice both
+        stand or fall together — `plan._range_scenario` gives the two sides
+        identical RR by construction (`box height - sl_buffer` of reward
+        over `sl_buffer` of risk), so the min_rr filter drops both or
+        neither — but the drawing code does not assume it."""
         import matplotlib.colors as mcolors
 
         import app.services.smc.chart as chart_mod

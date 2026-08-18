@@ -380,9 +380,18 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
 
     for s in plan.scenarios:
         side = "Demand" if s.direction == Direction.LONG else "Supply"
+        # A RANGE band is a boundary of the box, not a demand/supply zone —
+        # label it the way every other range surface does (review
+        # 2026-08-18); the runner-up below is OB/FVG only, so it keeps the
+        # side wording.
+        band_label = (
+            f"RANGE {'LOW' if s.direction == Direction.LONG else 'HIGH'}"
+            if s.kind == "RANGE"
+            else f"{side} {s.kind}"
+        )
         _zone_band(ax, s.zone_bottom, s.zone_top, s.kind, WINNER_ZONE_ALPHA)
         _zone_label(
-            ax, s.zone_bottom, s.zone_top, f"{side} {s.kind}",
+            ax, s.zone_bottom, s.zone_top, band_label,
             _zone_kind_color(s.kind),
         )
         if s.runner_up is not None:
@@ -421,9 +430,12 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
 
     # Range boundaries (spec §3.4): one RANGE-kind scenario per side at
     # most (D12) — SHORT projects off the top boundary, LONG off the
-    # bottom. Either can be absent (each side is filtered by min_rr
-    # independently in `plan._range_scenario`), so only the side that has
-    # a scenario gets a line; entry IS the boundary price for a RANGE
+    # bottom. In practice the two sides stand or fall together: both are
+    # `box height - sl_buffer` of reward over `sl_buffer` of risk, so
+    # `plan._range_scenario`'s min_rr filter gives them identical RR and
+    # drops both or neither. Each side is still looked up independently
+    # here — the geometry is the caller's to change, and a half-drawn box
+    # is better than an exception. Entry IS the boundary price for a RANGE
     # scenario (plan.py `_range_scenario`), already folded into `ylim`
     # above via the same entry/stop_loss loop every other scenario uses.
     range_top = next(

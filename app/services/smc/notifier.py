@@ -238,12 +238,31 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     lines.append("")
 
     # --- the four actionable lines, in the order the owner works them
-    if result.h1_zone:
-        kind = "Demand" if result.h1_zone.is_demand else "Supply"
+    #
+    # A range setup is announced as a range trade (models.AnalysisResult:
+    # anything RENDERING one keys on `direction_source`, never on
+    # `market_range` alone): the box he is trading between comes first, and
+    # the band he entered at is a boundary, not an H1 Supply/Demand zone.
+    is_range = result.direction_source == "range" and result.market_range is not None
+    if is_range:
+        box = result.market_range
         lines.append(
-            f"📍 H1 {kind} zone ({result.h1_zone.kind})  "
-            f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
+            f"📦 Range box            "
+            f"{box.bottom:.{d}f} – {box.top:.{d}f}"
         )
+    if result.h1_zone:
+        if is_range:
+            edge = "LOW" if result.h1_zone.is_demand else "HIGH"
+            lines.append(
+                f"📍 Range {edge} boundary  "
+                f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
+            )
+        else:
+            kind = "Demand" if result.h1_zone.is_demand else "Supply"
+            lines.append(
+                f"📍 H1 {kind} zone ({result.h1_zone.kind})  "
+                f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
+            )
     lines.append(
         f"⚡ M5 imbalance (FVG)   "
         f"{setup.fvg.bottom:.{d}f} – {setup.fvg.top:.{d}f}"
@@ -270,14 +289,40 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         setup.stop_loss + instrument.sl_buffer if is_long
         else setup.stop_loss - instrument.sl_buffer
     )
-    lines.append(
-        f"🛑 Swept liquidity      {extreme:.{d}f}"
-        f"   ← stop behind the wick ({setup.stop_loss:.{d}f} with buffer)"
-    )
+    if is_range:
+        # In range mode Rule 6 takes the FURTHER of the swept wick and the
+        # boundary itself (engine.py), so this level is often the boundary
+        # and nothing was swept at it — "Swept liquidity" would assert
+        # something false. Name what it actually is: the level the stop sits
+        # beyond (review 2026-08-18).
+        lines.append(
+            f"🛑 Stop reference       {extreme:.{d}f}"
+            f"   ← stop beyond it ({setup.stop_loss:.{d}f} with buffer)"
+        )
+    else:
+        lines.append(
+            f"🛑 Swept liquidity      {extreme:.{d}f}"
+            f"   ← stop behind the wick ({setup.stop_loss:.{d}f} with buffer)"
+        )
+    if is_range and setup.take_profit is not None:
+        # D14 (owner decision 2026-08-18): one target, the opposite
+        # boundary, full size. It is the whole thesis of the trade, so it is
+        # an actionable line here rather than a "ref ·" footnote — the ref
+        # objective line below only fires for a liquidity `target`, which a
+        # range setup deliberately has none of.
+        far = "HIGH" if is_long else "LOW"
+        # Padded to the same column as the 📦/📍/⚡/🛑 lines above, which are
+        # hand-aligned one emoji = one cell — "HIGH" is a character wider
+        # than "LOW", so the label is justified rather than fixed-spaced.
+        label = f"🎯 Range {far} target"
+        lines.append(
+            f"{label:<19}    {setup.take_profit:.{d}f}"
+            f"   ← full size, 1:{setup.rr:.1f}"
+        )
     # Phase 2 hybrid exit (Task 2, engine.py): TP1 closes half the position
-    # at tp1_r*risk, the runner rides to runner_r*risk. Both are computed for
-    # every completed setup, star or not — only the ⭐ header above is tier-
-    # gated, these levels are not.
+    # at tp1_r*risk, the runner rides to runner_r*risk. Computed for every
+    # completed TREND setup, star or not — only the ⭐ header above is tier-
+    # gated, these levels are not. A range setup carries neither (D14).
     if setup.tp1 is not None and setup.runner_tp is not None:
         lines.append(
             f"🔫 TP1 (half): {setup.tp1:.{d}f} · runner: {setup.runner_tp:.{d}f}"
@@ -354,15 +399,35 @@ def format_quiet_setup(result: AnalysisResult) -> str:
     chart/pin/buttons (smc_watcher._send_alert routes those separately) —
     just the levels and which conditions it missed, so the owner can judge
     for himself whether it is still worth taking.
+
+    Most range setups land here rather than on the ⭐ card (the star needs a
+    sweep), so this line must carry the box and its target: a range trade
+    with no target and no bounds tells the owner to trade between two levels
+    without naming either (review 2026-08-18). It has no hybrid exit to show
+    in the first place (D14).
     """
     setup = result.setup
     d = result.price_decimals
     is_long = setup.direction == Direction.LONG
     side = "LONG" if is_long else "SHORT"
-    tp1 = f"{setup.tp1:.{d}f}" if setup.tp1 is not None else "n/a"
-    runner = f"{setup.runner_tp:.{d}f}" if setup.runner_tp is not None else "n/a"
     missed = ", ".join(setup.tier_missed) if setup.tier_missed else "—"
     time_str = to_prague(result.checked_at).strftime("%d.%m %H:%M")
+    if result.direction_source == "range" and result.market_range is not None:
+        box = result.market_range
+        target = (
+            f"TP {setup.take_profit:.{d}f} (1:{setup.rr:.1f})"
+            if setup.take_profit is not None
+            else "TP n/a"
+        )
+        return (
+            f"🔹 <b>{escape_html(result.symbol)} {side}</b> · range "
+            f"{box.bottom:.{d}f}–{box.top:.{d}f} · "
+            f"entry {setup.entry:.{d}f} · SL {setup.stop_loss:.{d}f} · "
+            f"{target}\n"
+            f"Missed for ⭐: {escape_html(missed)} · {time_str} Prague"
+        )
+    tp1 = f"{setup.tp1:.{d}f}" if setup.tp1 is not None else "n/a"
+    runner = f"{setup.runner_tp:.{d}f}" if setup.runner_tp is not None else "n/a"
     return (
         f"🔹 <b>{escape_html(result.symbol)} {side}</b> · "
         f"entry {setup.entry:.{d}f} · SL {setup.stop_loss:.{d}f} · "
@@ -406,16 +471,33 @@ def format_result(result: AnalysisResult, in_plan: Optional[bool] = None) -> str
     lines.append("")
     lines.append(f"<b>H4 bias:</b> {TREND_LABEL[result.h4_trend]}")
 
-    if result.h1_zone:
-        zone_kind = "Demand" if result.h1_zone.is_demand else "Supply"
-        # The kind (OB / FVG) belongs here more than anywhere: this is the
-        # screen the owner reads WHILE waiting for price to arrive, which
-        # is the whole life of an imbalance zone — the loud alert may never
-        # come.
+    if result.market_range is not None:
+        # Drawing the boundaries only — the one thing that may key on
+        # `market_range` rather than on `direction_source` (models.py).
+        box = result.market_range
         lines.append(
-            f"<b>H1 zone ({zone_kind} · {result.h1_zone.kind}):</b> "
-            f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
+            f"<b>Range box:</b> {box.bottom:.{d}f}–{box.top:.{d}f}"
         )
+    if result.h1_zone:
+        if result.h1_zone.kind == "RANGE":
+            # A boundary is not an H1 Demand/Supply zone and must not be
+            # described as one (review 2026-08-18). The box itself is on the
+            # line above only when a range is live, which it always is here.
+            edge = "LOW" if result.h1_zone.is_demand else "HIGH"
+            lines.append(
+                f"<b>Range {edge} boundary:</b> "
+                f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
+            )
+        else:
+            zone_kind = "Demand" if result.h1_zone.is_demand else "Supply"
+            # The kind (OB / FVG) belongs here more than anywhere: this is
+            # the screen the owner reads WHILE waiting for price to arrive,
+            # which is the whole life of an imbalance zone — the loud alert
+            # may never come.
+            lines.append(
+                f"<b>H1 zone ({zone_kind} · {result.h1_zone.kind}):</b> "
+                f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
+            )
 
     if result.verdict == Verdict.WATCH:
         lines.append("")
@@ -477,10 +559,18 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
         )
         lines.append("")
         lines.append(head)
-        lines.append(
-            f"   Zone {'Demand' if is_long else 'Supply'} "
-            f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f}"
-        )
+        if s.kind == "RANGE":
+            # A boundary band, not an H1 Demand/Supply zone — the plan says
+            # which edge of the box it is (review 2026-08-18).
+            lines.append(
+                f"   Range {'LOW' if is_long else 'HIGH'} boundary "
+                f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f}"
+            )
+        else:
+            lines.append(
+                f"   Zone {'Demand' if is_long else 'Supply'} "
+                f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f}"
+            )
         lines.append(
             f"   {side} Limit {s.entry:.{d}f} | 🛑 SL {s.stop_loss:.{d}f} "
             f"| 🎯 TP {s.take_profit:.{d}f}"
@@ -501,8 +591,17 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
             )
 
     lines.append("")
+    # A range plan holds RANGE scenarios only (D12: they replace the
+    # speculative brackets, they never join them), so the footer names the
+    # boundary the preliminary stop sits beyond instead of an H1 zone the
+    # message never mentioned.
+    anchor = (
+        "range boundary"
+        if plan.scenarios and all(s.kind == "RANGE" for s in plan.scenarios)
+        else "H1 zone"
+    )
     lines.append(
-        "⚠️ SL is preliminary (beyond the H1 zone); the live 🚨 alert "
+        f"⚠️ SL is preliminary (beyond the {anchor}); the live 🚨 alert "
         "re-anchors it to the swept extreme and it may be wider. Order "
         "lives only within its session."
     )
