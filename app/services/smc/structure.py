@@ -2,6 +2,7 @@
 
 from typing import List, Optional, Tuple
 
+from app.services.smc.fvg import find_fvgs, measure_fill
 from app.services.smc.models import Candle, Direction, Pivot, Trend, Zone
 
 # A pivot needs `PIVOT_WING` candles on each side and at least
@@ -255,6 +256,44 @@ def find_h1_zone(
         zone = _mark_zone_state(candles, build_zone(candles, pivot))
         if not zone.invalidated and zone.touches <= max_touches:
             return zone
+    return None
+
+
+def find_h1_fvg_zone(
+    candles: List[Candle], direction: Direction, min_size: float
+) -> Optional[Zone]:
+    """The most recent UNTOUCHED H1 imbalance on the trade's side, as a Zone.
+
+    A zone of interest the owner waits for, alongside the order block
+    (spec 2026-08-16 §2.1). Freshness is D10 (owner decision 2026-08-18):
+    the gap must have zero penetration — the exact mirror of `find_h1_zone`'s
+    `touches == 0`. A partially filled gap is not something the bot is still
+    waiting for, because price already arrived; announcing it would fire the
+    zone alert late. This is deliberately stricter than Rule 4's
+    `fill < 50%`, which judges the M5 entry imbalance price is trading in
+    right now.
+
+    `min_size` is `Instrument.min_fvg * StrategyProfile.fvg_size_factor`,
+    computed by the caller — this module stays free of the instrument and
+    profile registries.
+
+    The returned Zone's `pivot_index`/`timestamp` carry the gap's own
+    formation candle, not a fractal pivot, the same way `find_order_block`
+    reuses those fields.
+    """
+    for gap in reversed(find_fvgs(candles, direction, from_index=0)):
+        if gap.size < min_size:
+            continue
+        if measure_fill(candles, gap).fill_pct > 0:
+            continue  # D10: price has already traded into it
+        return Zone(
+            bottom=gap.bottom,
+            top=gap.top,
+            is_demand=direction == Direction.LONG,
+            pivot_index=gap.index,
+            timestamp=gap.timestamp,
+            kind="FVG",
+        )
     return None
 
 
