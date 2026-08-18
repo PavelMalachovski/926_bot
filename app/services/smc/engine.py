@@ -208,11 +208,12 @@ class TripleSyncEngine:
                 f"H4 is {'bullish' if direction == Direction.LONG else 'bearish'}, "
                 "but H1 has no valid untested "
                 f"{'Demand' if direction == Direction.LONG else 'Supply'} zone "
-                "(no order block, no untouched imbalance)"
+                "(no order block, no untouched H1 imbalance)"
             )
             result.watch_notes.append(
                 "Wait for a fresh H1 zone to form (an untested "
                 f"{'HL' if direction == Direction.LONG else 'LH'})"
+                " (no order block, no untouched H1 imbalance)"
             )
             return result
         result.h1_zone = zone

@@ -87,6 +87,7 @@ def _zone_note(direction: Direction) -> str:
     return (
         "Wait for a fresh H1 zone to form (an untested "
         f"{'HL' if direction == Direction.LONG else 'LH'})"
+        " (no order block, no untouched H1 imbalance)"
     )
 
 

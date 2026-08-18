@@ -1,6 +1,7 @@
 """Tests for the Pre-Market Plan builder, formatter and H1 chart."""
 
 import dataclasses
+import re
 
 from app.services.smc.chart import render_plan_chart
 from app.services.smc.instruments import get_instrument
@@ -170,7 +171,16 @@ class TestPlanBlocker:
             if plan.scenarios:
                 continue
             assert "CHoCH" not in plan.blocker
-            assert "FVG" not in plan.blocker and "imbalance" not in plan.blocker
+            assert "FVG" not in plan.blocker
+            # "imbalance" alone used to mean only the M5 trigger the plan
+            # cannot evaluate (it never scans M5). Owner decision D4 (spec
+            # 2026-08-16 §2.1) made the H1 imbalance a zone of interest the
+            # plan *does* evaluate via find_zone_of_interest, so a bare
+            # "no untouched H1 imbalance" is now legitimate. The guard keeps
+            # protecting the real rule (spec 2026-08-06 §6: never promise an
+            # M5 stage) by requiring every "imbalance" to be the H1-qualified
+            # phrase — a bare or "M5 imbalance" occurrence still fails.
+            assert re.search(r"(?<!H1 )imbalance", plan.blocker) is None
 
     def test_market_closed_has_no_structural_blocker(self):
         h4, h1, m5 = _uptrend_data(3160.0)
