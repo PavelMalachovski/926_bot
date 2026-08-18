@@ -22,10 +22,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.services.smc import sniper
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
-from app.services.smc.range import detect_range
-from app.services.smc.structure import detect_trend
+from app.services.smc.range import boundary_zone, detect_range
+from app.services.smc.structure import detect_trend, find_choch, zone_touch_span
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
     H4_UPTREND_CLOSES,
@@ -69,6 +70,25 @@ _M5_AT_TOP_SPEC = [
     (3197.5, 3198.0, 3193.0, 3193.5),
     (3193.5, 3194.0, 3188.0, 3188.5),
     (3188.5, 3189.0, 3182.0, 3182.5),
+]
+
+# Two visits, each starting and ending mid-box so they chain either way
+# round: one dips into the bottom band, the other reaches the top band.
+_M5_BOTTOM_VISIT_SPEC = [
+    (3190.0, 3191.0, 3188.0, 3188.5),
+    (3188.5, 3189.0, 3184.0, 3184.5),
+    (3184.5, 3185.0, 3180.5, 3181.0),
+    (3181.0, 3183.0, 3180.0, 3182.5),
+    (3182.5, 3186.0, 3182.0, 3185.5),
+    (3185.5, 3190.0, 3185.0, 3189.5),
+]
+_M5_TOP_VISIT_SPEC = [
+    (3190.0, 3193.0, 3189.5, 3192.5),
+    (3192.5, 3196.0, 3192.0, 3195.5),
+    (3195.5, 3199.5, 3195.0, 3199.0),
+    (3199.0, 3200.4, 3198.5, 3199.2),
+    (3199.2, 3199.5, 3196.0, 3196.5),
+    (3196.5, 3197.0, 3189.5, 3190.0),
 ]
 
 # Price drifting in the middle of the box, never reaching either band.
@@ -165,6 +185,14 @@ def m5_mid_range():
     return _candles(_M5_MID_RANGE_SPEC)
 
 
+def m5_bottom_then_top():
+    return _candles(_M5_BOTTOM_VISIT_SPEC + _M5_TOP_VISIT_SPEC)
+
+
+def m5_top_then_bottom():
+    return _candles(_M5_TOP_VISIT_SPEC + _M5_BOTTOM_VISIT_SPEC)
+
+
 def _fresh_result() -> AnalysisResult:
     return AnalysisResult(
         symbol="ETHUSD",
@@ -179,6 +207,18 @@ def _engine(**kwargs) -> TripleSyncEngine:
     )
     defaults.update(kwargs)
     return TripleSyncEngine(**defaults)
+
+
+def _sweep_label_at_top(h1, m5):
+    """`sniper.sweep_label` on the very excursion the engine measures — the
+    top boundary's touch→CHoCH window, with the engine's own arguments."""
+    band = boundary_zone(detect_range(h1, TOLERANCE), Direction.SHORT, TOLERANCE)
+    touch = zone_touch_span(m5, band)[0]
+    choch = find_choch(m5, Direction.SHORT, touch)
+    return sniper.sweep_label(
+        m5, h1, Direction.SHORT, touch, choch, TOLERANCE,
+        _fresh_result().checked_at,
+    )
 
 
 def _run(h1=None, m5=None, h4=None) -> AnalysisResult:
@@ -232,6 +272,18 @@ class TestRangeDirection:
         assert result.verdict == Verdict.WATCH
         assert result.direction_source == "range"
         assert result.setup is None
+
+    def test_the_boundary_worked_most_recently_wins(self):
+        """Both edges visited: the later excursion is the live one. The two
+        runs are the same two blocks in either order, so nothing but their
+        recency can decide it."""
+        after_bottom = _run(m5=m5_bottom_then_top())
+        assert after_bottom.direction_source == "range"
+        assert after_bottom.h1_zone.is_demand is False  # the top boundary
+
+        after_top = _run(m5=m5_top_then_bottom())
+        assert after_top.direction_source == "range"
+        assert after_top.h1_zone.is_demand is True  # the bottom boundary
 
     def test_mid_range_is_a_watch_with_no_direction(self):
         result = _run(m5=m5_mid_range())
@@ -332,7 +384,8 @@ class TestRangeGeometry:
 
 
 class TestRangeStarTier:
-    """D9: a boundary pierced by a wick and reclaimed is liquidity taken."""
+    """D9: a boundary pierced by a wick and reclaimed is liquidity taken.
+    D13: only when the piercing happened in the setup's own excursion."""
 
     def test_an_untouched_boundary_misses_the_sweep(self):
         setup = _run().setup
@@ -341,18 +394,28 @@ class TestRangeStarTier:
 
     def test_a_shallow_sweep_is_named_by_the_liquidity_pool(self):
         # Pierced by 0.7 — less than the tolerance, so the boundary's EQH
-        # pool survives `_is_swept` and `sniper.sweep_label` names it.
-        result = _run(
-            h1=h1_ranging_swept(3201.5), m5=m5_at_top_pierced(3201.5)
-        )
-        assert result.setup.tier_star is True
+        # pool survives `find_liquidity._is_swept` and `sweep_label` names it
+        # without the range flag being consulted at all.
+        h1, m5 = h1_ranging_swept(3201.5), m5_at_top_pierced(3201.5)
+        assert _sweep_label_at_top(h1, m5) == "EQH(2)"
+        assert _run(h1=h1, m5=m5).setup.tier_star is True
 
     def test_a_deep_sweep_still_earns_the_star(self):
         # Pierced by 3.2 — more than the tolerance, so `find_liquidity` drops
-        # the pool and `sweep_label` returns None. The range's own D9 flag is
-        # what earns the star here.
-        result = _run(
-            h1=h1_ranging_swept(3204.0), m5=m5_at_top_pierced(3204.0)
-        )
-        assert result.setup.tier_star is True
-        assert result.setup.tier_missed == []
+        # the pool and `sweep_label` has nothing left to name. The boundary
+        # sweep measured on the excursion itself is what earns the star here.
+        h1, m5 = h1_ranging_swept(3204.0), m5_at_top_pierced(3204.0)
+        assert _sweep_label_at_top(h1, m5) is None
+        setup = _run(h1=h1, m5=m5).setup
+        assert setup.tier_star is True
+        assert setup.tier_missed == []
+
+    def test_a_sweep_outside_this_excursion_does_not_earn_the_star(self):
+        """D13: the H1 box remembers a raid on the top from earlier in the
+        window, but this setup's own touch→CHoCH excursion took nothing —
+        `Range.swept_top` alone must not star it."""
+        h1, m5 = h1_ranging_swept(3204.0), m5_at_top()
+        assert detect_range(h1, TOLERANCE).swept_top is True
+        setup = _run(h1=h1, m5=m5).setup
+        assert setup.tier_star is False
+        assert setup.tier_missed == ["sweep"]

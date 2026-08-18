@@ -37,7 +37,12 @@ class Range:
     broken: bool
     top_at: datetime      # timestamp of the most recent pivot in the top cluster
     bottom_at: datetime   # same for the bottom cluster
-    swept_top: bool       # a wick closed back inside after piercing the top (D9)
+    # A wick closed back inside after piercing the boundary (D9), measured
+    # over EVERY candle since that boundary's own latest pivot. It says the
+    # level has been raided at some point, not that any particular setup did
+    # the raiding — the ⭐ asks the same question of the setup's own
+    # excursion instead (D13, see `boundary_swept`).
+    swept_top: bool
     swept_bottom: bool
     # Timestamp of the first candle after BOTH boundaries' latest pivot — the
     # moment the box was fully printed, and the same anchor `broken` scans
@@ -91,8 +96,10 @@ def detect_range(
     # latest pivot.
     after = max(top_latest.index, bottom_latest.index)
     broken = _is_broken(windowed[after + 1:], top, bottom)
-    swept_top = _swept(windowed[top_latest.index + 1:], top, above=True)
-    swept_bottom = _swept(windowed[bottom_latest.index + 1:], bottom, above=False)
+    swept_top = boundary_swept(windowed[top_latest.index + 1:], top, above=True)
+    swept_bottom = boundary_swept(
+        windowed[bottom_latest.index + 1:], bottom, above=False
+    )
 
     return Range(
         top=top,
@@ -207,9 +214,17 @@ def _is_broken(candles: List[Candle], top: float, bottom: float) -> bool:
     return False
 
 
-def _swept(candles: List[Candle], level: float, above: bool) -> bool:
+def boundary_swept(candles: List[Candle], level: float, above: bool) -> bool:
     """D9: a wick pierced the level but the body closed back inside it —
-    liquidity taken, not a breakout."""
+    liquidity taken, not a breakout.
+
+    Public because the same predicate is asked at two scopes, and one
+    definition of "swept" is the point: `detect_range` asks it of every
+    candle since the boundary's own latest pivot (that is what `Range.
+    swept_top`/`swept_bottom` report), while the engine asks it of the
+    touch→CHoCH excursion the setup actually formed in (D13, owner decision
+    2026-08-18) before granting the ⭐.
+    """
     for c in candles:
         if above:
             if c.high > level and c.body_high <= level:

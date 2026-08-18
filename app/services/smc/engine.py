@@ -27,7 +27,12 @@ from app.services.smc.profiles import (
     StrategyProfile,
     effective_min_fvg,
 )
-from app.services.smc.range import Range, boundary_zone, detect_range
+from app.services.smc.range import (
+    Range,
+    boundary_swept,
+    boundary_zone,
+    detect_range,
+)
 from app.services.smc.sessions import active_session
 from app.services.smc import sniper
 from app.services.smc.structure import (
@@ -438,12 +443,21 @@ class TripleSyncEngine:
             # the boundary's EQH/EQL pool survives `find_liquidity`'s own
             # sweep filter — a pierce deeper than the tolerance deletes the
             # pool, so the label goes blank exactly when the sweep was most
-            # convincing. The range measured the pierce itself; use its flag.
+            # convincing.
+            #
+            # D13 (owner decision 2026-08-18): ask it of THIS setup's
+            # excursion — the same touch→CHoCH window `sweep_extreme` is
+            # anchored on, and the scope every other sweep check in the bot
+            # uses. `Range.swept_*` spans everything since the boundary's
+            # last pivot, so reading it here would hand the star to a setup
+            # whose own excursion took nothing, and a boundary that was ever
+            # raided would star every touch afterwards.
             box = result.market_range
-            swept = (
-                box.swept_bottom if direction == Direction.LONG
-                else box.swept_top
-            )
+            excursion = m5[touch:choch + 1]
+            if direction == Direction.LONG:
+                swept = boundary_swept(excursion, box.bottom, above=False)
+            else:
+                swept = boundary_swept(excursion, box.top, above=True)
             if swept:
                 sweep = "RangeL" if direction == Direction.LONG else "RangeH"
         pd = sniper.pd_state(direction, entry, sniper.dealing_range(h1))
@@ -621,9 +635,11 @@ class TripleSyncEngine:
         every zone, so it is asked here in Rule 3's own words —
         `zone_touch_span` — and the excursion it finds is the very one the
         CHoCH, the FVG and the stop are then measured in. When price has
-        visited both edges, the later excursion is the live one; a single
-        candle reaching both (a spike across the whole box) is broken toward
-        the top — arbitrary, but deterministic.
+        visited both edges, the edge whose latest excursion STARTED later
+        wins — so a candle that reaches an edge while the other edge's run is
+        already under way opens the newer run and takes it. Two runs opening
+        on the very same candle (a spike across the whole box) go to the top:
+        arbitrary, but deterministic.
 
         The spec phrased this as "the latest closed M5 candle has reached the
         band". Taken literally it can barely ever coexist with a finished
