@@ -11,12 +11,13 @@ one is found. There is no web server, no Redis, no Postgres — one worker
 
 The **strategy specification is law**: rules −1 through 11 (H4 trend — or H1
 when H4 reads FLAT and H1 has a clean trend, owner decision 2026-08-06 → H1
-zone → M5 CHoCH + FVG → SL behind the swept extreme → TP at the nearest
-unswept liquidity level → session windows → news blackouts → correlation
-limits) come from the owner's written trading system. Never relax or
-"improve" a strategy rule without the owner's explicit decision —
-implementation over-strictness may be fixed, the rules themselves may not.
-"Almost valid" does not exist in this system.
+zone of interest, an order block or, when none qualifies, an untouched H1
+imbalance (owner decision D4) → M5 CHoCH + FVG → SL behind the swept extreme
+→ TP at the nearest unswept liquidity level → session windows → news
+blackouts → correlation limits) come from the owner's written trading
+system. Never relax or "improve" a strategy rule without the owner's
+explicit decision — implementation over-strictness may be fixed, the rules
+themselves may not. "Almost valid" does not exist in this system.
 
 The bot is a **detector, not a prescriber** (owner decision 2026-08-06,
 "detector mode"): once a setup fully forms, the alert always fires.
@@ -66,11 +67,18 @@ app/services/smc/
 │                         H4 trend HH+HL/LH+LL with fakeout-reclaim, H1 zones
 │                         (untested only) + zone_ladder (untested zones on the
 │                         trade's own side, further out — deeper entries; the
-│                         live zone excluded), M5 CHoCH, sweep_extreme (Rule 6
-│                         stop reference), find_order_block (the M5 order
-│                         block, a deeper second entry, searched only inside
-│                         the zone-touch→FVG window and kept only when it is
-│                         deeper than the entry and inside the stop)
+│                         live zone excluded), find_h1_fvg_zone (the most
+│                         recent untouched H1 imbalance on the trade's side,
+│                         as a Zone), find_zone_of_interest (the order block
+│                         if one qualifies, else the untouched imbalance —
+│                         owner decision D4; feeds Rule 2 and the plan), M5
+│                         CHoCH, sweep_extreme (Rule 6 stop reference),
+│                         find_order_block (the M5 order block, a deeper
+│                         second entry, searched only inside the zone-
+│                         touch→FVG window and kept only when it is deeper
+│                         than the entry and inside the stop), m5_marks (the
+│                         M5 order block + imbalance inside a touched zone,
+│                         label-only, for the 🔔 alert's 🔎 line)
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
 │                         nearest_liquidity (Rule 7 take-profit target) and
 │                         liquidity_ladder (five rungs shown in the alert)
@@ -79,7 +87,9 @@ app/services/smc/
 │                         (named pool taken by the touch→CHoCH excursion),
 │                         pd_state (premium/discount vs. the H1 dealing
 │                         range), classify (the ⭐ verdict, checked after a
-│                         setup already fully formed — detector mode unchanged)
+│                         setup already fully formed — detector mode
+│                         unchanged — and denied when H4/H1 trend disagree,
+│                         owner decision D6)
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
 ├── sessions.py           trading hours 08:00-18:30 Prague, two blocks split
@@ -180,12 +190,15 @@ tracking → live-card edits on fill/TP/SL events.
   plan-zone alerts, or Rule 0.4/9 warnings.
 - **Sniper tier** (`sniper.py`, Phase 2 redesign): a completed setup earns
   ⭐ when room >= 1.0R on H1/H4 liquidity (or unmeasurable), a pool was
-  swept, premium/discount is ok (or unmeasurable), and the entry isn't
-  stale beyond `SMC_MAX_ENTRY_GAP_R` (0.75R) — two alert tiers, both still
-  sent (detector mode). Every fill uses the hybrid exit regardless of tier:
-  TP1 at `SMC_TP1_R` (2R) closes half and moves SL to break-even, the
-  runner rides to `SMC_RUNNER_R` (3R) — journal statuses `tp1_be`
-  (BE stop after TP1) and `tp1_runner` (runner target hit) track it.
+  swept, premium/discount is ok (or unmeasurable), the entry isn't stale
+  beyond `SMC_MAX_ENTRY_GAP_R` (0.75R), and H4/H1 trend do not point
+  opposite ways (owner decision D6, 2026-08-18) — two alert tiers, both
+  still sent (detector mode): a disagreeing setup fires without the star,
+  and the alert header labels the disagreement (`⚠️ counter-hourly`).
+  Every fill uses the hybrid exit regardless of tier: TP1 at `SMC_TP1_R`
+  (2R) closes half and moves SL to break-even, the runner rides to
+  `SMC_RUNNER_R` (3R) — journal statuses `tp1_be` (BE stop after TP1) and
+  `tp1_runner` (runner target hit) track it.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.
@@ -194,6 +207,20 @@ tracking → live-card edits on fill/TP/SL events.
   pool behind a swing extreme. Rule 7 aims at liquidity; Rule 2 enters at a
   zone. Sweep detection is wick-based with a tolerance of the raw per-
   instrument `min_fvg` — never the profile-scaled value.
+- **The H1 zone of interest can be an order block or an imbalance**
+  (`Zone.kind`, `"OB"`/`"FVG"`). `find_zone_of_interest` prefers the order
+  block and falls back to the untouched imbalance only when none qualifies
+  (owner decision D4): an order block is the footprint of a filled order —
+  price already reacted there — while an imbalance is only a gap nobody
+  has traded back into, a weaker claim. Freshness for that fallback is
+  owner decision D10: the imbalance must have zero penetration
+  (`find_h1_fvg_zone`), the exact mirror of an untested order block and
+  deliberately stricter than Rule 4's `fill < 50%` for the M5 entry
+  imbalance — H1 is a zone the bot is still *waiting* for, M5 is a zone
+  it is *entering*. `m5_marks` (the M5 order block + imbalance inside a
+  touched zone, shown on the 🔔 alert's `🔎` line) is label-only: no
+  verdict, no suppression, no message of its own, and Rule 4's session/
+  fill checks deliberately do not apply to it.
 - **Plan-centric zone alert** (spec 2026-08-11 §5, dedup rewritten by owner
   decision 2026-08-16): fires when price touches a zone named by the pair's
   *current* plan (`planbook.scenario_for_touch`), carrying that scenario's
