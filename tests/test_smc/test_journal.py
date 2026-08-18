@@ -453,3 +453,58 @@ class TestZoneKindLegacyRowSafety:
         journal.save()
         text = journal.stats_text(days=36500)
         assert "🎯 TP 1" in text
+
+
+class TestRangeSignalsAreNotHybrid:
+    """D14 (owner decision 2026-08-18): a range setup has no hybrid exit —
+    one target, the opposite boundary, full size. The engine stops writing
+    tp1/runner_tp for those, and `evaluate_signal` must track them on
+    `take_profit` like any other non-hybrid signal.
+    """
+
+    def test_a_recorded_range_setup_carries_no_hybrid_levels(self, tmp_path):
+        journal = SignalJournal(Database(str(tmp_path / "j.db")))
+        result = _approved_result_with_setup(tp1=None, runner_tp=None)
+        result.h1_zone = Zone(
+            bottom=95.0, top=99.0, is_demand=True, pivot_index=0,
+            timestamp=datetime.now(tz=timezone.utc), kind="RANGE",
+        )
+        signal = journal.record(result)
+        assert signal["tp1"] is None and signal["runner_tp"] is None
+        assert signal["zone_kind"] == "RANGE"
+
+    def test_it_resolves_on_take_profit_not_on_tp1(self):
+        """The plain path: price reaches `take_profit` (the opposite
+        boundary) and the signal closes as a full "tp"."""
+        signal = _hybrid_signal(status="open", tp1=None, runner_tp=None)
+        signal["take_profit"] = 140.0
+        signal["zone_kind"] = "RANGE"
+        result = evaluate_signal(
+            signal, [_c(1, 100, 141, 99, 140)], datetime.now(tz=timezone.utc)
+        )
+        assert result["status"] == "tp"
+
+    def test_a_row_already_stored_with_hybrid_levels_takes_the_plain_path(self):
+        """Rows written before D14 still carry the tp1/runner_tp the engine
+        used to compute. `zone_kind` is what disqualifies them: tracking a
+        range signal on TP1 would chase a price outside the box it aims at
+        (here TP1 120.0 with the opposite boundary at 110.0)."""
+        signal = _hybrid_signal(status="open", tp1=120.0, runner_tp=130.0)
+        signal["take_profit"] = 110.0
+        signal["zone_kind"] = "RANGE"
+        result = evaluate_signal(
+            signal, [_c(1, 100, 111, 99, 110)], datetime.now(tz=timezone.utc)
+        )
+        assert result["status"] == "tp"  # not "open_runner"
+        assert result.get("tp1_at") is None
+
+    def test_a_trend_row_with_the_same_levels_still_goes_hybrid(self):
+        """The control: only zone_kind == "RANGE" leaves the hybrid path."""
+        signal = _hybrid_signal(status="open", tp1=120.0, runner_tp=130.0)
+        signal["take_profit"] = 110.0
+        signal["zone_kind"] = "OB"
+        result = evaluate_signal(
+            signal, [_c(1, 100, 121, 99, 120)], CREATED + timedelta(minutes=30)
+        )
+        assert result["status"] == "open_runner"
+        assert result["tp1_at"] is not None

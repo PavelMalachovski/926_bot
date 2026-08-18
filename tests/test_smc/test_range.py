@@ -133,6 +133,19 @@ class TestDetectRange:
         rng = _range(broken)
         assert rng is not None and rng.broken is True
 
+    def test_a_body_close_above_the_top_that_is_reclaimed_does_not_break_it(self):
+        """D15 (owner decision 2026-08-18): a break counts only while it
+        still holds. Two candles close above the top (126.0, 128.0) and the
+        next two close back inside the box — a raid, not a breakout, so the
+        range survives it exactly as `structure._break_still_holds` spares
+        a reclaimed H4 fakeout."""
+        rng = _range(RANGING + [126.0, 128.0, 114.0, 110.0])
+        assert rng is not None and rng.broken is False
+
+    def test_a_body_close_below_the_bottom_that_is_reclaimed_does_not_break_it(self):
+        rng = _range(RANGING + [96.0, 92.0, 104.0, 108.0])
+        assert rng is not None and rng.broken is False
+
     def test_clean_boundaries_are_not_swept(self):
         """No candle ever pierced either edge on the base fixture — the
         control that makes the sweep assertions below meaningful."""

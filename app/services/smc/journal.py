@@ -98,8 +98,15 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
     engages when `signal.get("tp1")` is truthy — a legacy row or a signal
     with no hybrid TP levels keeps the plain pending/open/tp/sl/expired/
     timeout lifecycle byte-for-byte.
+
+    A RANGE signal never takes it (D14, owner decision 2026-08-18): its one
+    target is the opposite boundary, taken full size. The engine stops
+    writing `tp1` for those, and the `zone_kind` test below covers rows
+    already stored with the levels the engine used to compute — tracking
+    them on `tp1`/`runner_tp` would chase prices outside the very box the
+    setup was aiming at, and ignore the `take_profit` that is the trade.
     """
-    hybrid = bool(signal.get("tp1"))
+    hybrid = bool(signal.get("tp1")) and signal.get("zone_kind") != "RANGE"
     active_statuses = (
         ("pending", "open", "open_runner") if hybrid else ("pending", "open")
     )

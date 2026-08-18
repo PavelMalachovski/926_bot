@@ -174,7 +174,12 @@ def _largest_cluster(
 
     The right edge advances one pivot at a time; the left edge is pulled
     forward whenever the window's span exceeds `tolerance`. Both edges
-    only ever move forward, so this is a single O(n) pass — but critically
+    only ever move forward, so each pivot is visited a bounded number of
+    times by the pointers themselves; scoring a window still rescans it
+    for the recency tie-break, so the pass is O(n·w) in the widest window
+    (O(n²) when every pivot sits within `tolerance` of every other) —
+    fine at `window=120` H1 candles, and not worth a monotonic deque.
+    What matters is not the constant but that
     every pivot gets tried as a potential window *start*, not just as a
     window member decided once by whatever came before it. A fixed anchor
     (grouping everything against the first pivot pulled into a cluster)
@@ -203,15 +208,24 @@ def _largest_cluster(
 
 
 def _is_broken(candles: List[Candle], top: float, bottom: float) -> bool:
-    """True if any candle's BODY closed beyond either boundary — the same
-    idiom `structure._break_still_holds` and `_mark_zone_state` use for a
-    genuine structural break, applied to both edges of the box."""
+    """True if a BODY closed beyond either boundary and the break STILL
+    HOLDS at the end of the window (D15, owner decision 2026-08-18).
+
+    Exactly `structure._break_still_holds`, applied to both edges of the box
+    at once: a close beyond an edge arms the break, a close back inside
+    disarms it. A pierce that is reclaimed is liquidity taken, not a
+    breakout (D9) — the box survives it and `swept_top`/`swept_bottom`
+    record it instead.
+    """
+    broken = False
     for c in candles:
         if c.close > top and c.body_high > top:
-            return True
-        if c.close < bottom and c.body_low < bottom:
-            return True
-    return False
+            broken = True
+        elif c.close < bottom and c.body_low < bottom:
+            broken = True
+        elif broken and bottom < c.close < top:
+            broken = False  # the box was reclaimed
+    return broken
 
 
 def boundary_swept(candles: List[Candle], level: float, above: bool) -> bool:

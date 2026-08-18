@@ -83,6 +83,41 @@ def _zone_kind_label(zone: Zone) -> str:
     return f"H1 {'Demand' if zone.is_demand else 'Supply'} zone"
 
 
+def _zone_broken(candles: List[Candle], zone: Zone) -> bool:
+    """Rule 3's invalidation test: has a body closed through the far edge?
+
+    For an OB or an FVG zone this is the historical, one-way answer — the
+    first body close beyond the far edge kills the zone permanently, and
+    that memory is load-bearing (review 2026-08-11: a stop-hunt through a
+    demand zone alerted on re-entry).
+
+    A RANGE boundary is read reclaim-aware instead (D15, owner decision
+    2026-08-18): a close beyond the boundary invalidates it only while the
+    break STILL HOLDS at the end of the excursion. The pierce D9 blesses —
+    price runs the stops above the range high and snaps back inside — is
+    usually an M5 body close, so the one-way test killed exactly the
+    stop-hunt the owner wants to trade. This mirrors
+    `structure._break_still_holds`, which already spares the H4 trend from
+    a reclaimed fakeout, and it is deliberately limited to RANGE zones.
+    """
+    reclaim_aware = zone.kind == "RANGE"
+    broken = False
+    for c in candles:
+        if zone.is_demand:
+            if c.close < zone.bottom and c.body_low < zone.bottom:
+                broken = True
+            elif broken and c.close > zone.bottom:
+                broken = False  # boundary reclaimed
+        else:
+            if c.close > zone.top and c.body_high > zone.top:
+                broken = True
+            elif broken and c.close < zone.top:
+                broken = False
+        if broken and not reclaim_aware:
+            return True
+    return broken
+
+
 def _is_deeper_than(zone, direction: Direction, entry: float) -> bool:
     """True if `zone` sits further out than `entry` on the trade's own
     side — the same "further out" convention `zone_ladder` uses (`beyond`
@@ -314,16 +349,22 @@ class TripleSyncEngine:
         if span is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                f"Price has not reached the H1 {'Demand' if zone.is_demand else 'Supply'} "
-                f"zone ({zone.bottom:.2f}–{zone.top:.2f}) yet — pullback phase"
+                f"Price has not reached the {_zone_kind_label(zone)} "
+                f"({zone.bottom:.2f}–{zone.top:.2f}) yet — pullback phase"
             )
             result.watch_notes.append(
                 f"Set an alert at {zone.top if zone.is_demand else zone.bottom:.2f} — "
                 "on zone touch, check M5 for a CHoCH + FVG"
             )
+            far_edge = zone.bottom if zone.is_demand else zone.top
+            beyond = f"{'below' if zone.is_demand else 'above'} {far_edge:.2f}"
             result.watch_notes.append(
-                f"Invalidation: H1 body close "
-                f"{'below ' + format(zone.bottom, '.2f') if zone.is_demand else 'above ' + format(zone.top, '.2f')}"
+                # D15: a RANGE boundary survives a pierce that is reclaimed,
+                # so its invalidation is stated the way `_zone_broken` now
+                # measures it. OB/FVG wording is unchanged.
+                f"Invalidation: a close {beyond} that still holds"
+                if zone.kind == "RANGE"
+                else f"Invalidation: H1 body close {beyond}"
             )
             return result
         touch = span[0]
@@ -338,21 +379,14 @@ class TripleSyncEngine:
         scan_from = first_zone_touch(m5, zone)
         if scan_from is None:
             scan_from = touch
-        for c in m5[scan_from:]:
-            if zone.is_demand and c.close < zone.bottom and c.body_low < zone.bottom:
-                result.verdict = Verdict.SKIP
-                result.reasons.append(
-                    f"Price closed below the {_zone_kind_label(zone)} "
-                    f"({zone.bottom:.2f}) — invalidated"
-                )
-                return result
-            if not zone.is_demand and c.close > zone.top and c.body_high > zone.top:
-                result.verdict = Verdict.SKIP
-                result.reasons.append(
-                    f"Price closed above the {_zone_kind_label(zone)} "
-                    f"({zone.top:.2f}) — invalidated"
-                )
-                return result
+        if _zone_broken(m5[scan_from:], zone):
+            far_edge = zone.bottom if zone.is_demand else zone.top
+            result.verdict = Verdict.SKIP
+            result.reasons.append(
+                f"Price closed {'below' if zone.is_demand else 'above'} the "
+                f"{_zone_kind_label(zone)} ({far_edge:.2f}) — invalidated"
+            )
+            return result
 
         # Price is in a live (non-invalidated) zone — arm the zone-touch ping
         result.in_zone = True
@@ -362,7 +396,11 @@ class TripleSyncEngine:
         if choch is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                "Price is in the H1 zone, but M5 has not printed a CHoCH in the trend direction yet"
+                "Price is at the " + _zone_kind_label(zone) + ", but M5 has "
+                "not printed a CHoCH in the trade direction yet"
+                if zone.kind == "RANGE"
+                else "Price is in the H1 zone, but M5 has not printed a CHoCH "
+                     "in the trend direction yet"
             )
             result.watch_notes.append(
                 f"Wait for a {'bullish' if direction == Direction.LONG else 'bearish'} "
@@ -435,12 +473,23 @@ class TripleSyncEngine:
         # sweep, premium/discount, staleness; see sniper.py). Detector mode
         # unchanged: the tier only labels the setup, it never suppresses it.
         # `stale` above reuses the exact Rule 5.1 comparison, computed once.
-        if direction == Direction.LONG:
-            tp1 = entry + self.tp1_r * risk
-            runner_tp = entry + self.runner_r * risk
-        else:
-            tp1 = entry - self.tp1_r * risk
-            runner_tp = entry - self.runner_r * risk
+        #
+        # D14 (owner decision 2026-08-18): a RANGE setup has NO hybrid exit —
+        # one target, the opposite boundary, full size. Risk there is
+        # anchored beyond the boundary plus a buffer, so RR across the box is
+        # routinely under 2 and a 2R TP1 would land outside the very box the
+        # setup aims at. Leaving the levels None is also what makes
+        # `journal.evaluate_signal` track the signal on `take_profit` like
+        # any other non-hybrid setup, instead of chasing prices the range
+        # thesis says are unreachable.
+        tp1 = runner_tp = None
+        if boundary is None:
+            if direction == Direction.LONG:
+                tp1 = entry + self.tp1_r * risk
+                runner_tp = entry + self.runner_r * risk
+            else:
+                tp1 = entry - self.tp1_r * risk
+                runner_tp = entry - self.runner_r * risk
 
         # Same raw per-instrument tolerance the Rule 7 block below uses (a
         # property of the chart, not of the profile).
@@ -591,8 +640,8 @@ class TripleSyncEngine:
             order_block=order_block,
             ladder=ladder,
             zones_ahead=zones_ahead,
-            tp1=round(tp1, d),
-            runner_tp=round(runner_tp, d),
+            tp1=round(tp1, d) if tp1 is not None else None,
+            runner_tp=round(runner_tp, d) if runner_tp is not None else None,
             tier_star=tier.star,
             tier_missed=tier.missed,
         )

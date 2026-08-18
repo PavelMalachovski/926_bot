@@ -423,16 +423,176 @@ class TestRangeGeometry:
         assert setup.rr == round((setup.entry - setup.take_profit) / risk, 2)
         assert setup.rr == 1.45  # 12.8 reward over 8.8 risk
 
-    def test_the_hybrid_exit_is_still_computed_from_risk(self):
-        setup = _run().setup
-        risk = setup.stop_loss - setup.entry
-        assert setup.tp1 == round(setup.entry - 2.0 * risk, 2)
-        assert setup.runner_tp == round(setup.entry - 3.0 * risk, 2)
-
     def test_rule_7_does_not_claim_the_setup_has_no_objective(self):
         result = _run()
         assert "no unswept liquidity ahead" not in result.warnings
         assert result.setup.target is None  # the boundary is not a pool
+
+
+class TestNoHybridExitInRangeMode:
+    """D14 (owner decision 2026-08-18): one target, the opposite boundary,
+    full size. Risk is anchored beyond the boundary plus a buffer, so RR
+    across the box is routinely under 2 — a 2R TP1 would land outside the
+    very box the setup is aiming at (here: TP1 3176.40 and runner 3167.60
+    against a range low of 3179.20)."""
+
+    def test_a_range_setup_carries_no_hybrid_levels(self):
+        setup = _run().setup
+        assert setup.tp1 is None
+        assert setup.runner_tp is None
+
+    def test_the_one_target_is_still_there(self):
+        setup = _run().setup
+        assert setup.take_profit == 3181.20  # the opposite boundary − buffer
+        assert setup.rr == 1.45
+
+    def test_the_long_side_too(self):
+        setup = _run(m5=m5_at_bottom()).setup
+        assert (setup.tp1, setup.runner_tp) == (None, None)
+        assert setup.take_profit == 3198.80
+
+    def test_a_trend_setup_keeps_the_hybrid_exit_untouched(self):
+        """The other half of D14: only RANGE loses the hybrid. A plain
+        trend setup must still carry TP1 at 2R and the runner at 3R."""
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger(),
+            result=AnalysisResult(
+                symbol="ETHUSD",
+                verdict=Verdict.SKIP,
+                checked_at=datetime(2026, 7, 6, 15, 40, tzinfo=timezone.utc),
+            ),
+        )
+        setup = result.setup
+        assert result.direction_source != "range"
+        risk = setup.entry - setup.stop_loss
+        assert setup.tp1 == round(setup.entry + 2.0 * risk, 2)
+        assert setup.runner_tp == round(setup.entry + 3.0 * risk, 2)
+
+
+def m5_top_pierced_and_reclaimed():
+    """The reviewer's stop-hunt (D15): price runs the stops above the range
+    high over THREE candles — two of them closing beyond it — and then
+    snaps back inside, after which the setup forms as usual."""
+    spec = (
+        list(_M5_AT_TOP_SPEC[:8])
+        + [
+            (3199.0, 3202.5, 3198.8, 3202.0),  # body closes above 3200.8
+            (3202.0, 3203.5, 3201.0, 3203.0),  # still beyond, second candle
+            (3203.0, 3203.2, 3199.0, 3199.5),  # reclaimed — back inside
+        ]
+        + list(_M5_AT_TOP_SPEC[9:])
+    )
+    return _candles(spec)
+
+
+def m5_top_pierced_and_held():
+    """The same pierce with no reclaim: the break is still in force on the
+    last candle, so the boundary really is gone."""
+    spec = list(_M5_AT_TOP_SPEC[:8]) + [
+        (3199.0, 3202.5, 3198.8, 3202.0),
+        (3202.0, 3203.5, 3201.0, 3203.0),
+        (3203.0, 3206.0, 3202.5, 3205.5),
+    ]
+    return _candles(spec)
+
+
+class TestBoundaryPierceAndReclaim:
+    """D15 (owner decision 2026-08-18): a close beyond a range boundary
+    invalidates it only while the break STILL HOLDS at the end of the
+    excursion. Before this, the pierce D9 blesses (usually an M5 body
+    close) returned `SKIP … invalidated` while the plan message was
+    simultaneously advertising the boundary as already swept."""
+
+    def test_the_reclaimed_pierce_is_tradeable_rather_than_a_skip(self):
+        result = _run(m5=m5_top_pierced_and_reclaimed())
+        assert result.verdict == Verdict.APPROVED_LIMIT
+        assert result.direction_source == "range"
+        assert "invalidated" not in " ".join(result.reasons)
+        # Rule 6 still anchors the stop beyond the raid: `sweep_extreme`
+        # measures the excursion `zone_touch_span` returns (the reclaim
+        # candle's run back into the band, high 3203.2), one buffer out —
+        # above every candle of the raid either way.
+        assert result.setup.stop_loss == 3205.20
+        assert result.setup.stop_loss > max(
+            c.high for c in m5_top_pierced_and_reclaimed()[8:11]
+        )
+        assert result.setup.take_profit == 3181.20
+
+    def test_a_break_that_still_holds_invalidates(self):
+        result = _run(m5=m5_top_pierced_and_held())
+        assert result.verdict == Verdict.SKIP
+        assert "invalidated" in " ".join(result.reasons)
+        assert "range HIGH boundary" in " ".join(result.reasons)
+
+    def test_an_ordinary_zone_is_not_made_reclaim_aware(self):
+        """The one-way memory on an OB/FVG zone is load-bearing (review
+        2026-08-11: a stop-hunt through a demand zone alerted on re-entry)
+        and D15 must not reach it. Same fixture as test_engine.py's
+        TestZoneInvalidationMemory: price closes below the demand zone and
+        then comes back — still a SKIP."""
+        from tests.test_smc.helpers import m5_long_trigger_reentry
+
+        result = _engine().evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_reentry(
+                invalidated=True, start=SESSION_BASE + timedelta(days=1)
+            ),
+            result=_fresh_result(),
+        )
+        assert result.verdict == Verdict.SKIP
+        assert "invalidated" in " ".join(result.reasons)
+
+
+class TestTheBoundaryIsNotOfferedAsADeeperEntry:
+    """The ladder lists untested zones further out as alternative entries.
+    A RANGE band is synthetic (a cluster mean ± tolerance) and never equals
+    a pivot-built order block's bounds, so exact-bounds exclusion let the
+    H1 block sitting ON the boundary come back as a "deeper entry" at the
+    level the setup had just entered from (review 2026-08-18)."""
+
+    def test_the_h1_block_on_the_boundary_is_excluded_by_overlap(self):
+        from app.services.smc.structure import zone_ladder
+
+        h1 = h1_ranging()
+        band = boundary_zone(
+            detect_range(h1, TOLERANCE), Direction.SHORT, TOLERANCE
+        )
+        # The defect, still reproducible with the boundary not excluded:
+        # an untested H1 block straddling the 3198.80–3200.80 band.
+        naked = zone_ladder(h1, Direction.SHORT, 3194.0)
+        assert any(
+            z.bottom <= band.top and band.bottom <= z.top for z in naked
+        )
+        rungs = zone_ladder(h1, Direction.SHORT, 3194.0, exclude=band)
+        assert not any(
+            z.bottom <= band.top and band.bottom <= z.top for z in rungs
+        )
+
+    def test_the_range_setup_offers_no_rung_over_its_own_boundary(self):
+        setup = _run().setup
+        box = _run().market_range
+        assert not any(
+            z.bottom <= box.top and box.top - TOLERANCE <= z.top
+            for z in setup.zones_ahead
+        )
+
+    def test_an_ordinary_setup_still_excludes_only_its_own_zone(self):
+        """Overlap exclusion is RANGE-only: an OB `exclude` keeps matching
+        by bounds, so a neighbouring zone that merely overlaps it stays on
+        the ladder."""
+        from app.services.smc.models import Zone
+        from app.services.smc.structure import zone_ladder
+
+        h1 = h1_ranging()
+        overlapping = Zone(
+            bottom=3196.0, top=3199.0, is_demand=False, pivot_index=-1,
+            timestamp=SESSION_BASE, kind="OB",
+        )
+        rungs = zone_ladder(h1, Direction.SHORT, 3194.0, exclude=overlapping)
+        assert [(z.bottom, z.top) for z in rungs] == [(3196.0, 3200.6)]
 
 
 class TestRangeStarTier:
