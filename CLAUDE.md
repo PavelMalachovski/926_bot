@@ -15,9 +15,18 @@ zone of interest, an order block or, when none qualifies, an untouched H1
 imbalance (owner decision D4) → M5 CHoCH + FVG → SL behind the swept extreme
 → TP at the nearest unswept liquidity level → session windows → news
 blackouts → correlation limits) come from the owner's written trading
-system. Never relax or "improve" a strategy rule without the owner's
-explicit decision — implementation over-strictness may be fixed, the rules
-themselves may not. "Almost valid" does not exist in this system.
+system. When **both** H4 and H1 read FLAT — the one state that used to end
+in "no direction" — a valid range (`range.detect_range`, clustered H1
+pivots) gives the bot two boundaries to trade between instead of standing
+down (owner decision D11, 2026-08-18): the boundary price worked most
+recently supplies the direction, standing in for Rule 2's H1 zone of
+interest; rules 3 through 5 run on that boundary unchanged, while the stop
+(Rule 6) and the target (Rule 7) come from the range itself instead (see
+the conventions section). The H1-trend fallback keeps precedence, so no
+signal the owner already gets is replaced by a range one. Never relax or
+"improve" a strategy rule without the owner's explicit decision —
+implementation over-strictness may be fixed, the rules themselves may not.
+"Almost valid" does not exist in this system.
 
 The bot is a **detector, not a prescriber** (owner decision 2026-08-06,
 "detector mode"): once a setup fully forms, the alert always fires.
@@ -79,6 +88,18 @@ app/services/smc/
 │                         than the entry and inside the stop), m5_marks (the
 │                         M5 order block + imbalance inside a touched zone,
 │                         label-only, for the 🔔 alert's 🔎 line)
+├── range.py              detect_range: clusters confirmed H1 pivots
+│                         (structure.find_pivots) into two boundaries,
+│                         each needing 2+ touches and the box at least
+│                         3x tolerance tall, or it's chop, not a range;
+│                         broken on an H1 body close beyond a boundary —
+│                         a pierce that closes back inside does not break
+│                         it (D9/D15), it is a sweep (boundary_swept,
+│                         D16); boundary_zone exposes a boundary as a
+│                         Zone(kind="RANGE") for the existing pipeline;
+│                         boundary_excursion_start heals the excursion a
+│                         raid splits, so Rule 6's stop clears the whole
+│                         raid
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
 │                         nearest_liquidity (Rule 7 take-profit target) and
 │                         liquidity_ladder (five rungs shown in the alert)
@@ -195,10 +216,14 @@ tracking → live-card edits on fill/TP/SL events.
   opposite ways (owner decision D6, 2026-08-16) — two alert tiers, both
   still sent (detector mode): a disagreeing setup fires without the star,
   and the alert header labels the disagreement (`⚠️ counter-hourly`).
-  Every fill uses the hybrid exit regardless of tier: TP1 at `SMC_TP1_R`
-  (2R) closes half and moves SL to break-even, the runner rides to
-  `SMC_RUNNER_R` (3R) — journal statuses `tp1_be` (BE stop after TP1) and
-  `tp1_runner` (runner target hit) track it.
+  Every **trend** fill uses the hybrid exit regardless of tier: TP1 at
+  `SMC_TP1_R` (2R) closes half and moves SL to break-even, the runner rides
+  to `SMC_RUNNER_R` (3R) — journal statuses `tp1_be` (BE stop after TP1)
+  and `tp1_runner` (runner target hit) track it. A **range** setup has no
+  hybrid exit at all (owner decision D14, 2026-08-18): it carries no
+  `tp1`/`runner_tp`, and `journal.evaluate_signal` tracks it on
+  `take_profit` like any non-hybrid signal — a row stored before D14 is
+  disqualified by its `zone_kind == "RANGE"`.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.
@@ -228,6 +253,42 @@ tracking → live-card edits on fill/TP/SL events.
   but it does take the **earliest** qualifying gap of the excursion, which
   is `select_valid_fvg`'s rule, so the 🔎 line and the 🚨 alert's ⚡ line
   name one imbalance rather than two.
+- **A range boundary is a `Zone` with `Zone.kind == "RANGE"`**
+  (`range.boundary_zone`): expressing it that way is what lets the existing
+  Rule 3/4/6 pipeline — `zone_touch_span`, `find_choch`, `select_valid_fvg`,
+  `find_order_block`, `sweep_extreme` — run on a range boundary unchanged;
+  only the stop and the target differ. The stop sits beyond the boundary
+  itself (or the swept extreme, whichever is further out) plus `sl_buffer`;
+  the target is the **opposite boundary**, one `sl_buffer` short of it, not
+  Rule 7's nearest unswept liquidity — taken full size, with no hybrid exit
+  (D14). Messages name a boundary a boundary: never "H1 Supply/Demand
+  zone", and the range alert carries the box, the target and its RR on both
+  tiers. `range.boundary_swept` (D9/D16, owner decision 2026-08-18) counts
+  any pierce of a boundary that price came back inside from as liquidity
+  taken — the pierce may close beyond the boundary or merely wick through
+  it, because D15 made the body-close raid tradeable and that raid is the
+  one the owner calls a sweep. The stop follows the same reading: a
+  boundary band is one tolerance thick, so a raid printing a candle wholly
+  outside it splits the excursion `zone_touch_span` measures;
+  `range.boundary_excursion_start` walks that split back so Rule 6 anchors
+  beyond **every** candle of the raid, and it is used for RANGE zones only
+  (the OB/FVG paths and `m5_marks` keep `zone_touch_span` untouched).
+  A body close beyond a boundary breaks it only while the break **still
+  holds** (D15, owner decision 2026-08-18) — both for `Range.broken` on H1
+  and for Rule 3's invalidation of a RANGE zone on M5 (`engine._zone_broken`,
+  mirroring `structure._break_still_holds`); pierce-and-reclaim is the
+  stop-hunt the owner trades, not a breakout. OB and FVG zones keep the
+  one-way invalidation memory, which is load-bearing. The ⭐ verdict asks
+  the same sweep question at a
+  tighter scope (D13, owner decision 2026-08-18): only a sweep inside the
+  setup's own touch→CHoCH excursion earns it, the same excursion
+  `sweep_extreme` is anchored on, so a boundary raided once, long before
+  this setup formed, does not star every touch afterward. D11 (owner
+  decision 2026-08-18) puts the range behind the existing H1-trend
+  fallback in Rule 1's precedence — it only trades when **both** H4 and H1
+  read FLAT, so no signal the owner already gets is replaced. D12: when a
+  range is in play, its two boundary scenarios **replace** the plan's
+  speculative both-way breakout brackets rather than joining them.
 - **An excursion into a zone begins after the zone exists**
   (`zone_touch_span`): a candle joins the span only when its timestamp is
   at/after `zone.timestamp` AND it trades *strictly* inside the band —

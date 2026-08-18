@@ -295,10 +295,20 @@ def zone_ladder(
     all of them instead of stopping at the first match. `exclude` is the
     zone the setup itself formed in — it sits on this side by construction,
     so without it the live entry zone would always be the first rung.
+
+    Excluding by bounds is exact for an OB or an FVG, whose bounds are read
+    off real candles the ladder rebuilds identically. A RANGE boundary is a
+    synthetic band around a cluster mean (range.boundary_zone) and never
+    equals any pivot-built block, so the order block sitting ON the boundary
+    would be offered back as a "deeper entry" at the level the setup already
+    entered from. For a RANGE `exclude` the test is therefore OVERLAP: any
+    zone intersecting the band is the boundary the setup is trading, not an
+    alternative to it (review 2026-08-18).
     """
     want_high = direction == Direction.SHORT
     out: List[Zone] = []
     seen = set()
+    exclude_by_overlap = exclude is not None and exclude.kind == "RANGE"
     if exclude is not None:
         seen.add((round(exclude.bottom, 8), round(exclude.top, 8)))
     for pivot in (p for p in find_pivots(candles) if p.is_high == want_high):
@@ -306,6 +316,10 @@ def zone_ladder(
         if zone.invalidated or zone.tested:
             continue
         if exclude is not None and zone.pivot_index == exclude.pivot_index:
+            continue
+        if exclude_by_overlap and (
+            zone.bottom <= exclude.top and exclude.bottom <= zone.top
+        ):
             continue
         if (zone.bottom > beyond) if want_high else (zone.top < beyond):
             key = (round(zone.bottom, 8), round(zone.top, 8))

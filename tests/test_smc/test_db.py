@@ -69,6 +69,58 @@ class TestHybridLifecycleColumns:
         assert rows[0]["tp1_at"] is None
 
 
+class TestZoneKindColumn:
+    """Range trading (Task 5): the journal records which kind of H1 zone a
+    setup came from — "OB", "FVG" or "RANGE" — via `signals.zone_kind`, on
+    both a fresh schema and a DB file created before the column did."""
+
+    def test_fresh_schema_has_zone_kind_column(self, tmp_path):
+        from app.services.smc.db import SIGNAL_COLUMNS
+
+        assert "zone_kind" in SIGNAL_COLUMNS
+        db = Database(str(tmp_path / "fresh.db"))
+        cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(signals)")}
+        assert "zone_kind" in cols
+
+    def test_old_schema_db_file_migrates_in_place_and_keeps_rows(self, tmp_path):
+        """A DB file built on the schema as it existed before this task (no
+        zone_kind column) must gain it in place — without losing the row
+        that was already there."""
+        path = str(tmp_path / "old.db")
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """CREATE TABLE signals (
+                id TEXT PRIMARY KEY, pair TEXT NOT NULL, direction TEXT NOT NULL,
+                entry REAL NOT NULL, stop_loss REAL NOT NULL,
+                take_profit REAL, rr REAL NOT NULL, session TEXT,
+                created_at TEXT NOT NULL, expires_at TEXT, status TEXT NOT NULL,
+                filled_at TEXT, resolved_at TEXT, checked_until TEXT,
+                taken INTEGER, message_id INTEGER, alert_text TEXT,
+                profile_key TEXT, tp1 REAL, runner_tp REAL, tier TEXT,
+                result_r REAL, tp1_at TEXT)"""
+        )
+        conn.execute(
+            "INSERT INTO signals (id, pair, direction, entry, stop_loss, "
+            "take_profit, rr, session, created_at, status) VALUES "
+            "('old1', 'ETHUSD', 'long', 100.0, 90.0, 120.0, 2.0, "
+            "'New York', '2026-01-01T00:00:00+00:00', 'tp')"
+        )
+        conn.commit()
+        conn.close()
+
+        db = Database(path)
+        cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(signals)")}
+        assert "zone_kind" in cols
+
+        rows = db.signals_all()
+        assert len(rows) == 1
+        assert rows[0]["id"] == "old1"
+        assert rows[0]["status"] == "tp"
+        # a pre-existing row has no zone_kind — the migration must not
+        # invent one
+        assert rows[0]["zone_kind"] is None
+
+
 class TestDatabaseOpen:
     def test_creates_missing_parent_directories(self, tmp_path):
         path = tmp_path / "nested" / "dirs" / "smc.db"

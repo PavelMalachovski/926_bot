@@ -21,7 +21,14 @@ import pytest
 
 from app.services.smc.db import Database
 from app.services.smc.journal import OPEN_TIMEOUT, SignalJournal, evaluate_signal
-from app.services.smc.models import AnalysisResult, Direction, FVG, TradeSetup, Verdict
+from app.services.smc.models import (
+    AnalysisResult,
+    Direction,
+    FVG,
+    TradeSetup,
+    Verdict,
+    Zone,
+)
 from tests.test_smc.helpers import SESSION_BASE, candle
 
 CREATED = SESSION_BASE  # 2026-07-06 14:00 UTC
@@ -388,3 +395,116 @@ class TestStatsCountsHybridWins:
         journal.save()
         text = journal.stats_text(days=36500)
         assert "⭐ Star tier by pair" not in text
+
+
+class TestRecordPersistsZoneKind:
+    """Range trading (Task 5): record() carries `result.h1_zone.kind`
+    ("OB", "FVG" or "RANGE") onto the persisted row, so /stats can later
+    separate range setups from trend setups."""
+
+    @pytest.mark.parametrize("kind", ["OB", "FVG", "RANGE"])
+    def test_record_persists_zone_kind(self, tmp_path, kind):
+        db = Database(str(tmp_path / "j.db"))
+        journal = SignalJournal(db)
+        result = _approved_result_with_setup()
+        result.h1_zone = Zone(
+            bottom=95.0,
+            top=99.0,
+            is_demand=True,
+            pivot_index=0,
+            timestamp=datetime.now(tz=timezone.utc),
+            kind=kind,
+        )
+        signal = journal.record(result)
+        assert signal["zone_kind"] == kind
+
+        reloaded = SignalJournal(Database(str(tmp_path / "j.db")))
+        row = reloaded.get(signal["id"])
+        assert row["zone_kind"] == kind
+
+    def test_record_persists_none_when_no_h1_zone(self, tmp_path):
+        """Defensive: record() must not crash if h1_zone is somehow unset."""
+        db = Database(str(tmp_path / "j.db"))
+        journal = SignalJournal(db)
+        result = _approved_result_with_setup()
+        result.h1_zone = None
+        signal = journal.record(result)
+        assert signal["zone_kind"] is None
+
+
+class TestZoneKindLegacyRowSafety:
+    """A signal recorded before this column existed reads zone_kind as
+    NULL/missing. Neither the lifecycle tracker nor /stats may assume a
+    value is present."""
+
+    def test_evaluate_signal_ignores_missing_zone_kind(self):
+        signal = _hybrid_signal(status="open")
+        assert "zone_kind" not in signal  # legacy shape: key absent entirely
+        result = evaluate_signal(
+            signal, [_c(1, 100, 101, 89.5, 90)], datetime.now(tz=timezone.utc)
+        )
+        assert result["status"] == "sl"
+
+    def test_stats_text_ignores_null_zone_kind(self, tmp_path):
+        journal = SignalJournal(Database(str(tmp_path / "s.db")))
+        row = TestStatsCountsHybridWins._row("ETHUSD", "tp", result_r=1.0)
+        row["zone_kind"] = None
+        journal.signals = [row]
+        journal.save()
+        text = journal.stats_text(days=36500)
+        assert "🎯 TP 1" in text
+
+
+class TestRangeSignalsAreNotHybrid:
+    """D14 (owner decision 2026-08-18): a range setup has no hybrid exit —
+    one target, the opposite boundary, full size. The engine stops writing
+    tp1/runner_tp for those, and `evaluate_signal` must track them on
+    `take_profit` like any other non-hybrid signal.
+    """
+
+    def test_a_recorded_range_setup_carries_no_hybrid_levels(self, tmp_path):
+        journal = SignalJournal(Database(str(tmp_path / "j.db")))
+        result = _approved_result_with_setup(tp1=None, runner_tp=None)
+        result.h1_zone = Zone(
+            bottom=95.0, top=99.0, is_demand=True, pivot_index=0,
+            timestamp=datetime.now(tz=timezone.utc), kind="RANGE",
+        )
+        signal = journal.record(result)
+        assert signal["tp1"] is None and signal["runner_tp"] is None
+        assert signal["zone_kind"] == "RANGE"
+
+    def test_it_resolves_on_take_profit_not_on_tp1(self):
+        """The plain path: price reaches `take_profit` (the opposite
+        boundary) and the signal closes as a full "tp"."""
+        signal = _hybrid_signal(status="open", tp1=None, runner_tp=None)
+        signal["take_profit"] = 140.0
+        signal["zone_kind"] = "RANGE"
+        result = evaluate_signal(
+            signal, [_c(1, 100, 141, 99, 140)], datetime.now(tz=timezone.utc)
+        )
+        assert result["status"] == "tp"
+
+    def test_a_row_already_stored_with_hybrid_levels_takes_the_plain_path(self):
+        """Rows written before D14 still carry the tp1/runner_tp the engine
+        used to compute. `zone_kind` is what disqualifies them: tracking a
+        range signal on TP1 would chase a price outside the box it aims at
+        (here TP1 120.0 with the opposite boundary at 110.0)."""
+        signal = _hybrid_signal(status="open", tp1=120.0, runner_tp=130.0)
+        signal["take_profit"] = 110.0
+        signal["zone_kind"] = "RANGE"
+        result = evaluate_signal(
+            signal, [_c(1, 100, 111, 99, 110)], datetime.now(tz=timezone.utc)
+        )
+        assert result["status"] == "tp"  # not "open_runner"
+        assert result.get("tp1_at") is None
+
+    def test_a_trend_row_with_the_same_levels_still_goes_hybrid(self):
+        """The control: only zone_kind == "RANGE" leaves the hybrid path."""
+        signal = _hybrid_signal(status="open", tp1=120.0, runner_tp=130.0)
+        signal["take_profit"] = 110.0
+        signal["zone_kind"] = "OB"
+        result = evaluate_signal(
+            signal, [_c(1, 100, 121, 99, 120)], CREATED + timedelta(minutes=30)
+        )
+        assert result["status"] == "open_runner"
+        assert result["tp1_at"] is not None

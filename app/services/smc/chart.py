@@ -44,6 +44,11 @@ TP_COLOR = "#089981"
 # exists to draw.
 OB_COLOR = "#ffb300"
 FVG_COLOR = "#ab47bc"
+# Range boundaries (spec 2026-08-16 §3.4, owner: "отметить этот боковик на
+# графике чёрным пунктиром" — mark the range with a black dashed line).
+# Literal black (#000000) is invisible against BG ("#131722", itself nearly
+# black); this near-black grey still reads as "black" against it.
+RANGE_COLOR = "#4d4d4d"
 
 
 def _draw_candles(ax, candles) -> None:
@@ -239,7 +244,12 @@ def render_setup_chart(
     # liquidity take-profit can be an H4 pool hundreds of points away; left
     # to autoscale, its axhline would flatten the whole chart (Important
     # finding 1). take_profit is deliberately excluded from the window.
-    ylim = _price_ylim(candles, (setup.entry, setup.stop_loss))
+    in_range_prices: List[Optional[float]] = [setup.entry, setup.stop_loss]
+    if result.market_range is not None:
+        in_range_prices.extend(
+            [result.market_range.top, result.market_range.bottom]
+        )
+    ylim = _price_ylim(candles, in_range_prices)
     ax.set_ylim(*ylim)
 
     # Entry / SL / TP levels. The take-profit is optional (detector mode): a
@@ -256,6 +266,17 @@ def render_setup_chart(
         )
     for price, color, label in drawn:
         _level(ax, price, color, label, x_right, y_bounds=ylim)
+
+    # Range boundaries (spec §3.4). Drawn whenever a range was live,
+    # regardless of whether THIS setup's direction came from it —
+    # `market_range` being set is enough to draw the box (models.
+    # AnalysisResult.market_range docstring): only rendering the whole
+    # setup AS a range trade would need the stricter
+    # `direction_source == "range"`, and this is not that.
+    if result.market_range is not None:
+        rng = result.market_range
+        _level(ax, rng.top, RANGE_COLOR, "RANGE HIGH", x_right, y_bounds=ylim)
+        _level(ax, rng.bottom, RANGE_COLOR, "RANGE LOW", x_right, y_bounds=ylim)
 
     # Sparse Prague time labels on the x axis
     ticks = list(range(0, len(candles), max(1, len(candles) // 8)))
@@ -301,10 +322,16 @@ RUNNER_UP_ZONE_ALPHA = 0.08
 
 
 def _zone_kind_color(kind: str) -> str:
-    """OB_COLOR/FVG_COLOR by `Zone.kind` — see the comment at those
-    constants for why the plan chart colours zones by kind while its level
-    lines stay coloured by direction."""
-    return OB_COLOR if kind == "OB" else FVG_COLOR
+    """OB_COLOR/FVG_COLOR/RANGE_COLOR by `Zone.kind` — see the comment at
+    those constants for why the plan chart colours zones by kind while its
+    level lines stay coloured by direction. A RANGE boundary band is
+    neither an order block nor an imbalance, so it gets its own colour
+    rather than falling through to FVG_COLOR."""
+    if kind == "OB":
+        return OB_COLOR
+    if kind == "RANGE":
+        return RANGE_COLOR
+    return FVG_COLOR
 
 
 def _zone_band(
@@ -353,9 +380,18 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
 
     for s in plan.scenarios:
         side = "Demand" if s.direction == Direction.LONG else "Supply"
+        # A RANGE band is a boundary of the box, not a demand/supply zone —
+        # label it the way every other range surface does (review
+        # 2026-08-18); the runner-up below is OB/FVG only, so it keeps the
+        # side wording.
+        band_label = (
+            f"RANGE {'LOW' if s.direction == Direction.LONG else 'HIGH'}"
+            if s.kind == "RANGE"
+            else f"{side} {s.kind}"
+        )
         _zone_band(ax, s.zone_bottom, s.zone_top, s.kind, WINNER_ZONE_ALPHA)
         _zone_label(
-            ax, s.zone_bottom, s.zone_top, f"{side} {s.kind}",
+            ax, s.zone_bottom, s.zone_top, band_label,
             _zone_kind_color(s.kind),
         )
         if s.runner_up is not None:
@@ -391,6 +427,31 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         )
         _level(ax, s.stop_loss, SUPPLY_COLOR, f"{tag} SL {s.stop_loss:.{d}f}", x_right, ylim)
         _level(ax, s.take_profit, TP_COLOR, f"{tag} TP {s.take_profit:.{d}f}", x_right, ylim)
+
+    # Range boundaries (spec §3.4): one RANGE-kind scenario per side at
+    # most (D12) — SHORT projects off the top boundary, LONG off the
+    # bottom. In practice the two sides stand or fall together: both are
+    # `box height - sl_buffer` of reward over `sl_buffer` of risk, so
+    # `plan._range_scenario`'s min_rr filter gives them identical RR and
+    # drops both or neither. Each side is still looked up independently
+    # here — the geometry is the caller's to change, and a half-drawn box
+    # is better than an exception. Entry IS the boundary price for a RANGE
+    # scenario (plan.py `_range_scenario`), already folded into `ylim`
+    # above via the same entry/stop_loss loop every other scenario uses.
+    range_top = next(
+        (s.entry for s in plan.scenarios
+         if s.kind == "RANGE" and s.direction == Direction.SHORT),
+        None,
+    )
+    range_bottom = next(
+        (s.entry for s in plan.scenarios
+         if s.kind == "RANGE" and s.direction == Direction.LONG),
+        None,
+    )
+    if range_top is not None:
+        _level(ax, range_top, RANGE_COLOR, "RANGE HIGH", x_right, ylim)
+    if range_bottom is not None:
+        _level(ax, range_bottom, RANGE_COLOR, "RANGE LOW", x_right, ylim)
 
     _style_axes(ax, candles, x_right, "%d.%m")
     ax.set_title(

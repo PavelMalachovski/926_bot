@@ -6,9 +6,11 @@ from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    # liquidity.py imports Candle/Direction/Pivot from this module, so a
-    # top-level import here would cycle — the annotation stays a string.
+    # liquidity.py and range.py import Candle/Direction/Pivot/Zone from this
+    # module, so a top-level import here would cycle — the annotations stay
+    # strings.
     from app.services.smc.liquidity import LiquidityLevel
+    from app.services.smc.range import Range
 
 
 class Direction(str, Enum):
@@ -77,9 +79,11 @@ class Zone:
     touches: int = 0
     invalidated: bool = False
     # What kind of zone this is: "OB" (an order block built from a pivot
-    # candle, the historical default) or "FVG" (an untouched H1 imbalance,
-    # spec 2026-08-16 §2.1). Messages and charts name it; nothing branches
-    # on it for geometry — both kinds are a price band price reacts from.
+    # candle, the historical default), "FVG" (an untouched H1 imbalance,
+    # spec 2026-08-16 §2.1), or "RANGE" (a range boundary, spec §3.1 —
+    # see range.py's boundary_zone). Messages and charts name it; nothing
+    # branches on it for geometry — all three kinds are a price band price
+    # reacts from.
     kind: str = "OB"
 
     def contains(self, price: float) -> bool:
@@ -160,6 +164,18 @@ class AnalysisResult:
     # separate label). Task 4 renders the alert header from this.
     direction_source: str = "h4"
     h1_zone: Optional[Zone] = None
+    # The box price is trading inside, when both H4 and H1 read FLAT and one
+    # was found (D11, spec §3.2). Set whenever a live (unbroken) range is in
+    # play — including while price sits mid-range and there is nothing to
+    # trade yet — so messages and charts can draw the boundaries.
+    #
+    # It being set does NOT mean the setup is a range setup: a box can be
+    # live while the direction, and therefore every level, came from
+    # somewhere else (the aggressive profile's H4 CHoCH taken mid-range).
+    # Anything that RENDERS a setup as a range trade must key on
+    # `direction_source == "range"`; only drawing the boundaries themselves
+    # may key on this field.
+    market_range: Optional["Range"] = None
     setup: Optional[TradeSetup] = None
     funding_rate: Optional[float] = None
     funding_warning: Optional[str] = None

@@ -44,6 +44,11 @@ SIGNAL_COLUMNS = [
     "tier",
     "result_r",
     "tp1_at",  # ISO timestamp of the candle that tagged TP1 (journal.py)
+    # Range trading: which kind of H1 zone the setup entered from — "OB",
+    # "FVG" or "RANGE" (Zone.kind, models.py). Bookkeeping only, so /stats
+    # can later separate range setups from trend setups; nothing branches
+    # on it. NULL on rows recorded before this column existed.
+    "zone_kind",
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -98,7 +103,8 @@ SIGNALS_TABLE_SQL = """
                     runner_tp REAL,
                     tier TEXT,
                     result_r REAL,
-                    tp1_at TEXT
+                    tp1_at TEXT,
+                    zone_kind TEXT
                 )
 """
 
@@ -188,6 +194,7 @@ class Database:
                     ("tier", "TEXT"),
                     ("result_r", "REAL"),
                     ("tp1_at", "TEXT"),
+                    ("zone_kind", "TEXT"),
                 ):
                     if column not in existing:
                         self.conn.execute(

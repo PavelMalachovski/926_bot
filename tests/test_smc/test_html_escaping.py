@@ -345,6 +345,15 @@ class TestDetectorAlert:
         text = format_result(result)
         assert "direction from CHoCH (first leg, not with-trend)" in text
 
+        # Task 3 wording fix: a range setup used to fall through to the
+        # generic "H4 {trend}" branch, which reads "H4 flat" — technically
+        # true (D11 requires it) but hides that H1 was flat too and that the
+        # direction came from a boundary, not a trend at all.
+        result.direction_source = "range"
+        text = format_result(result)
+        assert "direction from the range boundary" in text
+        assert "H4 flat" not in text
+
     def test_plan_provenance_is_omitted_unless_the_caller_knows(self):
         result = _approved()
         assert "plan" not in format_result(result)
