@@ -821,6 +821,297 @@ class TestPlanChartRunnerUpZone:
         assert png is not None and png[:4] == b"\x89PNG"
 
 
+def _range(top=3170.0, bottom=3120.0):
+    from app.services.smc.range import Range
+
+    ts = datetime(2026, 7, 6, 8, 0, tzinfo=timezone.utc)
+    return Range(
+        top=top, bottom=bottom, touches_top=2, touches_bottom=2, broken=False,
+        top_at=ts, bottom_at=ts, swept_top=False, swept_bottom=False,
+        printed_at=ts,
+    )
+
+
+class TestSetupChartRangeBoundaries:
+    """spec 2026-08-16 §3.4 (owner: "отметить этот боковик на графике
+    чёрным пунктиром"): both range boundaries as black-ish dashed lines
+    labelled RANGE HIGH / RANGE LOW. Gated on `market_range` being set
+    alone — per its docstring (models.AnalysisResult.market_range) and
+    task-4-brief.md, the field being set is enough for drawing the
+    boundaries themselves; it does not require `direction_source ==
+    "range"` (that stricter condition is for anything that renders the
+    whole SETUP as a range trade, which this is not)."""
+
+    def _render_captured(self, result, monkeypatch):
+        import app.services.smc.chart as chart_mod
+
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            captured["ax"] = ax
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+        png = chart_mod.render_setup_chart(result)
+        return png, captured
+
+    def test_draws_both_boundaries_as_dashed_lines(self, monkeypatch):
+        import matplotlib.colors as mcolors
+
+        import app.services.smc.chart as chart_mod
+
+        result = _approved_result()
+        result.market_range = _range(top=3170.0, bottom=3120.0)
+
+        png, captured = self._render_captured(result, monkeypatch)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        ax = captured["ax"]
+        range_rgb = mcolors.to_rgb(chart_mod.RANGE_COLOR)
+        boundary_lines = [
+            ln for ln in ax.get_lines()
+            if mcolors.to_rgb(ln.get_color()) == pytest.approx(range_rgb)
+        ]
+        assert len(boundary_lines) == 2
+        ys = sorted(round(ln.get_ydata()[0], 2) for ln in boundary_lines)
+        assert ys == [3120.0, 3170.0]
+        for ln in boundary_lines:
+            assert ln.get_linestyle() in ("--", "dashed")
+
+        texts = [t.get_text().strip() for t in ax.texts]
+        assert "RANGE HIGH" in texts
+        assert "RANGE LOW" in texts
+
+    def test_no_range_draws_no_boundary_lines(self, monkeypatch):
+        """A chart with no range must render exactly as it does today."""
+        import matplotlib.colors as mcolors
+
+        import app.services.smc.chart as chart_mod
+
+        result = _approved_result()
+        assert result.market_range is None  # fixture sanity
+
+        png, captured = self._render_captured(result, monkeypatch)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        ax = captured["ax"]
+        range_rgb = mcolors.to_rgb(chart_mod.RANGE_COLOR)
+        assert not any(
+            mcolors.to_rgb(ln.get_color()) == pytest.approx(range_rgb)
+            for ln in ax.get_lines()
+        )
+        texts = [t.get_text() for t in ax.texts]
+        assert not any("RANGE" in t for t in texts)
+
+    def test_far_range_boundary_extends_the_ylim(self, monkeypatch):
+        """A boundary can sit outside the visible M5 candle range; ylim
+        must extend to include it or the line clips invisibly — the same
+        fix the far-away take-profit test guards on this chart."""
+        import app.services.smc.chart as chart_mod
+
+        result = _approved_result()
+        candles = result.m5_candles[-chart_mod.CHART_CANDLES:]
+        candle_hi = max(c.high for c in candles)
+        far_top = candle_hi + 200.0
+        result.market_range = _range(top=far_top, bottom=3120.0)
+
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            real_set_ylim = ax.set_ylim
+
+            def spy_set_ylim(*a, **kw):
+                out = real_set_ylim(*a, **kw)
+                captured["ylim"] = ax.get_ylim()
+                return out
+
+            ax.set_ylim = spy_set_ylim
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+        png = chart_mod.render_setup_chart(result)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        assert "ylim" in captured
+        _, yhi = captured["ylim"]
+        assert yhi >= far_top
+
+
+class TestPlanChartRangeBoundaries:
+    """spec 2026-08-16 §3.4: the H1 plan chart draws the same boundary
+    lines whenever the plan carries RANGE scenarios (Task 3, D11/D12)."""
+
+    @staticmethod
+    def _range_plan(top=3170.0, bottom=3120.0, sides=("SHORT", "LONG")):
+        from app.services.smc.models import Direction, Trend
+        from app.services.smc.plan import PairPlan, PlanScenario
+
+        scenarios = []
+        if "SHORT" in sides:
+            scenarios.append(PlanScenario(
+                direction=Direction.SHORT, entry=top, stop_loss=top + 2.0,
+                take_profit=bottom + 2.0, rr=2.0, zone_bottom=top - 1.0,
+                zone_top=top, speculative=False, kind="RANGE",
+            ))
+        if "LONG" in sides:
+            scenarios.append(PlanScenario(
+                direction=Direction.LONG, entry=bottom, stop_loss=bottom - 2.0,
+                take_profit=top - 2.0, rr=2.0, zone_bottom=bottom,
+                zone_top=bottom + 1.0, speculative=False, kind="RANGE",
+            ))
+        return PairPlan(
+            pair="ETHUSD", price=3145.0, price_decimals=2,
+            h4_trend=Trend.FLAT, scenarios=scenarios,
+        )
+
+    def _render_captured(self, plan, monkeypatch, h1=None):
+        import app.services.smc.chart as chart_mod
+
+        h1 = h1 if h1 is not None else make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            captured["ax"] = ax
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+        png = chart_mod.render_plan_chart(plan, h1)
+        return png, captured
+
+    def test_draws_both_boundaries_as_dashed_lines(self, monkeypatch):
+        import matplotlib.colors as mcolors
+
+        import app.services.smc.chart as chart_mod
+
+        plan = self._range_plan()
+        png, captured = self._render_captured(plan, monkeypatch)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        ax = captured["ax"]
+        range_rgb = mcolors.to_rgb(chart_mod.RANGE_COLOR)
+        boundary_lines = [
+            ln for ln in ax.get_lines()
+            if mcolors.to_rgb(ln.get_color()) == pytest.approx(range_rgb)
+        ]
+        assert len(boundary_lines) == 2
+        ys = sorted(round(ln.get_ydata()[0], 2) for ln in boundary_lines)
+        assert ys == [3120.0, 3170.0]
+        for ln in boundary_lines:
+            assert ln.get_linestyle() in ("--", "dashed")
+        texts = [t.get_text().strip() for t in ax.texts]
+        assert "RANGE HIGH" in texts
+        assert "RANGE LOW" in texts
+
+    def test_only_one_boundary_valid_draws_only_that_line(self, monkeypatch):
+        """Both directions are filtered independently by min_rr — one side
+        can qualify without the other. Only the known boundary is drawn."""
+        import matplotlib.colors as mcolors
+
+        import app.services.smc.chart as chart_mod
+
+        plan = self._range_plan(sides=("SHORT",))
+        png, captured = self._render_captured(plan, monkeypatch)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        ax = captured["ax"]
+        range_rgb = mcolors.to_rgb(chart_mod.RANGE_COLOR)
+        boundary_lines = [
+            ln for ln in ax.get_lines()
+            if mcolors.to_rgb(ln.get_color()) == pytest.approx(range_rgb)
+        ]
+        assert len(boundary_lines) == 1
+        texts = [t.get_text().strip() for t in ax.texts]
+        assert "RANGE HIGH" in texts
+        assert "RANGE LOW" not in texts
+
+    def test_no_range_scenarios_draws_no_boundary_lines(self, monkeypatch):
+        """A plan chart with no RANGE scenario must render exactly as it
+        did before this feature."""
+        import matplotlib.colors as mcolors
+
+        import app.services.smc.chart as chart_mod
+        from app.services.smc.models import Direction, Trend
+        from app.services.smc.plan import PairPlan, PlanScenario
+
+        plan = PairPlan(
+            pair="ETHUSD", price=3145.0, price_decimals=2, h4_trend=Trend.UP,
+            scenarios=[PlanScenario(
+                direction=Direction.LONG, entry=3138.0, stop_loss=3128.0,
+                take_profit=3170.0, rr=2.0, zone_bottom=3131.0,
+                zone_top=3138.0, speculative=False, kind="OB",
+            )],
+        )
+        png, captured = self._render_captured(plan, monkeypatch)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        ax = captured["ax"]
+        range_rgb = mcolors.to_rgb(chart_mod.RANGE_COLOR)
+        assert not any(
+            mcolors.to_rgb(ln.get_color()) == pytest.approx(range_rgb)
+            for ln in ax.get_lines()
+        )
+        texts = [t.get_text() for t in ax.texts]
+        assert not any("RANGE" in t for t in texts)
+
+    def test_range_zone_band_is_not_coloured_as_fvg(self, monkeypatch):
+        """Carried finding: `_zone_kind_color` used to fall through to
+        FVG_COLOR for any non-OB kind, so a RANGE boundary band drew as an
+        imbalance. It must use its own colour instead."""
+        import matplotlib.colors as mcolors
+
+        import app.services.smc.chart as chart_mod
+
+        plan = self._range_plan(sides=("SHORT",))
+        _, captured = self._render_captured(plan, monkeypatch)
+        bands = _zone_bands(captured["ax"])
+        assert len(bands) == 1
+        fvg_rgb = mcolors.to_rgb(chart_mod.FVG_COLOR)
+        range_rgb = mcolors.to_rgb(chart_mod.RANGE_COLOR)
+        band_rgb = mcolors.to_rgb(bands[0].get_facecolor())
+        assert band_rgb != pytest.approx(fvg_rgb)
+        assert band_rgb == pytest.approx(range_rgb)
+
+    def test_far_range_boundary_extends_the_ylim(self, monkeypatch):
+        """A boundary can sit outside the visible H1 candle range; ylim
+        must extend to include it — same fix as the runner-up zone
+        (Delivery 2)."""
+        import app.services.smc.chart as chart_mod
+
+        h1 = make_candles(H1_PULLBACK_CLOSES, step_minutes=60)
+        candle_hi = max(c.high for c in h1[-120:])
+        far_top = candle_hi + 500.0
+        plan = self._range_plan(top=far_top, bottom=3120.0)
+
+        captured = {}
+        real_subplots = chart_mod.plt.subplots
+
+        def spy_subplots(*args, **kwargs):
+            fig, ax = real_subplots(*args, **kwargs)
+            real_set_ylim = ax.set_ylim
+
+            def spy_set_ylim(*a, **kw):
+                out = real_set_ylim(*a, **kw)
+                captured["ylim"] = ax.get_ylim()
+                return out
+
+            ax.set_ylim = spy_set_ylim
+            return fig, ax
+
+        monkeypatch.setattr(chart_mod.plt, "subplots", spy_subplots)
+        png = chart_mod.render_plan_chart(plan, h1)
+
+        assert png is not None and png[:4] == b"\x89PNG"
+        assert "ylim" in captured
+        _, yhi = captured["ylim"]
+        assert yhi >= far_top
+
+
 class TestChartOffTheEventLoop:
     """Review-hardening Task 6: matplotlib renders (~seconds of CPU for a
     2200x660 PNG) used to run synchronously inside the coroutine — during a
