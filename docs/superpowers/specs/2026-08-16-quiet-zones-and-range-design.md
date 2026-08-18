@@ -57,6 +57,8 @@ what the bot detects:
 | D11 | The range is in play only when **both** H4 and H1 read FLAT — the H1-trend fallback of 2026-08-06 keeps precedence over it (owner decision 2026-08-18) |
 | D12 | When a range is found, it **replaces** the plan's speculative both-way breakout brackets rather than joining them (owner decision 2026-08-18) |
 | D13 | A boundary sweep earns the ⭐ only when it happened in the **current excursion** to that boundary — the same scope every other sweep check in the bot uses (owner decision 2026-08-18) |
+| D14 | In range mode there is **no hybrid exit** — one target, the opposite boundary, full size (owner decision 2026-08-18) |
+| D15 | A close beyond a range boundary invalidates it only if the break **still holds** at the end of the excursion; pierce-and-reclaim is a sweep, not a breakout (owner decision 2026-08-18) |
 
 ---
 
@@ -267,8 +269,14 @@ pivots as everywhere else:
 2. Require `touches_top >= 2` and `touches_bottom >= 2`.
 3. Require `top - bottom >= 3 * min_fvg`, else it is chop, not a range.
 4. `broken` when an H1 **body** has closed beyond either boundary after the
-   cluster formed. A wick beyond that closes back inside does not break it
-   (D9) — it is liquidity taken, and it is recorded as such.
+   cluster formed **and the break still holds** (D15, owner decision
+   2026-08-18). A pierce that closes back inside does not break it (D9) —
+   it is liquidity taken, and it is recorded as such. The same
+   reclaim-aware test governs Rule 3's invalidation of a RANGE zone on M5:
+   without it the stop-hunt D9 blesses would kill the setup instead of
+   starring it, because the pierce is usually an M5 body close. This
+   mirrors `structure._break_still_holds`, which already spares the H4
+   trend from a reclaimed fakeout.
 
 Range boundaries coincide with EQH/EQL pools by construction, so this is the
 same liquidity hunt applied to a range.
@@ -307,8 +315,11 @@ Then the normal 🚨 on M5 CHoCH into the range plus a valid FVG:
 - entry: the M5 FVG edge, or the deeper M5 OB;
 - SL: beyond the boundary + `instrument.sl_buffer`;
 - TP: the opposite boundary − `sl_buffer`;
-- the 2R/runner hybrid exit applies unchanged when the opposite boundary
-  leaves room for it;
+- **no hybrid exit** (D14, owner decision 2026-08-18): one target, the
+  opposite boundary, full size. The 2R/runner split is meaningless here —
+  risk is anchored beyond the boundary plus a buffer, so RR to the opposite
+  boundary is routinely under 2 and TP1 would land *outside* the box the
+  setup is aiming at;
 - ⭐ when the boundary was swept by a wick and reclaimed **in this
   excursion** (D9 scoped by D13). A pierce from days earlier does not
   count: every other sweep check in the bot is excursion-scoped, and an
