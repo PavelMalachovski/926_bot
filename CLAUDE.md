@@ -212,10 +212,14 @@ tracking → live-card edits on fill/TP/SL events.
   opposite ways (owner decision D6, 2026-08-16) — two alert tiers, both
   still sent (detector mode): a disagreeing setup fires without the star,
   and the alert header labels the disagreement (`⚠️ counter-hourly`).
-  Every fill uses the hybrid exit regardless of tier: TP1 at `SMC_TP1_R`
-  (2R) closes half and moves SL to break-even, the runner rides to
-  `SMC_RUNNER_R` (3R) — journal statuses `tp1_be` (BE stop after TP1) and
-  `tp1_runner` (runner target hit) track it.
+  Every **trend** fill uses the hybrid exit regardless of tier: TP1 at
+  `SMC_TP1_R` (2R) closes half and moves SL to break-even, the runner rides
+  to `SMC_RUNNER_R` (3R) — journal statuses `tp1_be` (BE stop after TP1)
+  and `tp1_runner` (runner target hit) track it. A **range** setup has no
+  hybrid exit at all (owner decision D14, 2026-08-18): it carries no
+  `tp1`/`runner_tp`, and `journal.evaluate_signal` tracks it on
+  `take_profit` like any non-hybrid signal — a row stored before D14 is
+  disqualified by its `zone_kind == "RANGE"`.
 - pytest config: `pytest.ini` (asyncio_mode=auto). Tests build synthetic
   candles via `tests/test_smc/helpers.py` (asymmetric wicks make turning
   points strict fractal pivots). Keep tests network-free.
@@ -252,10 +256,18 @@ tracking → live-card edits on fill/TP/SL events.
   only the stop and the target differ. The stop sits beyond the boundary
   itself (or the swept extreme, whichever is further out) plus `sl_buffer`;
   the target is the **opposite boundary**, one `sl_buffer` short of it, not
-  Rule 7's nearest unswept liquidity. `range.boundary_swept` (D9, owner
-  decision 2026-08-18) counts a wick that pierces a boundary and closes
-  back inside as liquidity taken — a body close through the boundary is
-  `broken`, not a sweep. The ⭐ verdict asks the same sweep question at a
+  Rule 7's nearest unswept liquidity — taken full size, with no hybrid exit
+  (D14). Messages name a boundary a boundary: never "H1 Supply/Demand
+  zone", and the range alert carries the box, the target and its RR on both
+  tiers. `range.boundary_swept` (D9, owner decision 2026-08-18) counts a
+  wick that pierces a boundary and closes back inside as liquidity taken.
+  A body close beyond a boundary breaks it only while the break **still
+  holds** (D15, owner decision 2026-08-18) — both for `Range.broken` on H1
+  and for Rule 3's invalidation of a RANGE zone on M5 (`engine._zone_broken`,
+  mirroring `structure._break_still_holds`); pierce-and-reclaim is the
+  stop-hunt the owner trades, not a breakout. OB and FVG zones keep the
+  one-way invalidation memory, which is load-bearing. The ⭐ verdict asks
+  the same sweep question at a
   tighter scope (D13, owner decision 2026-08-18): only a sweep inside the
   setup's own touch→CHoCH excursion earns it, the same excursion
   `sweep_extreme` is anchored on, so a boundary raided once, long before

@@ -407,8 +407,21 @@ def build_plan(
             # exactly the engine's Rule 1 flat branch (engine.py, the `else`
             # reached only once H1 UP/DOWN are both ruled out). A range in
             # play REPLACES the speculative both-way brackets entirely
-            # (D12) rather than joining them, and takes precedence over the
-            # aggressive CHoCH branch the same way it does in the engine.
+            # (D12) rather than joining them.
+            #
+            # DELIBERATE DIVERGENCE from the engine, and the one place this
+            # module does not mirror it (review 2026-08-18). The engine
+            # falls through to the aggressive H4-CHoCH branch when a box is
+            # live but price sits MID-range, because it can only trade the
+            # boundary price is actually at. The plan has no such state: it
+            # projects BOTH boundaries as scenarios precisely because it
+            # cannot know which edge price will visit, so "mid-range" is
+            # the normal case a range plan is written for, not a gap in it.
+            # Adding a CHoCH bracket beside the two boundary scenarios
+            # would put two different plans for one pair in one message —
+            # the exact outcome D12 rejects. Unreachable in production
+            # either way: only the conservative profile ships, and it has
+            # `allow_h4_choch_entry` off.
             rng = detect_range(h1, instrument.min_fvg)
             if rng is not None and not rng.broken:
                 range_in_play = True
