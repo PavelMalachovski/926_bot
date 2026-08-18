@@ -52,11 +52,49 @@ class TestDetectRange:
         rng = _range(broken)
         assert rng is not None and rng.broken is True
 
-    def test_a_wick_through_the_top_that_closes_back_inside_does_not_break_it(self):
-        """D9: that is liquidity taken, not a breakout."""
+    def test_clean_boundaries_are_not_swept(self):
+        """No candle ever pierced either edge on the base fixture — the
+        control that makes the sweep assertions below meaningful."""
         rng = _range()
-        assert rng is not None and rng.broken is False
-        assert rng.swept_top in (True, False)  # flag exists and is a bool
+        assert rng is not None
+        assert rng.swept_top is False
+        assert rng.swept_bottom is False
+
+    def test_a_wick_through_the_top_that_closes_back_inside_does_not_break_it(self):
+        """D9: a wick beyond the top whose body closes back inside is
+        liquidity taken, not a breakout — it must not break the range, and
+        it must be flagged as swept.
+
+        The appended candle opens at the last RANGING close (114.0) and
+        closes at 119.5 (bullish, so make_candles wicks +1.0 above the
+        higher of open/close): high 120.5 pierces top (119.8) while the
+        body (114.0-119.5) stays entirely inside it.
+        """
+        candles = make_candles(RANGING + [119.5], step_minutes=60)
+        pierced = candles[-1]
+        rng = detect_range(candles, 1.0, 120)
+        assert rng is not None
+        assert pierced.high > rng.top  # the wick genuinely exceeds the boundary
+        assert pierced.body_high <= rng.top  # but the body stays inside
+        assert rng.broken is False
+        assert rng.swept_top is True
+
+    def test_a_wick_through_the_bottom_that_closes_back_inside_does_not_break_it(self):
+        """Mirror of the top case: a wick below the bottom whose body
+        closes back inside is swept liquidity, not a breakdown.
+
+        The appended candle opens at 114.0 and closes at 100.3 (bearish, so
+        make_candles wicks -1.0 below the lower of open/close): low 99.3
+        pierces bottom (99.7) while the body (100.3-114.0) stays inside it.
+        """
+        candles = make_candles(RANGING + [100.3], step_minutes=60)
+        pierced = candles[-1]
+        rng = detect_range(candles, 1.0, 120)
+        assert rng is not None
+        assert pierced.low < rng.bottom  # the wick genuinely exceeds the boundary
+        assert pierced.body_low >= rng.bottom  # but the body stays inside
+        assert rng.broken is False
+        assert rng.swept_bottom is True
 
     def test_no_pivots_no_range(self):
         assert _range([100.0] * 12) is None
