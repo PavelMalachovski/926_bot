@@ -27,8 +27,9 @@ from app.services.smc import sniper
 from app.services.smc.structure import (
     detect_trend,
     find_choch,
-    find_h1_zone,
+    find_h1_fvg_zone,
     find_order_block,
+    find_zone_of_interest,
     first_zone_touch,
     h4_choch_direction,
     sweep_extreme,
@@ -46,6 +47,15 @@ FUNDING_DANGER = 0.001  # 0.1%
 # A market whose newest M5 candle is older than this is considered closed
 # (forex weekend); crypto trades 24/7 and never triggers it.
 MARKET_STALE_AFTER = timedelta(minutes=30)
+
+
+def _is_deeper_than(zone, direction: Direction, entry: float) -> bool:
+    """True if `zone` sits further out than `entry` on the trade's own
+    side — the same "further out" convention `zone_ladder` uses (`beyond`
+    there is this function's `entry`): `zone.bottom > entry` for a SHORT
+    (supply further above), `zone.top < entry` for a LONG (demand further
+    below)."""
+    return zone.bottom > entry if direction == Direction.SHORT else zone.top < entry
 
 
 class TripleSyncEngine:
@@ -182,14 +192,23 @@ class TripleSyncEngine:
             )
             return result
 
-        # Rule 2 — H1 zone
-        zone = find_h1_zone(h1, direction, max_touches=self.profile.max_zone_touches)
+        # Rule 2 — H1 zone of interest: order block first, untouched
+        # imbalance as the fallback (owner decision D4, spec §2.1). The
+        # minimum gap size is the per-instrument floor scaled by the
+        # profile, exactly as Rule 4 scales the M5 imbalance.
+        zone = find_zone_of_interest(
+            h1,
+            direction,
+            min_size=self._effective_min_fvg,
+            max_touches=self.profile.max_zone_touches,
+        )
         if zone is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
                 f"H4 is {'bullish' if direction == Direction.LONG else 'bearish'}, "
                 "but H1 has no valid untested "
-                f"{'Demand' if direction == Direction.LONG else 'Supply'} zone"
+                f"{'Demand' if direction == Direction.LONG else 'Supply'} zone "
+                "(no order block, no untouched imbalance)"
             )
             result.watch_notes.append(
                 "Wait for a fresh H1 zone to form (an untested "
@@ -385,6 +404,13 @@ class TripleSyncEngine:
         # The ladder is the OTHER untested zones on the trade's own side, so
         # the live entry zone is excluded rather than shown as its own rung.
         zones_ahead = zone_ladder(h1, direction, entry, exclude=zone)
+        # D4's runner-up: when the order block won Rule 2, the untouched
+        # imbalance it beat still belongs in the ladder if it is a genuine
+        # deeper entry (spec §2.1) — otherwise it is simply lost.
+        if zone.kind == "OB":
+            runner_up = find_h1_fvg_zone(h1, direction, self._effective_min_fvg)
+            if runner_up is not None and _is_deeper_than(runner_up, direction, entry):
+                zones_ahead = [runner_up] + zones_ahead
 
         # Rule 8 — position size hint
         lot_hint = self._lot_hint(entry, risk)

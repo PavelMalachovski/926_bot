@@ -821,3 +821,16 @@ class TestFundingAdvisory:
         result = self._long(0.0002)
         assert result.verdict == Verdict.APPROVED_LIMIT
         assert result.funding_warning is None
+
+
+class TestZoneOfInterestInEngine:
+    def test_engine_still_approves_the_long_fixture_with_an_ob_zone(self):
+        result = _fresh_result()
+        res = TripleSyncEngine(max_entry_gap_r=99.0).evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger(),
+            result=result,
+        )
+        assert res.verdict == Verdict.APPROVED_LIMIT
+        assert res.h1_zone is not None and res.h1_zone.kind == "OB"

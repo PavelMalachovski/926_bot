@@ -18,7 +18,7 @@ from app.services.smc.models import Candle, Direction, Trend
 from app.services.smc.profiles import CONSERVATIVE, StrategyProfile
 from app.services.smc.structure import (
     detect_trend,
-    find_h1_zone,
+    find_zone_of_interest,
     h4_choch_direction,
 )
 
@@ -121,7 +121,12 @@ def _scenario(
     """
     d = instrument.price_decimals
     kind = "Demand" if direction == Direction.LONG else "Supply"
-    zone = find_h1_zone(h1, direction, max_touches=profile.max_zone_touches)
+    zone = find_zone_of_interest(
+        h1,
+        direction,
+        min_size=instrument.min_fvg * profile.fvg_size_factor,
+        max_touches=profile.max_zone_touches,
+    )
     if zone is None:
         return None, (_NO_ZONE, _zone_note(direction), None)
 
@@ -132,7 +137,9 @@ def _scenario(
             round(zone.bottom, d), round(zone.top, d), direction.value,
         )
 
-    zone_label = f"H1 {kind} zone {zone.bottom:.{d}f}-{zone.top:.{d}f}"
+    zone_label = (
+        f"H1 {kind} zone ({zone.kind}) {zone.bottom:.{d}f}-{zone.top:.{d}f}"
+    )
     inside = (
         f"Price is already inside the {zone_label} — no pullback left to "
         "project, the live checklist takes over"

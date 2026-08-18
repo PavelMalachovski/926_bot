@@ -297,6 +297,30 @@ def find_h1_fvg_zone(
     return None
 
 
+def find_zone_of_interest(
+    candles: List[Candle],
+    direction: Direction,
+    min_size: float,
+    max_touches: int = 0,
+) -> Optional[Zone]:
+    """The H1 zone the owner waits for: the order block if one qualifies,
+    otherwise the untouched imbalance (owner decision D4, 2026-08-16).
+
+    The order block wins because it is the footprint of a filled order —
+    price reacted there once and the level is proven. An imbalance is a
+    gap nobody has traded back into yet, which is a weaker claim; it earns
+    the slot only when no valid order block exists.
+
+    Both are the same object downstream: a price band the setup enters
+    from. `Zone.kind` records which one this is so messages and charts can
+    name it.
+    """
+    block = find_h1_zone(candles, direction, max_touches=max_touches)
+    if block is not None:
+        return block
+    return find_h1_fvg_zone(candles, direction, min_size)
+
+
 def find_choch(
     candles: List[Candle], direction: Direction, from_index: int
 ) -> Optional[int]:

@@ -214,7 +214,7 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     if result.h1_zone:
         kind = "Demand" if result.h1_zone.is_demand else "Supply"
         lines.append(
-            f"📍 H1 {kind} zone      "
+            f"📍 H1 {kind} zone ({result.h1_zone.kind})  "
             f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
         )
     lines.append(
