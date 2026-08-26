@@ -1250,6 +1250,21 @@ class TestApiKeyNeverReachesTelegram:
 
     FAKE_KEY = "SECRETKEY123"
 
+    @pytest.fixture(autouse=True)
+    def _ignore_the_clock(self, monkeypatch):
+        """These tests are about credential redaction, not Rule 0.1.
+
+        `check_pair` builds a session-enforcing engine, and `analyze` returns
+        OFF_SESSION *before* it ever touches the fetcher — so outside
+        08:00-18:30 Prague, or at a weekend, the fetch that is supposed to
+        fail never happens, no warning is sent, and three tests fail for a
+        reason that has nothing to do with what they guard. They passed in
+        the daytime and failed at night.
+        """
+        from app.core.config import settings
+
+        monkeypatch.setattr(settings.smc, "enforce_sessions", False)
+
     class _FakeNotifier:
         def __init__(self):
             self.sent = []

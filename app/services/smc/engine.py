@@ -681,6 +681,9 @@ class TripleSyncEngine:
             runner_tp=round(runner_tp, d) if runner_tp is not None else None,
             tier_star=tier.star,
             tier_missed=tier.missed,
+            room_r=room,
+            sweep=sweep,
+            entry_gap_r=gap / risk,
         )
         result.verdict = (
             Verdict.APPROVED_MARKET if entry_is_market else Verdict.APPROVED_LIMIT
