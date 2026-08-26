@@ -219,6 +219,135 @@ def evaluate_signal(signal: Dict, candles: List[Candle], now: datetime) -> Dict:
     return signal
 
 
+def _feature_vector(result: AnalysisResult) -> Dict:
+    """What the tier actually measured, alongside what it decided.
+
+    Audit finding F4 (2026-08-26): the journal recorded the verdict
+    (`tier`, `tier_missed`) and the outcome (`result_r`) but none of the
+    inputs, so no amount of history could answer "is the pd condition
+    earning its keep?". Every field here is bookkeeping — `stats_text` cuts
+    expectancy by them, and nothing in the strategy reads them back.
+
+    NULL means "not recorded" and never a value: `room_r` is genuinely None
+    when no pool sits ahead (unmeasurable, and passing), `sweep` when the
+    excursion took nothing, and the whole vector on rows written before
+    these columns existed.
+    """
+    setup = result.setup
+    pd_read = result.pd
+    return {
+        "tier_missed": ",".join(setup.tier_missed),
+        "room_r": setup.room_r,
+        "sweep": setup.sweep,
+        "entry_gap_r": setup.entry_gap_r,
+        "pd_pct": pd_read.position if pd_read else None,
+        "pd_side": pd_read.label if pd_read else None,
+        "pd_basis": pd_read.range.timeframe if pd_read else None,
+        "pd_ote": int(pd_read.in_ote) if pd_read else None,
+        "direction_source": result.direction_source,
+        "h4_trend": result.h4_trend.value if result.h4_trend else None,
+        "h1_trend": result.h1_trend.value if result.h1_trend else None,
+        "entry_hour": to_prague(result.checked_at).hour,
+    }
+
+
+# The five ⭐ conditions, in `sniper.classify`'s own order. `stats_text` cuts
+# expectancy by each: a condition that pays is one whose "clean" side earns
+# more than its "missed" side, and one that does not is a filter costing
+# setups for nothing.
+TIER_CONDITIONS = ("room", "sweep", "pd", "stale", "trend")
+
+# Below this many resolved signals a per-cell average is noise dressed as a
+# number. The cell still prints its count, so the owner can see the sample
+# growing rather than wonder why a row vanished.
+MIN_EDGE_SAMPLE = 3
+
+
+def _r_cell(rows: List[Dict]) -> str:
+    """"7 · +0.42R", or just the count while the sample is too small."""
+    if not rows:
+        return "—"
+    if len(rows) < MIN_EDGE_SAMPLE:
+        return f"{len(rows)} · —"
+    avg = sum(r["result_r"] for r in rows) / len(rows)
+    return f"{len(rows)} · {avg:+.2f}R"
+
+
+def _edge_lines(recent: List[Dict]) -> List[str]:
+    """Expectancy cut by the things that decided the setup (audit F4).
+
+    Only resolved signals with a recorded feature vector count — rows from
+    before those columns existed carry NULL everywhere and would otherwise
+    land in whichever bucket a `None` happens to fall into. The whole block
+    is skipped until at least one such row exists, so /stats does not grow a
+    permanently empty section on the day this ships.
+
+    Every cell prints its sample size next to its average, and an average is
+    withheld below `MIN_EDGE_SAMPLE`: the point of this block is to end
+    guessing, not to replace it with a confident-looking number built on two
+    trades.
+    """
+    scored = [
+        s for s in recent
+        if s.get("result_r") is not None and s.get("tier_missed") is not None
+    ]
+    if not scored:
+        return []
+
+    out = [
+        "",
+        f"<b>Edge by condition</b> ({len(scored)} resolved with data)",
+        "<pre>",
+        f"{'condition':<10}{'missed':>14}{'clean':>14}",
+    ]
+    for name in TIER_CONDITIONS:
+        missed, clean = [], []
+        for row in scored:
+            flags = [f for f in (row["tier_missed"] or "").split(",") if f]
+            (missed if name in flags else clean).append(row)
+        out.append(f"{name:<10}{_r_cell(missed):>14}{_r_cell(clean):>14}")
+    out.append("</pre>")
+
+    def group(label: str, key: str, order=None) -> None:
+        buckets: Dict[str, List[Dict]] = {}
+        for row in scored:
+            value = row.get(key)
+            if value is None:
+                continue
+            buckets.setdefault(str(value), []).append(row)
+        if len(buckets) < 2:
+            return  # one bucket is not a comparison
+        if not any(len(v) >= MIN_EDGE_SAMPLE for v in buckets.values()):
+            return  # every cell would be a count with no average behind it
+        keys = order or sorted(buckets)
+        rows = [(k, buckets[k]) for k in keys if k in buckets]
+        width = max(len(k) for k, _ in rows)
+        out.append(f"<b>{escape_html(label)}</b>")
+        out.append("<pre>")
+        for k, group_rows in rows:
+            out.append(f"{escape_html(k):<{width}}   {_r_cell(group_rows)}")
+        out.append("</pre>")
+
+    group("Edge by session block", "session")
+    group("Edge by zone kind", "zone_kind")
+    group("Edge by direction source", "direction_source")
+
+    # Kill-zone evidence: does the hour of entry change what a setup makes?
+    # Spread over a trading day, this is the last block to reach a sample
+    # worth reading, so it stays hidden until at least one hour does.
+    by_hour: Dict[int, List[Dict]] = {}
+    for row in scored:
+        if row.get("entry_hour") is not None:
+            by_hour.setdefault(int(row["entry_hour"]), []).append(row)
+    if any(len(v) >= MIN_EDGE_SAMPLE for v in by_hour.values()):
+        out.append("<b>Edge by entry hour (Prague)</b>")
+        out.append("<pre>")
+        for hour in sorted(by_hour):
+            out.append(f"{hour:02d}:00   {_r_cell(by_hour[hour])}")
+        out.append("</pre>")
+    return out
+
+
 class SignalJournal:
     """SQLite-backed list of signals with summary statistics."""
 
@@ -275,6 +404,7 @@ class SignalJournal:
             "tier": "star" if setup.tier_star else "regular",
             "result_r": None,
             "zone_kind": result.h1_zone.kind if result.h1_zone else None,
+            **_feature_vector(result),
         }
         self.signals.append(signal)
         self._persist(signal)
@@ -487,6 +617,8 @@ class SignalJournal:
             lines.append("")
             lines.append("<b>⭐ Star tier by pair:</b>")
             lines.extend(star_lines)
+
+        lines.extend(_edge_lines(recent))
 
         # Detector mode: a setup with no unswept liquidity ahead has no
         # take-profit and carries rr 0.0 — averaging those zeros in would

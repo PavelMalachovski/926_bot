@@ -155,7 +155,11 @@ app/services/smc/
 │                         digest day-timeline
 ├── journal.py            signal lifecycle pending→open→tp/sl/expired with
 │                         state-change events, taken marks (alert buttons),
-│                         discipline_block (Rule 10 / Rule 0.2), /stats
+│                         discipline_block (Rule 10 / Rule 0.2), the
+│                         per-signal feature vector (_feature_vector: what
+│                         the ⭐ measured, not just what it decided) and
+│                         /stats — winrate, realized R, and the expectancy
+│                         cuts built on that vector (_edge_lines)
 ├── plan.py               Pre-Market Plan (Шаблон B): projected entry/SL/TP/RR
 │                         from H4/H1 structure; both-way brackets when H4 flat;
 │                         on-demand via /plan, folded with live engine status;
@@ -247,6 +251,25 @@ tracking → live-card edits on fill/TP/SL events.
   size matters on Railway).
 - Adding a signal column? Extend `SIGNAL_COLUMNS`, the `CREATE TABLE` and the
   migration list in `db.py` — existing production DBs are migrated in place.
+- **Every signal carries the feature vector behind its tier verdict**
+  (`journal._feature_vector`, audit finding F4, 2026-08-26): `tier_missed`,
+  `room_r`, `sweep`, `entry_gap_r`, the four `pd_*` columns,
+  `direction_source`, `h4_trend`, `h1_trend` and `entry_hour` (Prague).
+  Bookkeeping only — nothing in the strategy reads them back; they exist so
+  `/stats` can answer "does this condition earn its keep?" instead of the
+  question being unanswerable however long the bot runs. Two NULL
+  conventions are load-bearing and must not be flattened: an *unmeasurable*
+  condition stores NULL and is a PASSING condition (`room_r` when no pool
+  sits ahead, `sweep` when the excursion took nothing, the `pd_*` block
+  when no range contains the entry) — writing 0.0 instead would read as
+  the opposite; and `tier_missed` is `""` for a clean setup but NULL on
+  rows written before these columns existed, which is exactly how
+  `_edge_lines` excludes legacy rows from every cut.
+- **`/stats` withholds an average it cannot support**: a bucket under
+  `journal.MIN_EDGE_SAMPLE` prints its count and a dash, and a whole cut
+  whose buckets are all that thin (or that has only one bucket) is not
+  printed at all. The block exists to end guessing, not to dress two trades
+  up as an edge.
 - **Strategy profiles** (`profiles.py`) are read by the engine at exactly four
   points: direction (H4 CHoCH on FLAT trend), FVG size, H1 zone selection
   (`max_zone_touches`), and FVG scope. `fvg_size_factor` is a **multiplier** on
