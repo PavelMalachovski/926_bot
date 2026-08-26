@@ -65,6 +65,18 @@ class WatcherState:
             for k, v in raw_pinged.items()
             if isinstance(v, list) and all(isinstance(e, list) for e in v)
         }
+        # pair -> [[side, block_id], ...]: the PD radar already told this
+        # pair it was in discount/premium during the CURRENT session block
+        # (owner request 2026-08-26). Two sides, so no bounds to overlap —
+        # a plain (side, block) pair is the whole identity. Entries from
+        # other blocks are pruned on the next write, exactly like
+        # `zone_pinged`; anything malformed is dropped on load.
+        raw_pd = db.kv_get("pd_pinged") or {}
+        self.pd_pinged: Dict[str, List[list]] = {
+            k: [e for e in v if isinstance(e, list) and len(e) == 2]
+            for k, v in raw_pd.items()
+            if isinstance(v, list) and all(isinstance(e, list) for e in v)
+        }
         # pair -> ISO UTC deadline: the owner pressed 🔕 under a zone alert
         # and wants no more zone alerts for this pair until then. Zone
         # alerts only — setups, Rule 0.4 and the digest ignore it (D3).
@@ -102,6 +114,7 @@ class WatcherState:
         self.db.kv_set("day_stop_notified", self.day_stop_notified)
         self.db.kv_set("pair_cooldown", self.pair_cooldown)
         self.db.kv_set("zone_pinged", self.zone_pinged)
+        self.db.kv_set("pd_pinged", self.pd_pinged)
         self.db.kv_set("zone_muted", self.zone_muted)
         self.db.kv_set("pair_profile", self.pair_profile)
         self.db.kv_set("paused", self.paused)
@@ -211,6 +224,23 @@ class WatcherState:
             min(bottom, top), max(bottom, top), direction, block_id,
         ])
         self.zone_pinged[key] = kept
+        self.save()
+
+    # ---------------------------------------------------------- PD radar dedup
+
+    def pd_already_pinged(self, key: str, side: str, block_id: str) -> bool:
+        """Whether the PD radar already announced this side in this block."""
+        return any(
+            e_side == side and e_block == block_id
+            for e_side, e_block in self.pd_pinged.get(key.upper(), [])
+        )
+
+    def remember_pd_ping(self, key: str, side: str, block_id: str) -> None:
+        """Record a sent PD alert, dropping records of earlier blocks."""
+        key = key.upper()
+        kept = [e for e in self.pd_pinged.get(key, []) if e[1] == block_id]
+        kept.append([side, block_id])
+        self.pd_pinged[key] = kept
         self.save()
 
     # -------------------------------------------------------- zone alert mute

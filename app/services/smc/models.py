@@ -176,6 +176,12 @@ class AnalysisResult:
     # `direction_source == "range"`; only drawing the boundaries themselves
     # may key on this field.
     market_range: Optional["Range"] = None
+    # Premium/discount for the ENTRY, on the range `pd.resolve_range` picked
+    # (owner decision D17, 2026-08-26). Set only once a setup has an entry to
+    # judge — the PD radar reads current price and computes its own. None
+    # means no dealing range contains the entry, which is also what makes the
+    # ⭐'s pd condition unmeasurable-and-passing (`sniper.classify`).
+    pd: Optional["PDRead"] = None
     setup: Optional[TradeSetup] = None
     funding_rate: Optional[float] = None
     funding_warning: Optional[str] = None

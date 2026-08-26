@@ -34,8 +34,10 @@ from app.services.smc.db import Database, migrate_legacy_json
 from app.services.smc.engine import TripleSyncEngine
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
 from app.services.smc.journal import SignalJournal
+from app.services.smc.liquidity import find_liquidity, nearest_liquidity
 from app.services.smc.news import NewsCalendar, relevant_currencies
-from app.services.smc.models import AnalysisResult, Direction, Verdict
+from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
+from app.services.smc import pd as pd_module
 from app.services.smc.notifier import (
     TelegramNotifier,
     escape_html,
@@ -44,6 +46,7 @@ from app.services.smc.notifier import (
     format_plan_summary,
     format_quiet_setup,
     format_result,
+    format_pd_alert,
     format_zone_alert,
     plan_summary_keyboard,
     redact_secrets,
@@ -141,6 +144,7 @@ def _build_engine(
         max_entry_gap_r=smc.max_entry_gap_r,
         tp1_r=smc.tp1_r,
         runner_r=smc.runner_r,
+        pd_basis=smc.pd_basis,
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,
@@ -306,6 +310,7 @@ class Watcher:
             status_text=self.status_text,
             stats_text=self.journal.stats_text,
             news_text=self.news_text,
+            pd_text=self.pd_text,
             on_trade_mark=self.mark_trade,
             on_plan=self.on_plan,
             on_stored_plan=self.on_stored_plan,
@@ -566,7 +571,9 @@ class Watcher:
                             f"⚠️ {key}: setup found but the alert failed to send"
                         )
                 else:
-                    await self._maybe_plan_zone_alert(key, result)
+                    zone_alerted = await self._maybe_plan_zone_alert(key, result)
+                    if not zone_alerted:
+                        await self._maybe_pd_alert(key, result)
                     heartbeat_lines.append(line)
 
             for warning in _correlation_warnings(approved):
@@ -1269,10 +1276,14 @@ class Watcher:
 
     async def _maybe_plan_zone_alert(
         self, key: str, result: Optional[AnalysisResult]
-    ) -> None:
+    ) -> bool:
         """Price entered a zone the CURRENT plan names: one alert per zone
         per session block (owner decision 2026-08-16, spec §1.3), carrying
         the plan's projected bracket.
+
+        Returns whether a message went out, so the PD radar can stand down
+        for this cycle: "price reached your zone" is the more actionable of
+        the two, and both in one cycle is two messages about one moment.
 
         The 2026-08-11 "episode" rule is gone. It kept the alert armed as
         soon as the last closed M5 candle stopped overlapping the zone, so
@@ -1283,27 +1294,27 @@ class Watcher:
         block ending, or extend it with the 🔕 button.
         """
         if not settings.smc.zone_ping or result is None:
-            return
+            return False
         if not result.session_name or not result.m5_candles:
-            return  # Rule 0.1: get-ready alerts belong to the session
+            return False  # Rule 0.1: get-ready alerts belong to the session
         block = session_block(result.checked_at)
         if block is None:
-            return
+            return False
         if self.state.zone_muted_until(key, result.checked_at):
-            return  # the owner silenced this pair's zone alerts (D3)
+            return False  # the owner silenced this pair's zone alerts (D3)
         if result.verdict in APPROVED:
-            return  # the full 🚨 alert covers this touch
+            return False  # the full 🚨 alert covers this touch
         last = result.m5_candles[-1]
         scenario = self.planbook.scenario_for_touch(key, last.low, last.high)
         if scenario is None:
-            return
+            return False
         if self._cooldown_left(key):
-            return  # already managing a position here
+            return False  # already managing a position here
         if self.state.zone_already_pinged(
             key, scenario.zone_bottom, scenario.zone_top,
             scenario.direction.value, block,
         ):
-            return
+            return False
         # The label promises exactly the deadline a press would produce
         # (owner decision 2026-08-16): both sides call block_mute_deadline
         # on the same block. block_mute_deadline cannot return None for a
@@ -1344,6 +1355,106 @@ class Watcher:
                 scenario.direction.value, block,
             )
             logger.info("Plan-zone alert sent", pair=key, block=block)
+        return bool(sent)
+
+    @staticmethod
+    def _bias_direction(result: AnalysisResult) -> Optional[Direction]:
+        """The direction the pair is biased to, by Rule 1's own precedence.
+
+        H4 first; H1 when H4 reads FLAT (owner decision 2026-08-06); None
+        when both are flat — that is the range state (D11), where there is no
+        trend to be early or late to and the PD radar has nothing to say.
+        None as well before Rule 1 ran at all (`h1_trend` unset), which is
+        every off-session and market-closed return.
+        """
+        if result.h1_trend is None:
+            return None
+        for trend in (result.h4_trend, result.h1_trend):
+            if trend == Trend.UP:
+                return Direction.LONG
+            if trend == Trend.DOWN:
+                return Direction.SHORT
+        return None
+
+    def _pd_target(self, result: AnalysisResult, direction: Direction):
+        """The nearest unswept H1/H4 pool ahead — the level the bias is
+        reaching for. Best-effort: a level nobody can compute must never cost
+        the owner the message it was going to decorate."""
+        try:
+            tolerance = get_instrument(result.symbol).min_fvg
+            levels = (
+                find_liquidity(result.h1_candles, "H1", tolerance)
+                + find_liquidity(result.h4_candles, "H4", tolerance)
+            )
+            return nearest_liquidity(levels, direction, result.price)
+        except Exception as e:
+            logger.warning("PD target lookup failed", pair=result.symbol, error=str(e))
+            return None
+
+    async def _maybe_pd_alert(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> None:
+        """PD radar: price reached the half of its dealing range the bias
+        wants — discount under a long bias, premium under a short one.
+
+        Owner request 2026-08-26. This is a get-ready message, not a setup:
+        it says where price is inside the range it is retracing and what to
+        watch for, and the M5 CHoCH + FVG trigger stays the engine's job.
+
+        It fires ONLY with the bias (owner choice): a discount under a
+        downtrend is not an opportunity, it is the trend working, and a bot
+        that points at it is arguing for counter-trend entries the strategy
+        does not take. One message per pair per side per session block, and
+        the 🔕 button silences the pair the same way it does a zone alert —
+        both belong to the same get-ready family, so one mute covers both.
+        """
+        if not settings.smc.pd_alert or result is None:
+            return
+        if not result.session_name or not result.h4_candles:
+            return  # Rule 0.1: get-ready alerts belong to the session
+        if not result.h1_candles or not result.price:
+            return
+        block = session_block(result.checked_at)
+        if block is None:
+            return
+        if self.state.zone_muted_until(key, result.checked_at):
+            return
+        if result.verdict in APPROVED:
+            return  # the 🚨 alert already carries its own PD line
+        if self._cooldown_left(key):
+            return  # already managing a position here
+        direction = self._bias_direction(result)
+        if direction is None:
+            return
+        read = pd_module.read(
+            result.h4_candles, result.h1_candles, result.price, direction,
+            basis=settings.smc.pd_basis,
+        )
+        if read is None or not read.favourable:
+            return
+        if self.state.pd_already_pinged(key, direction.value, block):
+            return
+        deadline = block_mute_deadline(block)
+        reply_markup = (
+            zone_alert_keyboard(key, prague_hhmm(deadline), block)
+            if deadline is not None else None
+        )
+        sent = await self.notifier.send(
+            format_pd_alert(
+                key, read, result.price_decimals,
+                zone=result.h1_zone,
+                target=self._pd_target(result, direction),
+            ),
+            reply_markup=reply_markup,
+        )
+        if sent:
+            # mark AFTER the send, like every other alert here: a delivery
+            # that never landed must be retried on the next cycle.
+            self.state.remember_pd_ping(key, direction.value, block)
+            logger.info(
+                "PD alert sent", pair=key, block=block,
+                side=read.label, pct=read.pct,
+            )
 
     async def _rule_04_warnings(self) -> None:
         """Rule 0.4: active signal + red news soon -> SL to BU / pull the order.
@@ -1414,6 +1525,51 @@ class Watcher:
         if changed:
             self.state.save()
 
+    def pd_text(self) -> str:
+        """`/pd`: premium/discount for every watched pair, from the last
+        completed cycle.
+
+        Reads `last_results` rather than fetching: the answer must be the
+        same one the radar and the alerts are working from, and a second
+        fetch would both cost Twelve Data credits and risk telling the owner
+        a different story than the message he is holding.
+        """
+        lines = ["📐 <b>Premium / discount</b>"]
+        for key in self.state.pairs:
+            result = self.last_results.get(key)
+            if result is None or not result.h4_candles or not result.h1_candles:
+                lines.append(f"• {escape_html(key)}: no data yet")
+                continue
+            direction = self._bias_direction(result)
+            if direction is None:
+                lines.append(
+                    f"• {escape_html(key)}: H4 and H1 both flat — no bias to "
+                    "measure against"
+                )
+                continue
+            read = pd_module.read(
+                result.h4_candles, result.h1_candles, result.price, direction,
+                basis=settings.smc.pd_basis,
+            )
+            side = "LONG" if direction == Direction.LONG else "SHORT"
+            if read is None:
+                lines.append(
+                    f"• {escape_html(key)} (bias {side}): price is outside "
+                    "every dealing range — expansion, not a retracement"
+                )
+                continue
+            d = result.price_decimals
+            mark = " ⭐ in OTE" if read.in_ote else ""
+            verdict = "✅" if read.favourable else "⚠️"
+            lines.append(
+                f"• {escape_html(key)} (bias {side}): {verdict} "
+                f"{read.pct}% — {escape_html(read.label)}{mark}\n"
+                f"   {escape_html(read.range.timeframe)} "
+                f"{read.range.low:.{d}f}–{read.range.high:.{d}f} · "
+                f"OTE {read.ote_low:.{d}f}–{read.ote_high:.{d}f}"
+            )
+        return "\n".join(lines)
+
     def news_text(self) -> str:
         """/news command."""
         if not self.news:
@@ -1455,6 +1611,12 @@ class Watcher:
             f"{settings.smc.interval_minutes} min off",
             "Deposit for sizing: "
             + (f"${settings.smc.deposit:.0f}" if settings.smc.deposit else "not set"),
+            "PD radar: "
+            + (
+                f"on ({settings.smc.pd_basis.upper()} range)"
+                if settings.smc.pd_alert
+                else f"off ({settings.smc.pd_basis.upper()} range for ⭐)"
+            ),
         ])
         muted = [
             f"{k} ({left})"
@@ -1469,7 +1631,9 @@ class Watcher:
             if (until := self.state.zone_muted_until(k))
         ]
         if zone_muted:
-            lines.append(f"🔕 Zone alerts muted: {', '.join(zone_muted)}")
+            lines.append(
+                f"🔕 Zone + PD alerts muted: {', '.join(zone_muted)}"
+            )
         if self.last_results:
             lines.append("")
             lines.append("<b>Last check:</b>")

@@ -114,6 +114,19 @@ class SMCSettings(BaseSettings):
         "(owner decision 2026-08-11 — this replaced the old engine-zone "
         "ping and is the auto-plan feature's main notification)",
     )
+    pd_alert: bool = Field(
+        default=True,
+        description="PD radar: alert once per pair per session block when "
+        "price reaches the half of its dealing range the H4/H1 bias wants — "
+        "discount for a long bias, premium for a short one (owner request "
+        "2026-08-26)",
+    )
+    pd_basis: str = Field(
+        default="h4",
+        description="Which dealing range premium/discount is measured on: "
+        "'h4' asks H4 first and falls back to H1 (owner decision D17, "
+        "2026-08-26), 'h1' restores the pre-audit H1-only reading",
+    )
     auto_plan: bool = Field(
         default=True,
         description="Build the Pre-Market Plan for all pairs automatically "

@@ -24,8 +24,14 @@ import pytest
 
 from app.services.smc import sniper
 from app.services.smc.engine import TripleSyncEngine
+from app.services.smc.liquidity import find_liquidity
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
-from app.services.smc.range import boundary_zone, detect_range
+from app.services.smc.range import (
+    boundary_excursion_start,
+    boundary_swept,
+    boundary_zone,
+    detect_range,
+)
 from app.services.smc.structure import detect_trend, find_choch, zone_touch_span
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
@@ -209,6 +215,15 @@ def _engine(**kwargs) -> TripleSyncEngine:
     return TripleSyncEngine(**defaults)
 
 
+def _top_excursion(h1, m5):
+    """(band, excursion_start, choch) for the top boundary — the very window
+    the engine measures Rules 3-6 and the ⭐ sweep on."""
+    band = boundary_zone(detect_range(h1, TOLERANCE), Direction.SHORT, TOLERANCE)
+    touch = zone_touch_span(m5, band)[0]
+    choch = find_choch(m5, Direction.SHORT, touch)
+    return band, boundary_excursion_start(m5, band, touch), choch
+
+
 def _sweep_label_at_top(h1, m5):
     """`sniper.sweep_label` on the very excursion the engine measures — the
     top boundary's touch→CHoCH window, with the engine's own arguments."""
@@ -219,6 +234,13 @@ def _sweep_label_at_top(h1, m5):
         m5, h1, Direction.SHORT, touch, choch, TOLERANCE,
         _fresh_result().checked_at,
     )
+
+
+def _boundary_swept_at_top(h1, m5):
+    """D9/D13/D16's own predicate on the same excursion — the thing that
+    stars a range setup when no named pool is left to credit."""
+    _, start, choch = _top_excursion(h1, m5)
+    return boundary_swept(m5[start:choch + 1], RANGE_TOP, above=True)
 
 
 def _run(h1=None, m5=None, h4=None) -> AnalysisResult:
@@ -742,20 +764,40 @@ class TestRangeStarTier:
         assert setup.tier_star is False
         assert setup.tier_missed == ["sweep"]
 
-    def test_a_shallow_sweep_is_named_by_the_liquidity_pool(self):
-        # Pierced by 0.7 — less than the tolerance, so the boundary's EQH
-        # pool survives `find_liquidity._is_swept` and `sweep_label` names it
-        # without the range flag being consulted at all.
+    def test_a_shallow_sweep_is_named_by_a_liquidity_pool(self):
+        """Pierced by 0.7 — less than the tolerance, so the boundary's EQH
+        pool survives `find_liquidity._is_swept` and a named pool, not the
+        range flag, is what `sweep_label` credits.
+
+        Which name wins is priority, not merit: a range top touched on both
+        days IS the previous day's high, so PDH outranks the EQH pool made
+        of the same highs. Both are real; the point of this test is that
+        something was named at all.
+        """
         h1, m5 = h1_ranging_swept(3201.5), m5_at_top_pierced(3201.5)
-        assert _sweep_label_at_top(h1, m5) == "EQH(2)"
+        pools = find_liquidity(h1, "H1", TOLERANCE)
+        assert any(
+            lv.is_high and lv.equal_count >= 2
+            and abs(lv.price - RANGE_TOP) <= TOLERANCE
+            for lv in pools
+        ), "a sub-tolerance pierce must leave the boundary's EQH pool intact"
+        assert _sweep_label_at_top(h1, m5) == "PDH"
         assert _run(h1=h1, m5=m5).setup.tier_star is True
 
     def test_a_deep_sweep_still_earns_the_star(self):
-        # Pierced by 3.2 — more than the tolerance, so `find_liquidity` drops
-        # the pool and `sweep_label` has nothing left to name. The boundary
-        # sweep measured on the excursion itself is what earns the star here.
+        """Pierced by 3.2 — more than the tolerance, so `find_liquidity`
+        drops the boundary's own EQH pool. The boundary sweep measured on
+        the excursion itself is what carries the star here, and it is
+        asserted directly rather than through `sweep_label` returning None:
+        piercing a range top on the second day also takes the previous
+        day's high, so a named pool legitimately exists as well.
+        """
         h1, m5 = h1_ranging_swept(3204.0), m5_at_top_pierced(3204.0)
-        assert _sweep_label_at_top(h1, m5) is None
+        assert not any(
+            lv.is_high and abs(lv.price - RANGE_TOP) <= TOLERANCE
+            for lv in find_liquidity(h1, "H1", TOLERANCE)
+        ), "a pierce deeper than the tolerance must delete the boundary pool"
+        assert _boundary_swept_at_top(h1, m5) is True
         setup = _run(h1=h1, m5=m5).setup
         assert setup.tier_star is True
         assert setup.tier_missed == []
@@ -773,13 +815,14 @@ class TestRangeStarTier:
     def test_a_reclaimed_body_close_pierce_earns_the_star(self):
         """D16 (owner decision 2026-08-18): the raid D15 made tradeable is
         the same raid the owner calls a sweep, so the two rules must agree
-        about it. The pierce is deeper than the tolerance and the H1 pool
-        was already taken, so `sweep_label` has nothing left to name — the
-        boundary predicate is the only thing that can star this setup."""
+        about it. The pierce is deeper than the tolerance, so the boundary's
+        own pool is gone and the boundary predicate is what has to answer —
+        asserted here directly, since a raid above a range top also takes
+        the previous day's high and `sweep_label` names that instead."""
         h1, m5 = h1_ranging_swept(3204.0), m5_at_top_body_pierced()
         assert m5[8].body_high > RANGE_TOP  # not a wick-only pierce
         assert m5[9].close < RANGE_TOP      # but price came back inside
-        assert _sweep_label_at_top(h1, m5) is None
+        assert _boundary_swept_at_top(h1, m5) is True
         setup = _run(h1=h1, m5=m5).setup
         assert setup.tier_star is True
         assert setup.tier_missed == []

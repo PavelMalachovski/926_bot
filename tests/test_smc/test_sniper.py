@@ -170,7 +170,7 @@ def test_sweep_label_eq_pool_long():
 def test_sweep_label_h1_sourced_pool():
     """No M5 pool below the touch, but an unswept H1 low sits inside the
     excursion window -> the H1 level supplies the swingL label."""
-    base = datetime(2026, 3, 3, 9, 0, tzinfo=UTC)
+    base = datetime(2026, 3, 3, 13, 0, tzinfo=UTC)  # 14:00 Prague (CET)
     # M5: flat, no fractal pivots at all before the touch.
     pre = [candle(101.0, 101.2, 100.8, 101.0, index=i, start=base)
            for i in range(9)]
@@ -182,11 +182,22 @@ def test_sweep_label_h1_sourced_pool():
     ]
     m5 = pre + excursion
     choch_idx = touch_idx + 2
-    # H1 PIT series with an unswept low pivot at 99.8 (inside the wick to 99.7).
+    # H1 series with an unswept low pivot at 99.8 (inside the wick to 99.7),
+    # closed before the touch so the point-in-time slice keeps all of it.
+    #
+    # Its timestamps carry two constraints H1 did not used to have: the same
+    # Prague day as the M5 window, and 08:00 Prague or later. H1 now also
+    # feeds the PDH/PDL and Asia readings, so a series dated to the day
+    # before would be read as yesterday's range (and one before 08:00 as
+    # today's Asia range) and short-circuit this test on "PDL"/"AsiaL" long
+    # before the pool search it exists to exercise.
+    h1_base = base - timedelta(hours=5)  # 08:00 UTC = 09:00 Prague
     h1 = [
-        h1c(0, 101.0, 101.5, 100.8, 101.2), h1c(1, 101.2, 101.6, 101.0, 101.4),
-        h1c(2, 101.4, 101.5, 99.8, 100.2),   # low pivot 99.8
-        h1c(3, 100.2, 100.6, 100.0, 100.5), h1c(4, 100.5, 100.9, 100.3, 100.7),
+        c(0, 101.0, 101.5, 100.8, 101.2, base=h1_base, tf_min=60),
+        c(1, 101.2, 101.6, 101.0, 101.4, base=h1_base, tf_min=60),
+        c(2, 101.4, 101.5, 99.8, 100.2, base=h1_base, tf_min=60),  # low pivot
+        c(3, 100.2, 100.6, 100.0, 100.5, base=h1_base, tf_min=60),
+        c(4, 100.5, 100.9, 100.3, 100.7, base=h1_base, tf_min=60),
     ]
     label = sweep_label(
         m5=m5, h1=h1, direction=Direction.LONG,
@@ -216,6 +227,97 @@ def test_sweep_label_extreme_equals_level_is_not_a_sweep():
         tolerance=0.05, ts_utc=base + timedelta(minutes=20),
     )
     assert label is None
+
+
+# --- Regressions: the day source and the H1 point-in-time slice -------------
+
+
+def test_previous_day_extremes_come_from_the_whole_day_not_the_m5_window():
+    """Audit F1: PDL must be yesterday's REAL low, not the lowest point of
+    the slice of yesterday that happens to fit in the M5 window.
+
+    Production fetches 400 M5 candles = 33.3 hours, so an afternoon check
+    saw yesterday only from mid-morning on. Yesterday's low then read too
+    HIGH, and an ordinary dip under that invented level was scored as a
+    liquidity sweep — a ⭐ handed out for nothing. H1 carries 16 days and
+    closes the gap.
+    """
+    # Yesterday (Mar 3 Prague): the real low is 99.00, made at 03:00 during
+    # Asia. The M5 window only reaches back to 14:00, where the low is 100.50.
+    h1_prev = [
+        c(0, 100.9, 101.0, 100.4, 100.5, base=datetime(2026, 3, 2, 23, 0, tzinfo=UTC), tf_min=60),
+        c(1, 100.5, 100.6, 99.8, 99.9, base=datetime(2026, 3, 2, 23, 0, tzinfo=UTC), tf_min=60),
+        c(2, 99.9, 100.0, 99.3, 99.4, base=datetime(2026, 3, 2, 23, 0, tzinfo=UTC), tf_min=60),
+        c(3, 99.4, 99.5, 99.0, 99.2, base=datetime(2026, 3, 2, 23, 0, tzinfo=UTC), tf_min=60),
+        c(4, 99.2, 99.9, 99.1, 99.8, base=datetime(2026, 3, 2, 23, 0, tzinfo=UTC), tf_min=60),
+        c(5, 99.8, 100.5, 99.7, 100.4, base=datetime(2026, 3, 2, 23, 0, tzinfo=UTC), tf_min=60),
+        c(6, 100.4, 101.0, 100.3, 100.9, base=datetime(2026, 3, 2, 23, 0, tzinfo=UTC), tf_min=60),
+    ]
+    prev_m5 = [
+        c(i, 100.9, 101.2, 100.5, 101.0,
+          base=datetime(2026, 3, 3, 13, 0, tzinfo=UTC)) for i in range(6)
+    ]
+    base = datetime(2026, 3, 4, 8, 0, tzinfo=UTC)  # 09:00 Prague, past Asia
+    today = [
+        c(0, 101.0, 101.2, 100.8, 100.9, base=base),
+        c(1, 100.9, 101.0, 100.5, 100.6, base=base),
+        c(2, 100.6, 100.7, 100.2, 100.5, base=base),  # dips under the M5-only low
+        c(3, 100.5, 101.0, 100.4, 100.9, base=base),
+        c(4, 100.9, 101.4, 100.8, 101.3, base=base),
+    ]
+    m5 = prev_m5 + today
+    kwargs = dict(
+        m5=m5, direction=Direction.LONG,
+        touch_idx=len(prev_m5) + 1, choch_idx=len(prev_m5) + 4,
+        tolerance=0.05, ts_utc=base + timedelta(minutes=20),
+    )
+    # Without H1 the day is truncated and 100.20 looks like a sweep of 100.50.
+    assert sweep_label(h1=[], **kwargs) == "PDL"
+    # With H1 the real low is 99.00, which the excursion never came near.
+    assert sweep_label(h1=h1_prev, **kwargs) is None
+
+
+def test_h1_pool_taken_by_the_excursion_is_still_named():
+    """Audit F2: the H1 half of the pool search must be sliced at the touch
+    like the M5 half is.
+
+    `find_liquidity` drops levels a later candle already took. Handed the
+    whole H1 array it therefore deletes the exact low this excursion swept,
+    and the search below looks for a crossed level in a list it was removed
+    from — a real sweep goes unnamed and the setup loses a ⭐ it earned. It
+    bites once the excursion spans a closed H1 candle, i.e. whenever price
+    sits in the zone for an hour or more.
+    """
+    base = datetime(2026, 3, 3, 13, 0, tzinfo=UTC)  # 14:00 Prague
+    pre = [candle(101.0, 101.2, 100.8, 101.0, index=i, start=base)
+           for i in range(9)]
+    touch_idx = len(pre)
+    excursion = [
+        candle(101.0, 101.1, 100.9, 101.0, index=touch_idx, start=base),
+        candle(101.0, 101.1, 99.7, 100.8, index=touch_idx + 1, start=base),
+        candle(100.8, 101.3, 100.7, 101.2, index=touch_idx + 2, start=base),
+    ]
+    m5 = pre + excursion
+    choch_idx = touch_idx + 2
+    h1_base = base - timedelta(hours=5)  # 09:00 Prague: same day, past Asia
+    h1 = [
+        c(0, 101.0, 101.5, 100.8, 101.2, base=h1_base, tf_min=60),
+        c(1, 101.2, 101.6, 101.0, 101.4, base=h1_base, tf_min=60),
+        c(2, 101.4, 101.5, 99.8, 100.2, base=h1_base, tf_min=60),  # low pivot
+        c(3, 100.2, 100.6, 100.0, 100.5, base=h1_base, tf_min=60),
+        c(4, 100.5, 100.9, 100.3, 100.7, base=h1_base, tf_min=60),
+        c(5, 100.7, 101.3, 100.6, 101.1, base=h1_base, tf_min=60),
+    ]
+    # The H1 candle that CLOSED over this very excursion: its low is the
+    # excursion's own wick, so it "sweeps" the 99.8 pivot inside the array.
+    h1_covering = c(6, 101.1, 101.3, 99.7, 101.2, base=h1_base, tf_min=60)
+    assert h1_covering.timestamp > m5[touch_idx].timestamp
+    label = sweep_label(
+        m5=m5, h1=h1 + [h1_covering], direction=Direction.LONG,
+        touch_idx=touch_idx, choch_idx=choch_idx,
+        tolerance=0.02, ts_utc=base + timedelta(minutes=5 * choch_idx),
+    )
+    assert label == "swingL"
 
 
 def test_dealing_range_low_gte_high_returns_none():
