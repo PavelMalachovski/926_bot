@@ -53,24 +53,50 @@ def _prague_date(ts_utc):
     return ts_utc.astimezone(PRAGUE).date()
 
 
-def _day_extremes(m5: List[Candle], day) -> Optional[Tuple[float, float]]:
+def _day_extremes(candles: List[Candle], day) -> Optional[Tuple[float, float]]:
     """(low, high) over the Prague calendar day `day`, None if no candles."""
-    rows = [c for c in m5 if _prague_date(c.timestamp) == day]
+    rows = [c for c in candles if _prague_date(c.timestamp) == day]
     if not rows:
         return None
     return min(c.low for c in rows), max(c.high for c in rows)
 
 
-def _asia_extremes(m5: List[Candle], day) -> Optional[Tuple[float, float]]:
+def _asia_extremes(candles: List[Candle], day) -> Optional[Tuple[float, float]]:
     """(low, high) of 00:00-08:00 Prague on `day` (pre-session accumulation)."""
     rows = [
-        c for c in m5
+        c for c in candles
         if _prague_date(c.timestamp) == day
         and c.timestamp.astimezone(PRAGUE).hour < 8
     ]
     if not rows:
         return None
     return min(c.low for c in rows), max(c.high for c in rows)
+
+
+def _session_candles(
+    m5: List[Candle], h1: List[Candle], as_of
+) -> List[Candle]:
+    """The candles the day-level pools (PDH/PDL, Asia) are read off.
+
+    M5 alone truncated them. Production fetches 400 M5 candles — 33.3 hours —
+    so a check at 18:00 Prague saw yesterday only from 08:40 onwards, missing
+    the whole Asian session and the London open. Yesterday's low then read
+    HIGHER than it really was (and its high LOWER), so any dip under that
+    invented level was scored as "PDL swept" and handed out a ⭐ nothing had
+    earned. H1 carries 400 candles ≈ 16 days and its per-candle extremes are
+    exact, so adding it makes the day complete; M5 stays in the list for the
+    fixtures (and cold starts) where H1 is empty, and for a day H1 does not
+    reach back to.
+
+    Everything is cut at `as_of` — the zone touch — so this can never see a
+    pool the excursion itself printed. In production the cut changes nothing:
+    yesterday's range and today's Asia range are both complete before the
+    session that produces the touch even opens.
+    """
+    rows = list(m5) + list(h1)
+    if as_of is not None:
+        rows = [c for c in rows if c.timestamp <= as_of]
+    return rows
 
 
 def sweep_label(
@@ -87,8 +113,8 @@ def sweep_label(
     A LONG's excursion sweeps LOW-side pools (wick below the level); a
     SHORT's sweeps HIGH-side pools. Priority: PDH/PDL > Asia > EQ pools
     (equal_count >= 2) > single unswept swing. Levels are taken as-of the
-    touch (m5[:touch_idx] / the PIT H1 slice), so the excursion itself
-    cannot create the pool it sweeps.
+    touch (m5[:touch_idx] and the H1 slice up to the touch candle), so the
+    excursion itself cannot create — or delete — the pool it sweeps.
     """
     window = m5[touch_idx:choch_idx + 1]
     if not window:
@@ -99,19 +125,22 @@ def sweep_label(
     def crossed(level: float) -> bool:
         return extreme < level if is_long else extreme > level
 
+    as_of = m5[touch_idx].timestamp if 0 <= touch_idx < len(m5) else None
+    day_rows = _session_candles(m5, h1, as_of)
     today = _prague_date(ts_utc)
     prev_days = sorted(
-        {d for c in m5 if (d := _prague_date(c.timestamp)) < today}, reverse=True
+        {d for c in day_rows if (d := _prague_date(c.timestamp)) < today},
+        reverse=True,
     )
     if prev_days:
-        pd = _day_extremes(m5, prev_days[0])
+        pd = _day_extremes(day_rows, prev_days[0])
         if pd is not None:
             pdl, pdh = pd
             if is_long and crossed(pdl):
                 return "PDL"
             if not is_long and crossed(pdh):
                 return "PDH"
-    asia = _asia_extremes(m5, today)
+    asia = _asia_extremes(day_rows, today)
     if asia is not None:
         al, ah = asia
         if is_long and crossed(al):
@@ -119,9 +148,19 @@ def sweep_label(
         if not is_long and crossed(ah):
             return "AsiaH"
 
+    # The H1 half must be sliced exactly like the M5 half. `find_liquidity`
+    # drops levels a LATER candle has already taken, so handing it the whole
+    # H1 array deletes the very low/high this excursion swept — the search
+    # below then looks for a crossed level in a list it was removed from, and
+    # a genuine H1 sweep goes unnamed. It bites whenever the excursion spans a
+    # closed H1 candle, i.e. whenever price sits in the zone for an hour or
+    # more, which is the normal case.
+    h1_pit = (
+        [c for c in h1 if c.timestamp <= as_of] if as_of is not None else list(h1)
+    )
     levels = (
         find_liquidity(m5[:touch_idx], "M5", tolerance)
-        + find_liquidity(h1, "H1", tolerance)
+        + find_liquidity(h1_pit, "H1", tolerance)
     )
     side = [lv for lv in levels if lv.is_high != is_long and crossed(lv.price)]
     if not side:
