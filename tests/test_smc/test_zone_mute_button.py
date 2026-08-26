@@ -271,4 +271,10 @@ class TestStatusLine:
         future = datetime.now(tz=timezone.utc) + timedelta(hours=1)
         expected_hhmm = prague_hhmm(future)
         w.state.mute_zone_alerts("USDCAD", future)
-        assert f"🔕 Zone alerts muted: USDCAD (till {expected_hhmm})" in w.status_text()
+        # The mute covers the whole get-ready family now — plan-zone alerts
+        # and the PD radar alike (owner request 2026-08-26), so the line
+        # names both rather than promising only half of what 🔕 does.
+        assert (
+            f"🔕 Zone + PD alerts muted: USDCAD (till {expected_hhmm})"
+            in w.status_text()
+        )

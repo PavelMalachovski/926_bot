@@ -22,6 +22,7 @@ from app.services.smc.models import (
     Verdict,
     Zone,
 )
+from app.services.smc import pd as pd_module
 from app.services.smc.profiles import (
     CONSERVATIVE,
     StrategyProfile,
@@ -140,6 +141,7 @@ class TripleSyncEngine:
         max_entry_gap_r: float = 0.75,
         tp1_r: float = 2.0,
         runner_r: float = 3.0,
+        pd_basis: str = "h4",
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
@@ -164,6 +166,7 @@ class TripleSyncEngine:
         self.max_entry_gap_r = max_entry_gap_r
         self.tp1_r = tp1_r
         self.runner_r = runner_r
+        self.pd_basis = pd_basis
         self.risk_pct = risk_pct
         self.deposit = deposit
         self.enforce_sessions = enforce_sessions
@@ -542,7 +545,19 @@ class TripleSyncEngine:
                 swept = boundary_swept(excursion, box.top, above=True)
             if swept:
                 sweep = "RangeL" if direction == Direction.LONG else "RangeH"
-        pd = sniper.pd_state(direction, entry, sniper.dealing_range(h1))
+        # Premium/discount (owner decision D17, 2026-08-26). The verdict the
+        # tier reads is unchanged — `pd_state` still asks which half of the
+        # range the entry sits in — but the range itself is now resolved
+        # explicitly: H4 first, because H4 is where Rule 1 takes the
+        # direction from, H1 as the fallback, and each accepted only while it
+        # still contains the entry. `sniper.dealing_range`'s last-two-H1-
+        # pivots box was five to fifteen hourly candles on a timeframe the
+        # bias does not come from, and it never left the code as a number.
+        # `pd_basis="h1"` restores it verbatim without a deploy.
+        result.pd = pd_module.read(h4, h1, entry, direction, basis=self.pd_basis)
+        pd = sniper.pd_state(
+            direction, entry, result.pd.range.as_tuple() if result.pd else None
+        )
         room = sniper.room_r(h1, h4, direction, entry, risk, tier_tolerance)
         tier = sniper.classify(
             room, sweep, pd, stale,

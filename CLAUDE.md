@@ -68,7 +68,9 @@ smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           (silent summary + aplan_* buttons), per-cycle plan
                           recompute into the planbook with silent summary
                           edits on material change, plan-centric zone alerts
-                          (replaced the old engine-zone ping)
+                          (replaced the old engine-zone ping), PD radar
+                          (price reached the half of its dealing range the
+                          bias wants), /pd
 app/services/smc/
 ├── engine.py             TripleSyncEngine: rules 0-8 checklist; pure
 │                         evaluate() is fully unit-testable on synthetic candles
@@ -103,11 +105,22 @@ app/services/smc/
 ├── liquidity.py          unswept swing highs/lows + EQH/EQL pools;
 │                         nearest_liquidity (Rule 7 take-profit target) and
 │                         liquidity_ladder (five rungs shown in the alert)
+├── pd.py                 premium/discount: dealing_range (last confirmed
+│                         swing low + high of one timeframe), resolve_range
+│                         (H4 first, H1 fallback, each accepted only while it
+│                         CONTAINS the reference price — owner decision D17),
+│                         position as a fraction of the box, ote (the 62-79%
+│                         retracement band), read() -> PDRead. Feeds the ⭐'s
+│                         pd condition, the PD line on setup alerts, the PD
+│                         radar and /pd
 ├── sniper.py             sniper-tier primitives (Phase 2 redesign): room_r
 │                         (H1/H4 liquidity room ahead of entry), sweep_label
-│                         (named pool taken by the touch→CHoCH excursion),
-│                         pd_state (premium/discount vs. the H1 dealing
-│                         range), classify (the ⭐ verdict, checked after a
+│                         (named pool taken by the touch→CHoCH excursion;
+│                         PDH/PDL and Asia read off M5 AND H1 so the day is
+│                         whole, every level sliced at the touch),
+│                         pd_state (which half of the range the entry sits
+│                         in — the range comes from pd.py, see D17),
+│                         classify (the ⭐ verdict, checked after a
 │                         setup already fully formed — detector mode
 │                         unchanged — and denied when H4/H1 trend disagree,
 │                         owner decision D6)
@@ -211,7 +224,8 @@ tracking → live-card edits on fill/TP/SL events.
   plan-zone alerts, or Rule 0.4/9 warnings.
 - **Sniper tier** (`sniper.py`, Phase 2 redesign): a completed setup earns
   ⭐ when room >= 1.0R on H1/H4 liquidity (or unmeasurable), a pool was
-  swept, premium/discount is ok (or unmeasurable), the entry isn't stale
+  swept, premium/discount is ok (or unmeasurable — see D17 below for the
+  range that is measured on), the entry isn't stale
   beyond `SMC_MAX_ENTRY_GAP_R` (0.75R), and H4/H1 trend do not point
   opposite ways (owner decision D6, 2026-08-16) — two alert tiers, both
   still sent (detector mode): a disagreeing setup fires without the star,
@@ -304,6 +318,31 @@ tracking → live-card edits on fill/TP/SL events.
   filter stands down only when the whole candle list ends before the zone
   formed (incoherent fixtures; live data cannot produce it), the same
   fallback `engine.evaluate` already carries for `first_zone_touch`.
+- **Premium/discount is measured on an explicit dealing range** (`pd.py`,
+  owner decision D17, 2026-08-26). `resolve_range` asks H4 first — H4 is
+  where Rule 1 takes the direction from — and falls back to H1, accepting
+  either only while it still CONTAINS the reference price; when neither
+  does, price is expanding rather than retracing and the answer is None,
+  which `sniper.classify` already treats as unmeasurable-and-passing. The
+  ⭐'s verdict is unchanged in shape (`sniper.pd_state` still asks which
+  half of the range the ENTRY sits in) — only the box it asks about is.
+  `SMC_PD_BASIS=h1` restores the pre-audit last-two-H1-pivots reading
+  without a deploy. The number now leaves the code: `AnalysisResult.pd`
+  carries a `PDRead`, the 🚨 alert prints `PD 24% discount (H4 …) · OTE …`
+  and the quiet 🔹 line appends `· PD 62% premium (H4)` right after
+  `Missed for ⭐:`, so the most common star-blocker is finally readable.
+  OTE (62-79% retracement) is label-only: it marks a message, never a gate.
+- **PD radar** (`SMC_PD_ALERT`, owner request 2026-08-26): one alert per
+  pair per **side** per session block when price reaches the half of its
+  dealing range the bias wants — discount under a long bias, premium under
+  a short one. It fires ONLY with the bias (a discount under a downtrend is
+  the trend working, not an entry), takes that bias from Rule 1's own
+  precedence (H4, then H1 on H4 FLAT, nothing when both are flat — the
+  range state D11), stands down when a plan-zone alert already went out
+  this cycle, and never fires once a setup has formed (the 🚨 alert carries
+  its own PD line). Dedup lives in `state.pd_pinged`; `/pd` answers the
+  same question on demand from the last completed cycle, never a fresh
+  fetch.
 - **Plan-centric zone alert** (spec 2026-08-11 §5, dedup rewritten by owner
   decision 2026-08-16): fires when price touches a zone named by the pair's
   *current* plan (`planbook.scenario_for_touch`), carrying that scenario's
@@ -317,8 +356,10 @@ tracking → live-card edits on fill/TP/SL events.
   messages on 2026-08-13. Nothing re-arms an alert inside a block. The 🔕
   button under the alert writes `state.zone_muted[pair]` (ISO UTC deadline
   from `sessions.mute_deadline`: this block's end, or tomorrow's open in
-  the day's last block) and silences that pair's zone alerts only — setup
-  alerts, Rule 0.4 warnings and the 07:45 digest ignore it. `/unmute`
+  the day's last block) and silences that pair's **get-ready** alerts —
+  plan-zone alerts and the PD radar, which carries the same button (owner
+  request 2026-08-26). Setup alerts, Rule 0.4 warnings and the 07:45
+  digest ignore it. `/unmute`
   clears every mute; `/status` lists them.
   `state.remember_plan_zones` (the separate "from this morning's plan"
   provenance, spec 2026-08-06 §6) is still written **only** by the

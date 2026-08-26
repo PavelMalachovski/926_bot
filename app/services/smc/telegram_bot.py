@@ -38,6 +38,7 @@ HELP_TEXT = (
     "/pairs — choose currency pairs\n"
     "/notify — global alert level: all setups, ⭐ only, or mute\n"
     "/status — current settings and last verdicts\n"
+    "/pd — premium/discount for every watched pair, right now\n"
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
     "Auto-plan: silent 07:55/13:55 summaries — press a pair button "
@@ -64,6 +65,7 @@ class TelegramCommandBot:
         status_text: Callable[[], str],
         stats_text: Optional[Callable[[], str]] = None,
         news_text: Optional[Callable[[], str]] = None,
+        pd_text: Optional[Callable[[], str]] = None,
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
         on_stored_plan: Optional[Callable[[str], Awaitable[None]]] = None,
@@ -80,6 +82,7 @@ class TelegramCommandBot:
         self.status_text = status_text
         self.stats_text = stats_text
         self.news_text = news_text
+        self.pd_text = pd_text
         self.on_trade_mark = on_trade_mark
         self.on_plan = on_plan
         self.on_stored_plan = on_stored_plan
@@ -248,6 +251,10 @@ class TelegramCommandBot:
                 {"command": "check", "description": "Run the strategy check now"},
                 {"command": "plan", "description": "Pre-market plan for a pair"},
                 {"command": "status", "description": "Settings and last verdicts"},
+                {
+                    "command": "pd",
+                    "description": "Premium / discount for every watched pair",
+                },
                 {"command": "stats", "description": "Signal journal and winrate"},
                 {"command": "journal", "description": "Trade journal from MT4 screenshots"},
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
@@ -312,6 +319,11 @@ class TelegramCommandBot:
             )
         elif command == "/status":
             await self.send(self.status_text())
+        elif command == "/pd":
+            if self.pd_text:
+                await self.send(self.pd_text())
+            else:
+                await self.send("Premium/discount is not available.")
         elif command == "/pause":
             self.state.set_paused(True)
             await self.send(

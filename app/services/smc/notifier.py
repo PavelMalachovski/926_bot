@@ -190,6 +190,78 @@ def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
     return f"H4 {TREND_LABEL[result.h4_trend]}"
 
 
+def _pd_line(result: AnalysisResult) -> Optional[str]:
+    """Where the entry sits inside its dealing range, as a number.
+
+    The ⭐'s `pd` condition used to be a verdict with nothing behind it: an
+    alert said "Missed for ⭐: pd" and the owner had no way to see whether he
+    was buying at 51% of the range or at 90%. This is that number (owner
+    decision D17, 2026-08-26). None when no dealing range contains the entry
+    — the same unmeasurable-and-passing case `sniper.classify` already has,
+    and a line claiming a percentage of a range price has left would be a
+    guess.
+    """
+    read = result.pd
+    if read is None:
+        return None
+    d = result.price_decimals
+    ote = f"OTE {read.ote_low:.{d}f}–{read.ote_high:.{d}f}"
+    return (
+        f"PD {read.pct}% {escape_html(read.label)} "
+        f"({escape_html(read.range.timeframe)} "
+        f"{read.range.low:.{d}f}–{read.range.high:.{d}f}) · "
+        f"{ote}{' ✓' if read.in_ote else ''}"
+    )
+
+
+def format_pd_alert(
+    pair: str,
+    read,
+    decimals: int,
+    zone=None,
+    target: Optional[LiquidityLevel] = None,
+) -> str:
+    """PD radar: price reached the half of its range the bias wants.
+
+    Owner request 2026-08-26 — "сообщение когда цена в дискаунте для покупки,
+    и наоборот на верхах для продажи". A get-ready message, not a setup: it
+    says where price is and what to watch, and the M5 trigger is still the
+    engine's job. Fires only in the direction of the H4/H1 bias (owner
+    choice), once per pair per session block.
+
+    `zone` is the H1 zone of interest when Rule 2 already found one, `target`
+    the nearest unswept pool ahead — both optional, because a discount is
+    worth knowing about before either exists.
+    """
+    d = decimals
+    is_long = read.direction == Direction.LONG
+    rng = read.range
+    head = "🟢" if is_long else "🔴"
+    lines = [
+        f"{head} <b>{escape_html(pair)} — {escape_html(read.label.upper())}</b>"
+        f" · bias {'LONG' if is_long else 'SHORT'}",
+        f"{escape_html(rng.timeframe + ' range'):<12} "
+        f"{rng.low:.{d}f} – {rng.high:.{d}f}",
+        f"{'Price':<12} {read.price:.{d}f}   ← {read.pct}% of the range",
+        f"{'OTE':<12} {read.ote_low:.{d}f} – {read.ote_high:.{d}f}"
+        + ("   ⭐ price is inside" if read.in_ote else ""),
+        "",
+    ]
+    if zone is not None:
+        kind = "Demand" if is_long else "Supply"
+        lines.append(
+            f"📍 H1 {kind} zone      {zone.bottom:.{d}f} – {zone.top:.{d}f}"
+        )
+    if target is not None:
+        lines.append(
+            f"🎯 Liquidity ahead   {escape_html(format_target(target, d))}"
+        )
+    lines.append(
+        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG."
+    )
+    return "\n".join(lines)
+
+
 def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> str:
     """The announcement: four actionable lines, then the ladders.
 
@@ -223,6 +295,9 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         if trends_disagree(result.h4_trend, result.h1_trend):
             agree += " ⚠️ counter-hourly"
         lines.append(agree)
+    pd_line = _pd_line(result)
+    if pd_line:
+        lines.append(pd_line)
     if setup.tier_star:
         # Phase 2 sniper redesign (owner decision 2026-08-12): the loud
         # ⭐-tier header — room + sweep + premium/discount + staleness all
@@ -412,6 +487,14 @@ def format_quiet_setup(result: AnalysisResult) -> str:
     side = "LONG" if is_long else "SHORT"
     missed = ", ".join(setup.tier_missed) if setup.tier_missed else "—"
     time_str = to_prague(result.checked_at).strftime("%d.%m %H:%M")
+    # "Missed for ⭐: pd" is the most common verdict on this line and the
+    # least actionable one without a number behind it (owner decision D17).
+    pd_read = result.pd
+    pd_note = (
+        f" · PD {pd_read.pct}% {escape_html(pd_read.label)}"
+        f" ({escape_html(pd_read.range.timeframe)})"
+        if pd_read is not None else ""
+    )
     if result.direction_source == "range" and result.market_range is not None:
         box = result.market_range
         target = (
@@ -424,7 +507,7 @@ def format_quiet_setup(result: AnalysisResult) -> str:
             f"{box.bottom:.{d}f}–{box.top:.{d}f} · "
             f"entry {setup.entry:.{d}f} · SL {setup.stop_loss:.{d}f} · "
             f"{target}\n"
-            f"Missed for ⭐: {escape_html(missed)} · {time_str} Prague"
+            f"Missed for ⭐: {escape_html(missed)}{pd_note} · {time_str} Prague"
         )
     tp1 = f"{setup.tp1:.{d}f}" if setup.tp1 is not None else "n/a"
     runner = f"{setup.runner_tp:.{d}f}" if setup.runner_tp is not None else "n/a"
@@ -432,7 +515,7 @@ def format_quiet_setup(result: AnalysisResult) -> str:
         f"🔹 <b>{escape_html(result.symbol)} {side}</b> · "
         f"entry {setup.entry:.{d}f} · SL {setup.stop_loss:.{d}f} · "
         f"TP1 {tp1} · runner {runner}\n"
-        f"Missed for ⭐: {escape_html(missed)} · {time_str} Prague"
+        f"Missed for ⭐: {escape_html(missed)}{pd_note} · {time_str} Prague"
     )
 
 
