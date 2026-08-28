@@ -140,6 +140,17 @@ app/services/smc/
 ├── journal.py            signal lifecycle pending→open→tp/sl/expired with
 │                         state-change events, taken marks (alert buttons),
 │                         discipline_block (Rule 10 / Rule 0.2), /stats
+├── autopilot.py          demo autopilot (owner decisions D18-D21,
+│                         2026-08-28): PAPER orders for the same recorded
+│                         signals the alerts announce — strict trade-through
+│                         fills, maker/taker fees, adverse slippage on
+│                         stop-market exits, GTD expiry a late candle cannot
+│                         fill through, 5-day timeout closes at market; D19
+│                         hard gates in code (0.5% of paper equity per
+│                         trade, 2 realized SL close the Prague day, week
+│                         net ≤ −6R kills the week, max_open); /auto
+│                         on|off|report; module exists only when
+│                         SMC_AUTO_TRADE=true; v1 trades ETHUSD only
 ├── plan.py               Pre-Market Plan (Шаблон B): projected entry/SL/TP/RR
 │                         from H4/H1 structure; both-way brackets when H4 flat;
 │                         on-demand via /plan, folded with live engine status;
@@ -343,6 +354,23 @@ tracking → live-card edits on fill/TP/SL events.
   its own PD line). Dedup lives in `state.pd_pinged`; `/pd` answers the
   same question on demand from the last completed cycle, never a fresh
   fetch.
+- **The demo autopilot is a second track, not a second strategy** (owner
+  decisions D18-D21, 2026-08-28). `autopilot.py` places PAPER orders for
+  recorded signals; the journal stays the cost-free MODEL track (touch =
+  fill, no fees) and must not be "fixed" to match — the divergence between
+  the two is the measurement (spread/slippage/fill reality), not a bug.
+  Placement runs right after `journal.record` and never depends on
+  Telegram delivery: when an alert send fails but an order was placed, the
+  signal row survives and the dedup fingerprint advances (an orphaned
+  order must never re-record its setup). Autopilot messages are account
+  events — `/notify` levels and zone mutes deliberately do not apply.
+  The D19 gates are code, not hints: risk per trade off PAPER equity,
+  realized-stop day-stop (the journal's taken-marks discipline stays
+  human-only), weekly kill with `/auto on` as the explicit override.
+  All tunables are `SMC_AUTO_*` (env.example). v1 is crypto-only (D21):
+  the cost model is Binance futures maker/taker — do not put forex pairs
+  in `SMC_AUTO_PAIRS` without a broker adapter, they are skipped with a
+  log line.
 - **Plan-centric zone alert** (spec 2026-08-11 §5, dedup rewritten by owner
   decision 2026-08-16): fires when price touches a zone named by the pair's
   *current* plan (`planbook.scenario_for_touch`), carrying that scenario's

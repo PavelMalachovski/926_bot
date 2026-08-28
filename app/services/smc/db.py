@@ -51,6 +51,71 @@ SIGNAL_COLUMNS = [
     "zone_kind",
 ]
 
+# Demo-autopilot paper orders (owner decisions D18-D21, 2026-08-28). One row
+# per order the autopilot placed for a journal signal; `id` IS the signal id,
+# which is what ties the paper track to the model track in reports. Money
+# columns are PAPER USD.
+AUTO_ORDER_COLUMNS = [
+    "id",  # = the journal signal id this order was placed for
+    "pair",
+    "direction",  # long / short
+    "tier",  # star / regular (bookkeeping for the report split)
+    "zone_kind",  # OB / FVG / RANGE / NULL (slicing, like signals.zone_kind)
+    "qty",  # position size in base units (ETH)
+    "entry",  # limit level (engine's Rule 5 entry)
+    "stop_loss",
+    "take_profit",  # single objective (non-hybrid / RANGE); may be NULL
+    "tp1",  # hybrid exit levels; NULL = non-hybrid lifecycle
+    "runner_tp",
+    "risk_usd",  # planned $ risk at placement (equity * risk_pct)
+    "risk_dist",  # |fill-or-entry - stop_loss| in price units
+    "status",  # pending / open / open_runner / closed / cancelled
+    "outcome",  # closed: sl/tp/tp1_be/tp1_runner/timeout; cancelled:
+    #            expired/day_stop/week_kill; NULL while active
+    "created_at",
+    "expires_at",  # session end (Rule 10), copied from the signal
+    "filled_at",
+    "tp1_at",
+    "resolved_at",
+    "checked_until",  # evaluation watermark, like signals.checked_until
+    "fill_price",  # actual entry fill (differs from entry on market entries)
+    "fees_usd",  # accumulated fees over every fill of this order
+    "pnl_usd",  # realized net PnL (gross - fees), accumulated per leg
+    "result_r",  # pnl_usd / risk_usd once resolved
+    "equity_after",  # paper equity after this order fully resolved
+]
+
+AUTO_ORDERS_TABLE_SQL = """
+                CREATE TABLE IF NOT EXISTS auto_orders (
+                    id TEXT PRIMARY KEY,
+                    pair TEXT NOT NULL,
+                    direction TEXT NOT NULL,
+                    tier TEXT,
+                    zone_kind TEXT,
+                    qty REAL NOT NULL,
+                    entry REAL NOT NULL,
+                    stop_loss REAL NOT NULL,
+                    take_profit REAL,
+                    tp1 REAL,
+                    runner_tp REAL,
+                    risk_usd REAL NOT NULL,
+                    risk_dist REAL NOT NULL,
+                    status TEXT NOT NULL,
+                    outcome TEXT,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT,
+                    filled_at TEXT,
+                    tp1_at TEXT,
+                    resolved_at TEXT,
+                    checked_until TEXT,
+                    fill_price REAL,
+                    fees_usd REAL DEFAULT 0,
+                    pnl_usd REAL DEFAULT 0,
+                    result_r REAL,
+                    equity_after REAL
+                )
+"""
+
 # Manual trade journal parsed from MetaTrader screenshots.
 TRADE_COLUMNS = [
     "id",  # uuid
@@ -178,6 +243,11 @@ class Database:
                 self.conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_trades_batch "
                     "ON trades(batch_id)"
+                )
+                self.conn.execute(AUTO_ORDERS_TABLE_SQL)
+                self.conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_auto_orders_status "
+                    "ON auto_orders(status)"
                 )
                 # Migrate databases created before these columns existed
                 existing = {
@@ -427,6 +497,36 @@ class Database:
                 self.conn.execute("DELETE FROM signals WHERE id = ?", (signal_id,))
 
         self._run("signal_delete", _write, None)
+
+    # ---------------------------------------------------------- auto orders
+
+    def auto_orders_all(self) -> List[Dict]:
+        def _read():
+            rows = self.conn.execute(
+                "SELECT * FROM auto_orders ORDER BY created_at"
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+        return self._run("auto_orders_all", _read, [])
+
+    def auto_order_upsert(self, order: Dict) -> None:
+        def _write():
+            values = [order.get(col) for col in AUTO_ORDER_COLUMNS]
+            placeholders = ", ".join("?" for _ in AUTO_ORDER_COLUMNS)
+            assignments = ", ".join(
+                f"{col} = excluded.{col}"
+                for col in AUTO_ORDER_COLUMNS
+                if col != "id"
+            )
+            with self.conn:
+                self.conn.execute(
+                    f"INSERT INTO auto_orders ({', '.join(AUTO_ORDER_COLUMNS)}) "
+                    f"VALUES ({placeholders}) "
+                    f"ON CONFLICT(id) DO UPDATE SET {assignments}",
+                    values,
+                )
+
+        self._run("auto_order_upsert", _write, None)
 
     # --------------------------------------------------------------- trades
 

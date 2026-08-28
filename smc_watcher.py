@@ -29,6 +29,7 @@ import structlog
 from app.core.config import settings
 from app.core.exceptions import ConfigurationError, DataFetchError
 from app.core.logging import configure_logging
+from app.services.smc.autopilot import AutoConfig, Autopilot
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.db import Database, migrate_legacy_json
 from app.services.smc.engine import TripleSyncEngine
@@ -294,6 +295,14 @@ class Watcher:
         self.notifier = TelegramNotifier(bot_token=token, chat_id=chat_id)
         self.journal = SignalJournal(self.db)
         self.trade_journal = TradeJournal(self.db)
+        # Demo autopilot (owner decisions D18-D21, 2026-08-28): PAPER orders
+        # for completed setups, next to (never instead of) the alerts. Off by
+        # default — the module only exists when SMC_AUTO_TRADE=true.
+        self.autopilot = (
+            Autopilot(self.db, AutoConfig.from_settings(settings.smc))
+            if settings.smc.auto_trade
+            else None
+        )
         self.news = (
             NewsCalendar(
                 before_minutes=settings.smc.news_blackout_before_min,
@@ -316,6 +325,7 @@ class Watcher:
             on_stored_plan=self.on_stored_plan,
             on_zone_mute=self.mark_zone_mute,
             trade_journal=self.trade_journal,
+            auto_command=self.auto_command,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         self.planbook = PlanBook()
@@ -630,6 +640,34 @@ class Watcher:
             return await self._send_star_alert(key, result, fingerprint)
         return await self._send_quiet_alert(key, result, fingerprint)
 
+    def _get_autopilot(self) -> Optional[Autopilot]:
+        """Lazy read so a Watcher built via `Watcher.__new__` in tests keeps
+        working with no autopilot attribute — same pattern as
+        `_get_cycle_lock`. Production always has the attribute (None when
+        SMC_AUTO_TRADE is off)."""
+        return self.__dict__.get("autopilot")
+
+    def _auto_place(self, signal: Dict, result: AnalysisResult):
+        """Hand a freshly recorded signal to the autopilot.
+
+        Returns (placed, message). Runs BEFORE any Telegram send on purpose:
+        the paper order must not depend on alert delivery (design §3,
+        "Telegram decoupling"). `Autopilot.on_signal` never raises.
+        """
+        pilot = self._get_autopilot()
+        if not pilot:
+            return False, None
+        message = pilot.on_signal(signal, result)
+        return message is not None, message
+
+    async def _send_auto_msg(self, message: Optional[str]) -> None:
+        """Deliver an autopilot message. Account events are not setup
+        alerts: `/notify` levels and zone mutes deliberately do not apply.
+        `notifier.send` swallows transport errors, so a Telegram outage
+        costs the message, never the order."""
+        if message:
+            await self.notifier.send(message)
+
     def _alert_send_suppressed(self, tier_star: bool) -> bool:
         """Whether `state.notify_level` (Task 4b, owner decision 2026-08-12)
         blocks the real Telegram send for this tier. "mute" blocks both
@@ -656,12 +694,15 @@ class Watcher:
         # Nothing between here and `attach_message` reads the journal.
         text = format_result(result, in_plan=self._plan_provenance(key, result))
         signal = self.journal.record(result)
+        placed, auto_msg = self._auto_place(signal, result)
         if self._alert_send_suppressed(tier_star=True):
             # notify_level says "mute" — record + dedup still happen, only
             # the Telegram send (and everything downstream of it: pin,
-            # chart, live card) is skipped.
+            # chart, live card) is skipped. The autopilot message is an
+            # account event, not a setup alert — it still goes out.
             self.state.last_setup[key] = fingerprint
             self.state.save()
+            await self._send_auto_msg(auto_msg)
             return False
         keyboard = {
             "inline_keyboard": [
@@ -673,18 +714,28 @@ class Watcher:
         }
         message_id = await self.notifier.send(text, reply_markup=keyboard)
         if not message_id:
-            # The signal just recorded needed its id for the keyboard above
-            # before we knew the send would fail — now that it has, remove
-            # it rather than leave an orphan `pending` row with no message
-            # and no fingerprint (it would otherwise resolve as `expired`
-            # later and pollute /stats).
-            self.journal.discard(signal["id"])
+            if placed:
+                # A paper order references this signal, so the row must
+                # survive the failed send, and the dedup fingerprint must
+                # advance — otherwise the next cycle records a second row
+                # (and attempts a second order) for the same setup.
+                self.state.last_setup[key] = fingerprint
+                self.state.save()
+            else:
+                # The signal just recorded needed its id for the keyboard
+                # above before we knew the send would fail — now that it
+                # has, remove it rather than leave an orphan `pending` row
+                # with no message and no fingerprint (it would otherwise
+                # resolve as `expired` later and pollute /stats).
+                self.journal.discard(signal["id"])
+            await self._send_auto_msg(auto_msg)
             return False
         self.state.last_setup[key] = fingerprint
         self.state.save()
         self.journal.attach_message(signal["id"], message_id, text)
         await self.notifier.pin(message_id)
         await self._send_chart(result, message_id)
+        await self._send_auto_msg(auto_msg)
         return True
 
     async def _send_quiet_alert(
@@ -702,18 +753,29 @@ class Watcher:
         """
         text = format_quiet_setup(result)
         signal = self.journal.record(result)
+        placed, auto_msg = self._auto_place(signal, result)
         if self._alert_send_suppressed(tier_star=False):
             # notify_level says "star" or "mute" — record + dedup still
-            # happen, only the Telegram send is skipped.
+            # happen, only the Telegram send is skipped. The autopilot
+            # message is an account event and still goes out.
             self.state.last_setup[key] = fingerprint
             self.state.save()
+            await self._send_auto_msg(auto_msg)
             return False
         message_id = await self.notifier.send(text)
         if not message_id:
-            self.journal.discard(signal["id"])
+            if placed:
+                # Same reasoning as the star tier: an order references the
+                # row, so keep it and advance the dedup fingerprint.
+                self.state.last_setup[key] = fingerprint
+                self.state.save()
+            else:
+                self.journal.discard(signal["id"])
+            await self._send_auto_msg(auto_msg)
             return False
         self.state.last_setup[key] = fingerprint
         self.state.save()
+        await self._send_auto_msg(auto_msg)
         return True
 
     def _plan_provenance(self, key: str, result: AnalysisResult) -> Optional[bool]:
@@ -1576,9 +1638,44 @@ class Watcher:
             return "News filter is disabled (SMC_NEWS_ENABLED=false)."
         return self.news.digest_text(self.state.pairs)
 
+    def auto_command(self, args: str) -> str:
+        """`/auto` command body: status, on/off toggle, report.
+
+        Synchronous on purpose (kv writes only) so the command bot can call
+        it inline without blocking getUpdates on anything slow.
+        """
+        pilot = self._get_autopilot()
+        if not pilot:
+            return (
+                "🤖 Autopilot is not configured — set SMC_AUTO_TRADE=true "
+                "in the environment to enable the paper-trading module "
+                "(see env.example)."
+            )
+        choice = (args or "").strip().lower()
+        if choice == "on":
+            return pilot.set_enabled(True)
+        if choice == "off":
+            return pilot.set_enabled(False)
+        if choice == "report":
+            return pilot.report_text()
+        return "\n".join(
+            pilot.status_lines() + ["", "/auto on | /auto off | /auto report"]
+        )
+
     async def _track_journal(self) -> None:
-        """Advance unresolved journal signals using fresh M5 candles."""
-        for pair in self.journal.unresolved_pairs():
+        """Advance unresolved journal signals using fresh M5 candles.
+
+        The autopilot's paper orders advance on the SAME candle batch — one
+        fetch feeds both tracks. The pair set is the union of the two: a
+        paper order can outlive its journal signal (the model's touch-fill
+        resolves earlier than the paper track's strict fill), and it must
+        keep advancing after the journal has forgotten the pair.
+        """
+        pilot = self._get_autopilot()
+        pairs = set(self.journal.unresolved_pairs())
+        if pilot:
+            pairs.update(pilot.active_pairs())
+        for pair in sorted(pairs):
             try:
                 fetcher = _build_fetcher(get_instrument(pair))
                 candles = await fetcher.fetch_candles("5m", limit=400)
@@ -1588,6 +1685,9 @@ class Watcher:
             events = self.journal.update_pair(pair, candles)
             if events:
                 await self._handle_journal_events(events)
+            if pilot:
+                for message in pilot.advance(pair, candles):
+                    await self.notifier.send(message)
 
     # ---------------------------------------------------------------- status
 
@@ -1618,6 +1718,9 @@ class Watcher:
                 else f"off ({settings.smc.pd_basis.upper()} range for ⭐)"
             ),
         ])
+        pilot = self._get_autopilot()
+        if pilot:
+            lines.extend(pilot.status_lines())
         muted = [
             f"{k} ({left})"
             for k in self.state.pairs

@@ -169,6 +169,86 @@ class SMCSettings(BaseSettings):
         "choice: conservative | aggressive",
     )
 
+    # ------------------------------------------------------------- autopilot
+    # Demo autopilot (owner decisions D18-D21, 2026-08-28): the bot places
+    # its own PAPER orders for completed setups — an internal simulator over
+    # live candles with an explicit cost model, no real money anywhere. v1
+    # scope is ETHUSD only (D21). Detector mode is untouched: alerts flow
+    # exactly as before, the autopilot only adds its own track.
+    auto_trade: bool = Field(
+        default=False,
+        description="Master switch for the paper autopilot (D18). false = "
+        "the module does not exist at runtime; true = it trades the paper "
+        "account, with /auto on|off as the runtime toggle",
+    )
+    auto_pairs: str = Field(
+        default="ETHUSD",
+        description="Comma-separated pairs the autopilot may trade. v1 "
+        "(owner decision D21, 2026-08-28) supports crypto pairs only — the "
+        "cost model is Binance USDT-M futures; forex pairs are ignored "
+        "with a log line until a broker adapter exists",
+    )
+    auto_deposit: float = Field(
+        default=10000.0,
+        description="Starting PAPER equity in USD. Real balance nowhere — "
+        "this only anchors position sizing and the equity curve",
+    )
+    auto_risk_pct: float = Field(
+        default=0.5,
+        description="Risk per autopilot trade as % of paper equity (owner "
+        "decision D19: 0.5). Independent of SMC_RISK_PCT, which only "
+        "feeds the human lot hint",
+    )
+    auto_max_sl_day: int = Field(
+        default=2,
+        description="Hard day-stop (D19): after this many REALIZED full "
+        "stop-losses in one Prague day the autopilot cancels pending "
+        "orders and places nothing until the next day",
+    )
+    auto_week_kill_r: float = Field(
+        default=6.0,
+        description="Hard weekly kill-switch (D19): once the Prague ISO "
+        "week's realized net R reaches minus this value, no new orders "
+        "until next week (/auto on overrides explicitly)",
+    )
+    auto_max_open: int = Field(
+        default=1,
+        description="Max simultaneously active (pending or open) autopilot "
+        "orders per pair",
+    )
+    auto_tier: str = Field(
+        default="all",
+        description="Which alert tiers the autopilot trades: 'all' (demo "
+        "default — more samples, the report splits ⭐ vs regular) or "
+        "'star' (⭐ only — the capital rule from the sniper replay)",
+    )
+    auto_maker_fee_pct: float = Field(
+        default=0.02,
+        description="Maker fee % of notional per fill (limit entries and "
+        "limit TPs). Default = Binance USDT-M VIP0 maker 0.02%",
+    )
+    auto_taker_fee_pct: float = Field(
+        default=0.05,
+        description="Taker fee % of notional per fill (stop-market exits: "
+        "SL, break-even stop, timeout close). Default = Binance USDT-M "
+        "VIP0 taker 0.05%",
+    )
+    auto_slippage_pct: float = Field(
+        default=0.02,
+        description="Adverse slippage % of price applied to every "
+        "stop-market exit (SL/BE/timeout). Limit fills get none",
+    )
+    auto_strict_fills: bool = Field(
+        default=True,
+        description="true = a resting limit fills only when price trades "
+        "STRICTLY through it (honest-conservative; the journal's "
+        "touch-fill stays as the optimistic model track). false = "
+        "touch fills, mirroring the journal",
+    )
+
+    def auto_pair_list(self) -> list[str]:
+        return [p.strip().upper() for p in self.auto_pairs.split(",") if p.strip()]
+
     def default_pairs(self) -> list[str]:
         return [p.strip().upper() for p in self.pairs.split(",") if p.strip()]
 

@@ -44,6 +44,7 @@ HELP_TEXT = (
     "Auto-plan: silent 07:55/13:55 summaries — press a pair button "
     "for the full plan\n"
     "/stats — signal journal: setups, TP/SL, winrate\n"
+    "/auto — paper autopilot: status, on/off, report\n"
     "/journal — trade journal: send an MT4 history screenshot to log trades\n"
     "/news — today's red news (Forex Factory)\n"
     "/pause — mute all alerts until /resume\n"
@@ -73,6 +74,7 @@ class TelegramCommandBot:
             Callable[[str, Optional[str]], Awaitable[Optional[str]]]
         ] = None,
         trade_journal: Optional[Any] = None,
+        auto_command: Optional[Callable[[str], str]] = None,
     ):
         self.bot_token = bot_token
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
@@ -88,6 +90,7 @@ class TelegramCommandBot:
         self.on_stored_plan = on_stored_plan
         self.on_zone_mute = on_zone_mute
         self.trade_journal = trade_journal
+        self.auto_command = auto_command
         self._offset: Optional[int] = None
         # Strong references for fire-and-forget plan tasks (see _spawn) — an
         # asyncio.Task with nothing else holding it can be garbage-collected
@@ -256,6 +259,10 @@ class TelegramCommandBot:
                     "description": "Premium / discount for every watched pair",
                 },
                 {"command": "stats", "description": "Signal journal and winrate"},
+                {
+                    "command": "auto",
+                    "description": "Paper autopilot: status / on / off / report",
+                },
                 {"command": "journal", "description": "Trade journal from MT4 screenshots"},
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
                 {"command": "pause", "description": "Mute all alerts until /resume"},
@@ -355,6 +362,12 @@ class TelegramCommandBot:
                 await self.send(self.stats_text())
             else:
                 await self.send("Journal is not available.")
+        elif command == "/auto":
+            if self.auto_command:
+                args = text.split(maxsplit=1)
+                await self.send(self.auto_command(args[1] if len(args) > 1 else ""))
+            else:
+                await self.send("Autopilot is not available.")
         elif command == "/news":
             if self.news_text:
                 await self.send(self.news_text())

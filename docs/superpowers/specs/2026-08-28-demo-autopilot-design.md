@@ -223,7 +223,41 @@ system's P&L stops depending on the owner's hands, and the discretionary
 track stays visible separately in `/journal` — two curves, compared
 weekly, so the capital decision between them is made on data.
 
-## 6. Explicitly not doing
+## 6. v1 scope decision — D21 (owner, chat 2026-08-28) and what shipped
+
+«Давай пока сделаем только эфириум»: **v1 is ETHUSD only.** OANDA and the
+forex pairs are deferred; the paper broker for ETHUSD is the whole first
+release, which also collapses the module layout — one
+`app/services/smc/autopilot.py` (flat, matching the package style) instead
+of the multi-venue `app/services/exec/` tree in §3. The §3 design remains
+the target shape for the day a real broker adapter joins.
+
+Shipped (same date):
+
+- `evaluate_order` — the paper fill/exit engine mirroring
+  `journal.evaluate_signal` semantics plus the cost model: strict
+  trade-through limit fills (`SMC_AUTO_STRICT_FILLS`), maker fees on limit
+  fills, taker fees + adverse slippage on stop-market exits (SL,
+  break-even, timeout), GTD expiry a candle at/after the session end can
+  no longer fill through, and a 5-day timeout that CLOSES at market
+  instead of the journal's 0R amnesty.
+- `Autopilot` — sizing off paper equity (`SMC_AUTO_RISK_PCT`, D19 0.5%),
+  day-stop on realized stops, weekly kill with `/auto on` as the explicit
+  override, `max_open`, tier filter (`SMC_AUTO_TIER`, demo default `all` —
+  the report splits ⭐ vs regular so the capital question stays answerable),
+  `auto_orders` table + paper-equity kv, `/auto on|off|report`, `/status`
+  lines.
+- Watcher wiring: placement immediately after `journal.record`,
+  independent of Telegram delivery; orders advance in `_track_journal` on
+  the same M5 batch the journal reads, over the union of both tracks'
+  active pairs.
+
+Deferred to the next phases: the OANDA practice adapter and forex pairs
+(§3), the weekly auto-report (the report is on demand via `/auto report`
+for now), the replay-harness port with costs (Phase A in §4 — still the
+highest-value non-execution work), journal context columns (F5).
+
+## 7. Explicitly not doing
 
 More pairs; ML/signal "improvements" outside the written rules; tick
 infrastructure; a web dashboard; microservices; any strategy relaxation
