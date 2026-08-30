@@ -1288,6 +1288,26 @@ class TestApiKeyNeverReachesTelegram:
         td._CACHE.clear()
         return td.TwelveDataFetcher("USDJPY", api_key=self.FAKE_KEY)
 
+    @staticmethod
+    def _freeze_in_session(monkeypatch):
+        """Pin analyze()'s clock to a weekday inside trading hours.
+
+        These tests exercise the dead-source warning path, which lives
+        BEHIND Rule 0.1: on a real weekend the forex session gate returns
+        OFF_SESSION before any fetch happens and the warning never fires —
+        so a suite run on a Saturday/Sunday failed for a reason that has
+        nothing to do with key redaction."""
+        from app.services.smc import engine as eng
+
+        when = datetime(2026, 8, 6, 9, 30, tzinfo=timezone.utc)  # Thu 11:30 Prague
+
+        class _Frozen(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return when
+
+        monkeypatch.setattr(eng, "datetime", _Frozen)
+
     def _watcher(self, tmp_path):
         from app.services.smc.db import Database
         from app.services.smc.journal import SignalJournal
@@ -1334,6 +1354,7 @@ class TestApiKeyNeverReachesTelegram:
     @pytest.mark.asyncio
     async def test_telegram_warning_has_no_key(self, monkeypatch, tmp_path):
         """The channel that matters: the text handed to the notifier."""
+        self._freeze_in_session(monkeypatch)
         watcher = self._watcher(tmp_path)
         monkeypatch.setattr(
             watcher, "_build_fetcher", lambda instrument: self._fetcher(monkeypatch)
@@ -1346,6 +1367,7 @@ class TestApiKeyNeverReachesTelegram:
     @pytest.mark.asyncio
     async def test_check_heartbeat_line_has_no_key(self, monkeypatch, tmp_path):
         """/check sends the cycle summary, which is built from these lines."""
+        self._freeze_in_session(monkeypatch)
         watcher = self._watcher(tmp_path)
         monkeypatch.setattr(
             watcher, "_build_fetcher", lambda instrument: self._fetcher(monkeypatch)
@@ -1374,6 +1396,7 @@ class TestApiKeyNeverReachesTelegram:
         to be able to tell which pair broke and roughly why, and the
         'check your API key' hint (which keys off the detail text) has to
         survive the scrub."""
+        self._freeze_in_session(monkeypatch)
         watcher = self._watcher(tmp_path)
         monkeypatch.setattr(
             watcher, "_build_fetcher", lambda instrument: self._fetcher(monkeypatch)
