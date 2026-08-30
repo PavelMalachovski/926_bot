@@ -47,8 +47,13 @@ still returns `Verdict.SKIP` rather than a warning.
 
 ```bash
 pytest tests/ -v                       # full test suite (fast, no network)
-flake8 app/ tests/ smc_watcher.py      # lint (config in .flake8)
+flake8 app/ tests/ smc_watcher.py smc_backtest.py   # lint (config in .flake8)
 python smc_watcher.py --once           # live one-shot check (real market data)
+python smc_backtest.py --pair USDJPY --days 365     # walk-forward backtest
+                                       # (forex needs TWELVEDATA_API_KEY;
+                                       # history cached in data/backtest/)
+python smc_backtest.py --selftest      # offline pipeline check on synthetic
+                                       # candles — no network, no keys
 python smc_watcher.py --test-telegram  # sends test messages to the owner chat
 python smc_watcher.py                  # run forever: scheduler + command bot
 ```
@@ -71,6 +76,8 @@ smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           (replaced the old engine-zone ping), PD radar
                           (price reached the half of its dealing range the
                           bias wants), /pd
+smc_backtest.py           backtest CLI: cached history -> backtest.py ->
+                          plain-text report (see the commands block)
 app/services/smc/
 ├── engine.py             TripleSyncEngine: rules 0-8 checklist; pure
 │                         evaluate() is fully unit-testable on synthetic candles
@@ -153,6 +160,21 @@ app/services/smc/
 │                         scenario_for_touch backs the plan-zone alert
 ├── chart.py              alert chart PNG (M5) + plan chart PNG (H1): candles,
 │                         zones, levels (matplotlib Agg, NO pandas — keep it so)
+├── backtest.py           walk-forward replay (spec 2026-08-30, D20): drives
+│                         the PRODUCTION engine.evaluate + journal semantics
+│                         + the watcher's dedup fingerprint over historical
+│                         candles, same 300/400/400 closed-candle windows the
+│                         live fetchers serve; stats per tier/direction
+│                         source/session block + warning autopsy. Reports
+│                         state what v1 does NOT simulate: news blackout,
+│                         discipline, funding, correlation (D21). Offline —
+│                         never imported by the watcher
+├── history.py            historical candle download for the backtest CLI:
+│                         Twelve Data paged via the production fetcher's
+│                         _request/parse (rate limiter + key redaction) and
+│                         Binance klines, behind a JSON disk cache in
+│                         data/backtest/ (gitignored) that only fetches the
+│                         ranges it does not already cover
 ├── telegram_bot.py       long-polling commands, slash-menu registration,
 │                         Took/Skipped callbacks; serves ONLY the owner chat
 ├── notifier.py           send/edit_message/pin/send_photo + escape_html
