@@ -18,8 +18,11 @@ from app.services.smc.backtest import (
     Stats,
     _window_end,
     compute_stats,
+    one_away_from_star,
+    render_combined,
     render_report,
     run_backtest,
+    star_miss_autopsy,
     warning_autopsy,
 )
 from app.services.smc.db import Database
@@ -80,6 +83,7 @@ class _StubEngine:
             timestamp=result.checked_at,
         )
         result.warnings = list(plan.get("warnings", []))
+        missed = list(plan.get("missed", []))
         result.setup = TradeSetup(
             direction=Direction(plan["direction"]),
             entry=plan["entry"],
@@ -87,6 +91,8 @@ class _StubEngine:
             take_profit=plan.get("tp"),
             rr=plan.get("rr", 2.0),
             fvg=FVG(1, plan["entry"] - 1, plan["entry"], True, result.checked_at),
+            tier_star=not missed,
+            tier_missed=missed,
         )
         return result
 
@@ -367,6 +373,87 @@ class TestMetrics:
         assert "5.1" in label
         assert (with_w.n, without.n) == (1, 1)
         assert with_w.losses == 1 and without.wins == 1
+
+    def test_star_miss_autopsy_splits_per_condition(self):
+        records = [
+            self._record("sl"),  # a star: missed nothing
+            self._record("tp"),
+            self._record("sl"),
+        ]
+        records[1].tier_missed = ["pd"]
+        records[2].tier_missed = ["pd", "room"]
+        autopsy = dict(
+            (name, (missing, having))
+            for name, missing, having in star_miss_autopsy(records)
+        )
+        assert set(autopsy) == {"pd", "room"}
+        assert autopsy["pd"][0].n == 2 and autopsy["pd"][1].n == 1
+        assert autopsy["room"][0].n == 1 and autopsy["room"][1].n == 2
+
+    def test_one_away_from_star_keeps_only_single_miss_setups(self):
+        records = [
+            self._record("tp"),  # star — not one away
+            self._record("tp"),
+            self._record("sl"),
+        ]
+        records[1].tier_missed = ["pd"]
+        records[2].tier_missed = ["pd", "room"]  # two away — excluded
+        one_away = one_away_from_star(records)
+        assert [name for name, _ in one_away] == ["pd"]
+        assert one_away[0][1].n == 1
+        assert one_away[0][1].wins == 1
+
+    def test_tier_missed_flows_from_the_engine_into_the_record(self, tmp_path):
+        # via the loop: a stub plan that misses two star conditions
+        candles = [
+            _mk(SESSION_BASE + _M5 * i, o=105, h=106, low=104, c=105)
+            for i in range(2)
+        ]
+        plans = {
+            SESSION_BASE + _M5: {
+                "direction": "long", "entry": 100.0, "sl": 95.0, "tp": 110.0,
+                "rr": 2.0, "zone": (98.0, 100.0), "missed": ["pd", "trend"],
+            },
+        }
+        run = run_backtest(
+            "ETHUSD", [], [], candles,
+            start=SESSION_BASE,
+            end=SESSION_BASE + timedelta(hours=1),
+            journal=_journal(tmp_path),
+            engine=_StubEngine(plans),
+            require_full_windows=False,
+        )
+        assert run.records[0].tier_missed == ["pd", "trend"]
+        assert run.records[0].signal["tier"] == "regular"
+
+    def test_combined_summary_totals_every_pair(self):
+        run_a = BacktestRun(
+            pair="ETHUSD", profile_key="conservative",
+            start=SESSION_BASE, end=SESSION_BASE + timedelta(days=1),
+            records=[self._record("tp")],
+        )
+        run_b = BacktestRun(
+            pair="USDJPY", profile_key="conservative",
+            start=SESSION_BASE, end=SESSION_BASE + timedelta(days=1),
+            records=[self._record("sl")],
+        )
+        combined = render_combined([run_a, run_b])
+        assert "ETHUSD" in combined and "USDJPY" in combined
+        assert "TOTAL" in combined
+        assert "n=2" in combined.split("TOTAL")[1]
+
+    def test_report_groups_by_month(self):
+        run = BacktestRun(
+            pair="ETHUSD", profile_key="conservative",
+            start=SESSION_BASE, end=SESSION_BASE + timedelta(days=40),
+            records=[
+                self._record("tp", when=SESSION_BASE),
+                self._record("sl", when=SESSION_BASE + timedelta(days=31)),
+            ],
+        )
+        report = render_report(run)
+        assert "by month" in report
+        assert "2026-07" in report and "2026-08" in report
 
     def test_report_carries_the_not_simulated_disclaimer(self):
         run = BacktestRun(

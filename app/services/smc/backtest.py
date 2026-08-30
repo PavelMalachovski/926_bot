@@ -89,6 +89,10 @@ class SignalRecord:
     direction_source: str
     session_block: Optional[str]
     fingerprint: str
+    # The ⭐ conditions this setup missed (sniper.classify: "room", "sweep",
+    # "pd", "stale", "trend") — empty for a star. The live alert prints them
+    # as "Missed for ⭐:"; here they feed the star autopsy.
+    tier_missed: List[str] = field(default_factory=list)
 
     def result_r(self) -> Optional[float]:
         """Realized R for a resolved, filled signal; None when unresolved
@@ -229,6 +233,7 @@ def run_backtest(
                     direction_source=result.direction_source,
                     session_block=session_block(now),
                     fingerprint=fingerprint,
+                    tier_missed=list(result.setup.tier_missed),
                 )
             )
 
@@ -350,6 +355,44 @@ def warning_autopsy(
     return out
 
 
+# sniper.classify's check names, in its own order.
+STAR_CONDITIONS = ("room", "sweep", "pd", "stale", "trend")
+
+
+def star_miss_autopsy(
+    records: List[SignalRecord],
+) -> List[Tuple[str, Stats, Stats]]:
+    """(condition, missing-it stats, not-missing-it stats) per ⭐ condition.
+
+    "Not missing it" includes the stars themselves — the question is whether
+    the condition separates outcomes, which is exactly the comparison the
+    owner needs before promoting or demoting a star check (his decision)."""
+    out = []
+    for name in STAR_CONDITIONS:
+        missing = [r for r in records if name in r.tier_missed]
+        having = [r for r in records if name not in r.tier_missed]
+        if missing:
+            out.append((name, compute_stats(missing), compute_stats(having)))
+    return out
+
+
+def one_away_from_star(
+    records: List[SignalRecord],
+) -> List[Tuple[str, Stats]]:
+    """Setups that missed the ⭐ on exactly one condition, grouped by it —
+    the most actionable slice: if a single condition keeps blocking setups
+    that win anyway, that is the evidence to bring to the owner."""
+    buckets: Dict[str, List[SignalRecord]] = {}
+    for record in records:
+        if len(record.tier_missed) == 1:
+            buckets.setdefault(record.tier_missed[0], []).append(record)
+    return [
+        (name, compute_stats(buckets[name]))
+        for name in STAR_CONDITIONS
+        if name in buckets
+    ]
+
+
 def _fmt(value: Optional[float], pattern: str = "{:.2f}") -> str:
     return pattern.format(value) if value is not None else "—"
 
@@ -405,6 +448,22 @@ def render_report(run: BacktestRun) -> str:
         "by session block",
         lambda r: (r.session_block or "?").split("/", 1)[-1],
     )
+    group("by month", lambda r: r.signal["created_at"][:7])
+
+    star_miss = star_miss_autopsy(run.records)
+    if star_miss:
+        lines.append("")
+        lines.append("missed for ⭐ (condition missing vs held)")
+        for name, missing, having in star_miss:
+            lines.append(_stats_line(f"  missing {name}", missing))
+            lines.append(_stats_line("     held", having))
+
+    one_away = one_away_from_star(run.records)
+    if one_away:
+        lines.append("")
+        lines.append("one condition away from ⭐")
+        for name, stats in one_away:
+            lines.append(_stats_line(f"  only {name} missing", stats))
 
     autopsy = warning_autopsy(run.records)
     if autopsy:
@@ -414,4 +473,18 @@ def render_report(run: BacktestRun) -> str:
             lines.append(_stats_line(f"  ⚠️ {label}", with_w))
             lines.append(_stats_line("     without it", without))
 
+    return "\n".join(lines)
+
+
+def render_combined(runs: List[BacktestRun]) -> str:
+    """One line per pair plus a total — the cross-pair summary for a
+    multi-pair invocation."""
+    lines = ["", "=" * 72, "COMBINED (every pair, same disclaimers as above)"]
+    everything: List[SignalRecord] = []
+    for run in runs:
+        lines.append(
+            _stats_line(f"  {run.pair} [{run.profile_key}]", compute_stats(run.records))
+        )
+        everything.extend(run.records)
+    lines.append(_stats_line("  TOTAL", compute_stats(everything)))
     return "\n".join(lines)
