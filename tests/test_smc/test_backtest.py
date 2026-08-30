@@ -481,6 +481,29 @@ class TestMetrics:
         assert "ETHUSD" in render_report(run)
 
 
+class TestSyntheticHistory:
+    def test_same_seed_same_tape(self):
+        from app.services.smc.backtest import synthetic_history
+
+        a = synthetic_history(days=3, seed=7)
+        b = synthetic_history(days=3, seed=7)
+        assert a["m5"] == b["m5"] and a["h1"] == b["h1"] and a["h4"] == b["h4"]
+
+    def test_timeframes_describe_the_same_tape(self):
+        from app.services.smc.backtest import synthetic_history
+
+        candles = synthetic_history(days=3, seed=7)
+        m5, h1, h4 = candles["m5"], candles["h1"], candles["h4"]
+        # aggregation boundaries: an H1 bar opens on its first M5 bar's open
+        # and closes on its last M5 bar's close; same for H4 over 48 bars.
+        for i in (0, 5, len(h1) - 1):
+            assert h1[i].open == m5[12 * i].open
+            assert h1[i].close == m5[12 * i + 11].close
+        for i in (0, len(h4) - 1):
+            assert h4[i].open == m5[48 * i].open
+            assert h4[i].close == m5[48 * i + 47].close
+
+
 class TestRealEngineSmoke:
     def test_the_production_engine_replays_without_a_scripted_market(self, tmp_path):
         # A quiet drifting market: the engine should find no setup, and the

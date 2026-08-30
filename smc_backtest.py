@@ -32,6 +32,7 @@ from app.services.smc.backtest import (
     render_combined,
     render_report,
     run_backtest,
+    synthetic_history,
 )
 from app.services.smc.db import Database
 from app.services.smc.history import DEFAULT_CACHE_DIR, load_history
@@ -71,7 +72,69 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="also write each report to <dir>/<end>-<pair>.txt",
     )
+    parser.add_argument(
+        "--selftest",
+        action="store_true",
+        help="offline pipeline check on deterministic synthetic candles — "
+        "no network, no keys; exits 0 on OK",
+    )
     return parser.parse_args()
+
+
+def _selftest() -> int:
+    """Replay a fixed synthetic tape through the full pipeline and assert
+    its invariants. Synthetic candles prove the machinery, never the
+    strategy — the report is suppressed on purpose."""
+    print("selftest: generating deterministic synthetic history…")
+    candles = synthetic_history()
+    end = candles["m5"][-1].timestamp
+    start = end - timedelta(days=6)
+
+    fd, db_path = tempfile.mkstemp(prefix="smc_selftest_", suffix=".db")
+    os.close(fd)
+    try:
+        journal = SignalJournal(Database(db_path))
+        run = run_backtest(
+            "ETHUSD",
+            candles["h4"],
+            candles["h1"],
+            candles["m5"],
+            start,
+            end,
+            journal=journal,
+            engine=build_backtest_engine("ETHUSD"),
+        )
+    finally:
+        try:
+            os.unlink(db_path)
+        except OSError:
+            pass
+
+    checks = [
+        ("cycles ran", run.cycles > 0),
+        ("off-session candles were gated", run.off_session > 0),
+        ("every cycle got a verdict", sum(run.verdicts.values()) == run.cycles),
+        ("signals were recorded", len(run.records) > 0),
+        (
+            "every signal survived the journal round-trip",
+            all(journal.get(r.signal["id"]) is not None for r in run.records),
+        ),
+        ("the report renders with its disclaimers",
+         "NOT simulated" in render_report(run)),
+    ]
+    failed = [name for name, ok in checks if not ok]
+    for name, ok in checks:
+        print(f"  {'OK  ' if ok else 'FAIL'} {name}")
+    print(
+        f"selftest: {run.cycles} cycles, {len(run.records)} signals, "
+        f"verdicts {run.verdicts}"
+    )
+    if failed:
+        print("SELFTEST FAILED")
+        return 1
+    print("SELFTEST OK — the pipeline works; numbers above are synthetic, "
+          "not a strategy verdict")
+    return 0
 
 
 async def _run_pair(pair: str, args, start, end, api_key):
@@ -117,6 +180,8 @@ async def _main() -> int:
     # run_backtest) performs; a bare root setLevel would not.
     logging.getLogger("app.services.smc").setLevel(logging.WARNING)
     args = _parse_args()
+    if args.selftest:
+        return _selftest()
     pairs = (
         sorted(INSTRUMENTS) if args.all_pairs
         else (args.pair or list(DEFAULT_PAIRS))

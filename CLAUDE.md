@@ -52,6 +52,8 @@ python smc_watcher.py --once           # live one-shot check (real market data)
 python smc_backtest.py --pair USDJPY --days 365     # walk-forward backtest
                                        # (forex needs TWELVEDATA_API_KEY;
                                        # history cached in data/backtest/)
+python smc_backtest.py --selftest      # offline pipeline check on synthetic
+                                       # candles — no network, no keys
 python smc_watcher.py --test-telegram  # sends test messages to the owner chat
 python smc_watcher.py                  # run forever: scheduler + command bot
 ```

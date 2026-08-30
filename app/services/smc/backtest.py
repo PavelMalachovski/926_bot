@@ -20,8 +20,9 @@ Deliberate v1 simplifications, each stated in every report header:
   independently).
 """
 
+import random
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 import structlog
@@ -43,6 +44,53 @@ M5_WINDOW = 400
 _M5 = timedelta(minutes=5)
 _H1 = timedelta(hours=1)
 _H4 = timedelta(hours=4)
+
+
+def synthetic_history(
+    days: int = 80,
+    end: datetime = datetime(2026, 8, 28, tzinfo=timezone.utc),
+    seed: int = 926,
+    start_price: float = 3000.0,
+) -> Dict[str, List[Candle]]:
+    """Deterministic synthetic H4/H1/M5 candles for the offline selftest.
+
+    One 5-minute random walk with drifting trend regimes, aggregated upward
+    so the three timeframes describe the same tape. Same seed -> the same
+    candles on every run and platform (`random.Random` is stable), which is
+    what lets `--selftest` assert on pipeline behavior with no network, no
+    key and no market. Not a market model — never draw strategy conclusions
+    from it (the runbook says the same).
+    """
+    rng = random.Random(seed)
+    start = end - timedelta(days=days)
+    n = days * 288
+    price = start_price
+    drift = 0.0
+    path: List[float] = []
+    for i in range(n):
+        if i % 2000 == 0:
+            drift = rng.uniform(-0.35, 0.35)
+        price = max(start_price / 6, price + drift + rng.gauss(0, 2.2))
+        path.append(price)
+
+    def bars(step_minutes: int) -> List[Candle]:
+        group = step_minutes // 5
+        out = []
+        for j in range(0, n - group, group):
+            chunk = path[j:j + group]
+            out.append(
+                Candle(
+                    timestamp=start + timedelta(minutes=5 * j),
+                    open=chunk[0],
+                    high=max(chunk) + rng.uniform(0, 1.5),
+                    low=min(chunk) - rng.uniform(0, 1.5),
+                    close=chunk[-1],
+                    volume=100.0,
+                )
+            )
+        return out
+
+    return {"m5": bars(5), "h1": bars(60), "h4": bars(240)}
 
 
 class _NeverFetch:
