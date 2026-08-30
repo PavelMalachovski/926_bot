@@ -145,6 +145,7 @@ def _build_engine(
         tp1_r=smc.tp1_r,
         runner_r=smc.runner_r,
         pd_basis=smc.pd_basis,
+        require_imbalance=smc.require_imbalance,
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,

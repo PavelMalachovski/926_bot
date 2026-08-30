@@ -122,7 +122,22 @@ class TradeSetup:
     stop_loss: float
     take_profit: Optional[float]
     rr: float
-    fvg: FVG
+    # The M5 imbalance, when the setup has a valid one. Optional since owner
+    # decision D22 (2026-08-30): the imbalance stopped gating the signal, so
+    # a setup can now form without one and enter off the M5 order block or
+    # at market instead (`entry_source` says which). Everything that draws
+    # or prints it must tolerate None.
+    fvg: Optional[FVG] = None
+    # Where `entry` came from: "fvg" (the proximal imbalance edge, the
+    # classic Rule 5 entry), "ob" (the M5 order block, when no valid
+    # imbalance formed) or "market" (neither existed — price itself).
+    entry_source: str = "fvg"
+    # D22 diagnostics: the imbalance that came closest to passing Rule 4 and
+    # what was wrong with it ("size"/"fill"/"closed"/"session"), so the alert
+    # can still show the gap it found and say why it does not count. Both
+    # empty when no gap formed in the impulse at all.
+    rejected_fvg: Optional[FVG] = None
+    rejected_fvg_problems: List[str] = field(default_factory=list)
     entry_is_market: bool = False
     lot_hint: Optional[str] = None
     target: Optional["LiquidityLevel"] = None

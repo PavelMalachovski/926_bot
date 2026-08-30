@@ -204,20 +204,26 @@ def render_setup_chart(
         zone_color = "#2962ff" if zone.is_demand else "#f23645"
         ax.axhspan(zone.bottom, zone.top, color=zone_color, alpha=0.12, zorder=1)
 
-    # FVG box from its formation candle to the right edge
-    fvg = setup.fvg
-    fvg_start = max(0, len(candles) - (len(result.m5_candles) - fvg.index))
-    ax.add_patch(
-        Rectangle(
-            (fvg_start, fvg.bottom),
-            x_right - fvg_start,
-            fvg.size,
-            facecolor="#26a69a" if fvg.is_bullish else "#ef5350",
-            alpha=0.18,
-            edgecolor="none",
-            zorder=1,
+    # FVG box from its formation candle to the right edge. Optional since
+    # owner decision D22 (2026-08-30): a setup can form on the CHoCH alone,
+    # and the rejected candidate (when there is one) is drawn instead —
+    # hatched, so the chart shows the gap the message is talking about
+    # without pretending it is the entry.
+    fvg = setup.fvg or setup.rejected_fvg
+    if fvg is not None:
+        fvg_start = max(0, len(candles) - (len(result.m5_candles) - fvg.index))
+        ax.add_patch(
+            Rectangle(
+                (fvg_start, fvg.bottom),
+                x_right - fvg_start,
+                fvg.size,
+                facecolor="#26a69a" if fvg.is_bullish else "#ef5350",
+                alpha=0.18 if setup.fvg is not None else 0.08,
+                edgecolor="none",
+                hatch=None if setup.fvg is not None else "///",
+                zorder=1,
+            )
         )
-    )
 
     # 5m order block box (the deeper M5 limit option, engine.py) — a second,
     # narrower entry option the owner may take instead of the FVG entry.
