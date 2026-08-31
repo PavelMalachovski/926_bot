@@ -291,3 +291,47 @@ def m5_choch_still_in_zone() -> List[Candle]:
     return make_candles(
         [3143, 3146, 3148, 3145, 3143, 3140, 3138, 3138, 3151, 3140, 3138]
     )
+
+
+# M5: the same decline into the H1 demand zone as `m5_long_trigger`, but the
+# impulse that breaks structure leaves NO imbalance behind it — every triple
+# overlaps (low of the newest candle exactly meets the high of the oldest,
+# never above it), so `find_fvgs` returns nothing at all.
+#
+# Against the demand zone 3131.0-3138.0 (from H1_PULLBACK_CLOSES):
+# - lower-high pivot at index 6 (high 3148) is the CHoCH reference
+# - the excursion into the zone starts at index 8, sweep low 3130 at index 10
+# - the last opposing (bearish) candle of that window is index 10 — the M5
+#   order block, demand 3130.0-3134.0, so the D22 entry ladder enters at
+#   3134.0 with the stop one buffer under 3130
+# - CHoCH at index 16 (close 3150 > 3148), no FVG anywhere in the series
+#
+# Owner decision D22 (2026-08-30): this shape used to be a WATCH ("CHoCH is
+# there, but no valid FVG") and is now a full setup that simply cannot star.
+_M5_LONG_NO_FVG_SPEC = [
+    (3160.0, 3161.0, 3155.0, 3156.0),
+    (3156.0, 3157.0, 3151.0, 3152.0),
+    (3152.0, 3153.0, 3147.0, 3148.0),
+    (3148.0, 3149.0, 3143.0, 3144.0),
+    (3144.0, 3145.0, 3140.0, 3142.0),
+    (3142.0, 3146.0, 3141.0, 3145.0),
+    (3145.0, 3148.0, 3144.0, 3147.0),
+    (3147.0, 3147.5, 3141.0, 3142.0),
+    (3142.0, 3143.0, 3137.0, 3138.0),
+    (3138.0, 3139.0, 3133.0, 3134.0),
+    (3134.0, 3135.0, 3130.0, 3131.0),
+    (3131.0, 3134.0, 3130.5, 3133.0),
+    (3133.0, 3136.0, 3132.0, 3135.0),
+    (3135.0, 3139.0, 3134.0, 3138.5),
+    (3138.5, 3143.0, 3136.0, 3142.0),
+    (3142.0, 3147.0, 3139.0, 3146.0),
+    (3146.0, 3151.0, 3143.0, 3150.0),
+    (3150.0, 3152.0, 3147.0, 3151.0),
+    (3151.0, 3153.0, 3148.0, 3152.0),
+    (3152.0, 3154.0, 3149.0, 3153.0),
+]
+
+
+def m5_long_no_fvg() -> List[Candle]:
+    """M5 bullish CHoCH inside the demand zone with no imbalance at all."""
+    return [candle(*row, index=i) for i, row in enumerate(_M5_LONG_NO_FVG_SPEC)]

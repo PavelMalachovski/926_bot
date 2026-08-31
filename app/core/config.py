@@ -127,6 +127,14 @@ class SMCSettings(BaseSettings):
         "'h4' asks H4 first and falls back to H1 (owner decision D17, "
         "2026-08-26), 'h1' restores the pre-audit H1-only reading",
     )
+    require_imbalance: bool = Field(
+        default=False,
+        description="Pre-D22 Rule 4 gate: true = a setup needs a valid M5 "
+        "imbalance to exist at all (no gap -> WATCH, nothing announced). "
+        "false (owner decision D22, 2026-08-30) = the CHoCH is the third "
+        "sync on its own; the imbalance still supplies the best entry and "
+        "is required for the ⭐ tier, but its absence only costs the star",
+    )
     auto_plan: bool = Field(
         default=True,
         description="Build the Pre-Market Plan for all pairs automatically "

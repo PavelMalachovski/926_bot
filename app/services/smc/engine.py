@@ -142,6 +142,7 @@ class TripleSyncEngine:
         tp1_r: float = 2.0,
         runner_r: float = 3.0,
         pd_basis: str = "h4",
+        require_imbalance: bool = False,
         risk_pct: float = 2.0,
         deposit: Optional[float] = None,
         enforce_sessions: bool = True,
@@ -167,6 +168,10 @@ class TripleSyncEngine:
         self.tp1_r = tp1_r
         self.runner_r = runner_r
         self.pd_basis = pd_basis
+        # Owner decision D22 (2026-08-30): False = the M5 imbalance labels a
+        # setup (and gates the ⭐) but never decides whether it exists.
+        # True restores the pre-D22 Rule 4 gate.
+        self.require_imbalance = require_imbalance
         self.risk_pct = risk_pct
         self.deposit = deposit
         self.enforce_sessions = enforce_sessions
@@ -227,8 +232,19 @@ class TripleSyncEngine:
         h1: List[Candle],
         m5: List[Candle],
         result: AnalysisResult,
+        force_direction: Optional[Direction] = None,
     ) -> AnalysisResult:
-        """Evaluate rules 1-8 on the given candles (pure, testable)."""
+        """Evaluate rules 1-8 on the given candles (pure, testable).
+
+        `force_direction` (owner decision D23, 2026-08-31) skips Rule 1's
+        own resolution and trades the side it names. It exists for exactly
+        one caller: the second pass the watcher runs when H4 and H1 trend
+        opposite ways, so the H1-side setup is SHOWN alongside the H4-side
+        one instead of being invisible. It never replaces Rule 1 — the
+        primary pass still runs first and unchanged — and the star is
+        denied for it by `trends_disagree` (D6), which is true by
+        construction whenever this is used.
+        """
         result.profile_key = self.profile.key
 
         # Rule 1 — H4 global trend. H1 is computed unconditionally right
@@ -244,7 +260,14 @@ class TripleSyncEngine:
         # read the box off `result.market_range`.
         boundary: Optional[Zone] = None
         result.direction_source = "h4"
-        if result.h4_trend == Trend.UP:
+        if force_direction is not None:
+            # D23: the caller already established that H4 and H1 disagree.
+            # Rule 1's ladder (H4 -> H1-on-flat -> range) is bypassed
+            # wholesale, so a forced pass can never wander into the range
+            # branch or the aggressive CHoCH branch.
+            direction = force_direction
+            result.direction_source = "h1_counter"
+        elif result.h4_trend == Trend.UP:
             direction = Direction.LONG
         elif result.h4_trend == Trend.DOWN:
             direction = Direction.SHORT
@@ -412,28 +435,78 @@ class TripleSyncEngine:
             )
             return result
 
-        # Rule 4 — valid FVG on/after the CHoCH. The imbalance belongs to the
+        # Rule 4 — the M5 imbalance on/after the CHoCH. The gap belongs to the
         # impulse leg that breaks structure, so the 3-candle window may end on
         # the CHoCH candle itself (hence choch - 2), but never before the touch.
+        #
+        # Owner decision D22 (2026-08-30): the imbalance is no longer part of
+        # what makes a setup EXIST. The third sync is now the M5 CHoCH alone;
+        # a valid gap still supplies the best entry and still earns the ⭐
+        # (sniper.classify), but its absence costs the star, not the alert.
+        # `SMC_REQUIRE_IMBALANCE=true` restores the pre-D22 gate without a
+        # deploy, exactly like SMC_PD_BASIS restores the pre-D17 reading.
         same_day = self.profile.fvg_day_scope or self.instrument.source == "crypto"
+        fvg_from = max(touch, choch - 2)
         fvg = select_valid_fvg(
             m5,
             direction,
-            max(touch, choch - 2),
+            fvg_from,
             self._effective_min_fvg,
             same_day_scope=same_day,
         )
-        if fvg is None:
+        if fvg is None and self.require_imbalance:
             result.verdict = Verdict.WATCH
             result.reasons.append(
                 "M5 CHoCH is there, but no valid FVG — "
-                + self._fvg_rejection_detail(m5, direction, max(touch, choch - 2), same_day)
+                + self._fvg_rejection_detail(m5, direction, fvg_from, same_day)
             )
             result.watch_notes.append("Wait for an impulse FVG to form on M5")
             return result
 
-        # Rule 5 — entry level: proximal FVG boundary
-        entry = fvg.top if direction == Direction.LONG else fvg.bottom
+        # `price` is bound here rather than at Rule 5.1 below: the market rung
+        # of the entry ladder needs it.
+        price = result.price or m5[-1].close
+
+        # Rule 5 — entry level. The ladder (owner decision D22): the proximal
+        # imbalance edge when Rule 4 produced one, else the M5 order block of
+        # the same excursion — the last opposing candle before the impulse,
+        # which is where price reacts from when no gap was left behind — else
+        # price itself, a market entry on the CHoCH.
+        #
+        # `entry_band` is the range that counts as "price is in the entry zone
+        # right now" for `entry_is_market` below; a market rung has no band
+        # because it IS the market.
+        rejected: Optional[tuple] = None
+        entry_band: Optional[tuple] = None
+        if fvg is not None:
+            entry = fvg.top if direction == Direction.LONG else fvg.bottom
+            entry_source = "fvg"
+            entry_band = (fvg.bottom, fvg.top)
+        else:
+            # Shown, never used as an entry: a gap that failed Rule 4 is a gap
+            # price has already traded through (too small, over half filled,
+            # or from a session that is over) — entering at its edge would be
+            # entering at a level the market has left behind.
+            rejected = best_rejected_fvg(
+                m5, direction, fvg_from, self._effective_min_fvg,
+                same_day_scope=same_day,
+            )
+            # No entry/stop guard here: the guard exists to keep the block
+            # BELOW an FVG entry, and there is no FVG entry to be deeper than.
+            # The window is the same excursion Rule 6 anchors the stop in, so
+            # the block always sits inside the stop by construction (its low
+            # is at or above the swept extreme).
+            entry_ob = find_order_block(m5, direction, choch + 1, touch)
+            if entry_ob is not None:
+                entry = (
+                    entry_ob.top if direction == Direction.LONG
+                    else entry_ob.bottom
+                )
+                entry_source = "ob"
+                entry_band = (entry_ob.bottom, entry_ob.top)
+            else:
+                entry = price
+                entry_source = "market"
 
         # Rule 6 — stop behind the swept extreme of the zone excursion.
         #
@@ -471,13 +544,27 @@ class TripleSyncEngine:
             result.verdict = Verdict.SKIP
             result.reasons.append("Invalid trade geometry: SL at the entry level")
             return result
+        # D22: an FVG entry sits on the trading side of the stop by
+        # construction (the gap is part of the impulse away from the swept
+        # extreme). The order-block and market rungs are new geometry, so the
+        # inverted case is checked rather than assumed — a LONG entry below
+        # its own stop is malformed, not a judgment call, exactly like the
+        # equality case above.
+        inverted = (
+            entry < stop_loss if direction == Direction.LONG else entry > stop_loss
+        )
+        if inverted:
+            result.verdict = Verdict.SKIP
+            result.reasons.append(
+                "Invalid trade geometry: entry is on the wrong side of the SL"
+            )
+            return result
 
         # Rule 5.1 (owner decision 2026-08-05, demoted to a label 2026-08-06)
         # — entry staleness. Replaying without this check, 80-90% of limit
         # orders never filled; but the owner sets his own entry, so this warns
         # instead of suppressing. A negative gap means price has not run past
         # the entry, so market entries never trigger it.
-        price = result.price or m5[-1].close
         gap = price - entry if direction == Direction.LONG else entry - price
         stale = gap > self.max_entry_gap_r * risk
         if stale:
@@ -562,6 +649,10 @@ class TripleSyncEngine:
         tier = sniper.classify(
             room, sweep, pd, stale,
             trend_disagrees=trends_disagree(result.h4_trend, result.h1_trend),
+            # D22: the imbalance moved from "does this setup exist" to "is it
+            # a sniper setup". A CHoCH with no gap behind it is announced and
+            # journal-recorded like any other setup — it just does not star.
+            has_imbalance=fvg is not None,
         )
 
         # Rule 7 (owner decision 2026-08-05, demoted to a label 2026-08-06) —
@@ -642,8 +733,13 @@ class TripleSyncEngine:
         # The walk is floored at the zone touch — the excursion this setup
         # formed in — and the candidate is kept only when it really is the
         # deeper entry the alert calls it (see find_order_block).
-        order_block = find_order_block(
-            m5, direction, fvg.index - 1, touch, entry, stop_loss
+        # D22: on the order-block rung the block IS the entry, so there is no
+        # second, deeper option to advertise; on the market rung there is no
+        # block at all. Only an FVG entry can have one below it.
+        order_block = (
+            find_order_block(m5, direction, fvg.index - 1, touch, entry, stop_loss)
+            if fvg is not None
+            else None
         )
         # The ladder is the OTHER untested zones on the trade's own side, so
         # the live entry zone is excluded rather than shown as its own rung.
@@ -659,9 +755,13 @@ class TripleSyncEngine:
         # Rule 8 — position size hint
         lot_hint = self._lot_hint(entry, risk)
 
-        # Market entry allowed only if price is inside the FVG right now
-        # (`price` was already bound by the Rule 5.1 block above)
-        entry_is_market = fvg.bottom <= price <= fvg.top
+        # Market entry allowed only if price is inside the band the entry came
+        # from right now (the imbalance, or the order block on D22's fallback
+        # rung). The market rung has no band to be inside — it IS the market.
+        entry_is_market = (
+            True if entry_band is None
+            else entry_band[0] <= price <= entry_band[1]
+        )
 
         d = self.instrument.price_decimals
         result.setup = TradeSetup(
@@ -671,6 +771,9 @@ class TripleSyncEngine:
             take_profit=round(take_profit, d) if take_profit is not None else None,
             rr=round(rr, 2),
             fvg=fvg,
+            entry_source=entry_source,
+            rejected_fvg=rejected[0] if rejected else None,
+            rejected_fvg_problems=list(rejected[1]) if rejected else [],
             entry_is_market=entry_is_market,
             lot_hint=lot_hint,
             target=target,

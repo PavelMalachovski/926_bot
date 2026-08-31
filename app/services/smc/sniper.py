@@ -232,15 +232,21 @@ def classify(
     stale: bool,
     trend_disagrees: bool = False,
     min_room_r: float = MIN_ROOM_R,
+    has_imbalance: bool = True,
 ) -> TierVerdict:
     """Star iff room is unmeasurable-or-wide-enough, a pool was swept, pd is
-    ok-or-unmeasurable, the setup is not stale, and H4/H1 do not point
-    opposite ways (owner decision D6, 2026-08-16).
+    ok-or-unmeasurable, the setup is not stale, H4/H1 do not point opposite
+    ways (owner decision D6, 2026-08-16), and the impulse left a valid M5
+    imbalance behind it (owner decision D22, 2026-08-30).
 
     `trend_disagrees` defaults to False so a caller that does not measure it
     is treated as "nothing is arguing" rather than silently losing the star.
-    Detector mode is unchanged: a disagreeing setup is still announced, just
-    not as a ⭐.
+    `has_imbalance` defaults to True for the same reason: D22 moved the gap
+    out of the setup definition and into this verdict, so a caller that does
+    not report one is read as "not the thing being judged here" rather than
+    silently losing the star.
+    Detector mode is unchanged: a setup missing any of these is still
+    announced, just not as a ⭐.
     """
     checks = (
         ("room", room is None or room >= min_room_r),
@@ -248,6 +254,7 @@ def classify(
         ("pd", pd in ("ok", None)),
         ("stale", not stale),
         ("trend", not trend_disagrees),
+        ("imbalance", has_imbalance),
     )
     missed = [name for name, ok in checks if not ok]
     return TierVerdict(star=not missed, missed=missed)

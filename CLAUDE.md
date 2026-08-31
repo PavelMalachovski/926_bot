@@ -15,7 +15,11 @@ zone of interest, an order block or, when none qualifies, an untouched H1
 imbalance (owner decision D4) → M5 CHoCH + FVG → SL behind the swept extreme
 → TP at the nearest unswept liquidity level → session windows → news
 blackouts → correlation limits) come from the owner's written trading
-system. When **both** H4 and H1 read FLAT — the one state that used to end
+system. The M5 imbalance stopped being part of that chain on 2026-08-30
+(owner decision D22): the third sync is the **M5 CHoCH alone**, and the gap
+is a label — it supplies the best entry when it is there, it is required for
+the ⭐ tier, and its absence costs the star rather than the alert (see the
+conventions section). When **both** H4 and H1 read FLAT — the one state that used to end
 in "no direction" — a valid range (`range.detect_range`, clustered H1
 pivots) gives the bot two boundaries to trade between instead of standing
 down (owner decision D11, 2026-08-18): the boundary price worked most
@@ -38,10 +42,11 @@ either way, and the owner decides whether the warning matters. What still
 suppresses: everything that decides whether a setup exists at all — off-
 session, market closed, news blackout, no H4/H1 direction, no H1 zone,
 price has not reached the zone yet, the zone was invalidated after the
-touch (a body close through the far edge), no M5 CHoCH, no valid FVG —
-plus one geometry check that runs after all of them: `risk <= 0` (Rule 6,
-SL lands at the entry level) is a malformed trade, not a judgment call, and
-still returns `Verdict.SKIP` rather than a warning.
+touch (a body close through the far edge), no M5 CHoCH — plus two geometry
+checks that run after all of them: `risk <= 0` (Rule 6, SL lands at the
+entry level) and an entry on the wrong side of its own stop are malformed
+trades, not judgment calls, and still return `Verdict.SKIP` rather than a
+warning. "No valid FVG" left this list on 2026-08-30 (D22).
 
 ## Commands
 
@@ -91,10 +96,13 @@ app/services/smc/
 │                         if one qualifies, else the untouched imbalance —
 │                         owner decision D4; feeds Rule 2 and the plan), M5
 │                         CHoCH, sweep_extreme (Rule 6 stop reference),
-│                         find_order_block (the M5 order block, a deeper
-│                         second entry, searched only inside the zone-
-│                         touch→FVG window and kept only when it is deeper
-│                         than the entry and inside the stop), m5_marks (the
+│                         find_order_block (the M5 order block: a deeper
+│                         second entry inside the zone-touch→FVG window,
+│                         kept only when it is deeper than the entry and
+│                         inside the stop — and, since D22, the entry
+│                         itself over the touch→CHoCH window when no valid
+│                         imbalance formed, where no such guard applies),
+│                         m5_marks (the
 │                         M5 order block + imbalance inside a touched zone,
 │                         label-only, for the 🔔 alert's 🔎 line)
 ├── range.py              detect_range: clusters confirmed H1 pivots
@@ -129,8 +137,9 @@ app/services/smc/
 │                         in — the range comes from pd.py, see D17),
 │                         classify (the ⭐ verdict, checked after a
 │                         setup already fully formed — detector mode
-│                         unchanged — and denied when H4/H1 trend disagree,
-│                         owner decision D6)
+│                         unchanged — denied when H4/H1 trend disagree
+│                         (owner decision D6) or when the impulse left no
+│                         valid M5 imbalance (owner decision D22))
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
 ├── sessions.py           trading hours 08:00-18:30 Prague, two blocks split
@@ -289,6 +298,50 @@ tracking → live-card edits on fill/TP/SL events.
   but it does take the **earliest** qualifying gap of the excursion, which
   is `select_valid_fvg`'s rule, so the 🔎 line and the 🚨 alert's ⚡ line
   name one imbalance rather than two.
+- **The counter-H4 setup is shown, never starred** (owner decision D23,
+  2026-08-31). When H4 and H1 trend OPPOSITE ways, the watcher runs a
+  SECOND pure `evaluate(force_direction=...)` pass on the candles the first
+  pass already fetched (no extra API call) and announces the H1-side setup
+  alongside the H4-side one. It ADDS, it never replaces: Rule 1 still
+  resolves the primary direction exactly as before, and the counter result
+  carries `direction_source="h1_counter"` so the header reads "⚠️ against
+  H4" and `trends_disagree` (D6) denies it the ⭐. `force_direction`
+  bypasses Rule 1's whole ladder, so a forced pass can never wander into
+  the range (D11) or aggressive-CHoCH branches. The two tracks dedup in
+  SEPARATE slots (`state.last_setup` vs `state.last_counter_setup`) — one
+  shared slot would let each side's fingerprint clear the other's and
+  re-announce both every cycle. Only a COMPLETED counter setup is
+  announced; a counter-trend WATCH is noise.
+- **A plan correction reaches Telegram as its own message** (owner request
+  2026-08-31). The 07:55/13:55 summary is still edited silently on every
+  material change — that message must always show the truth — but the pairs
+  that actually moved now also get a `🔁 Plan updated` message naming what
+  moved (`planbook.describe_plan_changes` over `plan_snapshot`, the
+  fingerprint's own facts in a diffable shape). Throttled to one message
+  per pair per hour (`state.plan_change_notified`): the plan is recomputed
+  every five minutes, and an unthrottled announcement would turn quiet mode
+  inside out. The silent edit is NOT throttled. A pair with no stored
+  snapshot stays silent — there is nothing honest to diff against — and the
+  throttle timestamp is written only after the send actually succeeds.
+- **The imbalance labels a setup, it no longer defines one** (owner
+  decision D22, 2026-08-30). Rule 4 still runs and still prefers the valid
+  M5 gap — when `select_valid_fvg` returns one it is the entry, exactly as
+  before, and every pre-D22 signal is byte-for-byte unchanged. When it
+  returns nothing the setup is still announced, and Rule 5 walks an entry
+  ladder instead: the **M5 order block** of the same touch→CHoCH excursion
+  (`find_order_block` with no deeper-guard — there is no FVG entry to be
+  deeper than, and the block sits inside the stop by construction), else
+  **price itself**, a market entry on the CHoCH. `TradeSetup.entry_source`
+  ("fvg"/"ob"/"market") says which rung paid, and it is what names the
+  ladder's RR column and the `entry_is_market` band. A gap that FAILED Rule
+  4 never becomes an entry — it is carried on `rejected_fvg` /
+  `rejected_fvg_problems` purely so the alert can show it and say what was
+  wrong with it: entering at the edge of a half-filled gap is entering at a
+  price the market has already left. The cost of missing the imbalance is
+  the ⭐ (`sniper.classify`'s sixth condition), never the message.
+  `SMC_REQUIRE_IMBALANCE=true` restores the pre-D22 gate without a deploy,
+  the same escape hatch `SMC_PD_BASIS=h1` gives D17. Rule 6 is untouched:
+  the stop never read the imbalance.
 - **A range boundary is a `Zone` with `Zone.kind == "RANGE"`**
   (`range.boundary_zone`): expressing it that way is what lets the existing
   Rule 3/4/6 pipeline — `zone_touch_span`, `find_choch`, `select_valid_fvg`,

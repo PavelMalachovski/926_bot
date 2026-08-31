@@ -82,6 +82,30 @@ def format_distance(value: float, instrument: Instrument) -> str:
     return f"{value / instrument.pip:.1f} pips"
 
 
+# Owner decision D22 (2026-08-30): a setup can now form without a valid M5
+# imbalance, so every line that used to assume one has to say what it found
+# instead. Short human names for `best_rejected_fvg`'s problem codes.
+_FVG_PROBLEMS = {
+    "size": "too small",
+    "fill": "over half filled",
+    "closed": "closed through",
+    "session": "from an earlier session",
+}
+
+
+def _imbalance_flaw(problems) -> str:
+    """'too small, over half filled' — why a gap failed Rule 4."""
+    named = [_FVG_PROBLEMS[p] for p in problems if p in _FVG_PROBLEMS]
+    return ", ".join(named) if named else "not valid"
+
+
+def _entry_label(setup) -> str:
+    """What the entry price is measured from — the ladder rung D22 used."""
+    return {"fvg": "FVG", "ob": "OB", "market": "market"}.get(
+        setup.entry_source, "FVG"
+    )
+
+
 def _rr_cell(rr: float) -> str:
     """One RR cell: a ratio, or a dash when the rung is behind the entry."""
     return f"1:{rr:.1f}" if rr > 0 else "—"
@@ -105,7 +129,14 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
     ob_risk = abs(ob_entry - setup.stop_loss) if ob_entry is not None else None
 
     header = "🎯 Unswept liquidity ahead"
-    header += "      RR from FVG / from OB" if ob_risk else "      RR from FVG"
+    # D22: the first RR column is measured from whatever rung supplied the
+    # entry, so it must be named after that rung rather than always "FVG".
+    entry_label = _entry_label(setup)
+    header += (
+        f"      RR from {entry_label} / from OB"
+        if ob_risk
+        else f"      RR from {entry_label}"
+    )
     # The header carries the emoji and stays in the message's normal
     # proportional font, matching every other line (📍/⚡/🛑/🧱). Only the
     # data rows below it need a monospace font for the columns to line up
@@ -177,6 +208,16 @@ def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
     if source == "h1":
         return (
             "⚠️ H4 flat — direction from H1 "
+            f"{'uptrend' if is_long else 'downtrend'}"
+        )
+    if source == "h1_counter":
+        # D23 (owner decision 2026-08-31): H4 trends one way and H1 has
+        # turned the other. The setup is shown so the owner sees what his
+        # own eye sees on the lower timeframe, and it can never earn the ⭐
+        # (D6 denies it) — so the header has to say plainly that this one
+        # runs against the higher timeframe.
+        return (
+            "⚠️ against H4 — direction from the H1 "
             f"{'uptrend' if is_long else 'downtrend'}"
         )
     if source == "h4_choch":
@@ -338,11 +379,43 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
                 f"📍 H1 {kind} zone ({result.h1_zone.kind})  "
                 f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
             )
-    lines.append(
-        f"⚡ M5 imbalance (FVG)   "
-        f"{setup.fvg.bottom:.{d}f} – {setup.fvg.top:.{d}f}"
-        f"   ← limit order ({setup.entry:.{d}f})"
-    )
+    # D22: the entry line names the rung it came from, and the imbalance gets
+    # a line of its own whenever it did not supply the entry — present but
+    # rejected (with the flaw named), or absent altogether. The owner asked
+    # for the gap to stay visible without being decisive.
+    if setup.fvg is not None:
+        lines.append(
+            f"⚡ M5 imbalance (FVG)   "
+            f"{setup.fvg.bottom:.{d}f} – {setup.fvg.top:.{d}f}"
+            f"   ← limit order ({setup.entry:.{d}f})"
+        )
+    else:
+        if setup.entry_source == "ob" and setup.order_block is None:
+            # The block IS the entry on this rung, so the engine leaves
+            # `order_block` empty (nothing deeper to advertise) and the band
+            # is not repeated — the entry price says it.
+            lines.append(
+                f"🧱 M5 order block       "
+                f"{setup.entry:.{d}f}"
+                f"   ← limit order (no imbalance)"
+            )
+        else:
+            lines.append(
+                f"📈 Market entry         "
+                f"{setup.entry:.{d}f}"
+                f"   ← at the CHoCH (no imbalance)"
+            )
+        if setup.rejected_fvg is not None:
+            gap = setup.rejected_fvg
+            lines.append(
+                f"⚡ M5 imbalance         "
+                f"{gap.bottom:.{d}f} – {gap.top:.{d}f}"
+                f"   ✗ {escape_html(_imbalance_flaw(setup.rejected_fvg_problems))}"
+            )
+        else:
+            lines.append(
+                "⚡ M5 imbalance         none — the impulse left no gap"
+            )
     if setup.order_block:
         ob_entry = setup.order_block.top if is_long else setup.order_block.bottom
         lines.append(
@@ -412,7 +485,13 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     # --- warnings: impossible to miss, but they do not push the levels down
     notes = []
     if setup.entry_is_market:
-        notes.append("   ▶️ price is inside the imbalance right now")
+        # D22: name the band price is actually inside (or say it is a plain
+        # market entry, which has no band at all).
+        inside = {
+            "fvg": "   ▶️ price is inside the imbalance right now",
+            "ob": "   ▶️ price is inside the order block right now",
+        }.get(setup.entry_source, "   ▶️ market entry — price is at the CHoCH")
+        notes.append(inside)
     for warning in result.warnings:
         notes.append(f"   ⚠️ {escape_html(warning)}")
     if result.funding_warning:
@@ -423,10 +502,20 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
 
     # --- ref: measured context, not instruction
     lines.append("")
-    fvg_ref = (
-        f"   ref · FVG {setup.fvg.size:.{d}f}, "
-        f"{setup.fvg.fill_pct * 100:.0f}% filled"
-    )
+    if setup.fvg is not None:
+        fvg_ref = (
+            f"   ref · FVG {setup.fvg.size:.{d}f}, "
+            f"{setup.fvg.fill_pct * 100:.0f}% filled"
+        )
+    elif setup.rejected_fvg is not None:
+        # D22: still measured, still shown — it just does not count.
+        flaw = escape_html(_imbalance_flaw(setup.rejected_fvg_problems))
+        fvg_ref = (
+            f"   ref · FVG {setup.rejected_fvg.size:.{d}f}, "
+            f"{setup.rejected_fvg.fill_pct * 100:.0f}% filled — {flaw}"
+        )
+    else:
+        fvg_ref = "   ref · no M5 imbalance in the impulse"
     if result.session_name:
         fvg_ref += f" · {escape_html(result.session_name)}"
     lines.append(fvg_ref)
