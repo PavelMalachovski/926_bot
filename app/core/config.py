@@ -143,9 +143,11 @@ class SMCSettings(BaseSettings):
         "press",
     )
     auto_plan_times: str = Field(
-        default="07:55,13:55",
+        default="08:05,14:05",
         description="Comma-separated Prague times (HH:MM) for the automatic "
-        "plan snapshots — right before the Frankfurt/London and NY blocks",
+        "plan snapshots — just inside the Frankfurt/London and NY blocks "
+        "(owner request 2026-08-31), so the plan is built on candles the "
+        "session has already printed",
     )
     notify_no_setup: bool = Field(
         default=False,
@@ -163,7 +165,9 @@ class SMCSettings(BaseSettings):
         default=True, description="Send a morning red-news digest before trading"
     )
     news_digest_time: str = Field(
-        default="07:45", description="Prague local time (HH:MM) for the digest"
+        default="07:55",
+        description="Prague local time (HH:MM) for the digest — the "
+        "scheduler wakes AT this time even when it is off the cadence grid",
     )
     news_blackout_before_min: int = Field(
         default=60, description="No-entry window before a red news release, minutes"

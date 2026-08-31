@@ -1,6 +1,6 @@
 """In-memory book of current Pre-Market Plans (auto-plan, spec 2026-08-11).
 
-The watcher fills it from the 07:55/13:55 snapshot fetches and from candles
+The watcher fills it from the 08:05/14:05 snapshot fetches and from candles
 each cycle already fetched; the `aplan_*` buttons and the plan-zone alert
 read it. Nothing here talks to the network or the DB — a restart simply
 leaves the book empty until the next cycle refills it.
