@@ -23,12 +23,12 @@ setup appears.
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
 - ⚡ **Strategy profile per pair** via Telegram: `/strategy` (🛡 Conservative /
   ⚡ Aggressive)
-- 📅 **Forex Factory red-news digest** every weekday at 07:45 Prague
+- 📅 **Forex Factory red-news digest** every weekday at 07:55 Prague
   (incl. a session-block breakdown of today's releases)
 - 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair, folded
   together with the **live checklist status** (projection + where the pair is
   right now); conditional entry/SL/TP/RR + H1 chart, both-way brackets when
-  flat. The bot also builds it automatically at **07:55/13:55 Prague** for
+  flat. The bot also builds it automatically at **08:05/14:05 Prague** for
   every enabled pair: a silent summary (no push notification) with a button
   per pair delivers that pair's full plan on demand (`SMC_AUTO_PLAN=true` by
   default)
@@ -85,7 +85,7 @@ Commands are registered in the bot's slash menu (type `/` in the chat).
 The official FF weekly JSON feed is fetched every morning (and every ~6h).
 Entries are blocked **60 min before** and **15 min after** every high-impact
 event: forex pairs react to news for either of their currencies, ETHUSD only
-to USD news. A morning digest of today's red news is sent at **07:45 Prague**
+to USD news. A morning digest of today's red news is sent at **07:55 Prague**
 (`SMC_NEWS_DIGEST_TIME`; `SMC_NEWS_DIGEST=false` to disable). Rule 0.4: if a journal signal is active
 (pending/open) and red news is ≤30 min away, the bot sends a "SL to breakeven /
 pull the order" warning. Tunables: `SMC_NEWS_BLACKOUT_BEFORE_MIN` (60),
@@ -207,7 +207,7 @@ Key ones:
 | `SMC_DEPOSIT` | — | deposit in USD for lot hints |
 | `SMC_NOTIFY_NO_SETUP` | `false` | opt-in 15-min heartbeat messages |
 | `SMC_DB_FILE` | `.smc_watcher.db` | SQLite path (put on a volume for persistence) |
-| `SMC_NEWS_DIGEST_TIME` | `07:45` | Prague time of the morning news digest |
+| `SMC_NEWS_DIGEST_TIME` | `07:55` | Prague time of the morning news digest |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
 | `SMC_DEFAULT_PROFILE` | `conservative` | strategy profile for a pair with no explicit `/strategy` choice: `conservative` \| `aggressive` |
 | `OANDA_API_TOKEN` | — | optional: use OANDA instead of Twelve Data for forex |

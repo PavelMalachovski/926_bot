@@ -21,7 +21,7 @@ PlanZone = Tuple[float, float, Optional[str]]
 # replaces the retired per-pair /strategy picker. "all" = star loud + quiet
 # regular (today's default two-tier behavior); "star" = star only, regular
 # setups are journal-recorded and logged but not sent; "mute" = no setup
-# alerts at all. This affects SETUP alerts only -- the 07:45 digest,
+# alerts at all. This affects SETUP alerts only -- the news digest,
 # plan-zone alerts and Rule 0.4/9 warnings keep flowing regardless.
 NOTIFY_LEVELS: Tuple[str, ...] = ("all", "star", "mute")
 

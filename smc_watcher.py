@@ -162,6 +162,18 @@ def _build_engine(
     )
 
 
+def _parse_hhmm(value: str) -> Optional[str]:
+    """Normalise a Prague wall-clock 'HH:MM', or None when it is garbage."""
+    try:
+        hh, mm = str(value).strip().split(":")
+        hh, mm = int(hh), int(mm)
+        if not (0 <= hh < 24 and 0 <= mm < 60):
+            raise ValueError(value)
+    except (ValueError, TypeError, AttributeError):
+        return None
+    return f"{hh:02d}:{mm:02d}"
+
+
 def _setup_fingerprint(result: AnalysisResult) -> str:
     """One announcement per zone per session block.
 
@@ -1019,7 +1031,8 @@ class Watcher:
         )
 
     async def _morning_briefing(self) -> None:
-        """Once a day Mon-Fri at 07:45 Prague: today's red-news digest
+        """Once a day Mon-Fri at SMC_NEWS_DIGEST_TIME (07:55 Prague by
+        default): today's red-news digest
         (strategy Rule -1). The per-pair plan is on demand via /plan."""
         if not settings.smc.news_digest or not self.news or self.news.fetched_at is None:
             return
@@ -1119,22 +1132,34 @@ class Watcher:
         """Validated 'HH:MM' Prague slots from SMC_AUTO_PLAN_TIMES."""
         slots = []
         for part in settings.smc.auto_plan_times.split(","):
-            part = part.strip()
-            try:
-                hh, mm = part.split(":")
-                hh, mm = int(hh), int(mm)
-                if not (0 <= hh < 24 and 0 <= mm < 60):
-                    raise ValueError(part)
-            except (ValueError, TypeError):
-                logger.warning("Ignoring invalid auto-plan slot", slot=part)
+            slot = _parse_hhmm(part)
+            if slot is None:
+                logger.warning("Ignoring invalid auto-plan slot", slot=part.strip())
                 continue
-            slots.append(f"{hh:02d}:{mm:02d}")
+            slots.append(slot)
+        return sorted(set(slots))
+
+    def _wake_slots(self) -> List[str]:
+        """Prague wall-clock times the scheduler must wake AT.
+
+        Both the auto-plan snapshot and the news digest fire from inside
+        `run_cycle`, so a time that does not sit on the cadence grid is
+        served by the NEXT tick instead. 08:05 and 14:05 are on the 5-minute
+        in-session grid, but 07:55 is off the 15-minute off-session grid
+        (which ticks 07:45, 08:00) — without this the owner's 07:55 digest
+        would arrive at 08:00.
+        """
+        slots = self._autoplan_slots() if settings.smc.auto_plan else []
+        if settings.smc.news_digest:
+            digest = _parse_hhmm(settings.smc.news_digest_time)
+            if digest is not None:
+                slots = slots + [digest]
         return sorted(set(slots))
 
     async def _maybe_auto_plan(self) -> None:
         """Fire the auto-plan snapshot once per slot per Prague day.
 
-        Only the MOST RECENT due slot builds (a 15:00 boot sends the 13:55
+        Only the MOST RECENT due slot builds (a 15:00 boot sends the 14:05
         picture, not the stale morning one); older due slots are consumed
         silently. A slot is marked only after its summary actually reached
         Telegram, so a failed send retries next cycle."""
@@ -1343,19 +1368,17 @@ class Watcher:
                 self.state.save()
                 logger.info("Plan change announced", pair=key, changes=changes)
 
-    def _seconds_until_next_autoplan(self) -> Optional[float]:
-        """Seconds until the nearest configured slot (today or tomorrow),
-        so the scheduler can wake AT 07:55/13:55 instead of on the next
-        cadence grid tick five minutes later.
+    def _seconds_until_next_wake(self) -> Optional[float]:
+        """Seconds until the nearest wall-clock slot (today or tomorrow), so
+        the scheduler wakes AT 07:55/08:05/14:05 instead of on the next
+        cadence grid tick minutes later.
 
         Each candidate is localized fresh from a naive datetime via
         `PRAGUE.localize` rather than built with `.replace()` on an
         already-localized `now_local` — `.replace()` keeps `now_local`'s
         UTC offset, which is wrong for a candidate on the other side of a
         DST transition."""
-        if not settings.smc.auto_plan:
-            return None
-        slots = self._autoplan_slots()
+        slots = self._wake_slots()
         if not slots:
             return None
         now_local = to_prague(datetime.now(tz=timezone.utc))
@@ -1837,10 +1860,12 @@ class Watcher:
             interval = session_interval if active_session(now) else off_interval
             # +10s so the just-closed M5 candle is already served by the APIs
             sleep_s = _seconds_until_next_slot(interval) + 10
-            # wake AT the auto-plan slot (07:55 sits off the 15-min grid)
-            next_plan = self._seconds_until_next_autoplan()
-            if next_plan is not None:
-                sleep_s = min(sleep_s, next_plan + 5)
+            # wake AT the plan slots and the news digest — 07:55 sits off
+            # the 15-minute off-session grid, so the cadence alone would
+            # serve the digest at 08:00.
+            next_wake = self._seconds_until_next_wake()
+            if next_wake is not None:
+                sleep_s = min(sleep_s, next_wake + 5)
             await asyncio.sleep(sleep_s)
 
     async def run_forever(self) -> None:

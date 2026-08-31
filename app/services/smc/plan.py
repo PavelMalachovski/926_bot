@@ -1,5 +1,5 @@
 """Pre-Market Plan (strategy Шаблон B): conditional setups projected from
-H4/H1 structure before the session, for the 07:45 morning briefing.
+H4/H1 structure for the session, for the morning briefing.
 
 For a trending pair the plan is the with-trend scenario. For a flat pair both
 directions are projected as speculative brackets ("if it breaks up → long, if

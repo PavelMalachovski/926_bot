@@ -41,7 +41,7 @@ HELP_TEXT = (
     "/pd — premium/discount for every watched pair, right now\n"
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
-    "Auto-plan: silent 07:55/13:55 summaries — press a pair button "
+    "Auto-plan: silent 08:05/14:05 summaries — press a pair button "
     "for the full plan\n"
     "/stats — signal journal: setups, TP/SL, winrate\n"
     "/journal — trade journal: send an MT4 history screenshot to log trades\n"

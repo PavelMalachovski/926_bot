@@ -72,9 +72,9 @@ nothing.
 ```
 smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           off-session), per-pair cycle, alert dedup, live
-                          setup cards, discipline suppression, 07:45 weekday
+                          setup cards, discipline suppression, 07:55 weekday
                           news digest, on-demand /plan, Rule 0.4 warnings,
-                          journal tracking, auto-plan snapshots at 07:55/13:55
+                          journal tracking, auto-plan snapshots at 08:05/14:05
                           (silent summary + aplan_* buttons), per-cycle plan
                           recompute into the planbook with silent summary
                           edits on material change, plan-centric zone alerts
@@ -163,7 +163,7 @@ app/services/smc/
 │                         fallback on H4 FLAT, ahead of the aggressive-profile
 │                         CHoCH check, before both-way speculative brackets)
 ├── planbook.py           in-memory current-plan store (PlanBook/PlanEntry),
-│                         filled by the 07:55/13:55 snapshot and by the
+│                         filled by the 08:05/14:05 snapshot and by the
 │                         per-cycle recompute; material fingerprint
 │                         (plan_fingerprint) drives silent summary edits;
 │                         scenario_for_touch backs the plan-zone alert
@@ -215,8 +215,18 @@ tracking → live-card edits on fill/TP/SL events.
   nothing suppresses the message. `SMC_MIN_RR` and `SMC_MAX_ENTRY_GAP_R` are
   warning thresholds, not gates. Everything that suppresses BEFORE a setup
   completes is unchanged.
+- **The daily schedule is wall-clock, and the scheduler wakes for it**
+  (owner request 2026-08-31): red-news digest **07:55**, auto-plan
+  snapshots **08:05 / 14:05** Prague (`SMC_NEWS_DIGEST_TIME`,
+  `SMC_AUTO_PLAN_TIMES`). Both fire from inside `run_cycle`, so a time off
+  the cadence grid would be served by the NEXT tick — 08:05/14:05 sit on
+  the 5-minute in-session grid, but 07:55 sits between the off-session
+  ticks at 07:45 and 08:00. `Watcher._wake_slots` therefore feeds BOTH the
+  plan slots and the digest time into `_seconds_until_next_wake`, and the
+  scheduler sleeps to whichever comes first. Change a time and the wake
+  follows it; nothing else needs touching.
 - **Quiet mode is the default**: Telegram receives only found setups (and
-  Rule 9/0.4 warnings + the 07:45 digest). Everything else goes to logs.
+  Rule 9/0.4 warnings + the 07:55 digest). Everything else goes to logs.
   Do not add chatty messages without being asked.
 - Engines see **closed candles only** — every fetcher drops the in-progress
   candle. Twelve Data and OANDA both serve native H4 candles; neither
@@ -251,7 +261,7 @@ tracking → live-card edits on fill/TP/SL events.
   GLOBAL setup-alert level — `"all"` (⭐ loud + regular quiet, default),
   `"star"` (⭐ only; regular setups are still journal-recorded and
   dedup-fingerprinted, just not sent), or `"mute"` (no setup alerts sent at
-  all, same record/dedup guarantee) — and never touches the 07:45 digest,
+  all, same record/dedup guarantee) — and never touches the 07:55 digest,
   plan-zone alerts, or Rule 0.4/9 warnings.
 - **Sniper tier** (`sniper.py`, Phase 2 redesign): a completed setup earns
   ⭐ when room >= 1.0R on H1/H4 liquidity (or unmeasurable), a pool was
@@ -313,7 +323,7 @@ tracking → live-card edits on fill/TP/SL events.
   re-announce both every cycle. Only a COMPLETED counter setup is
   announced; a counter-trend WATCH is noise.
 - **A plan correction reaches Telegram as its own message** (owner request
-  2026-08-31). The 07:55/13:55 summary is still edited silently on every
+  2026-08-31). The 08:05/14:05 summary is still edited silently on every
   material change — that message must always show the truth — but the pairs
   that actually moved now also get a `🔁 Plan updated` message naming what
   moved (`planbook.describe_plan_changes` over `plan_snapshot`, the
@@ -433,12 +443,12 @@ tracking → live-card edits on fill/TP/SL events.
   from `sessions.mute_deadline`: this block's end, or tomorrow's open in
   the day's last block) and silences that pair's **get-ready** alerts —
   plan-zone alerts and the PD radar, which carries the same button (owner
-  request 2026-08-26). Setup alerts, Rule 0.4 warnings and the 07:45
+  request 2026-08-26). Setup alerts, Rule 0.4 warnings and the 07:55
   digest ignore it. `/unmute`
   clears every mute; `/status` lists them.
   `state.remember_plan_zones` (the separate "from this morning's plan"
   provenance, spec 2026-08-06 §6) is still written **only** by the
-  07:55/13:55 snapshots and manual `/plan` — never by the 5-minute
+  08:05/14:05 snapshots and manual `/plan` — never by the 5-minute
   recompute.
 
 ## Workflow

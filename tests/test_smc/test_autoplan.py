@@ -48,7 +48,7 @@ class TestAutoPlanSettings:
             monkeypatch.delenv(var, raising=False)
         s = SMCSettings()
         assert s.auto_plan is True
-        assert s.auto_plan_times == "07:55,13:55"
+        assert s.auto_plan_times == "08:05,14:05"
         # the plan-zone alert is the feature's main notification now
         assert s.zone_ping is True
 
