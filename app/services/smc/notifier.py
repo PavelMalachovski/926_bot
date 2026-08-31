@@ -210,6 +210,16 @@ def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
             "⚠️ H4 flat — direction from H1 "
             f"{'uptrend' if is_long else 'downtrend'}"
         )
+    if source == "h1_counter":
+        # D23 (owner decision 2026-08-31): H4 trends one way and H1 has
+        # turned the other. The setup is shown so the owner sees what his
+        # own eye sees on the lower timeframe, and it can never earn the ⭐
+        # (D6 denies it) — so the header has to say plainly that this one
+        # runs against the higher timeframe.
+        return (
+            "⚠️ against H4 — direction from the H1 "
+            f"{'uptrend' if is_long else 'downtrend'}"
+        )
     if source == "h4_choch":
         return "⚠️ H4 flat — direction from CHoCH (first leg, not with-trend)"
     if source == "range":

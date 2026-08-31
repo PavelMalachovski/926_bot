@@ -80,3 +80,48 @@ Detector mode; the two alert tiers and `/notify`; the H1 zone of interest
 blackouts and discipline; the journal's lifecycle and semantics; the
 per-instrument minimum imbalance in `instruments.py` (still what
 `select_valid_fvg` measures against, still profile-scaled).
+
+
+---
+
+# D23/D24 — the same session's follow-ups (2026-08-31)
+
+The owner described his actual daily loop (07:45 news → 08:00 plan the day
+→ wait for the setup → hourly re-check of that plan) and asked how far the
+bot already was. Answer: most of it existed; two things did not.
+
+## D24 — plan corrections must reach Telegram
+
+The auto-plan summary was recomputed every five minutes and silently edited
+in place on a material change. True, but invisible: nothing told the owner
+his plan had moved. The silent edit stays (that message must always show the
+truth) and the pairs that actually moved now also get one `🔁 Plan updated`
+message naming what moved, throttled to once an hour per pair.
+
+`planbook.plan_snapshot` stores the fingerprint's own facts in a diffable
+shape; `describe_plan_changes` turns two snapshots into lines a human reads
+("LONG zone moved 2400.00–2410.00 → 2415.00–2425.00", "Now waiting: …").
+
+## D23 — show the counter-H4 setup
+
+From the ETH case the owner brought (2026-08-31): 5m and 1h were clearly
+turning up and he was waiting to go long, while H4 read LH+LL and Rule 1 was
+looking for a short. The bot could not say anything about the trade he was
+actually watching, because the H4 direction was the only one it evaluated.
+
+Now, when H4 and H1 trend opposite ways, a second `evaluate` pass runs with
+`force_direction` set to the H1 side, on the candles the first pass already
+fetched. Both setups are announced. The counter one is labelled "⚠️ against
+H4" and is denied the ⭐ by the existing D6 rule, so the tier still means
+what it meant. Nothing the owner already receives is replaced.
+
+**The cost, stated plainly:** counter-trend entries are the ones that lose
+when the higher timeframe wins. That is exactly why they can never star,
+why only a COMPLETED counter setup is announced, and why `/notify star`
+remains the one-command way to see none of them.
+
+## Not built (owner did not select them)
+
+Making the 08:00/14:00 plan loud and unfolded, moving the slots off
+07:55/13:55, and an hourly "plan still alive" check-in. All three are small
+and remain available.

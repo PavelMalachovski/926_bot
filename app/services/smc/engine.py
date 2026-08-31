@@ -232,8 +232,19 @@ class TripleSyncEngine:
         h1: List[Candle],
         m5: List[Candle],
         result: AnalysisResult,
+        force_direction: Optional[Direction] = None,
     ) -> AnalysisResult:
-        """Evaluate rules 1-8 on the given candles (pure, testable)."""
+        """Evaluate rules 1-8 on the given candles (pure, testable).
+
+        `force_direction` (owner decision D23, 2026-08-31) skips Rule 1's
+        own resolution and trades the side it names. It exists for exactly
+        one caller: the second pass the watcher runs when H4 and H1 trend
+        opposite ways, so the H1-side setup is SHOWN alongside the H4-side
+        one instead of being invisible. It never replaces Rule 1 — the
+        primary pass still runs first and unchanged — and the star is
+        denied for it by `trends_disagree` (D6), which is true by
+        construction whenever this is used.
+        """
         result.profile_key = self.profile.key
 
         # Rule 1 — H4 global trend. H1 is computed unconditionally right
@@ -249,7 +260,14 @@ class TripleSyncEngine:
         # read the box off `result.market_range`.
         boundary: Optional[Zone] = None
         result.direction_source = "h4"
-        if result.h4_trend == Trend.UP:
+        if force_direction is not None:
+            # D23: the caller already established that H4 and H1 disagree.
+            # Rule 1's ladder (H4 -> H1-on-flat -> range) is bypassed
+            # wholesale, so a forced pass can never wander into the range
+            # branch or the aggressive CHoCH branch.
+            direction = force_direction
+            result.direction_source = "h1_counter"
+        elif result.h4_trend == Trend.UP:
             direction = Direction.LONG
         elif result.h4_trend == Trend.DOWN:
             direction = Direction.SHORT

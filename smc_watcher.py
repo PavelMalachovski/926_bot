@@ -31,7 +31,7 @@ from app.core.exceptions import ConfigurationError, DataFetchError
 from app.core.logging import configure_logging
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.db import Database, migrate_legacy_json
-from app.services.smc.engine import TripleSyncEngine
+from app.services.smc.engine import TripleSyncEngine, trends_disagree
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
 from app.services.smc.journal import SignalJournal
 from app.services.smc.liquidity import find_liquidity, nearest_liquidity
@@ -52,7 +52,10 @@ from app.services.smc.notifier import (
     redact_secrets,
     zone_alert_keyboard,
 )
-from app.services.smc.planbook import PlanBook, PlanEntry, plan_fingerprint
+from app.services.smc.planbook import (
+    PlanBook, PlanEntry, describe_plan_changes, plan_fingerprint,
+    plan_snapshot,
+)
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
 from app.services.smc.sessions import (
@@ -76,6 +79,11 @@ STATE_FILE = os.getenv("SMC_STATE_FILE", ".smc_watcher_state.json")
 JOURNAL_FILE = os.getenv("SMC_JOURNAL_FILE", ".smc_journal.json")
 
 APPROVED = (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
+
+# Placeholder handed to `_build_engine` for a pass that only calls the pure
+# `evaluate()` (the D23 counter-trend pass). Building a real fetcher there
+# would re-resolve the forex API key for nothing.
+_NO_FETCH = object()
 
 
 def _forex_source() -> str:
@@ -422,6 +430,81 @@ class Watcher:
         )
         return format_no_setup(result), result
 
+    def _counter_trend_result(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> Optional[AnalysisResult]:
+        """The H1-side setup when H4 and H1 point opposite ways (D23).
+
+        Owner decision 2026-08-31, from the ETH case: he reads a reversal on
+        the lower timeframes and waits to go long while Rule 1, reading H4,
+        is looking the other way — so the bot stays silent on the very trade
+        he is watching. This runs a SECOND pure pass on the candles the
+        primary pass already fetched (no extra API call) and hands back the
+        H1-direction setup when one has fully formed.
+
+        It adds, it never replaces: the primary H4-direction result is
+        returned and alerted exactly as before, and this one carries
+        `direction_source="h1_counter"`, so the header says it runs against
+        H4 and `trends_disagree` (D6) denies it the ⭐. Returns None unless
+        a setup actually completed — a counter-trend WATCH is noise.
+        """
+        if result is None or result.verdict == Verdict.OFF_SESSION:
+            return None
+        if result.h1_trend is None or not trends_disagree(
+            result.h4_trend, result.h1_trend
+        ):
+            return None
+        if not (result.m5_candles and result.h4_candles and result.h1_candles):
+            return None
+        direction = (
+            Direction.LONG if result.h1_trend == Trend.UP else Direction.SHORT
+        )
+        if result.setup is not None and result.setup.direction == direction:
+            return None  # the primary pass is already this side
+        from app.services.smc.profiles import get_profile
+
+        instrument = get_instrument(key)
+        profile = get_profile(
+            self.state.pair_profile.get(key, settings.smc.default_profile)
+        )
+        counter = AnalysisResult(
+            symbol=result.symbol,
+            verdict=Verdict.SKIP,
+            checked_at=result.checked_at,
+            price_decimals=result.price_decimals,
+        )
+        counter.price = result.price
+        counter.session_name = result.session_name
+        counter.funding_rate = result.funding_rate
+        counter.m5_candles = result.m5_candles
+        counter.h4_candles = result.h4_candles
+        counter.h1_candles = result.h1_candles
+        try:
+            # `evaluate` is pure and never touches the fetcher, so the engine
+            # is built with a placeholder rather than constructing a second
+            # live client (which for forex would re-resolve the API key).
+            engine = _build_engine(instrument, profile, fetcher=_NO_FETCH)
+            counter = engine.evaluate(
+                h4=result.h4_candles,
+                h1=result.h1_candles,
+                m5=result.m5_candles,
+                result=counter,
+                force_direction=direction,
+            )
+        except Exception as e:
+            logger.warning(
+                "Counter-trend pass failed", pair=key, error=str(e), exc_info=True
+            )
+            return None
+        if counter.verdict not in APPROVED:
+            return None
+        logger.info(
+            "Counter-trend setup found",
+            pair=key, direction=direction.value,
+            h4=result.h4_trend.value, h1=result.h1_trend.value,
+        )
+        return counter
+
     async def _warn_data_source_failure(self, key: str, detail: str) -> None:
         """A forex fetch failure must not look like a quiet market — the
         owner rotates his TwelveData key regularly, and an expired key
@@ -500,9 +583,20 @@ class Watcher:
                     continue
                 line, result = await self.check_pair(key)
                 self._recompute_plan(key, result)
-                if result and result.verdict in APPROVED:
+                # D23 (owner decision 2026-08-31): when H4 and H1 disagree the
+                # H1-side setup is announced ALONGSIDE the primary one, never
+                # instead of it. Both go through the same dedup, discipline
+                # and alert path below — `_setup_fingerprint` already keys on
+                # direction, so the two can never collide.
+                candidates = (
+                    [result] if result and result.verdict in APPROVED else []
+                )
+                counter = self._counter_trend_result(key, result)
+                if counter is not None:
+                    candidates.append(counter)
+                for result in candidates:
                     fingerprint = _setup_fingerprint(result)
-                    if self.state.last_setup.get(key) == fingerprint:
+                    if self._dedup_store(result).get(key) == fingerprint:
                         heartbeat_lines.append(
                             f"⏳ {key}: previously reported setup is still active"
                         )
@@ -571,7 +665,7 @@ class Watcher:
                         heartbeat_lines.append(
                             f"⚠️ {key}: setup found but the alert failed to send"
                         )
-                else:
+                if not candidates:
                     zone_alerted = await self._maybe_plan_zone_alert(key, result)
                     if not zone_alerted:
                         await self._maybe_pd_alert(key, result)
@@ -631,6 +725,18 @@ class Watcher:
             return await self._send_star_alert(key, result, fingerprint)
         return await self._send_quiet_alert(key, result, fingerprint)
 
+    def _dedup_store(self, result: AnalysisResult) -> Dict[str, str]:
+        """Which per-pair fingerprint slot this setup dedups in.
+
+        D23: the counter-H4 track (direction_source "h1_counter") keeps its
+        own slot. One slot shared by both directions would let each new
+        alert clear the other's fingerprint, so a pair with a live setup on
+        each side would re-announce both every cycle.
+        """
+        if getattr(result, "direction_source", "") == "h1_counter":
+            return self.state.last_counter_setup
+        return self.state.last_setup
+
     def _alert_send_suppressed(self, tier_star: bool) -> bool:
         """Whether `state.notify_level` (Task 4b, owner decision 2026-08-12)
         blocks the real Telegram send for this tier. "mute" blocks both
@@ -661,7 +767,7 @@ class Watcher:
             # notify_level says "mute" — record + dedup still happen, only
             # the Telegram send (and everything downstream of it: pin,
             # chart, live card) is skipped.
-            self.state.last_setup[key] = fingerprint
+            self._dedup_store(result)[key] = fingerprint
             self.state.save()
             return False
         keyboard = {
@@ -681,7 +787,7 @@ class Watcher:
             # later and pollute /stats).
             self.journal.discard(signal["id"])
             return False
-        self.state.last_setup[key] = fingerprint
+        self._dedup_store(result)[key] = fingerprint
         self.state.save()
         self.journal.attach_message(signal["id"], message_id, text)
         await self.notifier.pin(message_id)
@@ -706,14 +812,14 @@ class Watcher:
         if self._alert_send_suppressed(tier_star=False):
             # notify_level says "star" or "mute" — record + dedup still
             # happen, only the Telegram send is skipped.
-            self.state.last_setup[key] = fingerprint
+            self._dedup_store(result)[key] = fingerprint
             self.state.save()
             return False
         message_id = await self.notifier.send(text)
         if not message_id:
             self.journal.discard(signal["id"])
             return False
-        self.state.last_setup[key] = fingerprint
+        self._dedup_store(result)[key] = fingerprint
         self.state.save()
         return True
 
@@ -1086,6 +1192,9 @@ class Watcher:
             "fingerprints": {
                 k: plan_fingerprint(e.plan) for k, e in built
             },
+            # Same facts, diffable — see planbook.plan_snapshot. The
+            # fingerprint answers "did it change", this answers "what".
+            "snapshots": {k: plan_snapshot(e.plan) for k, e in built},
         }
         self.state.save()
         logger.info("Auto-plan summary sent", slot=slot, pairs=len(built))
@@ -1142,19 +1251,23 @@ class Watcher:
         if not info or info.get("date") != WatcherState._prague_day():
             return
         stored = info.get("fingerprints") or {}
+        stored_snaps = info.get("snapshots") or {}
         current: Dict[str, str] = {}
+        snapshots: Dict[str, dict] = {}
         plans = []
         missing: List[str] = []
         for k in stored:
             entry = self.planbook.get(k)
             if entry is None:
                 current[k] = stored[k]  # unchanged -> never triggers alone
+                snapshots[k] = stored_snaps.get(k)
                 missing.append(k)
                 logger.info(
                     "Auto-plan summary: pair missing from book", pair=k
                 )
                 continue
             current[k] = plan_fingerprint(entry.plan)
+            snapshots[k] = plan_snapshot(entry.plan)
             plans.append(entry.plan)
         if current == stored:
             return
@@ -1168,8 +1281,67 @@ class Watcher:
         )
         if ok:
             info["fingerprints"] = current
+            info["snapshots"] = snapshots
             self.state.plan_summary = info
             self.state.save()
+            # The edit above is silent by design (it must not re-notify on
+            # every recompute). The owner asked for corrections to actually
+            # REACH him (2026-08-31), so the pairs that really moved get one
+            # throttled message of their own.
+            await self._notify_plan_changes(stored, current, stored_snaps, snapshots)
+
+    PLAN_CHANGE_COOLDOWN = timedelta(hours=1)
+
+    async def _notify_plan_changes(
+        self,
+        stored: Dict[str, str],
+        current: Dict[str, str],
+        stored_snaps: Dict[str, dict],
+        snapshots: Dict[str, dict],
+    ) -> None:
+        """One "plan updated" message per pair that materially moved.
+
+        Owner request 2026-08-31: the silent summary edit kept the picture
+        current but never told him it had changed, so a correction was only
+        visible to someone who scrolled back to the morning message and
+        re-read it. This says what moved, in the plan's own vocabulary.
+
+        Throttled to one message per pair per hour: the plan is recomputed
+        every five minutes and a zone that keeps shifting by a pip would
+        otherwise turn the whole point of quiet mode inside out. The silent
+        edit is NOT throttled — the summary always shows the truth; only the
+        announcement waits. A pair with no stored snapshot (the first cycle
+        after this shipped, or a pair that was missing from the book) is
+        recorded and stays silent: there is nothing honest to diff against.
+        """
+        now = datetime.now(tz=timezone.utc)
+        for key, fingerprint in current.items():
+            if stored.get(key) == fingerprint:
+                continue  # this pair did not move
+            before, after = stored_snaps.get(key), snapshots.get(key)
+            if not before or not after:
+                continue
+            last = self.state.plan_change_notified.get(key)
+            if last:
+                try:
+                    if now - datetime.fromisoformat(last) < self.PLAN_CHANGE_COOLDOWN:
+                        logger.info("Plan change muted by cooldown", pair=key)
+                        continue
+                except (ValueError, TypeError):
+                    pass  # poisoned timestamp -> treat as never notified
+            decimals = get_instrument(key).price_decimals
+            changes = describe_plan_changes(before, after, decimals)
+            if not changes:
+                continue
+            body = "\n".join(f"• {escape_html(line)}" for line in changes)
+            sent = await self.notifier.send(
+                f"🔁 <b>Plan updated — {escape_html(key)}</b>\n{body}\n"
+                f"Full plan: press {escape_html(key)} on today's summary."
+            )
+            if sent:
+                self.state.plan_change_notified[key] = now.isoformat()
+                self.state.save()
+                logger.info("Plan change announced", pair=key, changes=changes)
 
     def _seconds_until_next_autoplan(self) -> Optional[float]:
         """Seconds until the nearest configured slot (today or tomorrow),

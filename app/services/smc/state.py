@@ -41,6 +41,13 @@ class WatcherState:
         else:
             self.pairs = [p for p in raw_pairs if p in INSTRUMENTS]
         self.last_setup: Dict[str, str] = db.kv_get("last_setup") or {}
+        # D23 (owner decision 2026-08-31): the counter-H4 setup is a second,
+        # independent track for the same pair, so it dedups in its own slot.
+        # Sharing `last_setup` would let each direction's fingerprint
+        # overwrite the other's and re-alert the pair every cycle.
+        self.last_counter_setup: Dict[str, str] = (
+            db.kv_get("last_counter_setup") or {}
+        )
         self.last_digest_date: str = db.kv_get("last_digest_date") or ""
         self.news_warned: Dict[str, str] = db.kv_get("news_warned") or {}
         # pair -> ISO timestamp of the last "data source failed" warning,
@@ -81,6 +88,13 @@ class WatcherState:
         # and wants no more zone alerts for this pair until then. Zone
         # alerts only — setups, Rule 0.4 and the digest ignore it (D3).
         self.zone_muted: Dict[str, str] = db.kv_get("zone_muted") or {}
+        # pair -> ISO UTC of the last "plan updated" message (owner request
+        # 2026-08-31). The plan is recomputed every five minutes, so the
+        # correction message is throttled per pair; the SILENT summary edit
+        # is not throttled and keeps tracking every material change.
+        self.plan_change_notified: Dict[str, str] = (
+            db.kv_get("plan_change_notified") or {}
+        )
         self.pair_profile: Dict[str, str] = db.kv_get("pair_profile") or {}
         # auto-plan snapshot gate: slot "HH:MM" -> Prague date it fired
         self.auto_plan_sent: Dict[str, str] = db.kv_get("auto_plan_sent") or {}
@@ -108,6 +122,7 @@ class WatcherState:
     def save(self) -> None:
         self.db.kv_set("pairs", self.pairs)
         self.db.kv_set("last_setup", self.last_setup)
+        self.db.kv_set("last_counter_setup", self.last_counter_setup)
         self.db.kv_set("last_digest_date", self.last_digest_date)
         self.db.kv_set("news_warned", self.news_warned)
         self.db.kv_set("source_warned", self.source_warned)
@@ -116,6 +131,7 @@ class WatcherState:
         self.db.kv_set("zone_pinged", self.zone_pinged)
         self.db.kv_set("pd_pinged", self.pd_pinged)
         self.db.kv_set("zone_muted", self.zone_muted)
+        self.db.kv_set("plan_change_notified", self.plan_change_notified)
         self.db.kv_set("pair_profile", self.pair_profile)
         self.db.kv_set("paused", self.paused)
         self.db.kv_set("plan_zones", self.plan_zones)
@@ -305,6 +321,7 @@ class WatcherState:
         key = key.upper()
         self.pair_profile[key] = profile_key
         self.last_setup.pop(key, None)
+        self.last_counter_setup.pop(key, None)
         self.zone_pinged.pop(key, None)
         self.save()
 
@@ -313,6 +330,7 @@ class WatcherState:
         for key in INSTRUMENTS:
             self.pair_profile[key] = profile_key
             self.last_setup.pop(key, None)
+            self.last_counter_setup.pop(key, None)
             self.zone_pinged.pop(key, None)
         self.save()
 

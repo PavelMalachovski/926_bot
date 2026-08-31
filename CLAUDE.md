@@ -276,6 +276,31 @@ tracking → live-card edits on fill/TP/SL events.
   but it does take the **earliest** qualifying gap of the excursion, which
   is `select_valid_fvg`'s rule, so the 🔎 line and the 🚨 alert's ⚡ line
   name one imbalance rather than two.
+- **The counter-H4 setup is shown, never starred** (owner decision D23,
+  2026-08-31). When H4 and H1 trend OPPOSITE ways, the watcher runs a
+  SECOND pure `evaluate(force_direction=...)` pass on the candles the first
+  pass already fetched (no extra API call) and announces the H1-side setup
+  alongside the H4-side one. It ADDS, it never replaces: Rule 1 still
+  resolves the primary direction exactly as before, and the counter result
+  carries `direction_source="h1_counter"` so the header reads "⚠️ against
+  H4" and `trends_disagree` (D6) denies it the ⭐. `force_direction`
+  bypasses Rule 1's whole ladder, so a forced pass can never wander into
+  the range (D11) or aggressive-CHoCH branches. The two tracks dedup in
+  SEPARATE slots (`state.last_setup` vs `state.last_counter_setup`) — one
+  shared slot would let each side's fingerprint clear the other's and
+  re-announce both every cycle. Only a COMPLETED counter setup is
+  announced; a counter-trend WATCH is noise.
+- **A plan correction reaches Telegram as its own message** (owner request
+  2026-08-31). The 07:55/13:55 summary is still edited silently on every
+  material change — that message must always show the truth — but the pairs
+  that actually moved now also get a `🔁 Plan updated` message naming what
+  moved (`planbook.describe_plan_changes` over `plan_snapshot`, the
+  fingerprint's own facts in a diffable shape). Throttled to one message
+  per pair per hour (`state.plan_change_notified`): the plan is recomputed
+  every five minutes, and an unthrottled announcement would turn quiet mode
+  inside out. The silent edit is NOT throttled. A pair with no stored
+  snapshot stays silent — there is nothing honest to diff against — and the
+  throttle timestamp is written only after the send actually succeeds.
 - **The imbalance labels a setup, it no longer defines one** (owner
   decision D22, 2026-08-30). Rule 4 still runs and still prefers the valid
   M5 gap — when `select_valid_fvg` returns one it is the entry, exactly as
