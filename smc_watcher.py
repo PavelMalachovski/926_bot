@@ -26,14 +26,16 @@ from typing import Dict, List, Optional, Tuple
 
 import structlog
 
-from app.core.config import settings
+from app.core.config import SMCSettings, settings
 from app.core.exceptions import ConfigurationError, DataFetchError
 from app.core.logging import configure_logging
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.db import Database, migrate_legacy_json
-from app.services.smc.engine import TripleSyncEngine, trends_disagree
+from app.services.smc.engine import (
+    MARKET_STALE_AFTER, TripleSyncEngine, trends_disagree,
+)
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
-from app.services.smc.journal import SignalJournal
+from app.services.smc.journal import OPEN_TIMEOUT, SignalJournal
 from app.services.smc.liquidity import find_liquidity, nearest_liquidity
 from app.services.smc.news import NewsCalendar, relevant_currencies
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
@@ -174,6 +176,27 @@ def _parse_hhmm(value: str) -> Optional[str]:
     return f"{hh:02d}:{mm:02d}"
 
 
+def _digest_slot() -> str:
+    """The Prague 'HH:MM' the red-news digest fires at.
+
+    `SMC_NEWS_DIGEST_TIME` when it parses, else the shipped default from
+    `SMCSettings` — ONE answer for both the scheduler's wake
+    (`_wake_slots`) and the send gate (`_morning_briefing`). Audit
+    2026-09-03: the wake used to ignore a bad value while the gate fell
+    back to 07:45 (the retired default), so the digest went out at a time
+    nothing had woken up for.
+    """
+    raw = settings.smc.news_digest_time
+    slot = _parse_hhmm(raw)
+    if slot is None:
+        slot = SMCSettings.model_fields["news_digest_time"].default
+        logger.warning(
+            "Invalid SMC_NEWS_DIGEST_TIME, using the default",
+            value=raw, default=slot,
+        )
+    return slot
+
+
 def _setup_fingerprint(result: AnalysisResult) -> str:
     """One announcement per zone per session block.
 
@@ -260,7 +283,7 @@ def _card_footer(signal: Dict) -> str:
     elif status == "expired":
         lines.append("🗑 Expired unfilled — order dies with its session (Rule 10)")
     elif status == "timeout":
-        lines.append("⌛ Timed out — untracked after 5 days")
+        lines.append(f"⌛ Timed out — untracked after {OPEN_TIMEOUT.days} days")
     elif status == "open":
         # Detector mode: a setup with no structural objective carries no
         # take-profit, and `evaluate_signal` can only ever resolve it as SL
@@ -1040,13 +1063,9 @@ class Watcher:
         if local.weekday() >= 5:
             return  # Forex Factory has no weekend releases
         today = local.date().isoformat()
-        try:
-            hh, mm = settings.smc.news_digest_time.split(":")
-            after = local.replace(
-                hour=int(hh), minute=int(mm), second=0, microsecond=0
-            )
-        except ValueError:
-            after = local.replace(hour=7, minute=45, second=0, microsecond=0)
+        # The same slot the scheduler woke up for (see _digest_slot).
+        hh, mm = (int(x) for x in _digest_slot().split(":"))
+        after = local.replace(hour=hh, minute=mm, second=0, microsecond=0)
         if self.state.last_digest_date == today or local < after:
             return
         await self.notifier.send(self.news.digest_text(self.state.pairs))
@@ -1114,7 +1133,7 @@ class Watcher:
         now = datetime.now(tz=timezone.utc)
         stale = (
             instrument.source == "forex"
-            and now - data["m5"][-1].timestamp > timedelta(minutes=30)
+            and now - data["m5"][-1].timestamp > MARKET_STALE_AFTER
         )
         profile = get_profile(
             self.state.pair_profile.get(key, settings.smc.default_profile)
@@ -1151,9 +1170,7 @@ class Watcher:
         """
         slots = self._autoplan_slots() if settings.smc.auto_plan else []
         if settings.smc.news_digest:
-            digest = _parse_hhmm(settings.smc.news_digest_time)
-            if digest is not None:
-                slots = slots + [digest]
+            slots = slots + [_digest_slot()]
         return sorted(set(slots))
 
     async def _maybe_auto_plan(self) -> None:

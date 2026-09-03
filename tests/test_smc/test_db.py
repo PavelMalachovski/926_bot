@@ -291,7 +291,9 @@ class TestDatabaseRuntimeErrors:
 
         db = Database(str(tmp_path / "corrupted.db"))
         state = WatcherState(db)  # must not raise
-        assert state.pairs == ["ETHUSD", "USDJPY"]
+        from app.services.smc.instruments import DEFAULT_PAIRS
+
+        assert state.pairs == list(DEFAULT_PAIRS)
 
     def test_migration_gate_survives_a_broken_kv_get(self, tmp_path, monkeypatch):
         """migrate_legacy_json's gating `kv_get('pairs')` call used to sit

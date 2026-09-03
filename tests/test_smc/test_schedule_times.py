@@ -17,7 +17,7 @@ from app.core.config import SMCSettings, settings
 from app.services.smc.db import Database
 from app.services.smc.sessions import PRAGUE, active_session
 from app.services.smc.state import WatcherState
-from smc_watcher import _parse_hhmm
+from smc_watcher import _digest_slot, _parse_hhmm
 
 
 def _watcher(tmp_path):
@@ -86,13 +86,17 @@ class TestWakeSlots:
         monkeypatch.setattr(settings.smc, "news_digest", False)
         assert _watcher(tmp_path)._wake_slots() == ["08:05"]
 
-    def test_a_garbage_digest_time_is_ignored_not_fatal(
+    def test_a_garbage_digest_time_falls_back_to_the_default(
         self, tmp_path, monkeypatch
     ):
+        """Not fatal, and not silent either: the digest still goes out at the
+        shipped default, so the scheduler must wake for THAT time (audit
+        2026-09-03 — the wake used to drop the slot while the send gate fell
+        back to 07:45, the retired default)."""
         monkeypatch.setattr(settings.smc, "auto_plan", False)
         monkeypatch.setattr(settings.smc, "news_digest", True)
         monkeypatch.setattr(settings.smc, "news_digest_time", "nonsense")
-        assert _watcher(tmp_path)._wake_slots() == []
+        assert _watcher(tmp_path)._wake_slots() == ["07:55"]
 
     def test_everything_off_means_nothing_to_wake_for(self, tmp_path, monkeypatch):
         monkeypatch.setattr(settings.smc, "auto_plan", False)
@@ -111,3 +115,77 @@ class TestSecondsUntilNextWake:
         seconds = _watcher(tmp_path)._seconds_until_next_wake()
         assert seconds is not None
         assert 0 < seconds <= 24 * 3600  # always within a day, never negative
+
+
+class TestDigestSlot:
+    """`_digest_slot` is the one place the digest time is read: the wake and
+    the send gate must never disagree about when the digest fires."""
+
+    def test_it_normalises_the_configured_time(self, monkeypatch):
+        monkeypatch.setattr(settings.smc, "news_digest_time", " 7:55 ")
+        assert _digest_slot() == "07:55"
+
+    def test_garbage_falls_back_to_the_shipped_default(self, monkeypatch):
+        monkeypatch.setattr(settings.smc, "news_digest_time", "nonsense")
+        default = SMCSettings.model_fields["news_digest_time"].default
+        assert default == "07:55"  # the owner's schedule (2026-08-31)
+        assert _digest_slot() == default
+
+
+class TestMorningBriefingUsesTheSameSlot:
+    """The send gate reads `_digest_slot` too — a garbage value means the
+    default, never the retired 07:45."""
+
+    class _State:
+        def __init__(self):
+            self.last_digest_date = ""
+            self.pairs = ["ETHUSD"]
+
+        def save(self):
+            pass
+
+    class _Notifier:
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, text, **kwargs):
+            self.sent.append(text)
+            return 1
+
+    def _stub(self, monkeypatch, frozen_utc):
+        import smc_watcher as sw
+        from smc_watcher import Watcher
+        from app.services.smc.news import NewsCalendar
+
+        class _Frozen(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return frozen_utc
+
+        monkeypatch.setattr(sw, "datetime", _Frozen)
+        monkeypatch.setattr(settings.smc, "news_digest", True)
+        monkeypatch.setattr(settings.smc, "news_digest_time", "nonsense")
+        stub = Watcher.__new__(Watcher)
+        stub.state = self._State()
+        stub.notifier = self._Notifier()
+        stub.news = NewsCalendar()
+        stub.news.fetched_at = datetime(2026, 7, 16, 4, 0, tzinfo=timezone.utc)
+        return stub
+
+    def test_before_the_default_slot_nothing_is_sent(self, monkeypatch):
+        import asyncio
+
+        # Thursday 2026-07-16 05:50 UTC = 07:50 Prague: past the retired
+        # 07:45 fallback, before the 07:55 default.
+        stub = self._stub(monkeypatch, datetime(2026, 7, 16, 5, 50, tzinfo=timezone.utc))
+        asyncio.run(stub._morning_briefing())
+        assert stub.notifier.sent == []
+        assert stub.state.last_digest_date == ""
+
+    def test_at_the_default_slot_the_digest_goes_out(self, monkeypatch):
+        import asyncio
+
+        stub = self._stub(monkeypatch, datetime(2026, 7, 16, 5, 56, tzinfo=timezone.utc))
+        asyncio.run(stub._morning_briefing())
+        assert len(stub.notifier.sent) == 1
+        assert stub.state.last_digest_date == "2026-07-16"

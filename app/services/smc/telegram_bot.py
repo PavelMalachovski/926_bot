@@ -18,6 +18,7 @@ import httpx
 import structlog
 
 from app.services.smc.instruments import INSTRUMENTS
+from app.services.smc.sessions import trading_hours_label
 from app.services.smc.state import NOTIFY_LEVELS, WatcherState
 
 logger = structlog.get_logger(__name__)
@@ -277,7 +278,7 @@ class TelegramCommandBot:
                 "Watches ETHUSD and forex pairs for Triple Sync + Imbalance "
                 "setups (H4 trend → H1 zone → M5 CHoCH + FVG) and sends an "
                 "urgent alert with entry/SL/TP when everything lines up. "
-                "Trading hours 08:00-18:30 Prague."
+                f"Trading hours {trading_hours_label()} Prague."
             ),
         )
 

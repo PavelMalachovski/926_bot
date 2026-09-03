@@ -35,7 +35,7 @@ from app.services.smc.range import (
     boundary_zone,
     detect_range,
 )
-from app.services.smc.sessions import active_session
+from app.services.smc.sessions import active_session, trading_hours_label
 from app.services.smc import sniper
 from app.services.smc.structure import (
     detect_trend,
@@ -187,15 +187,15 @@ class TripleSyncEngine:
             price_decimals=self.instrument.price_decimals,
         )
 
-        # Rule 0.1 — session filter: 08:00-18:30 Prague; forex only Mon-Fri,
-        # crypto every day
+        # Rule 0.1 — session filter (the windows live in sessions.WINDOWS);
+        # forex only Mon-Fri, crypto every day
         result.session_name = active_session(
             now, require_weekday=self.instrument.source == "forex"
         )
         if self.enforce_sessions and result.session_name is None:
             result.verdict = Verdict.OFF_SESSION
             result.reasons.append(
-                f"Outside trading hours (08:00-18:30 Prague"
+                f"Outside trading hours ({trading_hours_label()} Prague"
                 f"{', Mon-Fri' if self.instrument.source == 'forex' else ''}) "
                 f"— no entries for {self.display_symbol}"
             )
@@ -568,8 +568,12 @@ class TripleSyncEngine:
         gap = price - entry if direction == Direction.LONG else entry - price
         stale = gap > self.max_entry_gap_r * risk
         if stale:
+            # D22: the entry may be the M5 order block, so name the rung price
+            # ran past. The "price has run" prefix is what the backtest's
+            # warning autopsy keys on — keep it.
+            rung = "order block" if entry_source == "ob" else "imbalance"
             result.warnings.append(
-                f"price has run {gap / risk:.1f}R past the imbalance"
+                f"price has run {gap / risk:.1f}R past the {rung}"
             )
 
         # Phase 2 sniper redesign (owner decision 2026-08-12): hybrid exit

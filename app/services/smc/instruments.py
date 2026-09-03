@@ -74,7 +74,11 @@ INSTRUMENTS: Dict[str, Instrument] = {
     ),
 }
 
-DEFAULT_PAIRS: List[str] = ["ETHUSD", "USDJPY"]
+# The default roster (sniper redesign, owner decision 2026-08-12): EURUSD and
+# GBPUSD stay registered but off. `SMCSettings.pairs` ships the same list as
+# its env default and `test_multipair` pins the two equal — this one feeds
+# `WatcherState` before the env is read and the backtest CLI's default set.
+DEFAULT_PAIRS: List[str] = ["ETHUSD", "USDJPY", "USDCAD"]
 
 
 def get_instrument(key: str) -> Instrument:

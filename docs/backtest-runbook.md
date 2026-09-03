@@ -6,7 +6,7 @@
 ## Запуск
 
 ```bash
-# обе боевые пары одной командой (ETHUSD без ключа, USDJPY нужен ключ):
+# боевой ростер одной командой (ETHUSD без ключа; USDJPY и USDCAD — нужен ключ):
 TWELVEDATA_API_KEY=твой_ключ python smc_backtest.py --days 365 --report-dir data/backtest/reports
 
 # все пять пар реестра:

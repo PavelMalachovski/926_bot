@@ -525,3 +525,44 @@ class TestRealEngineSmoke:
         # every recorded signal (if any) went through the real journal
         for record in run.records:
             assert journal.get(record.signal["id"]) is not None
+
+
+class TestEngineParity:
+    """`build_backtest_engine` must construct the engine the watcher runs
+    (D20: the replay drives the PRODUCTION engine). Audit 2026-09-03:
+    `SMC_REQUIRE_IMBALANCE` was honoured live and ignored offline, so a
+    replay with the escape hatch set silently traded D22 semantics."""
+
+    THRESHOLDS = (
+        "min_fvg_size", "sl_buffer", "min_rr", "max_entry_gap_r", "tp1_r",
+        "runner_r", "pd_basis", "require_imbalance", "risk_pct", "deposit",
+        "enforce_sessions", "profile",
+    )
+
+    def test_every_threshold_matches_the_watcher(self, monkeypatch):
+        from app.core.config import settings
+        from app.services.smc.backtest import build_backtest_engine
+        from app.services.smc.instruments import get_instrument
+        from smc_watcher import _NO_FETCH, _build_engine
+
+        # Non-default values, so equality cannot come from both builders
+        # merely agreeing with the engine's own defaults.
+        monkeypatch.setattr(settings.smc, "require_imbalance", True)
+        monkeypatch.setattr(settings.smc, "min_rr", 1.7)
+        monkeypatch.setattr(settings.smc, "max_entry_gap_r", 0.4)
+        monkeypatch.setattr(settings.smc, "tp1_r", 1.5)
+        monkeypatch.setattr(settings.smc, "runner_r", 4.0)
+        monkeypatch.setattr(settings.smc, "pd_basis", "h1")
+        live = _build_engine(get_instrument("USDJPY"), fetcher=_NO_FETCH)
+        replay = build_backtest_engine("USDJPY")
+        for name in self.THRESHOLDS:
+            assert getattr(replay, name) == getattr(live, name), name
+
+    def test_require_imbalance_reaches_the_replay_engine(self, monkeypatch):
+        from app.core.config import settings
+        from app.services.smc.backtest import build_backtest_engine
+
+        monkeypatch.setattr(settings.smc, "require_imbalance", True)
+        assert build_backtest_engine("ETHUSD").require_imbalance is True
+        monkeypatch.setattr(settings.smc, "require_imbalance", False)
+        assert build_backtest_engine("ETHUSD").require_imbalance is False

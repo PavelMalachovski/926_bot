@@ -143,7 +143,10 @@ app/services/smc/
 ├── fvg.py                FVG detection, validation (size/fill/session) and
 │                         rejection diagnostics (best_rejected_fvg)
 ├── sessions.py           trading hours 08:00-18:30 Prague, two blocks split
-│                         at 14:00 (London/NY FVG separation), forex Mon-Fri
+│                         at 14:00 (London/NY FVG separation), forex Mon-Fri;
+│                         WINDOWS is the single source of truth and the hours
+│                         reach a message ONLY via trading_hours_label /
+│                         window_labels (audit 2026-09-03) — never as literals
 ├── instruments.py        per-pair registry: source, min FVG, SL buffer, pip
 ├── data.py / twelvedata.py / oanda.py   candle fetchers (same interface):
 │                         crypto=Binance always; forex source per

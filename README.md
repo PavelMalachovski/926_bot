@@ -21,8 +21,8 @@ setup appears.
   precise reasons («best FVG candidate: 3.2 pips < required 5»); `/check`
   shows the current picture on demand
 - 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
-- ⚡ **Strategy profile per pair** via Telegram: `/strategy` (🛡 Conservative /
-  ⚡ Aggressive)
+- 🔔 **`/notify`** — one global alert level: every setup (⭐ loud, regular
+  quiet), ⭐ only, or mute; `/pd` reads premium/discount on demand
 - 📅 **Forex Factory red-news digest** every weekday at 07:55 Prague
   (incl. a session-block breakdown of today's releases)
 - 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair, folded
@@ -62,7 +62,9 @@ trading day ending at 18:30 that is ~170 credits/day/pair — four forex pairs
 fit inside the free budget with room to spare for `/plan`. Grab a free key
 at [twelvedata.com](https://twelvedata.com).
 
-Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
+Default watched pairs: **ETHUSD, USDJPY, USDCAD** (change with `/pairs` or
+`SMC_PAIRS`; EURUSD and GBPUSD stay registered but off — sniper redesign,
+owner decision 2026-08-12).
 
 ## Telegram commands
 
@@ -71,13 +73,16 @@ Commands are registered in the bot's slash menu (type `/` in the chat).
 | Command | What it does |
 |---|---|
 | `/pairs` | inline keyboard — toggle watched pairs on/off |
-| `/strategy` | inline keyboard — switch a pair's strategy profile (🛡 Conservative / ⚡ Aggressive), or all pairs at once |
-| `/status` | enabled pairs, current session, last verdicts |
+| `/notify` | global setup-alert level: `all` (⭐ loud + regular quiet, default), `star` (⭐ only), `mute` |
+| `/status` | enabled pairs, notify level, current session, mutes, last verdicts |
+| `/pd` | premium/discount of every watched pair on its dealing range, from the last cycle |
 | `/check` | run the full strategy check right now |
 | `/plan` | pre-market plan for a pair (buttons pick from enabled pairs / all) |
 | `/stats` | journal: winrate bars, outcome sparkline, personal (taken) stats |
 | `/journal` | manual trade journal — send an MT4 history screenshot to log trades |
 | `/news` | today's red news (Forex Factory) and blackout windows |
+| `/pause` / `/resume` | mute everything until resumed (survives restarts) |
+| `/unmute` | clear the 🔕 zone/PD-alert mutes for every pair |
 | `/help` | command list |
 
 ## Red-news filter (Forex Factory)
@@ -95,9 +100,14 @@ pull the order" warning. Tunables: `SMC_NEWS_BLACKOUT_BEFORE_MIN` (60),
 
 Every approved setup is recorded and tracked automatically against M5 candles:
 pending (limit not reached) → open (entry touched) → **tp / sl** (whichever hit
-first; both in one candle counts as sl, conservative). A pending order that
-outlives its session becomes **expired** (Rule 10). `/stats` shows counts,
-winrate and per-pair breakdown — the data basis for tuning the strategy.
+first; both in one candle counts as sl, conservative). A trend setup carries
+the hybrid exit (`SMC_TP1_R` 2R for half, stop to break-even, runner to
+`SMC_RUNNER_R` 3R): **tp1_be** (TP1 banked, the rest stopped at break-even)
+and **tp1_runner** (runner target hit) both count as wins; a range setup has
+one target — the opposite boundary — and no hybrid exit. A pending order that
+outlives its session becomes **expired** (Rule 10); an open signal unresolved
+for 5 days times out. `/stats` shows counts, winrate, realized R and the
+per-pair ⭐ breakdown — the data basis for tuning the strategy.
 
 Pressing **✅ Took it** on an alert marks the signal as a real trade: `/stats`
 then tracks your personal winrate, and the discipline kill-switches activate —
@@ -147,20 +157,35 @@ disabled.
 2. **H4 trend** — HH+HL / LH+LL with 2-closed-body pivot confirmation;
    a reclaimed fakeout beyond the last HL/LH does not kill the trend. When H4
    reads flat but H1 has a clean trend, direction is taken from H1 instead
-   (header reads `H4 flat — direction from H1 …`).
-3. **H1 zone** — latest untested Demand/Supply zone; invalidation by body close.
-4. **M5 trigger** — pullback into the zone → CHoCH in trend direction.
-5. **FVG validation** — min size per instrument, fill < 50%; session scope:
-   forex per London/NY block, crypto per whole Prague day. Rejections are
-   explained in logs (best candidate size / fill / session).
+   (header reads `H4 flat — direction from H1 …`). When both are flat, a
+   valid H1 range (two clustered boundaries, 2+ touches each) is traded
+   between its boundaries (D11). When H4 and H1 point opposite ways, the
+   H1-side setup is announced as well, labelled `⚠️ against H4` and never ⭐
+   (D23).
+3. **H1 zone of interest** — the latest untested order block, else the most
+   recent untouched H1 imbalance (D4); invalidation by body close.
+4. **M5 trigger** — pullback into the zone → CHoCH in trade direction. Since
+   D22 this is the third sync on its own.
+5. **M5 imbalance** — the earliest valid gap of the impulse (min size per
+   instrument, fill < 50%, not closed through; session scope: forex per
+   London/NY block, crypto per whole Prague day) supplies the entry and is
+   required for the ⭐ tier. Without one the setup is still announced: the
+   entry falls back to the M5 order block, then to market, and the alert
+   shows the gap it found and why it did not count.
+   `SMC_REQUIRE_IMBALANCE=true` restores the old gate.
 6. **SL** — behind the sweep extreme (the wick that ran the liquidity just
    before the CHoCH, not the last fractal pivot) + buffer; **TP** — the
    nearest unswept liquidity level (an unswept swing high/low, or an EQH/EQL
-   pool) minus one buffer, plus up to five further rungs on the same ladder.
+   pool) minus one buffer, plus up to five further rungs on the same ladder;
+   trend setups add the hybrid exit (TP1 2R for half, runner 3R). A range
+   setup stops beyond its boundary and targets the opposite one.
    The bot is a **detector**: the setup is announced either way — an RR below
    `SMC_MIN_RR` (default `1.0`), an entry that has run more than
-   `SMC_MAX_ENTRY_GAP_R` past the imbalance, or no unswept liquidity ahead
-   all attach a `⚠️` warning to the alert instead of silencing it.
+   `SMC_MAX_ENTRY_GAP_R` past the entry level, or no unswept liquidity ahead
+   all attach a `⚠️` warning to the alert instead of silencing it. A setup
+   earns ⭐ (loud alert, chart, buttons) when room ≥ 1R, a pool was swept,
+   premium/discount fits, the entry is fresh, H4/H1 agree and the impulse
+   left a valid imbalance; every other setup arrives as one quiet line.
 7. **Position size** — from `SMC_DEPOSIT` at 2% risk (crypto qty / forex lots).
 8. **Rule 9 correlation guard** — warns about forbidden USD combinations
    (e.g. EURUSD + GBPUSD in the same direction).
@@ -201,15 +226,28 @@ Key ones:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SMC_PAIRS` | `ETHUSD,USDJPY` | initial pairs (runtime changes via `/pairs`) |
+| `SMC_PAIRS` | `ETHUSD,USDJPY,USDCAD` | initial pairs (runtime changes via `/pairs`) |
 | `SMC_SESSION_INTERVAL_MINUTES` | `5` | check cadence inside sessions (M5 close) |
 | `SMC_INTERVAL_MINUTES` | `15` | check cadence outside sessions |
-| `SMC_DEPOSIT` | — | deposit in USD for lot hints |
-| `SMC_NOTIFY_NO_SETUP` | `false` | opt-in 15-min heartbeat messages |
+| `SMC_MIN_RR` | `1.0` | RR to the nearest unswept liquidity below which the alert carries a `⚠️`; `/plan` still hides scenarios below it |
+| `SMC_MAX_ENTRY_GAP_R` | `0.75` | `⚠️` once price has run this many R past the entry (also a ⭐ condition) |
+| `SMC_TP1_R` / `SMC_RUNNER_R` | `2.0` / `3.0` | hybrid exit: TP1 for half the position, runner for the rest (trend setups only) |
+| `SMC_RISK_PCT` / `SMC_DEPOSIT` | `2.0` / — | risk per trade and deposit in USD for lot hints |
+| `SMC_REQUIRE_IMBALANCE` | `false` | `true` restores the pre-D22 gate: no valid M5 imbalance, no setup |
+| `SMC_PD_BASIS` | `h4` | dealing range for premium/discount: `h4` (H4 first, H1 fallback) or `h1` |
+| `SMC_PD_ALERT` / `SMC_ZONE_PING` | `true` / `true` | the get-ready alerts: PD radar and plan-zone touch |
+| `SMC_AUTO_PLAN` / `SMC_AUTO_PLAN_TIMES` | `true` / `08:05,14:05` | automatic Pre-Market Plan snapshots (Prague) |
+| `SMC_TAKEN_COOLDOWN_HOURS` | `4` | mute a pair's setup alerts after ✅ Took it |
+| `SMC_NOTIFY_NO_SETUP` | `false` | opt-in heartbeat message on every cycle that found nothing |
 | `SMC_DB_FILE` | `.smc_watcher.db` | SQLite path (put on a volume for persistence) |
-| `SMC_NEWS_DIGEST_TIME` | `07:55` | Prague time of the morning news digest |
+| `SMC_NEWS_ENABLED` / `SMC_NEWS_DIGEST` | `true` / `true` | red-news blackouts and the morning digest |
+| `SMC_NEWS_DIGEST_TIME` | `07:55` | Prague time of the morning news digest (the scheduler wakes for it) |
+| `SMC_NEWS_BLACKOUT_BEFORE_MIN` / `_AFTER_MIN` | `60` / `15` | no-entry window around a red release |
 | `SMC_ENFORCE_SESSIONS` | `true` | only trade session windows |
-| `SMC_DEFAULT_PROFILE` | `conservative` | strategy profile for a pair with no explicit `/strategy` choice: `conservative` \| `aggressive` |
+| `SMC_CHART_CANDLES` | `384` | M5 candles on the alert chart |
+| `SMC_DEFAULT_PROFILE` | `conservative` | strategy profile (`conservative` \| `aggressive`); the `/strategy` picker is retired, so every pair runs this one |
+| `SMC_FOREX_SOURCE` | `auto` | `auto` (Twelve Data key, else OANDA token) \| `twelvedata` \| `oanda` |
+| `TWELVEDATA_API_KEY` | — | recommended forex source (free tier; `TWELVEDATA_MAX_PER_MIN` 8) |
 | `OANDA_API_TOKEN` | — | optional: use OANDA instead of Twelve Data for forex |
 | `OANDA_ENVIRONMENT` | `practice` | `practice` / `live` |
 
@@ -224,25 +262,37 @@ pytest tests/ -v
 ```
 smc_watcher.py              # entry point: scheduler, alerts, live cards,
                             # news, journal tracking, discipline
+smc_backtest.py             # backtest CLI (docs/backtest-runbook.md)
 app/core/                   # config (pydantic-settings), logging, exceptions
 app/services/smc/
 ├── engine.py               # rules 0-8 orchestration (pure, testable)
-├── structure.py            # pivots, trend, zones, BOS/CHoCH
+├── structure.py            # pivots, trend, zones, BOS/CHoCH, order blocks
+├── liquidity.py            # unswept swings + EQH/EQL pools: Rule 7 target, ladder
+├── range.py                # H1 range from clustered pivots (D11): boundaries, sweeps
+├── pd.py                   # premium/discount on the H4/H1 dealing range, OTE
+├── sniper.py               # ⭐ tier: room, sweep, premium/discount, staleness
 ├── fvg.py                  # FVG detection, validation & rejection diagnostics
-├── sessions.py             # 08:00-18:30 Prague trading hours, London/NY blocks
-├── instruments.py          # per-pair parameters & data source registry
+├── profiles.py             # conservative / aggressive strictness multipliers
+├── sessions.py             # trading hours + London/NY blocks (WINDOWS is the
+                            # single source of truth; hours reach messages
+                            # only via trading_hours_label / window_labels)
+├── instruments.py          # per-pair parameters, default roster & data source
 ├── data.py                 # Binance fetcher (ETHUSD)
 ├── twelvedata.py           # Twelve Data fetcher (forex, cached, free tier)
 ├── oanda.py                # OANDA v20 fetcher (forex, optional)
 ├── news.py                 # Forex Factory calendar, blackouts, day timeline
 ├── journal.py              # signal lifecycle, taken marks, discipline, /stats
-├── chart.py                # setup chart PNG for alerts (matplotlib, no pandas)
+├── trade_journal.py        # /journal: MT4 screenshots → trades table
+├── plan.py / planbook.py   # Pre-Market Plan projection + the current-plan store
+├── backtest.py / history.py # walk-forward replay of the production engine
+                            # over cached history (offline, never imported live)
+├── chart.py                # setup + plan chart PNGs (matplotlib, no pandas)
 ├── telegram_bot.py         # long-polling commands, slash menu, alert buttons
 ├── notifier.py             # send/edit/pin/photo, HTML escaping, formatting
 ├── state.py                # runtime state on SQLite (pairs, dedup keys)
 ├── db.py                   # SQLite wrapper, column migrations, JSON import
 └── models.py               # Candle, Zone, FVG, TradeSetup, AnalysisResult
-tests/test_smc/             # 327 unit + end-to-end strategy tests
+tests/test_smc/             # 900+ unit + end-to-end strategy tests (network-free)
 scripts/funnel.py           # offline calibration: replays the engine over
                             # historical candles per profile to size fvg_size_factor
 CLAUDE.md                   # guidance for AI-assisted development
@@ -278,14 +328,12 @@ The aggressive profile relaxes:
 4. **Whole-day FVG scope** — an FVG stays valid for the entire Prague trading
    day instead of resetting at the London/NY session split.
 
-Switch a pair's profile with **`/strategy`** (per-pair buttons, plus "All
-conservative" / "All aggressive"). The choice persists in SQLite and is shown
-in `/status`. Switching a pair clears its dedup keys, so the new profile's
-first alert is not suppressed by a stale fingerprint from the old one.
-
-`SMC_DEFAULT_PROFILE` (default `conservative`) sets the profile used for a
-pair with no explicit `/strategy` choice — deploying this feature changes
-nothing on its own until a button is pressed.
+The per-pair **`/strategy`** picker is retired (owner request 2026-08-12 —
+one strategy ships): profiles remain code-level plumbing, every pair runs
+`SMC_DEFAULT_PROFILE` (default `conservative`), and `/notify` is the one
+runtime switch that changes what reaches Telegram. `WatcherState.set_profile`
+still clears a pair's dedup keys when called; it is just no longer reachable
+from any command.
 
 `scripts/funnel.py` is an offline calibration tool (run by hand, not part of
 the worker): `python -m scripts.funnel --all --days 45` replays the engine

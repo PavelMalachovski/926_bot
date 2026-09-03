@@ -16,7 +16,7 @@ import httpx
 import structlog
 
 from app.services.smc.instruments import Instrument, get_instrument
-from app.services.smc.sessions import active_session, to_prague
+from app.services.smc.sessions import active_session, to_prague, window_labels
 
 logger = structlog.get_logger(__name__)
 
@@ -164,15 +164,6 @@ class NewsCalendar:
                 f"({', '.join(pairs) if pairs else '—'}) today. Clean hunting."
             )
 
-        def block_of(event: NewsEvent) -> str:
-            # derived from sessions.WINDOWS — never re-hardcode the hours here
-            session = active_session(event.time)
-            if session == "Frankfurt/London":
-                return "london"
-            if session == "New York":
-                return "ny"
-            return "off"
-
         def event_lines(event: NewsEvent) -> List[str]:
             hits = ", ".join(p for p, cur in by_pair.items() if event.currency in cur)
             start = to_prague(event.time - self.before).strftime("%H:%M")
@@ -187,19 +178,22 @@ class NewsCalendar:
                 f"    ⛔ no entries {start}–{end}",
             ]
 
+        # One title per session block, hours read off sessions.WINDOWS (via
+        # window_labels) — the digest must never quote a trading day the
+        # scheduler does not keep. Events are grouped by the same
+        # active_session call the scheduler makes.
+        icons = {"Frankfurt/London": ("🌅", "London"), "New York": ("🌇", "New York")}
         lines = [header, ""]
-        for title, key in (
-            ("🌅 <b>London 08:00–14:00</b>", "london"),
-            ("🌇 <b>New York 14:00–18:30</b>", "ny"),
-        ):
-            lines.append(title)
-            block_events = [e for e in events if block_of(e) == key]
+        for name, hours in window_labels():
+            icon, short = icons.get(name, ("🕒", name))
+            lines.append(f"{icon} <b>{escape_html(short)} {hours}</b>")
+            block_events = [e for e in events if active_session(e.time) == name]
             if block_events:
                 for event in block_events:
                     lines.extend(event_lines(event))
             else:
                 lines.append("✅ clear")
-        off_hours = [e for e in events if block_of(e) == "off"]
+        off_hours = [e for e in events if active_session(e.time) is None]
         if off_hours:
             lines.append("🌙 <b>Outside trading hours</b>")
             for event in off_hours:

@@ -13,7 +13,17 @@ from app.services.smc.state import WatcherState
 class TestInstruments:
     def test_registry_covers_strategy_universe(self):
         assert set(INSTRUMENTS) == {"ETHUSD", "USDJPY", "EURUSD", "GBPUSD", "USDCAD"}
-        assert DEFAULT_PAIRS == ["ETHUSD", "USDJPY"]
+        assert DEFAULT_PAIRS == ["ETHUSD", "USDJPY", "USDCAD"]
+
+    def test_the_registry_roster_is_the_env_default_roster(self):
+        """One roster, two spellings. The sniper redesign (owner decision
+        2026-08-12) moved SMC_PAIRS to ETHUSD,USDJPY,USDCAD and left
+        DEFAULT_PAIRS on the old two-pair list, so the backtest CLI called a
+        set the bot no longer ran "the live set" (audit 2026-09-03)."""
+        from app.core.config import SMCSettings
+
+        env_default = SMCSettings.model_fields["pairs"].default
+        assert env_default.split(",") == DEFAULT_PAIRS
 
     def test_fvg_minimums_follow_rule_4(self):
         assert get_instrument("ETHUSD").min_fvg == 2.0  # $2
@@ -70,17 +80,18 @@ class TestWatcherState:
 
     def test_defaults_when_no_data(self, tmp_path):
         state = WatcherState(self._db(tmp_path))
-        assert state.pairs == ["ETHUSD", "USDJPY"]
+        assert state.pairs == list(DEFAULT_PAIRS) == ["ETHUSD", "USDJPY", "USDCAD"]
 
     def test_toggle_and_persist(self, tmp_path):
         db = self._db(tmp_path)
         state = WatcherState(db)
         assert state.toggle_pair("EURUSD") is True
         assert state.toggle_pair("USDJPY") is False
-        assert state.pairs == ["ETHUSD", "EURUSD"]
+        # kept in the registry's own order, never in press order
+        assert state.pairs == ["ETHUSD", "EURUSD", "USDCAD"]
 
         reloaded = WatcherState(db)
-        assert reloaded.pairs == ["ETHUSD", "EURUSD"]
+        assert reloaded.pairs == ["ETHUSD", "EURUSD", "USDCAD"]
 
     def test_unknown_pairs_in_db_are_dropped(self, tmp_path):
         db = self._db(tmp_path)
@@ -1057,14 +1068,14 @@ class TestDataSourceFailureWarning:
 
     @pytest.mark.asyncio
     async def test_a_different_pair_still_warns(self, monkeypatch, tmp_path):
-        """Default watched pairs are ETHUSD + USDJPY — the throttle is keyed
-        per pair, so both must warn on the same failing cycle."""
+        """The throttle is keyed per pair, so every default pair must warn
+        on the same failing cycle."""
         watcher = self._watcher(tmp_path)
-        assert watcher.state.pairs == ["ETHUSD", "USDJPY"]
+        assert watcher.state.pairs == list(DEFAULT_PAIRS)
         monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
         await watcher.run_cycle()
-        assert any("ETHUSD" in m for m in watcher.notifier.sent)
-        assert any("USDJPY" in m for m in watcher.notifier.sent)
+        for pair in DEFAULT_PAIRS:
+            assert any(pair in m for m in watcher.notifier.sent), pair
 
     @pytest.mark.asyncio
     async def test_an_hour_old_stamp_does_not_latch_the_warning_off(
@@ -1078,11 +1089,11 @@ class TestDataSourceFailureWarning:
 
         watcher = self._watcher(tmp_path)
         monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
-        await watcher.run_cycle()  # both pairs warn once
-        assert len(watcher.notifier.sent) == 2
+        await watcher.run_cycle()  # every pair warns once
+        assert len(watcher.notifier.sent) == len(DEFAULT_PAIRS)
         watcher.notifier.sent.clear()
 
-        # ETHUSD's warning is now over an hour old; USDJPY's stays fresh
+        # ETHUSD's warning is now over an hour old; the others stay fresh
         stale = datetime.now(tz=timezone.utc) - timedelta(hours=2)
         watcher.state.source_warned["ETHUSD"] = stale.isoformat()
         watcher.state.save()
@@ -1090,6 +1101,7 @@ class TestDataSourceFailureWarning:
         await watcher.run_cycle()
         assert any("ETHUSD" in m for m in watcher.notifier.sent)
         assert not any("USDJPY" in m for m in watcher.notifier.sent)
+        assert not any("USDCAD" in m for m in watcher.notifier.sent)
 
     @pytest.mark.asyncio
     async def test_a_non_string_stamp_does_not_raise(self, tmp_path):

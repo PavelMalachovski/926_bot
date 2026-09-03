@@ -28,6 +28,30 @@ WINDOWS: List[Tuple[time, time, str]] = [
 ]
 
 
+def _hhmm(value: time) -> str:
+    return value.strftime("%H:%M")
+
+
+def trading_hours_label(separator: str = "-") -> str:
+    """'08:00-18:30' — the whole trading day, first open to last close.
+
+    Read off WINDOWS so a message can never quote hours the scheduler does
+    not keep: the engine's off-session reason and the bot's description
+    used to carry the range as a literal, and a change to WINDOWS would have
+    left them lying (audit 2026-09-03).
+    """
+    return f"{_hhmm(WINDOWS[0][0])}{separator}{_hhmm(WINDOWS[-1][1])}"
+
+
+def window_labels(separator: str = "–") -> List[Tuple[str, str]]:
+    """[(name, '08:00–14:00'), ...] — one entry per session block, in day
+    order, for anything that lists the blocks (the news digest)."""
+    return [
+        (name, f"{_hhmm(start)}{separator}{_hhmm(end)}")
+        for start, end, name in WINDOWS
+    ]
+
+
 def to_prague(utc_dt: datetime) -> datetime:
     """Convert a UTC datetime (naive or aware) to Prague local time."""
     if utc_dt.tzinfo is None:

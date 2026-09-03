@@ -106,8 +106,11 @@ def build_backtest_engine(pair_key: str, profile=None) -> TripleSyncEngine:
     """The watcher's own engine construction, minus the fetcher.
 
     Mirrors `smc_watcher._build_engine` (same settings source) so every
-    threshold — min_rr, max_entry_gap_r, tp1_r, runner_r, pd_basis — is the
-    one production runs with.
+    threshold — min_rr, max_entry_gap_r, tp1_r, runner_r, pd_basis,
+    require_imbalance — is the one production runs with. A knob read by one
+    builder and not the other makes the replay silently trade a different
+    strategy than the bot (audit 2026-09-03: `SMC_REQUIRE_IMBALANCE` was
+    honoured live and ignored here); `test_backtest` pins the two equal.
     """
     from app.core.config import settings
     from app.services.smc.profiles import CONSERVATIVE
@@ -120,6 +123,7 @@ def build_backtest_engine(pair_key: str, profile=None) -> TripleSyncEngine:
         tp1_r=smc.tp1_r,
         runner_r=smc.runner_r,
         pd_basis=smc.pd_basis,
+        require_imbalance=smc.require_imbalance,
         risk_pct=smc.risk_pct,
         deposit=smc.deposit,
         enforce_sessions=smc.enforce_sessions,

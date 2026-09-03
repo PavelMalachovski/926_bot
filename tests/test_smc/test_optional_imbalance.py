@@ -192,3 +192,51 @@ class TestGeometryGuard:
             setup = _run(m5).setup
             assert setup.direction == Direction.LONG
             assert setup.entry > setup.stop_loss
+
+
+class TestStaleEntryWording:
+    def test_a_stale_order_block_entry_names_the_block(self):
+        """Rule 5.1's warning said "past the imbalance" whatever rung the
+        entry came from; on the D22 order-block rung there is no imbalance
+        to have run past (audit 2026-09-03). The "price has run" prefix is
+        the backtest autopsy's key and stays."""
+        result = AnalysisResult(
+            symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=CHECKED_AT
+        )
+        result.session_name = "New York"
+        # entry 3134.0 (the block's top), stop 3128.0: risk 6.0, so a price of
+        # 3150.0 is 16.0 / 6.0 = 2.7R past the entry — stale at 0.5R.
+        result.price = 3150.0
+        engine = TripleSyncEngine(
+            min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, max_entry_gap_r=0.5,
+        )
+        result = engine.evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_no_fvg(),
+            result=result,
+        )
+        assert result.setup is not None, result.reasons
+        assert result.setup.entry_source == "ob"
+        assert "stale" in result.setup.tier_missed
+        assert "price has run 2.7R past the order block" in result.warnings
+        assert not any("imbalance" in w for w in result.warnings)
+
+    def test_a_stale_imbalance_entry_still_says_imbalance(self):
+        result = AnalysisResult(
+            symbol="ETHUSD", verdict=Verdict.SKIP, checked_at=CHECKED_AT
+        )
+        result.session_name = "New York"
+        result.price = 3160.0
+        engine = TripleSyncEngine(
+            min_fvg_size=2.0, sl_buffer=2.0, min_rr=1.0, max_entry_gap_r=0.5,
+        )
+        result = engine.evaluate(
+            h4=make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+            h1=make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+            m5=m5_long_trigger_deep_sweep(),
+            result=result,
+        )
+        assert result.setup is not None, result.reasons
+        assert result.setup.entry_source == "fvg"
+        assert any(w.endswith("past the imbalance") for w in result.warnings)
