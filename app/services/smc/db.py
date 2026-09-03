@@ -49,6 +49,27 @@ SIGNAL_COLUMNS = [
     # can later separate range setups from trend setups; nothing branches
     # on it. NULL on rows recorded before this column existed.
     "zone_kind",
+    # Audit finding F4 (2026-08-26): the feature vector behind every signal.
+    # `tier`/`result_r` said WHETHER a setup was starred and what it made;
+    # nothing said WHY, so "does the pd filter earn money?" was unanswerable
+    # — now and in six months alike. These are bookkeeping only: nothing
+    # branches on them, `journal.stats_text` reads them to cut expectancy by
+    # condition. All NULL on rows recorded before the column existed, which
+    # is why every reader treats NULL as "not recorded" rather than as a
+    # value.
+    "tier_missed",       # comma-joined missed conditions, "" when none
+    "room_r",            # liquidity room ahead in R; NULL = unmeasurable
+    "sweep",             # named pool the excursion took; NULL = none
+    "entry_gap_r",       # how far price had run past the entry, in R
+    "pd_pct",            # position in the dealing range, 0..1
+    "pd_side",           # discount | premium | equilibrium
+    "pd_basis",          # H4 | H1 — which range was measured
+    "pd_ote",            # 1 when the entry sat inside the 62-79% band
+    "direction_source",  # h4 | h1 | range | h4_choch | h1_counter (D23)
+    "entry_source",      # fvg | ob | market — the Rule 5 rung that paid (D22)
+    "h4_trend",          # up | down | flat
+    "h1_trend",          # up | down | flat
+    "entry_hour",        # Prague hour of the alert (kill-zone analysis)
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -104,7 +125,20 @@ SIGNALS_TABLE_SQL = """
                     tier TEXT,
                     result_r REAL,
                     tp1_at TEXT,
-                    zone_kind TEXT
+                    zone_kind TEXT,
+                    tier_missed TEXT,
+                    room_r REAL,
+                    sweep TEXT,
+                    entry_gap_r REAL,
+                    pd_pct REAL,
+                    pd_side TEXT,
+                    pd_basis TEXT,
+                    pd_ote INTEGER,
+                    direction_source TEXT,
+                    entry_source TEXT,
+                    h4_trend TEXT,
+                    h1_trend TEXT,
+                    entry_hour INTEGER
                 )
 """
 
@@ -195,6 +229,19 @@ class Database:
                     ("result_r", "REAL"),
                     ("tp1_at", "TEXT"),
                     ("zone_kind", "TEXT"),
+                    ("tier_missed", "TEXT"),
+                    ("room_r", "REAL"),
+                    ("sweep", "TEXT"),
+                    ("entry_gap_r", "REAL"),
+                    ("pd_pct", "REAL"),
+                    ("pd_side", "TEXT"),
+                    ("pd_basis", "TEXT"),
+                    ("pd_ote", "INTEGER"),
+                    ("direction_source", "TEXT"),
+                    ("entry_source", "TEXT"),
+                    ("h4_trend", "TEXT"),
+                    ("h1_trend", "TEXT"),
+                    ("entry_hour", "INTEGER"),
                 ):
                     if column not in existing:
                         self.conn.execute(
