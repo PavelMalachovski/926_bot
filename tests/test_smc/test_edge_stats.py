@@ -36,8 +36,8 @@ from tests.test_smc.helpers import (
 
 FEATURE_COLUMNS = (
     "tier_missed", "room_r", "sweep", "entry_gap_r", "pd_pct", "pd_side",
-    "pd_basis", "pd_ote", "direction_source", "h4_trend", "h1_trend",
-    "entry_hour",
+    "pd_basis", "pd_ote", "direction_source", "entry_source", "h4_trend",
+    "h1_trend", "entry_hour",
 )
 
 
@@ -100,6 +100,7 @@ def test_record_writes_the_whole_feature_vector(tmp_path):
     assert signal["pd_basis"] == "H4"
     assert signal["pd_ote"] in (0, 1)
     assert signal["direction_source"] == "h4"
+    assert signal["entry_source"] == "fvg"  # TradeSetup's default rung
     assert signal["h4_trend"] == "up"
     assert signal["h1_trend"] == "down"
     assert signal["entry_hour"] == 15  # 15:10 Prague, not the UTC hour
@@ -206,6 +207,18 @@ def _stats(rows, tmp_path):
     journal = SignalJournal(Database(str(tmp_path / "smc.db")))
     journal.signals = rows
     return journal.stats_text()
+
+
+def test_the_imbalance_condition_is_one_of_the_cuts(tmp_path):
+    """D22 made the imbalance the sixth ⭐ condition; a setup that missed
+    only it must land in that row's "missed" cell, not vanish."""
+    rows = [_row("imbalance", -1.0, entry_source="ob") for _ in range(3)]
+    rows += [_row("", 2.0, entry_source="fvg") for _ in range(3)]
+    text = _stats(rows, tmp_path)
+    assert "imbalance" in TIER_CONDITIONS
+    assert "imbalance" in text
+    assert "Edge by entry rung" in text
+    assert "fvg" in text and "ob" in text
 
 
 def test_condition_cut_splits_missed_from_clean(tmp_path):

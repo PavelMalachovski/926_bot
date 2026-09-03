@@ -254,7 +254,10 @@ tracking → live-card edits on fill/TP/SL events.
 - **Every signal carries the feature vector behind its tier verdict**
   (`journal._feature_vector`, audit finding F4, 2026-08-26): `tier_missed`,
   `room_r`, `sweep`, `entry_gap_r`, the four `pd_*` columns,
-  `direction_source`, `h4_trend`, `h1_trend` and `entry_hour` (Prague).
+  `direction_source`, `entry_source` (the Rule 5 rung that paid, D22),
+  `h4_trend`, `h1_trend` and `entry_hour` (Prague). `TIER_CONDITIONS`
+  lists all six ⭐ conditions in `sniper.classify`'s order, `imbalance`
+  (D22) included.
   Bookkeeping only — nothing in the strategy reads them back; they exist so
   `/stats` can answer "does this condition earn its keep?" instead of the
   question being unanswerable however long the bot runs. Two NULL

@@ -245,17 +245,22 @@ def _feature_vector(result: AnalysisResult) -> Dict:
         "pd_basis": pd_read.range.timeframe if pd_read else None,
         "pd_ote": int(pd_read.in_ote) if pd_read else None,
         "direction_source": result.direction_source,
+        # D22: which rung of Rule 5's entry ladder paid — the cut that says
+        # whether an order-block or market entry earns what an imbalance
+        # entry does.
+        "entry_source": setup.entry_source,
         "h4_trend": result.h4_trend.value if result.h4_trend else None,
         "h1_trend": result.h1_trend.value if result.h1_trend else None,
         "entry_hour": to_prague(result.checked_at).hour,
     }
 
 
-# The five ⭐ conditions, in `sniper.classify`'s own order. `stats_text` cuts
+# The six ⭐ conditions, in `sniper.classify`'s own order (the sixth,
+# `imbalance`, is owner decision D22, 2026-08-30). `stats_text` cuts
 # expectancy by each: a condition that pays is one whose "clean" side earns
 # more than its "missed" side, and one that does not is a filter costing
 # setups for nothing.
-TIER_CONDITIONS = ("room", "sweep", "pd", "stale", "trend")
+TIER_CONDITIONS = ("room", "sweep", "pd", "stale", "trend", "imbalance")
 
 # Below this many resolved signals a per-cell average is noise dressed as a
 # number. The cell still prints its count, so the owner can see the sample
@@ -331,6 +336,7 @@ def _edge_lines(recent: List[Dict]) -> List[str]:
     group("Edge by session block", "session")
     group("Edge by zone kind", "zone_kind")
     group("Edge by direction source", "direction_source")
+    group("Edge by entry rung", "entry_source", order=["fvg", "ob", "market"])
 
     # Kill-zone evidence: does the hour of entry change what a setup makes?
     # Spread over a trading day, this is the last block to reach a sample

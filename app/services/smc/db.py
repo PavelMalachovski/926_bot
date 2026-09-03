@@ -65,7 +65,8 @@ SIGNAL_COLUMNS = [
     "pd_side",           # discount | premium | equilibrium
     "pd_basis",          # H4 | H1 — which range was measured
     "pd_ote",            # 1 when the entry sat inside the 62-79% band
-    "direction_source",  # h4 | h1 | range | h4_choch
+    "direction_source",  # h4 | h1 | range | h4_choch | h1_counter (D23)
+    "entry_source",      # fvg | ob | market — the Rule 5 rung that paid (D22)
     "h4_trend",          # up | down | flat
     "h1_trend",          # up | down | flat
     "entry_hour",        # Prague hour of the alert (kill-zone analysis)
@@ -134,6 +135,7 @@ SIGNALS_TABLE_SQL = """
                     pd_basis TEXT,
                     pd_ote INTEGER,
                     direction_source TEXT,
+                    entry_source TEXT,
                     h4_trend TEXT,
                     h1_trend TEXT,
                     entry_hour INTEGER
@@ -236,6 +238,7 @@ class Database:
                     ("pd_basis", "TEXT"),
                     ("pd_ote", "INTEGER"),
                     ("direction_source", "TEXT"),
+                    ("entry_source", "TEXT"),
                     ("h4_trend", "TEXT"),
                     ("h1_trend", "TEXT"),
                     ("entry_hour", "INTEGER"),

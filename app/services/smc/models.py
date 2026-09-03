@@ -154,6 +154,17 @@ class TradeSetup:
     runner_tp: Optional[float] = None
     tier_star: bool = False
     tier_missed: List[str] = field(default_factory=list)
+    # The measurements behind the tier verdict, kept so the journal can
+    # record WHY a setup was starred and /stats can later ask whether each
+    # condition actually pays (audit finding F4, 2026-08-26). Nothing
+    # branches on them — `tier_star`/`tier_missed` remain the verdict.
+    # `room_r` is None when no H1/H4 pool sits ahead (unmeasurable, and
+    # passing); `sweep` is None when the excursion took nothing;
+    # `entry_gap_r` is how far price had run past the entry in units of
+    # risk at alert time, and is negative when price has not reached it.
+    room_r: Optional[float] = None
+    sweep: Optional[str] = None
+    entry_gap_r: Optional[float] = None
 
 
 @dataclass
