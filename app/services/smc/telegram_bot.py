@@ -42,7 +42,8 @@ HELP_TEXT = (
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
     "Auto-plan: silent 08:05/14:05 summaries — press a pair button "
-    "for the full plan\n"
+    "for a setup analysis: pending (limit) entries, main and deep, "
+    "with entry / SL / TP1-3\n"
     "/stats — signal journal: setups, TP/SL, winrate\n"
     "/journal — trade journal: send an MT4 history screenshot to log trades\n"
     "/news — today's red news (Forex Factory)\n"
@@ -68,7 +69,7 @@ class TelegramCommandBot:
         pd_text: Optional[Callable[[], str]] = None,
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
         on_plan: Optional[Callable[[str], Awaitable[None]]] = None,
-        on_stored_plan: Optional[Callable[[str], Awaitable[None]]] = None,
+        on_setup_analysis: Optional[Callable[[str], Awaitable[None]]] = None,
         on_zone_mute: Optional[
             Callable[[str, Optional[str]], Awaitable[Optional[str]]]
         ] = None,
@@ -85,7 +86,7 @@ class TelegramCommandBot:
         self.pd_text = pd_text
         self.on_trade_mark = on_trade_mark
         self.on_plan = on_plan
-        self.on_stored_plan = on_stored_plan
+        self.on_setup_analysis = on_setup_analysis
         self.on_zone_mute = on_zone_mute
         self.trade_journal = trade_journal
         self._offset: Optional[int] = None
@@ -97,7 +98,7 @@ class TelegramCommandBot:
     # ------------------------------------------------------------- transport
 
     def _spawn(self, coro, name: str) -> asyncio.Task:
-        """Fire-and-forget a background coroutine (on_plan/on_stored_plan).
+        """Fire-and-forget a background coroutine (on_plan/on_setup_analysis).
 
         `/plan ALL` force-fetches every pair fresh through the 8/min rate
         limiter and renders a chart each — awaiting it inline here used to
@@ -517,15 +518,18 @@ class TelegramCommandBot:
                 )
             await self._api("answerCallbackQuery", **answer)
             return
-        if data.startswith("aplan_") and self.on_stored_plan:
+        if data.startswith("aplan_") and self.on_setup_analysis:
+            # D25 (owner decision 2026-09-05): the pair buttons under the
+            # 08:05/14:05 summary answer with the Setup analysis — pending
+            # (limit) entries on a fresh fetch — not the stored plan text.
             key = data[len("aplan_"):]
             answer["text"] = (
-                "Sending all plans…" if key == "ALL" else f"Sending {key} plan…"
+                "Analysing all pairs…" if key == "ALL" else f"Analysing {key}…"
             )
             await self._api("answerCallbackQuery", **answer)
-            # Fire-and-forget: keeps getUpdates free while the plan builds
+            # Fire-and-forget: keeps getUpdates free while the fetch runs
             # (see _spawn). The Watcher's _cycle_lock still serializes it.
-            self._spawn(self.on_stored_plan(key), f"on_stored_plan:{key}")
+            self._spawn(self.on_setup_analysis(key), f"on_setup_analysis:{key}")
             return
         if data.startswith("plan_") and self.on_plan:
             key = data[5:]

@@ -432,7 +432,10 @@ class TestTwoTierAlerting:
         assert watcher.state.last_setup["ETHUSD"] == "fp-star"
 
     @pytest.mark.asyncio
-    async def test_regular_result_sends_exactly_one_plain_message(self, tmp_path):
+    async def test_regular_result_gets_the_full_card_without_the_pin(self, tmp_path):
+        """D25 (owner decision 2026-09-05): with at most two setup alerts per
+        pair per day, the regular tier gets the same full card, buttons and
+        live card as the ⭐ — only the pin still tells them apart."""
         watcher = self._watcher(tmp_path)
         result = _fingerprint_result()
         result.setup.tier_star = False
@@ -445,17 +448,17 @@ class TestTwoTierAlerting:
         assert sent is True
         assert len(watcher.notifier.sent) == 1
         text, keyboard = watcher.notifier.sent[0]
-        assert keyboard is None
-        assert "Missed for ⭐" in text
-        assert watcher.notifier.pinned == []
-        assert watcher.notifier.photos == []
+        assert keyboard is not None and "inline_keyboard" in keyboard
+        assert "Missed for ⭐: room, sweep" in text
+        assert "SNIPER" not in text
+        assert "Enter at market" in text
+        assert watcher.notifier.pinned == []  # the pin stays a ⭐ privilege
         signal = watcher.journal.signals[0]
         assert signal["tier"] == "regular"
-        # No live card: message_id/alert_text are never attached for the
-        # quiet tier (deliberate — see _send_quiet_alert's docstring).
-        assert signal["message_id"] is None
-        assert signal["alert_text"] is None
+        assert signal["message_id"] == 1  # live card attached for both tiers
+        assert signal["alert_text"] == text
         assert watcher.state.last_setup["ETHUSD"] == "fp-regular"
+        assert watcher.state.daily_count("setup", "ETHUSD", result.checked_at) == 1
 
     @pytest.mark.asyncio
     async def test_chart_failure_still_delivers_the_star_alert(

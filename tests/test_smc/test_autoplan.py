@@ -44,13 +44,21 @@ def _pair_plan(pair="ETHUSD", scenarios=None, blocker=None, closed=False):
 
 class TestAutoPlanSettings:
     def test_defaults(self, monkeypatch):
-        for var in ("SMC_AUTO_PLAN", "SMC_AUTO_PLAN_TIMES", "SMC_ZONE_PING"):
+        for var in (
+            "SMC_AUTO_PLAN", "SMC_AUTO_PLAN_TIMES", "SMC_ZONE_PING",
+            "SMC_APPROACH_ALERT", "SMC_PD_ALERT", "SMC_PLAN_CHANGE_ALERT",
+        ):
             monkeypatch.delenv(var, raising=False)
         s = SMCSettings()
         assert s.auto_plan is True
         assert s.auto_plan_times == "08:05,14:05"
-        # the plan-zone alert is the feature's main notification now
-        assert s.zone_ping is True
+        # D25 (owner decision 2026-09-05): the approach alert is the one
+        # get-ready message; the plan-zone alert, the PD radar and the 🔁
+        # plan-updated message are legacy, off unless re-enabled.
+        assert s.approach_alert is True
+        assert s.zone_ping is False
+        assert s.pd_alert is False
+        assert s.plan_change_alert is False
 
 
 class TestAutoPlanSlotsParsing:
@@ -621,47 +629,68 @@ class TestPlanZoneAlert:
         assert w.notifier.sent == []
 
 
-class TestStoredPlanServe:
-    def test_serves_from_book_without_fetching(self, monkeypatch):
+def _live_entry(pair="ETHUSD", price=3160.0):
+    """A PlanEntry with REAL synthetic candles, so the pure checklist can run
+    on it the way the Setup-analysis button does (H4 uptrend, H1 demand zone
+    3131-3138, price above the zone -> WATCH, pullback phase)."""
+    data = {
+        "h4": make_candles(H4_UPTREND_CLOSES, step_minutes=240),
+        "h1": make_candles(H1_PULLBACK_CLOSES, step_minutes=60),
+        "m5": make_candles([price], step_minutes=5),
+    }
+    return PlanEntry(plan=_pair_plan(pair, [_scenario()]), data=data, as_of="07:54")
+
+
+class TestSetupAnalysisButton:
+    """D25 (owner decision 2026-09-05): the aplan_* buttons answer with the
+    Setup analysis — pending (limit) entries on a FRESH fetch — instead of
+    the stored plan text."""
+
+    def _watcher(self, monkeypatch, entry=None):
+        import app.services.smc.chart as chart_mod
+
+        monkeypatch.setattr(chart_mod, "render_plan_chart", lambda *a, **k: None)
         w = _stub_watcher()
-        w.planbook.update("ETHUSD", _fetched_entry("ETHUSD"))
-        fetches = []
+        w.fetches = []
 
         async def fake_fetch(key, force_fresh=True):
-            fetches.append(key)
-            return None
+            w.fetches.append((key, force_fresh))
+            return entry
 
         w._fetch_pair_plan = fake_fetch
+        return w
 
-        async def fake_deliver(key, entry):
-            await w.notifier.send(f"plan {key} as of {entry.as_of}")
+    def test_press_fetches_fresh_and_answers_with_pending_entries(self, monkeypatch):
+        w = self._watcher(monkeypatch, _live_entry())
+        asyncio.run(w.on_setup_analysis("ETHUSD"))
+        assert w.fetches == [("ETHUSD", True)]  # fresh, never the book
+        text = w.notifier.sent[0][0]
+        assert "Setup analysis — ETHUSD" in text
+        assert "Pending (limit) entries" in text
+        assert "MAIN" in text and "3138.00" in text  # the H1 demand zone edge
+        assert "<pre>" in text and "</pre>" in text
 
-        w._deliver_plan = fake_deliver
-        asyncio.run(w.on_stored_plan("ETHUSD"))
-        assert fetches == []                       # zero API calls
-        assert "as of 07:54" in w.notifier.sent[0][0]
+    def test_second_press_fetches_again(self, monkeypatch):
+        w = self._watcher(monkeypatch, _live_entry())
+        asyncio.run(w.on_setup_analysis("ETHUSD"))
+        asyncio.run(w.on_setup_analysis("ETHUSD"))
+        assert len(w.fetches) == 2 and len(w.notifier.sent) == 2
 
-    def test_empty_book_falls_back_to_fresh_plan(self, monkeypatch):
-        w = _stub_watcher()
-        sent_fresh = []
-
-        async def fake_send_pair_plan(key):
-            sent_fresh.append(key)
-
-        w._send_pair_plan = fake_send_pair_plan
-        asyncio.run(w.on_stored_plan("ETHUSD"))
-        assert sent_fresh == ["ETHUSD"]
+    def test_failed_fetch_sends_nothing(self, monkeypatch):
+        w = self._watcher(monkeypatch, None)
+        asyncio.run(w.on_setup_analysis("ETHUSD"))
+        assert w.notifier.sent == []
 
     def test_all_serves_every_enabled_pair(self, monkeypatch):
-        w = _stub_watcher()
+        w = self._watcher(monkeypatch, _live_entry())
         w.state.pairs = ["ETHUSD", "USDJPY"]
         served = []
 
-        async def fake_stored(key):
+        async def fake_analysis(key):
             served.append(key)
 
-        w._send_stored_plan = fake_stored
-        asyncio.run(w.on_stored_plan("ALL"))
+        w._send_setup_analysis = fake_analysis
+        asyncio.run(w.on_setup_analysis("ALL"))
         assert served == ["ETHUSD", "USDJPY"]
 
 
@@ -679,12 +708,12 @@ class TestAplanCallback:
 
         calls = []
 
-        async def on_stored_plan(key):
+        async def on_setup_analysis(key):
             calls.append(key)
 
         bot = TelegramCommandBot.__new__(TelegramCommandBot)
         bot.owner_chat_id = "1"
-        bot.on_stored_plan = on_stored_plan
+        bot.on_setup_analysis = on_setup_analysis
         api_calls = []
 
         async def fake_api(method, **payload):

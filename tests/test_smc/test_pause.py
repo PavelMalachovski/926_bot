@@ -139,11 +139,15 @@ class TestPauseCommands:
 
 
 class TestNewDefaults:
-    def test_zone_ping_default_on(self, monkeypatch):
+    def test_get_ready_defaults(self, monkeypatch):
+        """D25 (2026-09-05): the approach alert is the get-ready message;
+        the plan-zone alert it replaced is legacy and off by default."""
         monkeypatch.delenv("SMC_ZONE_PING", raising=False)
+        monkeypatch.delenv("SMC_APPROACH_ALERT", raising=False)
         from app.core.config import SMCSettings
 
-        assert SMCSettings().zone_ping is True
+        assert SMCSettings().zone_ping is False
+        assert SMCSettings().approach_alert is True
 
     def test_chart_candles_default_doubled(self):
         from app.services.smc import chart
