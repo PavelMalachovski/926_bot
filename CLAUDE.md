@@ -75,14 +75,12 @@ smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           setup cards, discipline suppression, 07:55 weekday
                           news digest, on-demand /plan, Rule 0.4 warnings,
                           journal tracking, auto-plan snapshots at 08:05/14:05
-                          (silent summary + aplan_* buttons -> Setup
-                          analysis, D25), per-cycle plan recompute into the
-                          planbook with silent summary edits on material
-                          change, the approach alert (D25 get-ready message:
-                          price is almost at the Rule 2 zone), the per-pair
-                          daily setup cap (D25), /pd. Legacy behind
-                          default-off flags: plan-centric zone alert, PD
-                          radar, 🔁 plan-updated message
+                          (silent summary + aplan_* buttons -> Strategy
+                          audit, D25), per-cycle plan + audit recompute into
+                          the planbook with silent summary edits on material
+                          change, the per-pair daily setup cap (D25), /pd.
+                          Legacy behind default-off flags: plan-centric zone
+                          alert, PD radar, 🔁 plan-updated message
 smc_backtest.py           backtest CLI: cached history -> backtest.py ->
                           plain-text report (see the commands block)
 app/services/smc/
@@ -167,12 +165,12 @@ app/services/smc/
 ├── pending.py            D25: pending (limit) entries — build_pending
 │                         prices the MAIN/DEEP rungs (M5 FVG edge / 50%, M5
 │                         OB, H1 zone, zones further out, range boundary)
-│                         with entry / SL / TP1-3 for the Setup-analysis
-│                         button; approach_read decides "price is almost at
-│                         the zone" for the get-ready alert. Pure geometry
-│                         over an engine result; liquidity.take_profits
-│                         supplies TP1-3 (three nearest unswept pools)
-├── planbook.py           in-memory current-plan store (PlanBook/PlanEntry),
+│                         with entry / SL / TP1-3 for the Strategy-audit
+│                         button. Pure geometry over an engine result;
+│                         liquidity.take_profits supplies TP1-3 (three
+│                         nearest unswept pools)
+├── planbook.py           in-memory current-plan store (PlanBook/PlanEntry,
+│                         since D25 also the engine result + the audit),
 │                         filled by the 08:05/14:05 snapshot and by the
 │                         per-cycle recompute; material fingerprint
 │                         (plan_fingerprint) drives silent summary edits;
@@ -238,39 +236,43 @@ tracking → live-card edits on fill/TP/SL events.
 - **Quiet mode is the default**: Telegram receives only found setups (and
   Rule 9/0.4 warnings + the 07:55 digest). Everything else goes to logs.
   Do not add chatty messages without being asked.
-- **Two modes, two to four messages per pair per day** (owner decision
-  D25, 2026-09-05). *By notification* — the bot sends at most two kinds of
-  message per trade: the **approach alert** (`_maybe_approach_alert`,
-  `pending.approach_read`, `SMC_APPROACH_ALERT`) when price comes within
-  `SMC_APPROACH_ZONE_FACTOR` zone-heights (floored at 2x min FVG) of the
-  H1 zone Rule 2 is waiting at — or the nearer range boundary mid-box —
-  carrying the projected limit bracket (entry / SL / TP1-3), one per zone
-  per Prague day (`state.approach_pinged`, overlap-matched) and never more
-  per pair per day than the setup cap; then the 🚨 **setup alert**, which
-  now means "enter at market": it prints `📈 Enter at market <price>` with
-  the Rule 6 stop, the risk and `🎯 TP1/TP2/TP3` — the three nearest
-  unswept pools off the ladder (`liquidity.take_profits`), RR from the
-  market price. The Phase 2 hybrid exit (TP1 2R / runner 3R) is still
-  computed and still drives the journal; it just no longer prints. *By
-  button* — the pair buttons under the 08:05/14:05 summary (`aplan_*`,
-  `Watcher.on_setup_analysis`) answer with the **Setup analysis**: a fresh
-  fetch, the pure checklist on it, and `pending.build_pending`'s two
-  pending (limit) entries, MAIN (the shallowest rung: the Rule 5 entry, or
-  the zone's near edge while waiting) and DEEP (the deepest distinct rung:
-  M5 OB, the H1 zone, the next untested zone), each with entry / SL / TP1-3
-  / RR in a `<pre>` table (`format_setup_analysis`); mid-range it shows one
-  bracket per boundary. **Daily cap**: `SMC_MAX_SETUPS_PER_DAY` (2) setup
-  alerts SENT per pair per Prague day (`state.daily_counts`, stamped with
-  the result's `checked_at` on both the check and the bump); a regular
-  setup past the cap is journal-recorded and dedup-fingerprinted but not
-  sent (same contract as `/notify star`), a ⭐ always goes through, 0
-  disables. **Both tiers now get the full card**, the ✅/❌ buttons, the
-  live card and the chart — only the pin stays a ⭐ privilege, and the
-  regular card carries `🔹 Missed for ⭐: …` where the star header would be.
-  The plan-zone alert (`SMC_ZONE_PING`), the PD radar (`SMC_PD_ALERT`) and
-  the 🔁 plan-updated message (`SMC_PLAN_CHANGE_ALERT`) are **legacy, off
-  by default** — code and tests kept, one flag each to restore. Detector
-  mode is untouched: nothing here decides whether a setup exists.
+- **Two modes, minimal messages** (owner decision D25, 2026-09-05, tightened
+  the same evening). Telegram receives exactly two kinds of trading message:
+  the **07:55 news digest** and the 🚨 **setup alert**, which now means
+  "enter at market": it prints `📈 Enter at market <price>` with the Rule 6
+  stop, the risk and `🎯 TP1/TP2/TP3` — the three nearest unswept pools off
+  the ladder (`liquidity.take_profits`), RR from the market price. The
+  Phase 2 hybrid exit (TP1 2R / runner 3R) is still computed and still
+  drives the journal; it just no longer prints. **Nothing is sent before a
+  setup completes** — there is no get-ready message of any kind: the
+  plan-zone alert (`SMC_ZONE_PING`), the PD radar (`SMC_PD_ALERT`) and the
+  🔁 plan-updated message (`SMC_PLAN_CHANGE_ALERT`) are legacy, off by
+  default (code and tests kept, one flag each to restore), and the
+  short-lived "price is almost there" alert was removed outright.
+  Everything about **limit entries lives behind the buttons**: the pair
+  buttons under the silent 08:05/14:05 summary (`aplan_*`,
+  `Watcher.on_setup_analysis`) answer with the **Strategy audit**
+  (`format_setup_analysis`): the checklist state and
+  `pending.build_pending`'s two pending (limit) entries, MAIN (the
+  shallowest rung: the Rule 5 entry, or the zone's near edge while waiting)
+  and DEEP (the deepest distinct rung: M5 OB, the H1 zone, the next
+  untested zone), each with entry / SL / TP1-3 / RR in a `<pre>` table;
+  mid-range it shows one bracket per boundary. The audit is **computed on
+  schedule and delivered on demand**: the 08:05/14:05 snapshot builds it
+  fresh, every cycle's `_recompute_plan` refreshes it from the candles the
+  engine already fetched (`PlanEntry.result` / `PlanEntry.audit`, via
+  `Watcher._audit`), and a button press costs zero API calls — only an
+  empty book (a restart before any cycle) fetches, and an entry without an
+  audit falls back to the plan text. **Daily cap**:
+  `SMC_MAX_SETUPS_PER_DAY` (2) setup alerts SENT per pair per Prague day
+  (`state.daily_counts`, stamped with the result's `checked_at` on both
+  the check and the bump); a regular setup past the cap is
+  journal-recorded and dedup-fingerprinted but not sent (same contract as
+  `/notify star`), a ⭐ always goes through, 0 disables. **Both tiers get
+  the full card**, the ✅/❌ buttons, the live card and the chart — only the
+  pin stays a ⭐ privilege, and the regular card carries `🔹 Missed for ⭐:
+  …` where the star header would be. Detector mode is untouched: nothing
+  here decides whether a setup exists.
 - Engines see **closed candles only** — every fetcher drops the in-progress
   candle. Twelve Data and OANDA both serve native H4 candles; neither
   resamples.
@@ -461,8 +463,8 @@ tracking → live-card edits on fill/TP/SL events.
   `Missed for ⭐:`, so the most common star-blocker is finally readable.
   OTE (62-79% retracement) is label-only: it marks a message, never a gate.
 - **PD radar** (`SMC_PD_ALERT`, owner request 2026-08-26; LEGACY since
-  D25 — off by default, the approach alert replaced it, `/pd` still
-  answers on demand): one alert per
+  D25 — off by default, no get-ready messages, `/pd` still answers on
+  demand): one alert per
   pair per **side** per session block when price reaches the half of its
   dealing range the bias wants — discount under a long bias, premium under
   a short one. It fires ONLY with the bias (a discount under a downtrend is
@@ -475,8 +477,7 @@ tracking → live-card edits on fill/TP/SL events.
   fetch.
 - **Plan-centric zone alert** (spec 2026-08-11 §5, dedup rewritten by owner
   decision 2026-08-16; LEGACY since D25 — off unless `SMC_ZONE_PING=true`,
-  the approach alert replaced it; the 🔕 button and `state.zone_muted`
-  now silence the approach alert the same way): fires when price touches a zone named by the pair's
+  no get-ready messages by default): fires when price touches a zone named by the pair's
   *current* plan (`planbook.scenario_for_touch`), carrying that scenario's
   projected bracket. It fires **once per zone per session block** —
   `sessions.session_block` supplies the block id, and

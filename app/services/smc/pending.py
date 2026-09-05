@@ -145,8 +145,8 @@ def _zone_bracket(
 ) -> Tuple[float, float]:
     """The plan's preliminary bracket for a zone nobody has traded yet: the
     near edge as the entry, one buffer beyond the far edge as the stop —
-    exactly `plan._scenario`'s geometry, so the approach message and the
-    morning plan can never quote different numbers for one zone. The live
+    exactly `plan._scenario`'s geometry, so the audit and the morning plan
+    can never quote different numbers for one zone. The live
     🚨 alert re-anchors the stop to the swept extreme (Rule 6)."""
     if _is_long(direction):
         return zone.top, zone.bottom - sl_buffer
