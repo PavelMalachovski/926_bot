@@ -88,23 +88,41 @@ class TestStarAlert:
 
     def test_star_header_absent_when_not_tier_star(self):
         text = format_result(_regular_result())
-        assert "⭐" not in text
+        assert "<b>SNIPER</b>" not in text
+        # D25: both tiers get the full card, so the regular one says what
+        # the star wanted (the quiet one-liner used to carry this).
+        assert "🔹 Missed for ⭐: room, pd" in text
 
-    def test_tp1_and_runner_rendered_at_instrument_decimals(self):
-        # USDJPY: 3 decimals (0.001, i.e. 1/10 pip) per instruments.py.
-        result = _star_result(tp1=151.234, runner_tp=151.9)
+    def test_market_entry_and_targets_at_instrument_decimals(self):
+        """D25 (owner decision 2026-09-05): the notification means "enter at
+        market" — price now, the Rule 6 stop, the risk, then TP1-3 off the
+        ladder with RR from the MARKET price. USDJPY: 3 decimals."""
+        from app.services.smc.liquidity import LiquidityLevel
+
+        result = _star_result(
+            entry=150.900, stop_loss=150.500,
+            ladder=[
+                LiquidityLevel(price=151.900, is_high=True, timeframe="H1", equal_count=1),
+                LiquidityLevel(price=152.400, is_high=True, timeframe="H4", equal_count=2),
+            ],
+        )
         result.symbol = "USDJPY"
         result.price_decimals = 3
+        result.price = 151.000
         text = format_result(result)
-        assert "TP1 (half): 151.234" in text
-        assert "runner: 151.900" in text
+        assert "📈 Enter at market      151.000   ← SL 150.500 · risk 50.0 pips" in text
+        # TP = level - sl_buffer (1.5 pips); RR from 151.000 with a 0.5 risk
+        assert "🎯 TP1 151.885 (1:1.8) · TP2 152.385 (1:2.8)" in text
+        assert "TP1 (half)" not in text and "runner:" not in text
 
-    def test_tp1_runner_also_rendered_for_non_star(self):
-        """tp1/runner_tp are computed for every completed setup (engine.py,
-        Task 2) — the star header is tier-gated, the levels are not."""
+    def test_market_entry_block_also_rendered_for_non_star(self):
+        """The hybrid exit (tp1/runner_tp) still drives the journal but no
+        longer prints; the market block is tier-agnostic like everything
+        below the header."""
         text = format_result(_regular_result())
-        assert "TP1 (half): 3175.00" in text
-        assert "runner: 3200.00" in text
+        assert "📈 Enter at market      3200.00   ← SL 3050.00 · risk $150.00" in text
+        assert "🎯 no unswept liquidity ahead" in text  # no ladder on this fixture
+        assert "TP1 (half)" not in text
 
     def test_star_alert_is_valid_html_and_escapes_dynamic_values(self):
         """A crafted '<' in a dynamic value (here: an engine warning) must

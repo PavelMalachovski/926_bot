@@ -107,19 +107,50 @@ class SMCSettings(BaseSettings):
         description="After you press 'Took it', mute new alerts for that pair "
         "for this many hours (you are managing the position)",
     )
-    zone_ping: bool = Field(
+    max_setups_per_day: int = Field(
+        default=2,
+        description="Setup alerts actually SENT per pair per Prague trading "
+        "day (owner decision D25, 2026-09-05: one, at most two trades per "
+        "pair per day). A regular setup past the cap is still journal-"
+        "recorded and dedup-fingerprinted, just not sent; a ⭐ setup always "
+        "goes through. 0 = no cap",
+    )
+    approach_alert: bool = Field(
         default=True,
-        description="Alert when price first reaches a zone named by the "
-        "current Pre-Market Plan, quoting the plan's projected numbers "
-        "(owner decision 2026-08-11 — this replaced the old engine-zone "
-        "ping and is the auto-plan feature's main notification)",
+        description="The get-ready message (owner decision D25, 2026-09-05): "
+        "one alert per zone per Prague day when price comes within "
+        "SMC_APPROACH_ZONE_FACTOR zone-heights of the H1 zone of interest "
+        "(or a range boundary) Rule 2 is waiting at, carrying the projected "
+        "limit bracket (entry / SL / TP1-3). Replaces the plan-zone alert, "
+        "the PD radar and the 🔁 plan-updated message, which are off by "
+        "default since D25",
+    )
+    approach_zone_factor: float = Field(
+        default=1.0,
+        description="How close is 'almost there': the distance from price to "
+        "the near edge of the zone, in zone heights (floored at two "
+        "per-instrument min-FVG units so a thin band still gives a heads-up)",
+    )
+    zone_ping: bool = Field(
+        default=False,
+        description="Legacy (pre-D25) plan-zone alert: fires when price first "
+        "reaches a zone named by the current Pre-Market Plan, quoting the "
+        "plan's projected numbers. Off by default since 2026-09-05 — the "
+        "approach alert (SMC_APPROACH_ALERT) is the get-ready message now",
     )
     pd_alert: bool = Field(
-        default=True,
-        description="PD radar: alert once per pair per session block when "
-        "price reaches the half of its dealing range the H4/H1 bias wants — "
-        "discount for a long bias, premium for a short one (owner request "
-        "2026-08-26)",
+        default=False,
+        description="Legacy (pre-D25) PD radar: alert once per pair per "
+        "session block when price reaches the half of its dealing range the "
+        "H4/H1 bias wants. Off by default since 2026-09-05 (superseded by "
+        "the approach alert); /pd still answers on demand",
+    )
+    plan_change_alert: bool = Field(
+        default=False,
+        description="Legacy (pre-D25) 🔁 'Plan updated' message when a pair's "
+        "plan materially moves (throttled hourly). Off by default since "
+        "2026-09-05 — the silent edit of the 08:05/14:05 summary still "
+        "tracks every change",
     )
     pd_basis: str = Field(
         default="h4",

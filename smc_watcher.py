@@ -41,17 +41,20 @@ from app.services.smc import pd as pd_module
 from app.services.smc.notifier import (
     TelegramNotifier,
     escape_html,
+    format_approach_alert,
     format_no_setup,
     format_plan,
     format_plan_summary,
-    format_quiet_setup,
     format_result,
     format_pd_alert,
+    format_setup_analysis,
     format_zone_alert,
     plan_summary_keyboard,
     redact_secrets,
+    took_skipped_keyboard,
     zone_alert_keyboard,
 )
+from app.services.smc.pending import approach_read, build_pending
 from app.services.smc.planbook import (
     PlanBook, PlanEntry, describe_plan_changes, plan_fingerprint,
     plan_snapshot,
@@ -334,13 +337,13 @@ class Watcher:
             pd_text=self.pd_text,
             on_trade_mark=self.mark_trade,
             on_plan=self.on_plan,
-            on_stored_plan=self.on_stored_plan,
+            on_setup_analysis=self.on_setup_analysis,
             on_zone_mute=self.mark_zone_mute,
             trade_journal=self.trade_journal,
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         self.planbook = PlanBook()
-        # Serializes run_cycle/on_plan/on_stored_plan bodies (see
+        # Serializes run_cycle/on_plan/on_setup_analysis bodies (see
         # _get_cycle_lock): the dedup fingerprint (state.last_setup) is only
         # written after a successful alert send, so two of these racing —
         # the scheduler tick and an owner /check, or a slow /plan ALL —
@@ -374,7 +377,7 @@ class Watcher:
         return _build_fetcher(instrument)
 
     def _get_cycle_lock(self) -> asyncio.Lock:
-        """The one lock shared by run_cycle/on_plan/on_stored_plan.
+        """The one lock shared by run_cycle/on_plan/on_setup_analysis.
 
         Lazily created and cached so a Watcher built via `Watcher.__new__`
         (the stub pattern most of this test suite uses to bypass __init__'s
@@ -570,7 +573,7 @@ class Watcher:
         so a scheduler tick racing an owner /check (both awaiting this same
         coroutine, interleaving at every `await`) could otherwise both read
         the still-unset fingerprint and both send the alert — one lock per
-        Watcher, shared with on_plan/on_stored_plan, closes that window.
+        Watcher, shared with on_plan/on_setup_analysis, closes that window.
         """
         async with self._get_cycle_lock():
             if self.state.paused:
@@ -645,7 +648,10 @@ class Watcher:
                     # as "suppressed", even if notify_level happens to be
                     # muted at the time.
                     muted_by_level = self._alert_send_suppressed(
-                        result.setup.tier_star
+                        result.setup.tier_star, key, result.checked_at
+                    )
+                    capped = self._daily_cap_reached(
+                        key, result.setup.tier_star, result.checked_at
                     )
                     try:
                         sent = await self._send_alert(key, result, fingerprint)
@@ -668,6 +674,12 @@ class Watcher:
                         heartbeat_lines.append(
                             f"🚨 {key}: SETUP FOUND — details above!"
                         )
+                    elif capped:
+                        heartbeat_lines.append(
+                            f"🔇 {key}: setup found — daily limit of "
+                            f"{settings.smc.max_setups_per_day} reached, "
+                            "recorded only"
+                        )
                     elif muted_by_level:
                         heartbeat_lines.append(
                             f"🔇 {key}: setup found — alert suppressed by "
@@ -678,8 +690,14 @@ class Watcher:
                             f"⚠️ {key}: setup found but the alert failed to send"
                         )
                 if not candidates:
-                    zone_alerted = await self._maybe_plan_zone_alert(key, result)
-                    if not zone_alerted:
+                    # D25 (owner decision 2026-09-05): ONE get-ready message —
+                    # "price is almost there" — replaces the plan-zone alert
+                    # and the PD radar. Both legacy paths stay behind their
+                    # (now default-off) flags for a deploy-free rollback.
+                    alerted = await self._maybe_approach_alert(key, result)
+                    if not alerted and settings.smc.zone_ping:
+                        alerted = await self._maybe_plan_zone_alert(key, result)
+                    if not alerted and settings.smc.pd_alert:
                         await self._maybe_pd_alert(key, result)
                     heartbeat_lines.append(line)
 
@@ -704,38 +722,65 @@ class Watcher:
     async def _send_alert(
         self, key: str, result: AnalysisResult, fingerprint: str
     ) -> bool:
-        """Two-tier routing (Phase 2 sniper redesign, owner decision
-        2026-08-12): `result.setup.tier_star` picks the presentation.
+        """Announce a completed setup: the full card (market entry, SL,
+        TP1-3, ladders), the ✅/❌ buttons and the M5 chart — for BOTH tiers
+        since D25 (owner decision 2026-09-05: with at most two setup alerts
+        per pair per day, each one is worth the whole picture). Only the
+        pin still tells the tiers apart: a ⭐ is pinned, a regular setup is
+        not; the ⭐/🔹 header line says which one it is.
 
-        ⭐ (star) — a setup that cleared room/sweep/premium-discount/
-        staleness (sniper.classify) — gets today's full path unchanged:
-        message with Took/Skipped buttons, pinned, chart PNG attached.
-        Every other completed setup ("regular") is still announced —
-        detector mode (CLAUDE.md) never suppresses a formed setup — but as
-        one short plain message: no pin, no chart, no buttons.
+        Detector mode unchanged: nothing here decides whether to announce,
+        only how. The journal record and the dedup fingerprint are written
+        for every setup, sent or not (`_alert_send_suppressed` covers the
+        /notify level AND the daily cap), so un-muting later never replays a
+        backlog.
 
-        Both tiers share the same dedup fingerprint and the same journal
-        recording (`journal.record` reads `setup.tier_star` itself, Task 3),
-        so a setup that flickers between tiers within one fingerprint still
-        alerts exactly once.
-
-        Returns True once the alert actually reached Telegram, False if
-        `notifier.send` failed (it swallows Telegram/network errors and
-        returns None rather than raising) — the caller (`run_cycle`) uses
-        this to report the pair honestly in the heartbeat instead of
-        claiming "SETUP FOUND — details above!" for a message nobody
-        received.
+        Returns True once the alert actually reached Telegram, False if the
+        send was suppressed or `notifier.send` failed (it swallows
+        Telegram/network errors and returns None rather than raising) — the
+        caller (`run_cycle`) reports the pair honestly in the heartbeat
+        instead of claiming "SETUP FOUND — details above!" for a message
+        nobody received.
 
         A failure anywhere in here (most plausibly `format_result` raising)
         is caught by the caller, not here — see the `try/except` around this
-        call in `run_cycle`. That isolates one pair's failure the same way
-        `check_pair()` and `_track_journal()`'s own per-pair loop already
-        isolate theirs, instead of letting it silently drop every remaining
-        pair in this cycle's `for key in ...` loop.
+        call in `run_cycle`, which isolates one pair's failure the same way
+        `check_pair()` and `_track_journal()`'s own per-pair loop do.
         """
+        # Render first, record second. A signal recorded before a render
+        # failure would survive as a `pending` row with no message and no
+        # stored fingerprint, and the next cycle would record a second row
+        # for the same setup — the journal grows one row per cycle, silently.
+        text = format_result(result, in_plan=self._plan_provenance(key, result))
+        signal = self.journal.record(result)
+        if self._alert_send_suppressed(
+            result.setup.tier_star, key, result.checked_at
+        ):
+            # /notify says "mute"/"star", or today's allowance is spent —
+            # record + dedup still happen, only the Telegram send (and
+            # everything downstream of it: pin, chart, live card) is skipped.
+            self._dedup_store(result)[key] = fingerprint
+            self.state.save()
+            return False
+        message_id = await self.notifier.send(
+            text, reply_markup=took_skipped_keyboard(signal["id"])
+        )
+        if not message_id:
+            # The signal just recorded needed its id for the keyboard above
+            # before we knew the send would fail — now that it has, remove
+            # it rather than leave an orphan `pending` row with no message
+            # and no fingerprint (it would otherwise resolve as `expired`
+            # later and pollute /stats).
+            self.journal.discard(signal["id"])
+            return False
+        self._dedup_store(result)[key] = fingerprint
+        self.state.bump_daily("setup", key, result.checked_at)
+        self.state.save()
+        self.journal.attach_message(signal["id"], message_id, text)
         if result.setup.tier_star:
-            return await self._send_star_alert(key, result, fingerprint)
-        return await self._send_quiet_alert(key, result, fingerprint)
+            await self.notifier.pin(message_id)
+        await self._send_chart(result, message_id)
+        return True
 
     def _dedup_store(self, result: AnalysisResult) -> Dict[str, str]:
         """Which per-pair fingerprint slot this setup dedups in.
@@ -749,91 +794,39 @@ class Watcher:
             return self.state.last_counter_setup
         return self.state.last_setup
 
-    def _alert_send_suppressed(self, tier_star: bool) -> bool:
-        """Whether `state.notify_level` (Task 4b, owner decision 2026-08-12)
-        blocks the real Telegram send for this tier. "mute" blocks both
-        tiers; "star" blocks only the regular (non-⭐) tier; "all" blocks
-        nothing. This gates the send only — the caller still records the
-        setup in the journal and advances the dedup fingerprint either way,
-        so un-muting later does not replay a backlog of stale setups."""
+    def _daily_cap_reached(
+        self, key: str, tier_star: bool, now: Optional[datetime] = None
+    ) -> bool:
+        """D25 (owner decision 2026-09-05): one, at most two setup alerts
+        per pair per Prague day. The cap counts alerts that actually reached
+        Telegram (`state.bump_daily` runs after the send). A ⭐ setup always
+        passes — the owner chose to see every sniper setup; the regular
+        ones past the cap are journal-recorded and dedup-fingerprinted,
+        just not sent. 0 disables the cap. `now` is the result's own
+        `checked_at`, the same instant the counter is stamped with after a
+        send, so the check and the bump can never disagree about the day."""
+        cap = settings.smc.max_setups_per_day
+        if not cap or tier_star:
+            return False
+        return self.state.daily_count("setup", key, now) >= cap
+
+    def _alert_send_suppressed(
+        self, tier_star: bool, key: Optional[str] = None,
+        now: Optional[datetime] = None,
+    ) -> bool:
+        """Whether the real Telegram send for this setup is blocked — by
+        `state.notify_level` (Task 4b, owner decision 2026-08-12: "mute"
+        blocks both tiers, "star" only the regular tier) or, when `key` is
+        given, by the day's cap (`_daily_cap_reached`, D25). This gates the
+        send only — the caller still records the setup in the journal and
+        advances the dedup fingerprint either way, so un-muting later does
+        not replay a backlog of stale setups."""
         level = self.state.notify_level
         if level == "mute":
             return True
-        if level == "star":
-            return not tier_star
-        return False
-
-    async def _send_star_alert(
-        self, key: str, result: AnalysisResult, fingerprint: str
-    ) -> bool:
-        """⭐-tier: message with Took/Skipped buttons + setup chart, pinned."""
-        # Render first, record second. The caller isolates a failure in here
-        # (most plausibly `format_result`) per pair — but a signal recorded
-        # before that failure survives as a `pending` row with no message and
-        # no stored fingerprint, so the next cycle records a second row for
-        # the same setup and the journal grows one row per cycle, silently.
-        # Nothing between here and `attach_message` reads the journal.
-        text = format_result(result, in_plan=self._plan_provenance(key, result))
-        signal = self.journal.record(result)
-        if self._alert_send_suppressed(tier_star=True):
-            # notify_level says "mute" — record + dedup still happen, only
-            # the Telegram send (and everything downstream of it: pin,
-            # chart, live card) is skipped.
-            self._dedup_store(result)[key] = fingerprint
-            self.state.save()
-            return False
-        keyboard = {
-            "inline_keyboard": [
-                [
-                    {"text": "✅ Took it", "callback_data": f"take_{signal['id']}"},
-                    {"text": "❌ Skipped", "callback_data": f"skip_{signal['id']}"},
-                ]
-            ]
-        }
-        message_id = await self.notifier.send(text, reply_markup=keyboard)
-        if not message_id:
-            # The signal just recorded needed its id for the keyboard above
-            # before we knew the send would fail — now that it has, remove
-            # it rather than leave an orphan `pending` row with no message
-            # and no fingerprint (it would otherwise resolve as `expired`
-            # later and pollute /stats).
-            self.journal.discard(signal["id"])
-            return False
-        self._dedup_store(result)[key] = fingerprint
-        self.state.save()
-        self.journal.attach_message(signal["id"], message_id, text)
-        await self.notifier.pin(message_id)
-        await self._send_chart(result, message_id)
-        return True
-
-    async def _send_quiet_alert(
-        self, key: str, result: AnalysisResult, fingerprint: str
-    ) -> bool:
-        """Non-⭐ ("regular") tier: exactly one plain `send_message`, no pin,
-        no chart, no Took/Skipped buttons. Still journal-recorded — the
-        signal is not linked to a message (no `attach_message`), so it never
-        grows a live card: `_handle_journal_events` only edits signals that
-        carry both a `message_id` and `alert_text`, and a quiet signal
-        carries neither. That is deliberate, not an oversight — a live card
-        would re-add the Took/Skipped keyboard on the next status change
-        (`_handle_journal_events`'s `keep_buttons` defaults to True), which
-        is exactly the button-free presentation this tier promises.
-        """
-        text = format_quiet_setup(result)
-        signal = self.journal.record(result)
-        if self._alert_send_suppressed(tier_star=False):
-            # notify_level says "star" or "mute" — record + dedup still
-            # happen, only the Telegram send is skipped.
-            self._dedup_store(result)[key] = fingerprint
-            self.state.save()
-            return False
-        message_id = await self.notifier.send(text)
-        if not message_id:
-            self.journal.discard(signal["id"])
-            return False
-        self._dedup_store(result)[key] = fingerprint
-        self.state.save()
-        return True
+        if level == "star" and not tier_star:
+            return True
+        return key is not None and self._daily_cap_reached(key, tier_star, now)
 
     def _plan_provenance(self, key: str, result: AnalysisResult) -> Optional[bool]:
         """Whether this zone was in the plan the owner read this morning.
@@ -970,22 +963,7 @@ class Watcher:
                 footer = _card_footer(signal)
                 keep_buttons = signal.get("taken") is None
                 keyboard = (
-                    {
-                        "inline_keyboard": [
-                            [
-                                {
-                                    "text": "✅ Took it",
-                                    "callback_data": f"take_{signal['id']}",
-                                },
-                                {
-                                    "text": "❌ Skipped",
-                                    "callback_data": f"skip_{signal['id']}",
-                                },
-                            ]
-                        ]
-                    }
-                    if keep_buttons
-                    else None
+                    took_skipped_keyboard(signal["id"]) if keep_buttons else None
                 )
                 await self.notifier.edit_message(
                     signal["message_id"],
@@ -1056,7 +1034,7 @@ class Watcher:
     async def on_plan(self, key: str) -> None:
         """/plan command: send the Pre-Market Plan for a pair (or ALL).
 
-        Shares `_get_cycle_lock()` with run_cycle/on_stored_plan (see
+        Shares `_get_cycle_lock()` with run_cycle/on_setup_analysis (see
         run_cycle's docstring) — `/plan ALL` force-fetches every pair fresh
         through the rate limiter and renders a chart each, so it must not
         interleave with a cycle writing the same planbook/state.
@@ -1067,8 +1045,13 @@ class Watcher:
                 if k in INSTRUMENTS:
                     await self._send_pair_plan(k)
 
-    async def on_stored_plan(self, key: str) -> None:
-        """aplan_* button: serve the stored current plan instantly.
+    async def on_setup_analysis(self, key: str) -> None:
+        """aplan_* button (the pair buttons under the 08:05/14:05 summary):
+        the Setup analysis — pending (limit) entries, MAIN and DEEP, each
+        with entry / SL / TP1-3 / RR — on a FRESH fetch (owner decision D25,
+        2026-09-05; this replaced serving the stored plan text). The plan
+        H1 chart still rides along: it draws the very zones the table
+        prices.
 
         Shares `_get_cycle_lock()` with run_cycle/on_plan (see run_cycle's
         docstring).
@@ -1077,15 +1060,44 @@ class Watcher:
             keys = list(self.state.pairs) if key == "ALL" else [key]
             for k in keys:
                 if k in INSTRUMENTS:
-                    await self._send_stored_plan(k)
+                    await self._send_setup_analysis(k)
 
-    async def _send_stored_plan(self, key: str) -> None:
-        entry = self.planbook.get(key)
+    async def _send_setup_analysis(self, key: str) -> None:
+        """Fetch, run the pure checklist on what came back, price the
+        pending rungs, send the analysis (+ the plan chart)."""
+        from app.services.smc.chart import render_plan_chart
+
+        entry = await self._fetch_pair_plan(key, force_fresh=True)
         if entry is None:
-            # fresh restart and no cycle yet — build one the normal way
-            await self._send_pair_plan(key)
             return
-        await self._deliver_plan(key, entry)
+        instrument = get_instrument(key)
+        now = datetime.now(tz=timezone.utc)
+        result = self._evaluate_data(instrument, entry.data, now)
+        try:
+            analysis = build_pending(
+                result, instrument,
+                entry.data["h4"], entry.data["h1"], entry.data["m5"],
+            )
+        except Exception as e:
+            # pricing the rungs must never cost the owner the answer to a
+            # button press: fall back to the plan text he used to get
+            logger.warning("Pending analysis failed", pair=key, error=str(e), exc_info=True)
+            await self._deliver_plan(key, entry)
+            return
+        text = format_setup_analysis(
+            key, result, analysis, instrument, as_of=entry.as_of
+        )
+        if entry.plan.market_closed:
+            text += "\n😴 Market closed — computed on the last closed candles."
+        await self.notifier.send(text)
+        try:
+            png = await asyncio.to_thread(
+                render_plan_chart, entry.plan, entry.data["h1"]
+            )
+            if png:
+                await self.notifier.send_photo(png)
+        except Exception as e:
+            logger.warning("Plan chart failed", pair=key, error=str(e))
 
     async def _fetch_pair_plan(
         self, key: str, force_fresh: bool = True
@@ -1310,10 +1322,14 @@ class Watcher:
             self.state.plan_summary = info
             self.state.save()
             # The edit above is silent by design (it must not re-notify on
-            # every recompute). The owner asked for corrections to actually
-            # REACH him (2026-08-31), so the pairs that really moved get one
-            # throttled message of their own.
-            await self._notify_plan_changes(stored, current, stored_snaps, snapshots)
+            # every recompute). The 🔁 correction message (owner request
+            # 2026-08-31) is off by default since D25 (2026-09-05) — the
+            # approach alert is the one get-ready message now — but stays
+            # one flag away.
+            if settings.smc.plan_change_alert:
+                await self._notify_plan_changes(
+                    stored, current, stored_snaps, snapshots
+                )
 
     PLAN_CHANGE_COOLDOWN = timedelta(hours=1)
 
@@ -1429,8 +1445,12 @@ class Watcher:
         except Exception as e:
             logger.warning("Plan chart failed", pair=key, error=str(e))
 
-    def _live_status(self, instrument: Instrument, data: dict, now) -> str:
-        """One-line live checklist status of a pair, for the /plan message."""
+    def _evaluate_data(
+        self, instrument: Instrument, data: dict, now
+    ) -> AnalysisResult:
+        """Run the pure checklist (`engine.evaluate`) over candles already
+        fetched — no network, no session gate: this is how /plan's live line
+        and the Setup-analysis button read the market from one fetch."""
         res = AnalysisResult(
             symbol=instrument.key,
             verdict=Verdict.SKIP,
@@ -1441,6 +1461,9 @@ class Watcher:
             now, require_weekday=instrument.source == "forex"
         )
         res.price = data["m5"][-1].close
+        res.m5_candles = data["m5"]
+        res.h4_candles = data["h4"]
+        res.h1_candles = data["h1"]
         from app.services.smc.profiles import get_profile
 
         profile = get_profile(
@@ -1448,9 +1471,15 @@ class Watcher:
                 instrument.key, settings.smc.default_profile
             )
         )
-        res = _build_engine(instrument, profile).evaluate(
+        # `evaluate` is pure and never touches the fetcher, so a placeholder
+        # stands in for the live client (see `_counter_trend_result`).
+        return _build_engine(instrument, profile, fetcher=_NO_FETCH).evaluate(
             h4=data["h4"], h1=data["h1"], m5=data["m5"], result=res
         )
+
+    def _live_status(self, instrument: Instrument, data: dict, now) -> str:
+        """One-line live checklist status of a pair, for the /plan message."""
+        res = self._evaluate_data(instrument, data, now)
         d = instrument.price_decimals
         if res.verdict in APPROVED:
             s = res.setup
@@ -1470,10 +1499,83 @@ class Watcher:
         reason = res.reasons[0] if res.reasons else "no direction"
         return f"{icon} {prefix}{escape_html(reason)}"
 
+    async def _maybe_approach_alert(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> bool:
+        """The get-ready message (owner decision D25, 2026-09-05): price is
+        almost at — or already inside — the zone Rule 2 is waiting at, with
+        the projected limit bracket (entry / SL / TP1-3). The 🚨 alert that
+        follows is the "enter at market" moment.
+
+        One message per zone per Prague DAY (`state.approach_pinged`,
+        matched by overlap like every zone dedup here), and never more of
+        them per pair per day than the setup cap allows — the owner asked
+        for two to four messages per pair per day, not a stream. Belongs to
+        the session (Rule 0.1), stands down under the 🔕 mute, the taken
+        cooldown, and once a setup has formed (the 🚨 alert carries its own
+        levels). Returns whether a message went out, so the legacy get-ready
+        paths — if anyone re-enables them — stay quiet this cycle.
+        """
+        if not settings.smc.approach_alert or result is None:
+            return False
+        if not result.session_name or not result.h4_candles or not result.h1_candles:
+            return False
+        block = session_block(result.checked_at)
+        if block is None:
+            return False
+        if self.state.zone_muted_until(key, result.checked_at):
+            return False
+        if result.verdict in APPROVED:
+            return False
+        if self._cooldown_left(key):
+            return False
+        instrument = get_instrument(key)
+        try:
+            approach = approach_read(
+                result, instrument, result.h4_candles, result.h1_candles,
+                factor=settings.smc.approach_zone_factor,
+            )
+        except Exception as e:  # a get-ready read must never break the cycle
+            logger.warning("Approach read failed", pair=key, error=str(e), exc_info=True)
+            return False
+        if approach is None:
+            return False
+        if self.state.approach_already_pinged(
+            key, approach.zone_bottom, approach.zone_top,
+            approach.direction.value, result.checked_at,
+        ):
+            return False
+        cap = settings.smc.max_setups_per_day
+        if cap and self.state.daily_count("approach", key, result.checked_at) >= cap:
+            logger.info("Approach alert past the daily cap", pair=key)
+            return False
+        deadline = block_mute_deadline(block)
+        reply_markup = (
+            zone_alert_keyboard(key, prague_hhmm(deadline), block)
+            if deadline is not None else None
+        )
+        sent = await self.notifier.send(
+            format_approach_alert(key, approach, instrument),
+            reply_markup=reply_markup,
+        )
+        if sent:
+            # mark AFTER the send: a failed delivery must retry next cycle
+            self.state.remember_approach_ping(
+                key, approach.zone_bottom, approach.zone_top,
+                approach.direction.value, result.checked_at,
+            )
+            self.state.bump_daily("approach", key, result.checked_at)
+            logger.info(
+                "Approach alert sent", pair=key,
+                distance=round(approach.distance, 6), inside=approach.inside,
+            )
+        return bool(sent)
+
     async def _maybe_plan_zone_alert(
         self, key: str, result: Optional[AnalysisResult]
     ) -> bool:
-        """Price entered a zone the CURRENT plan names: one alert per zone
+        """LEGACY (pre-D25, off by default since 2026-09-05 — the approach
+        alert replaced it). Price entered a zone the CURRENT plan names: one alert per zone
         per session block (owner decision 2026-08-16, spec §1.3), carrying
         the plan's projected bracket.
 
@@ -1590,8 +1692,10 @@ class Watcher:
     async def _maybe_pd_alert(
         self, key: str, result: Optional[AnalysisResult]
     ) -> None:
-        """PD radar: price reached the half of its dealing range the bias
-        wants — discount under a long bias, premium under a short one.
+        """LEGACY (pre-D25, off by default since 2026-09-05 — the approach
+        alert replaced it; /pd still answers on demand). PD radar: price
+        reached the half of its dealing range the bias wants — discount
+        under a long bias, premium under a short one.
 
         Owner request 2026-08-26. This is a get-ready message, not a setup:
         it says where price is inside the range it is retracing and what to

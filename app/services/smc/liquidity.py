@@ -145,3 +145,44 @@ def liquidity_ladder(
         ):
             best[key] = lv
     return [best[k] for k in order[:limit]]
+
+
+@dataclass(frozen=True)
+class TakeProfit:
+    """One objective off the liquidity ladder: the level pulled in by one
+    `sl_buffer` (Rule 7's setback, so the trade is out before the sweep
+    itself) and the RR it pays from a given entry/stop. `level` is None only
+    for a range target (D14: the opposite boundary is not a pool)."""
+
+    price: float
+    rr: float
+    level: Optional[LiquidityLevel] = None
+
+
+def take_profits(
+    levels: List[LiquidityLevel],
+    direction: Direction,
+    entry: float,
+    stop_loss: float,
+    sl_buffer: float,
+    limit: int = 3,
+) -> List[TakeProfit]:
+    """TP1..TPn (owner decision D25, 2026-09-05): the nearest unswept pools
+    ahead of `entry`, each one buffer short of its level, with RR from this
+    entry and stop. Rungs that land inside the buffer (non-positive reward)
+    are skipped rather than printed as a target — the same treatment Rule 7
+    gives its single objective. Empty when the geometry has no risk."""
+    risk = abs(entry - stop_loss)
+    if risk <= 0:
+        return []
+    is_long = direction == Direction.LONG
+    out: List[TakeProfit] = []
+    for lv in liquidity_ladder(levels, direction, entry, limit=limit + 4):
+        tp = lv.price - sl_buffer if is_long else lv.price + sl_buffer
+        reward = tp - entry if is_long else entry - tp
+        if reward <= 0:
+            continue
+        out.append(TakeProfit(price=tp, rr=reward / risk, level=lv))
+        if len(out) == limit:
+            break
+    return out

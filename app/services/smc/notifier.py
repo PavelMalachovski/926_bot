@@ -8,7 +8,7 @@ import structlog
 
 from app.services.smc.engine import trends_disagree
 from app.services.smc.instruments import Instrument, get_instrument
-from app.services.smc.liquidity import LiquidityLevel
+from app.services.smc.liquidity import LiquidityLevel, take_profits
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
 from app.services.smc.sessions import to_prague
 
@@ -303,6 +303,228 @@ def format_pd_alert(
     return "\n".join(lines)
 
 
+def _targets_line(targets, decimals: int) -> str:
+    """'🎯 TP1 2489.00 (1:1.2) · TP2 2500.37 (1:2.0) · TP3 2529.26 (1:3.5)'
+    — or the honest empty case."""
+    if not targets:
+        return "🎯 no unswept liquidity ahead"
+    return "🎯 " + " · ".join(
+        f"TP{i} {tp.price:.{decimals}f} (1:{tp.rr:.1f})"
+        for i, tp in enumerate(targets, start=1)
+    )
+
+
+def _market_entry_lines(
+    result: AnalysisResult, instrument: Instrument, is_range: bool
+) -> List[str]:
+    """The 'enter at market' block of the 🚨 alert (D25): price now, the
+    setup's stop, the risk, then TP1-3. A range setup keeps its single D14
+    target and quotes the RR to it from the market price."""
+    setup = result.setup
+    d = result.price_decimals
+    price = result.price or setup.entry
+    is_long = setup.direction == Direction.LONG
+    risk = price - setup.stop_loss if is_long else setup.stop_loss - price
+    if risk <= 0:
+        return [
+            f"📈 Market entry         {price:.{d}f}"
+            "   ✗ price is already beyond the stop — no market entry",
+        ]
+    head = (
+        f"📈 Enter at market      {price:.{d}f}"
+        f"   ← SL {setup.stop_loss:.{d}f} · risk "
+        f"{escape_html(format_distance(risk, instrument))}"
+    )
+    if is_range:
+        if setup.take_profit is None:
+            return [head, "🎯 no positive reward to the opposite boundary"]
+        reward = (
+            setup.take_profit - price if is_long else price - setup.take_profit
+        )
+        cell = _rr_cell(reward / risk) if reward > 0 else "—"
+        return [
+            head,
+            f"🎯 Range target         {setup.take_profit:.{d}f}   ({cell})",
+        ]
+    targets = take_profits(
+        setup.ladder, setup.direction, price, setup.stop_loss,
+        instrument.sl_buffer,
+    )
+    return [head, _targets_line(targets, d)]
+
+
+def took_skipped_keyboard(signal_id: str) -> dict:
+    """The ✅/❌ buttons under a setup alert — the ONLY input discipline
+    reads (CLAUDE.md: Rule 10 / Rule 0.2 count taken marks). One builder,
+    used by the send and by every live-card edit, so the two cannot drift."""
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "✅ Took it", "callback_data": f"take_{signal_id}"},
+                {"text": "❌ Skipped", "callback_data": f"skip_{signal_id}"},
+            ]
+        ]
+    }
+
+
+def format_approach_alert(pair: str, approach, instrument: Instrument) -> str:
+    """The get-ready message (D25, owner decision 2026-09-05): price is
+    almost at — or already inside — the zone Rule 2 is waiting at, with the
+    projected limit bracket (entry / SL / TP1-3). One per zone per day; the
+    🚨 alert that follows is the "enter at market" moment.
+
+    Same 🔕 keyboard as the alerts it replaced (the watcher attaches it), and
+    the same escaping rule: every dynamic value goes through escape_html.
+    """
+    d = instrument.price_decimals
+    b = approach.bracket
+    is_long = approach.direction == Direction.LONG
+    side = "LONG" if is_long else "SHORT"
+    order = "Buy" if is_long else "Sell"
+    name = escape_html(pair)
+    if approach.inside:
+        where = "is inside"
+    else:
+        where = (
+            f"is {escape_html(format_distance(approach.distance, instrument))} "
+            "from"
+        )
+    if approach.kind == "RANGE":
+        edge = "LOW" if is_long else "HIGH"
+        head = (
+            f"🔔 <b>{name}</b>: price {where} the range {edge} boundary "
+            f"{b.entry:.{d}f}"
+        )
+    else:
+        kind = "Demand" if is_long else "Supply"
+        head = (
+            f"🔔 <b>{name}</b>: price {where} the H1 {kind} zone "
+            f"({escape_html(approach.kind)}) "
+            f"{approach.zone_bottom:.{d}f}–{approach.zone_top:.{d}f}"
+        )
+    lines = [
+        head,
+        f"📋 {side} plan: {order} Limit {b.entry:.{d}f} | 🛑 SL {b.stop_loss:.{d}f}"
+        f" | risk {escape_html(format_distance(b.risk, instrument))}",
+        _targets_line(b.targets, d),
+        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH — "
+        "the 🚨 alert says when to enter at market.",
+    ]
+    return "\n".join(lines)
+
+
+def _analysis_columns(analysis, instrument: Instrument) -> List[str]:
+    """The pending-entry table, one column per entry, inside <pre> so the
+    numbers line up in Telegram's proportional font. Every cell is escaped
+    (labels are built from Zone.kind strings and could in principle carry
+    anything)."""
+    d = instrument.price_decimals
+    entries = list(analysis.entries)
+    if not entries:
+        return []
+
+    def header(e) -> str:
+        if e.role == "main":
+            return "MAIN"
+        if e.role == "deep":
+            return "DEEP"
+        return "LONG" if e.direction == Direction.LONG else "SHORT"
+
+    depth = max((len(e.targets) for e in entries), default=0)
+    rows = [("", [header(e) for e in entries])]
+    rows.append(("Where", [e.label for e in entries]))
+    if any(e.zone for e in entries):
+        rows.append(("Zone", [
+            f"{e.zone[0]:.{d}f}–{e.zone[1]:.{d}f}" if e.zone else "—"
+            for e in entries
+        ]))
+    rows.append(("Entry", [f"{e.entry:.{d}f}" for e in entries]))
+    rows.append(("SL", [f"{e.stop_loss:.{d}f}" for e in entries]))
+    rows.append(("Risk", [format_distance(e.risk, instrument) for e in entries]))
+    for i in range(depth):
+        rows.append((f"TP{i + 1}", [
+            f"{e.targets[i].price:.{d}f}  1:{e.targets[i].rr:.1f}"
+            if i < len(e.targets) else "—"
+            for e in entries
+        ]))
+    if depth == 0:
+        rows.append(("TP", ["no unswept liquidity ahead" for _ in entries]))
+    widths = [
+        max(len(row[1][col]) for row in rows) for col in range(len(entries))
+    ]
+    out = ["<pre>"]
+    for label, cells in rows:
+        padded = "   ".join(
+            f"{escape_html(cell):<{widths[i]}}" for i, cell in enumerate(cells)
+        )
+        out.append(f"{escape_html(label):<6} {padded}".rstrip())
+    out.append("</pre>")
+    return out
+
+
+def format_setup_analysis(
+    pair: str,
+    result: AnalysisResult,
+    analysis,
+    instrument: Instrument,
+    as_of: Optional[str] = None,
+) -> str:
+    """What the pair buttons under the 08:05/14:05 summary answer with (D25,
+    owner decision 2026-09-05): the pending (limit) entries — MAIN and DEEP,
+    each with entry / SL / TP1-3 / RR — computed on a fresh fetch, plus the
+    live checklist state and, once a setup has formed, the market reference
+    the 🚨 alert quoted.
+    """
+    d = instrument.price_decimals
+    name = escape_html(pair)
+    head = f"🔬 <b>Setup analysis — {name}</b>"
+    if analysis.direction is not None:
+        head += f" · {'LONG' if analysis.direction == Direction.LONG else 'SHORT'}"
+    if result.h1_trend is not None:
+        head += (
+            f" · H4 {escape_html(result.h4_trend.value)}"
+            f" · H1 {escape_html(result.h1_trend.value)}"
+        )
+    lines = [head]
+    if result.price:
+        suffix = f" · M5 close {escape_html(as_of)} Prague" if as_of else ""
+        lines.append(f"💵 {result.price:.{d}f}{suffix}")
+    if result.market_range is not None:
+        box = result.market_range
+        lines.append(f"📦 Range box {box.bottom:.{d}f}–{box.top:.{d}f}")
+    market = analysis.market
+    if market is not None:
+        lines.append(
+            f"🚨 <b>Setup formed</b> — market entry {market.entry:.{d}f} · "
+            f"SL {market.stop_loss:.{d}f} · risk "
+            f"{escape_html(format_distance(market.risk, instrument))}"
+        )
+        lines.append(_targets_line(market.targets, d))
+    elif result.reasons:
+        icon = "👀" if result.verdict == Verdict.WATCH else "⛔"
+        prefix = "" if result.session_name else "(off session) "
+        lines.append(f"{icon} {prefix}{escape_html(result.reasons[0])}")
+    lines.append("")
+    if analysis.entries:
+        lines.append("<b>Pending (limit) entries</b>")
+        lines.extend(_analysis_columns(analysis, instrument))
+        if analysis.range_mode:
+            lines.append(
+                "🎯 one target each — the opposite boundary, full size (D14)"
+            )
+        lines.append(
+            "⚠️ A pending order lives only within its session (Rule 10); once "
+            "the setup forms, the 🚨 alert re-anchors the SL to the swept "
+            "extreme (Rule 6)."
+        )
+    else:
+        lines.append(
+            "→ No pending entry to place: "
+            + escape_html(analysis.note or "nothing to wait at")
+        )
+    return "\n".join(lines)
+
+
 def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> str:
     """The announcement: four actionable lines, then the ladders.
 
@@ -343,10 +565,17 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         # Phase 2 sniper redesign (owner decision 2026-08-12): the loud
         # ⭐-tier header — room + sweep + premium/discount + staleness all
         # cleared (app/services/smc/sniper.py). Detector mode: every
-        # completed setup is still announced (smc_watcher._send_alert routes
-        # everything else through the quiet one-liner instead), this line
-        # only labels the higher-confidence ones.
+        # completed setup is still announced, this line only labels the
+        # higher-confidence ones.
         lines.append("⭐ <b>SNIPER</b>")
+    elif setup.tier_missed:
+        # D25 (owner decision 2026-09-05): both tiers get this full card, so
+        # the "what the star wanted" line the quiet one-liner used to carry
+        # moves here — the most common blocker (pd) has its number on the PD
+        # line just above.
+        lines.append(
+            "🔹 Missed for ⭐: " + escape_html(", ".join(setup.tier_missed))
+        )
     if in_plan is True:
         lines.append("   from this morning's plan")
     elif in_plan is False:
@@ -467,14 +696,16 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
             f"{label:<19}    {setup.take_profit:.{d}f}"
             f"   ← full size, 1:{setup.rr:.1f}"
         )
-    # Phase 2 hybrid exit (Task 2, engine.py): TP1 closes half the position
-    # at tp1_r*risk, the runner rides to runner_r*risk. Computed for every
-    # completed TREND setup, star or not — only the ⭐ header above is tier-
-    # gated, these levels are not. A range setup carries neither (D14).
-    if setup.tp1 is not None and setup.runner_tp is not None:
-        lines.append(
-            f"🔫 TP1 (half): {setup.tp1:.{d}f} · runner: {setup.runner_tp:.{d}f}"
-        )
+    # D25 (owner decision 2026-09-05): the notification means "the setup has
+    # formed — enter at market". The market price, the Rule 6 stop and TP1-3
+    # (the three nearest unswept pools off the ladder below, RR from the
+    # market price) are the lines the owner acts on; the structural lines
+    # above say where the setup came from. The Phase 2 hybrid exit (TP1 at
+    # 2R / runner at 3R) is still computed and still drives the journal —
+    # it just no longer prints here; the pending (limit) alternatives live
+    # behind the Setup-analysis button instead.
+    lines.append("")
+    lines.extend(_market_entry_lines(result, instrument, is_range))
 
     lines.append("")
     lines.extend(_ladder_lines(setup, instrument))
@@ -793,7 +1024,7 @@ def format_plan_summary(slot_hhmm, plans, updated_hhmm=None) -> str:
     """
     title = (
         f"📋 <b>Pre-Market Plan {escape_html(slot_hhmm)}</b> "
-        "— press a pair for details"
+        "— press a pair for a setup analysis (pending entries)"
     )
     if updated_hhmm:
         title += f" · upd {escape_html(updated_hhmm)}"
@@ -820,7 +1051,9 @@ def format_plan_summary(slot_hhmm, plans, updated_hhmm=None) -> str:
 
 
 def plan_summary_keyboard(pairs) -> dict:
-    """aplan_* buttons under the summary: two pairs per row, then All."""
+    """aplan_* buttons under the summary: two pairs per row, then All. Since
+    D25 (2026-09-05) a press answers with the Setup analysis (pending
+    entries on a fresh fetch), not the stored plan text."""
     rows, row = [], []
     for key in pairs:
         row.append({"text": key, "callback_data": f"aplan_{key}"})

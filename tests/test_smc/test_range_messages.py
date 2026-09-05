@@ -252,7 +252,9 @@ class TestTrendMessagesAreByteIdentical:
         "🧱 M5 order block       3105.00 – 3118.00   ← deeper entry (3118.00)",
         "🛑 Swept liquidity      3052.00   ← stop behind the wick "
         "(3050.00 with buffer)",
-        "🔫 TP1 (half): 3275.00 · runner: 3350.00",
+        "",
+        "📈 Enter at market      3200.00   ← SL 3050.00 · risk $150.00",
+        "🎯 TP1 3303.00 (1:0.7) · TP2 3398.00 (1:1.3)",
         "",
         "🎯 Unswept liquidity ahead      RR from FVG / from OB",
         "<pre>",
