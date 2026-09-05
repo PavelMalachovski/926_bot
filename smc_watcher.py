@@ -41,7 +41,6 @@ from app.services.smc import pd as pd_module
 from app.services.smc.notifier import (
     TelegramNotifier,
     escape_html,
-    format_approach_alert,
     format_no_setup,
     format_plan,
     format_plan_summary,
@@ -54,7 +53,7 @@ from app.services.smc.notifier import (
     took_skipped_keyboard,
     zone_alert_keyboard,
 )
-from app.services.smc.pending import approach_read, build_pending
+from app.services.smc.pending import build_pending
 from app.services.smc.planbook import (
     PlanBook, PlanEntry, describe_plan_changes, plan_fingerprint,
     plan_snapshot,
@@ -690,12 +689,14 @@ class Watcher:
                             f"⚠️ {key}: setup found but the alert failed to send"
                         )
                 if not candidates:
-                    # D25 (owner decision 2026-09-05): ONE get-ready message —
-                    # "price is almost there" — replaces the plan-zone alert
-                    # and the PD radar. Both legacy paths stay behind their
-                    # (now default-off) flags for a deploy-free rollback.
-                    alerted = await self._maybe_approach_alert(key, result)
-                    if not alerted and settings.smc.zone_ping:
+                    # D25 (owner decision 2026-09-05): NO get-ready messages.
+                    # The only setup message is the 🚨 alert above; the
+                    # pending entries live behind the 08:05/14:05 buttons.
+                    # The legacy plan-zone alert and PD radar stay behind
+                    # their (now default-off) flags for a deploy-free
+                    # rollback.
+                    alerted = False
+                    if settings.smc.zone_ping:
                         alerted = await self._maybe_plan_zone_alert(key, result)
                     if not alerted and settings.smc.pd_alert:
                         await self._maybe_pd_alert(key, result)
@@ -1047,14 +1048,17 @@ class Watcher:
 
     async def on_setup_analysis(self, key: str) -> None:
         """aplan_* button (the pair buttons under the 08:05/14:05 summary):
-        the Setup analysis — pending (limit) entries, MAIN and DEEP, each
-        with entry / SL / TP1-3 / RR — on a FRESH fetch (owner decision D25,
-        2026-09-05; this replaced serving the stored plan text). The plan
-        H1 chart still rides along: it draws the very zones the table
-        prices.
+        the Strategy audit — pending (limit) entries, MAIN and DEEP, each
+        with entry / SL / TP1-3 / RR — for one pair or ALL (owner decision
+        D25, 2026-09-05; this replaced serving the stored plan text).
 
-        Shares `_get_cycle_lock()` with run_cycle/on_plan (see run_cycle's
-        docstring).
+        The audit is computed on schedule, not on press: the 08:05/14:05
+        snapshot builds it fresh, and every cycle refreshes it from the
+        candles the engine already fetched (`_recompute_plan`), so a press
+        costs zero API calls and answers instantly with the latest picture
+        (`as_of` says how fresh). Only an empty book — a restart before any
+        cycle — fetches. Shares `_get_cycle_lock()` with run_cycle/on_plan
+        (see run_cycle's docstring).
         """
         async with self._get_cycle_lock():
             keys = list(self.state.pairs) if key == "ALL" else [key]
@@ -1063,29 +1067,24 @@ class Watcher:
                     await self._send_setup_analysis(k)
 
     async def _send_setup_analysis(self, key: str) -> None:
-        """Fetch, run the pure checklist on what came back, price the
-        pending rungs, send the analysis (+ the plan chart)."""
+        """Deliver the stored audit (+ the plan H1 chart, which draws the
+        very zones the table prices); build one fresh only when none is
+        stored."""
         from app.services.smc.chart import render_plan_chart
 
-        entry = await self._fetch_pair_plan(key, force_fresh=True)
+        entry = self.planbook.get(key)
         if entry is None:
-            return
-        instrument = get_instrument(key)
-        now = datetime.now(tz=timezone.utc)
-        result = self._evaluate_data(instrument, entry.data, now)
-        try:
-            analysis = build_pending(
-                result, instrument,
-                entry.data["h4"], entry.data["h1"], entry.data["m5"],
-            )
-        except Exception as e:
-            # pricing the rungs must never cost the owner the answer to a
-            # button press: fall back to the plan text he used to get
-            logger.warning("Pending analysis failed", pair=key, error=str(e), exc_info=True)
+            entry = await self._fetch_pair_plan(key, force_fresh=True)
+            if entry is None:
+                return
+        if entry.result is None or entry.audit is None:
+            # the audit could not be computed for this entry — the plan text
+            # is the honest fallback, never a half-built table
             await self._deliver_plan(key, entry)
             return
+        instrument = get_instrument(key)
         text = format_setup_analysis(
-            key, result, analysis, instrument, as_of=entry.as_of
+            key, entry.result, entry.audit, instrument, as_of=entry.as_of
         )
         if entry.plan.market_closed:
             text += "\n😴 Market closed — computed on the last closed candles."
@@ -1098,6 +1097,20 @@ class Watcher:
                 await self.notifier.send_photo(png)
         except Exception as e:
             logger.warning("Plan chart failed", pair=key, error=str(e))
+
+    def _audit(
+        self, key: str, data: dict, result: AnalysisResult
+    ) -> Optional[object]:
+        """Price the pending entries for a plan entry (D25). Best-effort: an
+        audit that cannot be computed is None, and the button falls back to
+        the plan text rather than the whole planbook update failing."""
+        try:
+            return build_pending(
+                result, get_instrument(key), data["h4"], data["h1"], data["m5"],
+            )
+        except Exception as e:
+            logger.warning("Audit failed", pair=key, error=str(e), exc_info=True)
+            return None
 
     async def _fetch_pair_plan(
         self, key: str, force_fresh: bool = True
@@ -1136,7 +1149,13 @@ class Watcher:
             min_rr=settings.smc.min_rr, profile=profile, market_closed=stale,
         )
         as_of = to_prague(data["m5"][-1].timestamp).strftime("%H:%M")
-        entry = PlanEntry(plan=plan, data=data, as_of=as_of)
+        # D25: the audit rides with the plan — the pure checklist on the same
+        # candles, then the pending entries priced off it.
+        result = self._evaluate_data(instrument, data, now)
+        entry = PlanEntry(
+            plan=plan, data=data, as_of=as_of,
+            result=result, audit=self._audit(key, data, result),
+        )
         self.planbook.update(key, entry)
         return entry
 
@@ -1261,14 +1280,16 @@ class Watcher:
             min_rr=settings.smc.min_rr, profile=profile,
         )
         as_of = to_prague(result.m5_candles[-1].timestamp).strftime("%H:%M")
+        data = {
+            "h4": result.h4_candles,
+            "h1": result.h1_candles,
+            "m5": result.m5_candles,
+        }
+        # D25: refresh the audit from this cycle's own engine result — free
+        # by API quota, and it is what the aplan_* button delivers.
         self.planbook.update(key, PlanEntry(
-            plan=plan,
-            data={
-                "h4": result.h4_candles,
-                "h1": result.h1_candles,
-                "m5": result.m5_candles,
-            },
-            as_of=as_of,
+            plan=plan, data=data, as_of=as_of,
+            result=result, audit=self._audit(key, data, result),
         ))
 
     async def _maybe_edit_plan_summary(self) -> None:
@@ -1323,9 +1344,8 @@ class Watcher:
             self.state.save()
             # The edit above is silent by design (it must not re-notify on
             # every recompute). The 🔁 correction message (owner request
-            # 2026-08-31) is off by default since D25 (2026-09-05) — the
-            # approach alert is the one get-ready message now — but stays
-            # one flag away.
+            # 2026-08-31) is off by default since D25 (2026-09-05, minimal
+            # messages) but stays one flag away.
             if settings.smc.plan_change_alert:
                 await self._notify_plan_changes(
                     stored, current, stored_snaps, snapshots
@@ -1499,83 +1519,11 @@ class Watcher:
         reason = res.reasons[0] if res.reasons else "no direction"
         return f"{icon} {prefix}{escape_html(reason)}"
 
-    async def _maybe_approach_alert(
-        self, key: str, result: Optional[AnalysisResult]
-    ) -> bool:
-        """The get-ready message (owner decision D25, 2026-09-05): price is
-        almost at — or already inside — the zone Rule 2 is waiting at, with
-        the projected limit bracket (entry / SL / TP1-3). The 🚨 alert that
-        follows is the "enter at market" moment.
-
-        One message per zone per Prague DAY (`state.approach_pinged`,
-        matched by overlap like every zone dedup here), and never more of
-        them per pair per day than the setup cap allows — the owner asked
-        for two to four messages per pair per day, not a stream. Belongs to
-        the session (Rule 0.1), stands down under the 🔕 mute, the taken
-        cooldown, and once a setup has formed (the 🚨 alert carries its own
-        levels). Returns whether a message went out, so the legacy get-ready
-        paths — if anyone re-enables them — stay quiet this cycle.
-        """
-        if not settings.smc.approach_alert or result is None:
-            return False
-        if not result.session_name or not result.h4_candles or not result.h1_candles:
-            return False
-        block = session_block(result.checked_at)
-        if block is None:
-            return False
-        if self.state.zone_muted_until(key, result.checked_at):
-            return False
-        if result.verdict in APPROVED:
-            return False
-        if self._cooldown_left(key):
-            return False
-        instrument = get_instrument(key)
-        try:
-            approach = approach_read(
-                result, instrument, result.h4_candles, result.h1_candles,
-                factor=settings.smc.approach_zone_factor,
-            )
-        except Exception as e:  # a get-ready read must never break the cycle
-            logger.warning("Approach read failed", pair=key, error=str(e), exc_info=True)
-            return False
-        if approach is None:
-            return False
-        if self.state.approach_already_pinged(
-            key, approach.zone_bottom, approach.zone_top,
-            approach.direction.value, result.checked_at,
-        ):
-            return False
-        cap = settings.smc.max_setups_per_day
-        if cap and self.state.daily_count("approach", key, result.checked_at) >= cap:
-            logger.info("Approach alert past the daily cap", pair=key)
-            return False
-        deadline = block_mute_deadline(block)
-        reply_markup = (
-            zone_alert_keyboard(key, prague_hhmm(deadline), block)
-            if deadline is not None else None
-        )
-        sent = await self.notifier.send(
-            format_approach_alert(key, approach, instrument),
-            reply_markup=reply_markup,
-        )
-        if sent:
-            # mark AFTER the send: a failed delivery must retry next cycle
-            self.state.remember_approach_ping(
-                key, approach.zone_bottom, approach.zone_top,
-                approach.direction.value, result.checked_at,
-            )
-            self.state.bump_daily("approach", key, result.checked_at)
-            logger.info(
-                "Approach alert sent", pair=key,
-                distance=round(approach.distance, 6), inside=approach.inside,
-            )
-        return bool(sent)
-
     async def _maybe_plan_zone_alert(
         self, key: str, result: Optional[AnalysisResult]
     ) -> bool:
-        """LEGACY (pre-D25, off by default since 2026-09-05 — the approach
-        alert replaced it). Price entered a zone the CURRENT plan names: one alert per zone
+        """LEGACY (pre-D25, off by default since 2026-09-05 — no get-ready
+        messages). Price entered a zone the CURRENT plan names: one alert per zone
         per session block (owner decision 2026-08-16, spec §1.3), carrying
         the plan's projected bracket.
 
@@ -1692,8 +1640,8 @@ class Watcher:
     async def _maybe_pd_alert(
         self, key: str, result: Optional[AnalysisResult]
     ) -> None:
-        """LEGACY (pre-D25, off by default since 2026-09-05 — the approach
-        alert replaced it; /pd still answers on demand). PD radar: price
+        """LEGACY (pre-D25, off by default since 2026-09-05 — no get-ready
+        messages; /pd still answers on demand). PD radar: price
         reached the half of its dealing range the bias wants — discount
         under a long bias, premium under a short one.
 

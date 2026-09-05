@@ -95,21 +95,10 @@ class WatcherState:
         self.plan_change_notified: Dict[str, str] = (
             db.kv_get("plan_change_notified") or {}
         )
-        # pair -> [[bottom, top, direction, prague_date], ...]: every zone
-        # the approach alert (D25, owner decision 2026-09-05) already
-        # announced TODAY. One get-ready message per zone per day, matched
-        # by overlap exactly like `zone_pinged`; entries from other days are
-        # pruned on the next write and ignored on every read.
-        raw_approach = db.kv_get("approach_pinged") or {}
-        self.approach_pinged: Dict[str, List[list]] = {
-            k: [e for e in v if isinstance(e, list) and len(e) == 4]
-            for k, v in raw_approach.items()
-            if isinstance(v, list) and all(isinstance(e, list) for e in v)
-        }
         # kind -> pair -> [prague_date, count]: how many messages of `kind`
-        # ("setup", "approach") actually reached Telegram today (D25: one,
-        # at most two trades per pair per day). Reset implicitly by the
-        # date stamp — a new day reads as zero. Malformed rows are dropped.
+        # ("setup") actually reached Telegram today (D25: one, at most two
+        # trades per pair per day). Reset implicitly by the date stamp — a
+        # new day reads as zero. Malformed rows are dropped.
         raw_counts = db.kv_get("daily_counts") or {}
         self.daily_counts: Dict[str, Dict[str, list]] = {
             kind: {
@@ -154,7 +143,6 @@ class WatcherState:
         self.db.kv_set("pair_cooldown", self.pair_cooldown)
         self.db.kv_set("zone_pinged", self.zone_pinged)
         self.db.kv_set("pd_pinged", self.pd_pinged)
-        self.db.kv_set("approach_pinged", self.approach_pinged)
         self.db.kv_set("daily_counts", self.daily_counts)
         self.db.kv_set("zone_muted", self.zone_muted)
         self.db.kv_set("plan_change_notified", self.plan_change_notified)
@@ -283,38 +271,6 @@ class WatcherState:
         kept = [e for e in self.pd_pinged.get(key, []) if e[1] == block_id]
         kept.append([side, block_id])
         self.pd_pinged[key] = kept
-        self.save()
-
-    # ------------------------------------------------- approach alert dedup
-
-    def approach_already_pinged(
-        self, key: str, bottom: float, top: float, direction: str,
-        now: Optional[datetime] = None,
-    ) -> bool:
-        """Whether an overlapping zone in the same direction already got its
-        get-ready message TODAY (D25). Overlap, not equality — the same
-        reasoning as `zone_already_pinged`: a zone that drifted by a tick
-        between recomputes is the same trading idea."""
-        day = self._prague_day(now)
-        low, high = min(bottom, top), max(bottom, top)
-        for e_bottom, e_top, e_dir, e_day in self.approach_pinged.get(key.upper(), []):
-            if e_day != day or e_dir != direction:
-                continue
-            e_low, e_high = min(e_bottom, e_top), max(e_bottom, e_top)
-            if e_low <= high and low <= e_high:
-                return True
-        return False
-
-    def remember_approach_ping(
-        self, key: str, bottom: float, top: float, direction: str,
-        now: Optional[datetime] = None,
-    ) -> None:
-        """Record a sent approach alert, dropping records of earlier days."""
-        key = key.upper()
-        day = self._prague_day(now)
-        kept = [e for e in self.approach_pinged.get(key, []) if e[3] == day]
-        kept.append([min(bottom, top), max(bottom, top), direction, day])
-        self.approach_pinged[key] = kept
         self.save()
 
     # ------------------------------------------------------------ daily caps

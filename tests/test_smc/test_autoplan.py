@@ -46,16 +46,15 @@ class TestAutoPlanSettings:
     def test_defaults(self, monkeypatch):
         for var in (
             "SMC_AUTO_PLAN", "SMC_AUTO_PLAN_TIMES", "SMC_ZONE_PING",
-            "SMC_APPROACH_ALERT", "SMC_PD_ALERT", "SMC_PLAN_CHANGE_ALERT",
+            "SMC_PD_ALERT", "SMC_PLAN_CHANGE_ALERT",
         ):
             monkeypatch.delenv(var, raising=False)
         s = SMCSettings()
         assert s.auto_plan is True
         assert s.auto_plan_times == "08:05,14:05"
-        # D25 (owner decision 2026-09-05): the approach alert is the one
-        # get-ready message; the plan-zone alert, the PD radar and the 🔁
-        # plan-updated message are legacy, off unless re-enabled.
-        assert s.approach_alert is True
+        # D25 (owner decision 2026-09-05): no get-ready messages at all —
+        # the plan-zone alert, the PD radar and the 🔁 plan-updated message
+        # are legacy, off unless re-enabled.
         assert s.zone_ping is False
         assert s.pd_alert is False
         assert s.plan_change_alert is False
@@ -641,12 +640,13 @@ def _live_entry(pair="ETHUSD", price=3160.0):
     return PlanEntry(plan=_pair_plan(pair, [_scenario()]), data=data, as_of="07:54")
 
 
-class TestSetupAnalysisButton:
-    """D25 (owner decision 2026-09-05): the aplan_* buttons answer with the
-    Setup analysis — pending (limit) entries on a FRESH fetch — instead of
-    the stored plan text."""
+class TestStrategyAuditButton:
+    """D25 (owner decision 2026-09-05): the audit is COMPUTED on schedule —
+    with the 08:05/14:05 snapshot and on every cycle's recompute — and the
+    aplan_* buttons only DELIVER it, so a press costs zero API calls. Only an
+    empty book (a restart before any cycle) fetches."""
 
-    def _watcher(self, monkeypatch, entry=None):
+    def _watcher(self, monkeypatch, fresh_entry=None):
         import app.services.smc.chart as chart_mod
 
         monkeypatch.setattr(chart_mod, "render_plan_chart", lambda *a, **k: None)
@@ -655,28 +655,70 @@ class TestSetupAnalysisButton:
 
         async def fake_fetch(key, force_fresh=True):
             w.fetches.append((key, force_fresh))
-            return entry
+            return fresh_entry
 
         w._fetch_pair_plan = fake_fetch
         return w
 
-    def test_press_fetches_fresh_and_answers_with_pending_entries(self, monkeypatch):
-        w = self._watcher(monkeypatch, _live_entry())
+    @staticmethod
+    def _engine_result(price=3160.0):
+        """What `_recompute_plan` really receives: the engine's own evaluated
+        result (Rule 1/2 done, `h1_zone` set), not a bare WATCH shell."""
+        from app.services.smc.engine import TripleSyncEngine
+
+        r = _result_with_candles(price=price)
+        r.price = price
+        return TripleSyncEngine(max_entry_gap_r=99.0).evaluate(
+            h4=r.h4_candles, h1=r.h1_candles, m5=r.m5_candles, result=r
+        )
+
+    def test_recompute_stores_the_audit_with_the_plan(self):
+        w = _stub_watcher()
+        w._recompute_plan("ETHUSD", self._engine_result())
+        entry = w.planbook.get("ETHUSD")
+        assert entry.result is not None and entry.audit is not None
+        assert entry.audit.main is not None
+        assert entry.audit.main.entry == 3138.0  # the H1 demand zone edge
+
+    def test_press_delivers_the_stored_audit_without_fetching(self, monkeypatch):
+        w = self._watcher(monkeypatch)
+        w._recompute_plan("ETHUSD", self._engine_result())
         asyncio.run(w.on_setup_analysis("ETHUSD"))
-        assert w.fetches == [("ETHUSD", True)]  # fresh, never the book
+        assert w.fetches == []  # zero API calls
         text = w.notifier.sent[0][0]
-        assert "Setup analysis — ETHUSD" in text
+        assert "Strategy audit — ETHUSD" in text
         assert "Pending (limit) entries" in text
-        assert "MAIN" in text and "3138.00" in text  # the H1 demand zone edge
+        assert "MAIN" in text and "3138.00" in text
         assert "<pre>" in text and "</pre>" in text
 
-    def test_second_press_fetches_again(self, monkeypatch):
-        w = self._watcher(monkeypatch, _live_entry())
-        asyncio.run(w.on_setup_analysis("ETHUSD"))
-        asyncio.run(w.on_setup_analysis("ETHUSD"))
-        assert len(w.fetches) == 2 and len(w.notifier.sent) == 2
+    def test_empty_book_fetches_once(self, monkeypatch):
+        entry = _live_entry()
+        entry.result = self._engine_result()
+        from app.services.smc.pending import build_pending
+        from app.services.smc.instruments import get_instrument
 
-    def test_failed_fetch_sends_nothing(self, monkeypatch):
+        entry.audit = build_pending(
+            entry.result, get_instrument("ETHUSD"),
+            entry.data["h4"], entry.data["h1"], entry.data["m5"],
+        )
+        w = self._watcher(monkeypatch, entry)
+        asyncio.run(w.on_setup_analysis("ETHUSD"))
+        assert w.fetches == [("ETHUSD", True)]
+        assert "Strategy audit — ETHUSD" in w.notifier.sent[0][0]
+
+    def test_entry_without_an_audit_falls_back_to_the_plan_text(self, monkeypatch):
+        w = self._watcher(monkeypatch)
+        w.planbook.update("ETHUSD", _fetched_entry("ETHUSD"))  # no audit
+        delivered = []
+
+        async def fake_deliver(key, entry):
+            delivered.append(key)
+
+        w._deliver_plan = fake_deliver
+        asyncio.run(w.on_setup_analysis("ETHUSD"))
+        assert delivered == ["ETHUSD"] and w.notifier.sent == []
+
+    def test_failed_fetch_on_an_empty_book_sends_nothing(self, monkeypatch):
         w = self._watcher(monkeypatch, None)
         asyncio.run(w.on_setup_analysis("ETHUSD"))
         assert w.notifier.sent == []

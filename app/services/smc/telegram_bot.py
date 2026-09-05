@@ -42,7 +42,7 @@ HELP_TEXT = (
     "/check — run the strategy check right now\n"
     "/plan — pre-market plan for a pair (any time)\n"
     "Auto-plan: silent 08:05/14:05 summaries — press a pair button "
-    "for a setup analysis: pending (limit) entries, main and deep, "
+    "for its strategy audit: pending (limit) entries, main and deep, "
     "with entry / SL / TP1-3\n"
     "/stats — signal journal: setups, TP/SL, winrate\n"
     "/journal — trade journal: send an MT4 history screenshot to log trades\n"
@@ -520,11 +520,11 @@ class TelegramCommandBot:
             return
         if data.startswith("aplan_") and self.on_setup_analysis:
             # D25 (owner decision 2026-09-05): the pair buttons under the
-            # 08:05/14:05 summary answer with the Setup analysis — pending
-            # (limit) entries on a fresh fetch — not the stored plan text.
+            # 08:05/14:05 summary answer with the Strategy audit — pending
+            # (limit) entries, computed on schedule — not the plan text.
             key = data[len("aplan_"):]
             answer["text"] = (
-                "Analysing all pairs…" if key == "ALL" else f"Analysing {key}…"
+                "Sending all audits…" if key == "ALL" else f"Sending {key} audit…"
             )
             await self._api("answerCallbackQuery", **answer)
             # Fire-and-forget: keeps getUpdates free while the fetch runs

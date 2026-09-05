@@ -1,14 +1,15 @@
-"""Pending (limit) entries and the approach read — owner decision D25
-(2026-09-05): the bot works in two modes.
+"""Pending (limit) entries — owner decision D25 (2026-09-05, tightened
+the same day): the bot works in two modes and sends as little as possible.
 
 * **By notification** — the 🚨 alert says a setup has fully formed and the
   owner enters AT MARKET: the message carries the market price, the Rule 6
   stop and TP1/TP2/TP3 (the three nearest unswept pools, `take_profits`).
-  Before that, one get-ready message per zone per day says price is
-  *almost there* (`approach_read`) with the projected limit bracket.
+  Nothing is sent before that moment.
 * **By button** — the pair buttons under the 08:05/14:05 summary answer
-  with a *Setup analysis*: two pending entries, MAIN and DEEP, each with its
-  own entry, stop, TP1-3 and RR (`build_pending`), computed on a fresh fetch.
+  with the *Strategy audit*: two pending entries, MAIN and DEEP, each with
+  its own entry, stop, TP1-3 and RR (`build_pending`). The audit is
+  computed fresh at 08:05/14:05 and refreshed every cycle from candles the
+  engine already fetched; the button only delivers it.
 
 Everything here is pure geometry over an `AnalysisResult` the engine already
 produced plus the candles it was produced from: no network, no DB, no
@@ -89,23 +90,6 @@ class PendingAnalysis:
     @property
     def deep(self) -> Optional[PendingEntry]:
         return next((e for e in self.entries if e.role == ROLE_DEEP), None)
-
-
-@dataclass
-class Approach:
-    """Price is almost at the zone Rule 2 is waiting at (the get-ready
-    moment, D25). `distance` is measured from the near edge and is 0.0
-    while price is inside the band."""
-
-    direction: Direction
-    zone_bottom: float
-    zone_top: float
-    kind: str
-    distance: float
-    height: float
-    inside: bool
-    bracket: PendingEntry  # the projected limit order at the zone
-    range_box: Optional[Range] = None
 
 
 # ----------------------------------------------------------------- helpers
@@ -417,81 +401,4 @@ def build_pending(
     return PendingAnalysis(
         direction=None,
         note=result.reasons[0] if result.reasons else "no direction",
-    )
-
-
-# ------------------------------------------------------------ approach_read
-
-
-def approach_read(
-    result: AnalysisResult,
-    instrument: Instrument,
-    h4: Sequence[Candle],
-    h1: Sequence[Candle],
-    factor: float = 1.0,
-) -> Optional[Approach]:
-    """Is price almost at the zone the checklist is waiting at?
-
-    Reads the engine's own Rule 2 zone (`result.h1_zone`) — the plan's
-    scenario zone is the same object by construction — or, mid-range, the
-    nearer boundary. "Almost" is a distance from the near edge of at most
-    `factor` zone-heights, floored at two min-FVG units so a thin band (a
-    range boundary is one tolerance thick) still gives a heads-up before
-    the touch. Inside the band counts as distance zero: the message must
-    fire when price arrives even if it skipped the approach.
-
-    None when nothing is being waited at (no zone, no box), when the
-    verdict is not a WATCH (a completed setup has its own 🚨 message, a
-    SKIP has nothing to get ready for), or when price sits BEYOND the zone
-    — below a demand zone, above a supply one — which is not an approach
-    but a zone price has left behind.
-    """
-    if result.verdict != Verdict.WATCH or not result.price:
-        return None
-    price = result.price
-    buffer = instrument.sl_buffer
-    box = result.market_range
-    zone = result.h1_zone
-    if zone is None:
-        if box is None:
-            return None
-        # mid-range: the boundary price is closer to
-        direction = (
-            Direction.SHORT if box.top - price <= price - box.bottom
-            else Direction.LONG
-        )
-        zone = boundary_zone(box, direction, instrument.min_fvg)
-    direction = Direction.LONG if zone.is_demand else Direction.SHORT
-    height = zone.top - zone.bottom
-    if _is_long(direction):
-        if price < zone.bottom:
-            return None
-        distance = max(0.0, price - zone.top)
-    else:
-        if price > zone.top:
-            return None
-        distance = max(0.0, zone.bottom - price)
-    threshold = factor * max(height, 2 * instrument.min_fvg)
-    if distance > threshold:
-        return None
-    if zone.kind == "RANGE" and box is not None:
-        entry, stop = _boundary_bracket(box, direction, buffer)
-        targets = _range_targets(box, direction, entry, stop, buffer)
-    else:
-        entry, stop = _zone_bracket(zone, direction, buffer)
-        targets = take_profits(
-            _levels(instrument, h4, h1), direction, entry, stop, buffer,
-        )
-    if not _well_formed(direction, entry, stop):
-        return None
-    bracket = PendingEntry(
-        role=ROLE_MAIN, label=_zone_name(zone), direction=direction,
-        entry=entry, stop_loss=stop, targets=targets,
-        zone=(zone.bottom, zone.top), kind=zone.kind,
-    )
-    return Approach(
-        direction=direction, zone_bottom=zone.bottom, zone_top=zone.top,
-        kind=zone.kind, distance=distance, height=height,
-        inside=distance == 0.0 and zone.bottom <= price <= zone.top,
-        bracket=bracket, range_box=box if zone.kind == "RANGE" else None,
     )

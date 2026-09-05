@@ -7,9 +7,9 @@ leaves the book empty until the next cycle refills it.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from app.services.smc.models import Candle
+from app.services.smc.models import AnalysisResult, Candle
 from app.services.smc.plan import PairPlan, PlanScenario
 
 
@@ -21,6 +21,14 @@ class PlanEntry:
     # button press costs zero API calls
     data: Dict[str, List[Candle]]
     as_of: str  # Prague HH:MM of the last closed M5 candle
+    # D25 (owner decision 2026-09-05): the Strategy audit, computed WITH the
+    # plan — the pure checklist result on the same candles and the pending
+    # (limit) entries priced off it (`pending.build_pending`). The aplan_*
+    # button only delivers it, so a press costs zero API calls; None when
+    # the audit could not be computed (the button then falls back to the
+    # plan text).
+    result: Optional[AnalysisResult] = None
+    audit: Optional[Any] = None  # pending.PendingAnalysis
 
 
 def plan_fingerprint(plan: PairPlan) -> str:

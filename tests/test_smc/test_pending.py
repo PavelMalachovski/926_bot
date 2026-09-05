@@ -1,7 +1,6 @@
-"""Pending (limit) entries and the approach read — owner decision D25
-(2026-09-05). Pure geometry over an engine result: `take_profits` (TP1-3 off
-the liquidity ladder), `build_pending` (MAIN/DEEP rungs for the Setup-analysis
-button) and `approach_read` (the "price is almost there" moment)."""
+"""Pending (limit) entries — owner decision D25 (2026-09-05). Pure geometry
+over an engine result: `take_profits` (TP1-3 off the liquidity ladder) and
+`build_pending` (MAIN/DEEP rungs for the Strategy-audit button)."""
 
 from datetime import datetime, timezone
 
@@ -19,12 +18,7 @@ from app.services.smc.models import (
     Verdict,
     Zone,
 )
-from app.services.smc.pending import (
-    ROLE_BOUNDARY,
-    ROLE_MARKET,
-    approach_read,
-    build_pending,
-)
+from app.services.smc.pending import ROLE_BOUNDARY, ROLE_MARKET, build_pending
 from app.services.smc.range import Range
 from tests.test_smc.helpers import (
     H1_PULLBACK_CLOSES,
@@ -196,65 +190,11 @@ class TestBuildPendingMidRange:
         assert [tp.price for tp in long_.targets] == [3198.0]
 
 
-# ----------------------------------------------------------- approach_read
-
-
-class TestApproachRead:
-    """Zone 3131-3138 (height 7): 'almost there' is within one zone-height
-    of the near edge, floored at 2 x min FVG ($4)."""
-
-    def _watch(self, price):
-        result, h4, h1, _ = _evaluated(make_candles([price]))
-        return result, h4, h1
-
-    def test_within_one_zone_height_reads_as_an_approach(self):
-        result, h4, h1 = self._watch(3144.0)
-        a = approach_read(result, ETH, h4, h1, factor=1.0)
-        assert a is not None and not a.inside
-        assert a.direction == Direction.LONG and a.kind == "OB"
-        assert a.distance == pytest.approx(3144.0 - 3138.0)
-        assert a.bracket.entry == 3138.0 and a.bracket.stop_loss == 3129.0
-        assert a.bracket.targets
-
-    def test_further_than_the_factor_allows_is_not_an_approach(self):
-        result, h4, h1 = self._watch(3146.0)
-        assert approach_read(result, ETH, h4, h1, factor=1.0) is None
-        result, h4, h1 = self._watch(3144.0)
-        assert approach_read(result, ETH, h4, h1, factor=0.5) is None
-
-    def test_inside_the_zone_counts_as_distance_zero(self):
-        result, h4, h1 = self._watch(3135.0)
-        a = approach_read(result, ETH, h4, h1)
-        assert a is not None and a.inside and a.distance == 0.0
-
-    def test_price_beyond_the_zone_is_not_an_approach(self):
-        result, h4, h1 = self._watch(3144.0)
-        result.price = 3120.0  # below a demand zone: price left it behind
-        assert approach_read(result, ETH, h4, h1) is None
-
-    def test_only_a_watch_qualifies(self):
-        result, h4, h1, _ = _evaluated(m5_long_trigger())
-        assert result.verdict != Verdict.WATCH
-        assert approach_read(result, ETH, h4, h1) is None
-
-    def test_mid_range_reads_the_nearer_boundary(self):
-        r = _fresh(price=3195.0)
-        r.verdict = Verdict.WATCH
-        r.market_range = _box()
-        a = approach_read(r, ETH, _h4(), _h1(), factor=1.0)
-        assert a is not None and a.kind == "RANGE"
-        assert a.direction == Direction.SHORT
-        assert a.bracket.entry == 3200.0 and a.bracket.stop_loss == 3202.0
-        assert [tp.price for tp in a.bracket.targets] == [3102.0]
-        r.price = 3150.0  # dead centre: nowhere near either edge
-        assert approach_read(r, ETH, _h4(), _h1(), factor=1.0) is None
-
-
 # ------------------------------------------------------------- the messages
 
 
 class TestD25Messages:
-    """Both new messages obey the one Telegram rule that once broke delivery
+    """The audit message obeys the one Telegram rule that once broke delivery
     in production: only <b>/<pre> tags, every dynamic value escaped."""
 
     @staticmethod
@@ -273,7 +213,7 @@ class TestD25Messages:
         analysis.entries[0].label = "M5 FVG <edge> & co"  # a hostile label
         text = format_setup_analysis("ETHUSD", result, analysis, ETH, as_of="15:40")
         self._valid_html(text)
-        assert "🔬 <b>Setup analysis — ETHUSD</b> · LONG · H4 up · H1 flat" in text
+        assert "🔬 <b>Strategy audit — ETHUSD</b> · LONG · H4 up · H1 flat" in text
         assert "🚨 <b>Setup formed</b> — market entry" in text
         assert "MAIN" in text and "DEEP" in text
         assert "M5 FVG &lt;edge&gt; &amp; co" in text
@@ -289,13 +229,3 @@ class TestD25Messages:
         text = format_setup_analysis("ETHUSD", r, analysis, ETH)
         self._valid_html(text)
         assert "No pending entry to place" in text and "&lt;or&gt;" in text
-
-    def test_approach_message_is_valid_html(self):
-        from app.services.smc.notifier import format_approach_alert
-
-        result, h4, h1, _ = _evaluated(make_candles([3144.0]))
-        a = approach_read(result, ETH, h4, h1)
-        a.kind = "OB<x>"
-        text = format_approach_alert("ETH<USD", a, ETH)
-        self._valid_html(text)
-        assert "ETH&lt;USD" in text and "OB&lt;x&gt;" in text
