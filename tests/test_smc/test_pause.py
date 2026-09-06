@@ -139,15 +139,15 @@ class TestPauseCommands:
 
 
 class TestNewDefaults:
-    def test_get_ready_defaults(self, monkeypatch):
-        """D25 (2026-09-05): the approach alert is the get-ready message;
-        the plan-zone alert it replaced is legacy and off by default."""
+    def test_get_ready_alerts_are_off_by_default(self, monkeypatch):
+        """D25 (2026-09-05): no get-ready messages — the plan-zone alert and
+        the PD radar are legacy, off unless their flags are raised."""
         monkeypatch.delenv("SMC_ZONE_PING", raising=False)
-        monkeypatch.delenv("SMC_APPROACH_ALERT", raising=False)
+        monkeypatch.delenv("SMC_PD_ALERT", raising=False)
         from app.core.config import SMCSettings
 
         assert SMCSettings().zone_ping is False
-        assert SMCSettings().approach_alert is True
+        assert SMCSettings().pd_alert is False
 
     def test_chart_candles_default_doubled(self):
         from app.services.smc import chart

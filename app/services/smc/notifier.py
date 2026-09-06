@@ -367,49 +367,20 @@ def took_skipped_keyboard(signal_id: str) -> dict:
     }
 
 
-def format_approach_alert(pair: str, approach, instrument: Instrument) -> str:
-    """The get-ready message (D25, owner decision 2026-09-05): price is
-    almost at — or already inside — the zone Rule 2 is waiting at, with the
-    projected limit bracket (entry / SL / TP1-3). One per zone per day; the
-    🚨 alert that follows is the "enter at market" moment.
-
-    Same 🔕 keyboard as the alerts it replaced (the watcher attaches it), and
-    the same escaping rule: every dynamic value goes through escape_html.
-    """
-    d = instrument.price_decimals
-    b = approach.bracket
-    is_long = approach.direction == Direction.LONG
-    side = "LONG" if is_long else "SHORT"
-    order = "Buy" if is_long else "Sell"
-    name = escape_html(pair)
-    if approach.inside:
-        where = "is inside"
-    else:
-        where = (
-            f"is {escape_html(format_distance(approach.distance, instrument))} "
-            "from"
-        )
-    if approach.kind == "RANGE":
-        edge = "LOW" if is_long else "HIGH"
-        head = (
-            f"🔔 <b>{name}</b>: price {where} the range {edge} boundary "
-            f"{b.entry:.{d}f}"
-        )
-    else:
-        kind = "Demand" if is_long else "Supply"
-        head = (
-            f"🔔 <b>{name}</b>: price {where} the H1 {kind} zone "
-            f"({escape_html(approach.kind)}) "
-            f"{approach.zone_bottom:.{d}f}–{approach.zone_top:.{d}f}"
-        )
-    lines = [
-        head,
-        f"📋 {side} plan: {order} Limit {b.entry:.{d}f} | 🛑 SL {b.stop_loss:.{d}f}"
-        f" | risk {escape_html(format_distance(b.risk, instrument))}",
-        _targets_line(b.targets, d),
-        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH — "
-        "the 🚨 alert says when to enter at market.",
-    ]
+def format_ai_read(read) -> str:
+    """The 🧠 block (D26): Claude's stance, confidence and preferred entry
+    on one line, the read itself, then the risks. Appended to the 🚨 card
+    and to the audit; every field is model output and goes through
+    escape_html like any other dynamic string."""
+    head = (
+        f"🧠 <b>AI read</b> ({escape_html(read.model)}"
+        + (f" · {escape_html(read.as_of)} Prague" if read.as_of else "")
+        + f"): {escape_html(read.stance.upper())} · confidence "
+        f"{int(read.confidence)}/5 · prefers {escape_html(read.preferred_entry.upper())}"
+    )
+    lines = [head, escape_html(read.read)]
+    if read.risks:
+        lines.append("⚠️ " + " · ".join(escape_html(r) for r in read.risks))
     return "\n".join(lines)
 
 
@@ -468,16 +439,17 @@ def format_setup_analysis(
     analysis,
     instrument: Instrument,
     as_of: Optional[str] = None,
+    ai_read=None,
 ) -> str:
-    """What the pair buttons under the 08:05/14:05 summary answer with (D25,
-    owner decision 2026-09-05): the pending (limit) entries — MAIN and DEEP,
-    each with entry / SL / TP1-3 / RR — computed on a fresh fetch, plus the
-    live checklist state and, once a setup has formed, the market reference
-    the 🚨 alert quoted.
+    """The Strategy audit the pair buttons under the 08:05/14:05 summary
+    answer with (D25, owner decision 2026-09-05): the checklist state, the
+    pending (limit) entries — MAIN and DEEP, each with entry / SL / TP1-3 /
+    RR — and, once a setup has formed, the market reference the 🚨 alert
+    quoted. Computed on schedule, delivered on demand.
     """
     d = instrument.price_decimals
     name = escape_html(pair)
-    head = f"🔬 <b>Setup analysis — {name}</b>"
+    head = f"🔬 <b>Strategy audit — {name}</b>"
     if analysis.direction is not None:
         head += f" · {'LONG' if analysis.direction == Direction.LONG else 'SHORT'}"
     if result.h1_trend is not None:
@@ -522,6 +494,9 @@ def format_setup_analysis(
             "→ No pending entry to place: "
             + escape_html(analysis.note or "nothing to wait at")
         )
+    if ai_read is not None:
+        lines.append("")
+        lines.append(format_ai_read(ai_read))
     return "\n".join(lines)
 
 
@@ -1024,7 +999,7 @@ def format_plan_summary(slot_hhmm, plans, updated_hhmm=None) -> str:
     """
     title = (
         f"📋 <b>Pre-Market Plan {escape_html(slot_hhmm)}</b> "
-        "— press a pair for a setup analysis (pending entries)"
+        "— press a pair for its strategy audit (pending entries)"
     )
     if updated_hhmm:
         title += f" · upd {escape_html(updated_hhmm)}"
@@ -1052,8 +1027,9 @@ def format_plan_summary(slot_hhmm, plans, updated_hhmm=None) -> str:
 
 def plan_summary_keyboard(pairs) -> dict:
     """aplan_* buttons under the summary: two pairs per row, then All. Since
-    D25 (2026-09-05) a press answers with the Setup analysis (pending
-    entries on a fresh fetch), not the stored plan text."""
+    D25 (2026-09-05) a press answers with the Strategy audit (pending
+    entries, computed at the snapshot and refreshed every cycle), not the
+    stored plan text."""
     rows, row = [], []
     for key in pairs:
         row.append({"text": key, "callback_data": f"aplan_{key}"})
