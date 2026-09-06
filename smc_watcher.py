@@ -1130,46 +1130,41 @@ class Watcher:
         self.state.save()
 
     async def on_plan(self, key: str) -> None:
-        """/plan command: send the Pre-Market Plan for a pair (or ALL).
+        """/plan command (owner decision D27, 2026-09-06): the Strategy audit
+        for a pair (or ALL) on FRESH candles — the pending (limit) entries
+        table, the H1 chart and Claude's read in the same message. The
+        scheduled 08:05/14:05 summaries are gone; this button is the only
+        way the plan reaches Telegram.
 
-        Shares `_get_cycle_lock()` with run_cycle/on_setup_analysis (see
-        run_cycle's docstring) — `/plan ALL` force-fetches every pair fresh
-        through the rate limiter and renders a chart each, so it must not
-        interleave with a cycle writing the same planbook/state.
+        Shares `_get_cycle_lock()` with run_cycle (see run_cycle's
+        docstring) — `/plan ALL` force-fetches every pair fresh through the
+        rate limiter and renders a chart each, so it must not interleave
+        with a cycle writing the same planbook/state.
         """
         async with self._get_cycle_lock():
             keys = list(self.state.pairs) if key == "ALL" else [key]
             for k in keys:
                 if k in INSTRUMENTS:
-                    await self._send_pair_plan(k)
+                    await self._send_setup_analysis(k, fresh=True)
 
     async def on_setup_analysis(self, key: str) -> None:
-        """aplan_* button (the pair buttons under the 08:05/14:05 summary):
-        the Strategy audit — pending (limit) entries, MAIN and DEEP, each
-        with entry / SL / TP1-3 / RR — for one pair or ALL (owner decision
-        D25, 2026-09-05; this replaced serving the stored plan text).
+        """aplan_* button — the pair buttons under a legacy 08:05/14:05
+        summary (SMC_AUTO_PLAN, off since D27). Same answer as /plan: the
+        Strategy audit on fresh candles with Claude's read."""
+        await self.on_plan(key)
 
-        The audit is computed on schedule, not on press: the 08:05/14:05
-        snapshot builds it fresh, and every cycle refreshes it from the
-        candles the engine already fetched (`_recompute_plan`), so a press
-        costs zero API calls and answers instantly with the latest picture
-        (`as_of` says how fresh). Only an empty book — a restart before any
-        cycle — fetches. Shares `_get_cycle_lock()` with run_cycle/on_plan
-        (see run_cycle's docstring).
-        """
-        async with self._get_cycle_lock():
-            keys = list(self.state.pairs) if key == "ALL" else [key]
-            for k in keys:
-                if k in INSTRUMENTS:
-                    await self._send_setup_analysis(k)
+    async def _send_setup_analysis(self, key: str, fresh: bool = True) -> None:
+        """Send the Strategy audit for one pair: the pending (limit) entries
+        table, Claude's read and the plan H1 chart (which draws the very
+        zones the table prices).
 
-    async def _send_setup_analysis(self, key: str) -> None:
-        """Deliver the stored audit (+ the plan H1 chart, which draws the
-        very zones the table prices); build one fresh only when none is
-        stored."""
+        `fresh=True` (D27, every /plan press) fetches candles now and takes
+        a new AI read with them; `fresh=False` serves the book — the
+        per-cycle recompute's audit with whatever read it carries — and
+        fetches only when the book is empty."""
         from app.services.smc.chart import render_plan_chart
 
-        entry = self.planbook.get(key)
+        entry = None if fresh else self.planbook.get(key)
         if entry is None:
             entry = await self._fetch_pair_plan(key, force_fresh=True)
             if entry is None:
@@ -1541,7 +1536,9 @@ class Watcher:
         return best
 
     async def _send_pair_plan(self, key: str) -> None:
-        """Build and send one pair's Pre-Market Plan (text + H1 chart)."""
+        """Build and send one pair's Pre-Market Plan TEXT (+ H1 chart) — the
+        pre-D27 /plan answer, kept as the fallback the audit uses when it
+        cannot be computed (`_send_setup_analysis` -> `_deliver_plan`)."""
         entry = await self._fetch_pair_plan(key, force_fresh=True)
         if entry is None:
             return

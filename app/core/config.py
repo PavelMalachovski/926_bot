@@ -17,27 +17,20 @@ class TelegramSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TELEGRAM_")
 
 
-class OpenAISettings(BaseSettings):
-    """OpenAI configuration (Vision parsing for the trade journal)."""
-
-    api_key: Optional[str] = Field(default=None, description="OpenAI API key")
-    model: str = Field(
-        default="gpt-4o-mini", description="OpenAI model (must support vision)"
-    )
-
-    model_config = SettingsConfigDict(env_prefix="OPENAI_")
-
-
 class AnthropicSettings(BaseSettings):
-    """Claude configuration for the AI read (owner decision D26, 2026-09-06)."""
+    """Claude configuration: the AI read (D26) and the MT4 screenshot
+    parser of the trade journal (D27 moved it here from OpenAI)."""
 
     api_key: Optional[str] = Field(
-        default=None, description="Anthropic API key; unset = AI read off"
+        default=None,
+        description="Anthropic API key; unset = AI read off and screenshot "
+        "parsing unavailable",
     )
     model: str = Field(
         default="claude-sonnet-5",
-        description="Claude model for the AI read (owner choice 2026-09-06: "
-        "Sonnet 5; claude-opus-5 for the strongest read)",
+        description="Claude model for the AI read and the screenshot parser "
+        "(owner choice 2026-09-06: Sonnet 5; claude-opus-5 for the "
+        "strongest read)",
     )
 
     model_config = SettingsConfigDict(env_prefix="ANTHROPIC_")
@@ -182,11 +175,11 @@ class SMCSettings(BaseSettings):
         "is required for the ⭐ tier, but its absence only costs the star",
     )
     auto_plan: bool = Field(
-        default=True,
-        description="Build the Pre-Market Plan for all pairs automatically "
-        "before each session block and send a silent summary with buttons "
-        "(owner decision 2026-08-11); the full plan is sent only on button "
-        "press",
+        default=False,
+        description="Legacy (pre-D27) 08:05/14:05 Pre-Market Plan summaries "
+        "with buttons. Off by default since 2026-09-06 (owner decision D27: "
+        "the plan lives behind /plan only, always fresh and with Claude's "
+        "read); true restores the scheduled summaries",
     )
     auto_plan_times: str = Field(
         default="08:05,14:05",
@@ -257,7 +250,6 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Debug mode")
 
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
-    openai: OpenAISettings = Field(default_factory=OpenAISettings)
     anthropic: AnthropicSettings = Field(default_factory=AnthropicSettings)
     oanda: OandaSettings = Field(default_factory=OandaSettings)
     twelvedata: TwelveDataSettings = Field(default_factory=TwelveDataSettings)

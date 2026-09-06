@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
 
 import pytest
 
@@ -215,37 +215,49 @@ class TestFormatting:
         assert "<BUY>" not in text
 
 
+class _FakeClaude:
+    """Stands in for anthropic.AsyncAnthropic: records the request, returns a
+    text block with the JSON the prompt asks for."""
+
+    def __init__(self, text):
+        self.text = text
+        self.calls = []
+        self.messages = self
+
+    async def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(
+            stop_reason="end_turn",
+            content=[SimpleNamespace(type="text", text=self.text)],
+        )
+
+
 class TestParseScreenshot:
     @pytest.mark.asyncio
-    async def test_parse_uses_vision_response(self, tmp_path, monkeypatch):
-        tj = _journal(tmp_path)
-        monkeypatch.setattr(settings.openai, "api_key", "test-key")
-
-        api_payload = {
-            "choices": [{"message": {"content": json.dumps({"trades": _sample()})}}]
-        }
-        mock_response = MagicMock()
-        mock_response.json.return_value = api_payload
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = False
-
-        with patch(
-            "app.services.smc.trade_journal.httpx.AsyncClient",
-            return_value=mock_client,
-        ):
-            trades = await tj.parse_screenshot(b"fake-image-bytes")
+    async def test_parse_uses_claude_vision(self, tmp_path):
+        """D27: the screenshot goes to Claude as an image block + the
+        extraction prompt; the JSON answer is normalised like before."""
+        client = _FakeClaude(json.dumps({"trades": _sample()}))
+        tj = TradeJournal(Database(str(tmp_path / "j.db")), client=client)
+        trades = await tj.parse_screenshot(b"fake-image-bytes")
 
         assert len(trades) == 2
         assert trades[0]["symbol"] == "USDJPY"
         assert trades[0]["open_price"] == 160.012
+        content = client.calls[0]["messages"][0]["content"]
+        assert content[0]["type"] == "image"
+        assert content[0]["source"]["media_type"] == "image/png"
+        assert "MetaTrader" in content[1]["text"]
+
+    @pytest.mark.asyncio
+    async def test_a_fenced_answer_is_tolerated(self, tmp_path):
+        client = _FakeClaude("```json\n" + json.dumps({"trades": _sample()}) + "\n```")
+        tj = TradeJournal(Database(str(tmp_path / "j.db")), client=client)
+        assert len(await tj.parse_screenshot(b"x")) == 2
 
     @pytest.mark.asyncio
     async def test_parse_without_api_key_raises(self, tmp_path, monkeypatch):
         tj = _journal(tmp_path)
-        monkeypatch.setattr(settings.openai, "api_key", None)
+        monkeypatch.setattr(settings.anthropic, "api_key", None)
         with pytest.raises(RuntimeError):
             await tj.parse_screenshot(b"x")

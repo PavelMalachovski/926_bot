@@ -1,8 +1,9 @@
 """Manual trade journal parsed from MetaTrader screenshots.
 
-The user sends a screenshot of the MT4/MT5 history; it is parsed with OpenAI
-Vision into structured trades, stored in SQLite behind a confirmation step, and
-aggregated into statistics for the /journal command.
+The user sends a screenshot of the MT4/MT5 history; it is parsed with Claude
+(vision, owner decision D27 2026-09-06 — one Anthropic key for everything AI,
+OpenAI retired) into structured trades, stored in SQLite behind a
+confirmation step, and aggregated into statistics for the /journal command.
 """
 
 import base64
@@ -11,7 +12,6 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import httpx
 import structlog
 
 from app.core.config import settings
@@ -19,8 +19,6 @@ from app.services.smc.db import Database
 from app.services.smc.notifier import escape_html
 
 logger = structlog.get_logger(__name__)
-
-_VISION_URL = "https://api.openai.com/v1/chat/completions"
 
 _TRADE_KEYS = (
     "ticket",
@@ -83,59 +81,76 @@ _VISION_PROMPT = (
 class TradeJournal:
     """Parsing, storage and statistics for manually logged MT trades."""
 
-    def __init__(self, db: Database) -> None:
+    def __init__(self, db: Database, client: Any = None) -> None:
         self.db = db
+        self._client = client  # injectable for tests; built lazily otherwise
 
     @property
     def api_key(self) -> Optional[str]:
-        return settings.openai.api_key
+        return settings.anthropic.api_key
 
     @property
     def model(self) -> str:
-        return settings.openai.model or "gpt-4o-mini"
+        return settings.anthropic.model or "claude-sonnet-5"
+
+    def _get_client(self):
+        if self._client is None:
+            import anthropic  # lazy: optional at runtime, absent in tests
+
+            self._client = anthropic.AsyncAnthropic(
+                api_key=self.api_key, timeout=90.0, max_retries=1,
+            )
+        return self._client
+
+    @staticmethod
+    def _strip_fences(text: str) -> str:
+        """The model is told 'strict JSON only', but a ```json fence costs
+        nothing to tolerate."""
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else ""
+            if text.rstrip().endswith("```"):
+                text = text.rstrip()[:-3]
+        return text.strip()
 
     # ------------------------------------------------------------------ #
     # Screenshot parsing                                                 #
     # ------------------------------------------------------------------ #
     async def parse_screenshot(self, image_bytes: bytes) -> List[Dict[str, Any]]:
         """Extract a list of normalized trade dicts from a screenshot."""
-        if not self.api_key:
-            raise RuntimeError("OpenAI API key not configured")
+        if not self.api_key and self._client is None:
+            raise RuntimeError("Anthropic API key not configured")
 
         b64 = base64.b64encode(image_bytes).decode("ascii")
-        payload = {
-            "model": self.model,
-            "messages": [
+        response = await self._get_client().messages.create(
+            model=self.model,
+            max_tokens=4096,
+            output_config={"effort": "low"},
+            messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": _VISION_PROMPT},
                         {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{b64}",
-                                "detail": "high",
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": b64,
                             },
                         },
+                        {"type": "text", "text": _VISION_PROMPT},
                     ],
                 }
             ],
-            "max_tokens": 2000,
-            "temperature": 0,
-            "response_format": {"type": "json_object"},
-        }
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            response = await client.post(_VISION_URL, headers=headers, json=payload)
-            response.raise_for_status()
-            result = response.json()
-
-        content = result["choices"][0]["message"]["content"]
-        data = json.loads(content)
+        )
+        if getattr(response, "stop_reason", None) == "refusal":
+            raise RuntimeError("the model declined to read the screenshot")
+        content = "".join(
+            getattr(block, "text", "")
+            for block in getattr(response, "content", [])
+            if getattr(block, "type", "") == "text"
+        )
+        data = json.loads(self._strip_fences(content))
         raw_trades = data.get("trades", []) if isinstance(data, dict) else []
         return [self._normalize(t) for t in raw_trades if isinstance(t, dict)]
 
