@@ -28,6 +28,21 @@ class OpenAISettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="OPENAI_")
 
 
+class AnthropicSettings(BaseSettings):
+    """Claude configuration for the AI read (owner decision D26, 2026-09-06)."""
+
+    api_key: Optional[str] = Field(
+        default=None, description="Anthropic API key; unset = AI read off"
+    )
+    model: str = Field(
+        default="claude-sonnet-5",
+        description="Claude model for the AI read (owner choice 2026-09-06: "
+        "Sonnet 5; claude-opus-5 for the strongest read)",
+    )
+
+    model_config = SettingsConfigDict(env_prefix="ANTHROPIC_")
+
+
 class OandaSettings(BaseSettings):
     """OANDA v20 API configuration (forex market data)."""
 
@@ -106,6 +121,21 @@ class SMCSettings(BaseSettings):
         default=4.0,
         description="After you press 'Took it', mute new alerts for that pair "
         "for this many hours (you are managing the position)",
+    )
+    ai_read: bool = Field(
+        default=True,
+        description="AI read (D26, 2026-09-06): after a 🚨 alert is sent, and "
+        "with each 08:05/14:05 audit, ask Claude (ANTHROPIC_API_KEY, "
+        "ANTHROPIC_MODEL) for a second opinion on the chart + the engine's "
+        "numbers, appended as a 🧠 block. Comment only — never a gate; "
+        "silently off without a key",
+    )
+    ai_effort: str = Field(
+        default="medium",
+        description="Claude effort for the AI read: low | medium | high",
+    )
+    ai_timeout_s: float = Field(
+        default=90.0, description="Per-call timeout for the AI read, seconds"
     )
     max_setups_per_day: int = Field(
         default=2,
@@ -228,6 +258,7 @@ class Settings(BaseSettings):
 
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
+    anthropic: AnthropicSettings = Field(default_factory=AnthropicSettings)
     oanda: OandaSettings = Field(default_factory=OandaSettings)
     twelvedata: TwelveDataSettings = Field(default_factory=TwelveDataSettings)
     smc: SMCSettings = Field(default_factory=SMCSettings)

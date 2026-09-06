@@ -29,6 +29,10 @@ class PlanEntry:
     # plan text).
     result: Optional[AnalysisResult] = None
     audit: Optional[Any] = None  # pending.PendingAnalysis
+    # D26: Claude's second opinion on the audit, taken with the 08:05/14:05
+    # snapshot (and /plan); the per-cycle recompute carries it forward
+    # rather than paying for a new one every five minutes. None = no read.
+    ai_read: Optional[Any] = None  # ai_read.AIRead
 
 
 def plan_fingerprint(plan: PairPlan) -> str:

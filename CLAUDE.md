@@ -162,6 +162,13 @@ app/services/smc/
 │                         Rule 1 direction parity with the engine (H1-trend
 │                         fallback on H4 FLAT, ahead of the aggressive-profile
 │                         CHoCH check, before both-way speculative brackets)
+├── ai_read.py            D26: Claude's second opinion (AIReader, Sonnet 5 by
+│                         default): the chart PNGs + describe_for_ai's fact
+│                         sheet of the engine's own numbers in, a bounded
+│                         JSON read out (stance / preferred entry /
+│                         confidence / read / risks). Comment only, never a
+│                         gate; every failure returns None. Appended to the
+│                         🚨 card by editing it, stored with the audit
 ├── pending.py            D25: pending (limit) entries — build_pending
 │                         prices the MAIN/DEEP rungs (M5 FVG edge / 50%, M5
 │                         OB, H1 zone, zones further out, range boundary)
@@ -273,6 +280,28 @@ tracking → live-card edits on fill/TP/SL events.
   pin stays a ⭐ privilege, and the regular card carries `🔹 Missed for ⭐:
   …` where the star header would be. Detector mode is untouched: nothing
   here decides whether a setup exists.
+- **The AI read is a comment, never a gate** (owner decision D26,
+  2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
+  Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,
+  `SMC_AI_TIMEOUT_S`) shows Claude the same picture the owner gets — the M5
+  setup chart, the H1 plan chart and `describe_for_ai`'s fact sheet of the
+  engine's own numbers — and asks for a bounded JSON read (`READ_SCHEMA`:
+  stance agree/caution/against, preferred entry market/main/deep/wait,
+  confidence 1-5, a three-sentence read, up to three risks). It runs at
+  exactly two points: **after** a 🚨 alert has been sent (`_ai_read_alert`
+  edits the card to append the `🧠 AI read` block and re-stores the text
+  via `journal.attach_message`, so live-card edits keep it) and with each
+  **fresh audit** (`_fetch_pair_plan` → `_ai_read_audit`, i.e. the
+  08:05/14:05 snapshot, `/plan`, or an empty-book button press);
+  `_recompute_plan` carries the stored read forward rather than paying
+  for one every five minutes. Nothing about it suppresses, delays,
+  re-labels or re-prices a setup: the alert goes out first, the block is
+  appended afterwards, and a missing key, a network error, a refusal or an
+  unparsable answer all leave the bot exactly as it was before D26. The
+  fact sheet is the model's only source of levels (the prompt says so). All
+  model text goes through `escape_html` like any other dynamic string.
+  `anthropic` is imported lazily, so the watcher and the tests run without
+  the package or a key.
 - Engines see **closed candles only** — every fetcher drops the in-progress
   candle. Twelve Data and OANDA both serve native H4 candles; neither
   resamples.

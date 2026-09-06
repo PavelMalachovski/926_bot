@@ -44,6 +44,7 @@ from app.services.smc.notifier import (
     format_no_setup,
     format_plan,
     format_plan_summary,
+    format_ai_read,
     format_result,
     format_pd_alert,
     format_setup_analysis,
@@ -53,6 +54,7 @@ from app.services.smc.notifier import (
     took_skipped_keyboard,
     zone_alert_keyboard,
 )
+from app.services.smc.ai_read import AIReader, describe_for_ai
 from app.services.smc.pending import build_pending
 from app.services.smc.planbook import (
     PlanBook, PlanEntry, describe_plan_changes, plan_fingerprint,
@@ -342,6 +344,17 @@ class Watcher:
         )
         self.last_results: Dict[str, AnalysisResult] = {}
         self.planbook = PlanBook()
+        # D26: Claude's second opinion. Built only when the flag is on; with
+        # no key it reports `enabled == False` and every read is skipped.
+        self.ai: Optional[AIReader] = (
+            AIReader(
+                api_key=settings.anthropic.api_key,
+                model=settings.anthropic.model,
+                effort=settings.smc.ai_effort,
+                timeout=settings.smc.ai_timeout_s,
+            )
+            if settings.smc.ai_read else None
+        )
         # Serializes run_cycle/on_plan/on_setup_analysis bodies (see
         # _get_cycle_lock): the dedup fingerprint (state.last_setup) is only
         # written after a successful alert send, so two of these racing —
@@ -780,7 +793,11 @@ class Watcher:
         self.journal.attach_message(signal["id"], message_id, text)
         if result.setup.tier_star:
             await self.notifier.pin(message_id)
-        await self._send_chart(result, message_id)
+        png = await self._send_chart(result, message_id)
+        # D26: the second opinion is APPENDED to the card that already went
+        # out — the alert is never held for it, and a failed read leaves
+        # the card exactly as it was.
+        await self._ai_read_alert(key, result, signal["id"], message_id, text, png)
         return True
 
     def _dedup_store(self, result: AnalysisResult) -> Dict[str, str]:
@@ -844,8 +861,11 @@ class Watcher:
             result.setup.direction.value if result.setup else None,
         )
 
-    async def _send_chart(self, result: AnalysisResult, reply_to: int) -> None:
-        """Attach the setup chart PNG (must never block the alert).
+    async def _send_chart(
+        self, result: AnalysisResult, reply_to: int
+    ) -> Optional[bytes]:
+        """Attach the setup chart PNG (must never block the alert). Returns
+        the PNG so the AI read can look at the same picture, or None.
 
         Rendering is ~seconds of matplotlib CPU for a 2200x660 PNG — run it
         in a worker thread so the polling loop keeps serving commands while
@@ -857,8 +877,85 @@ class Watcher:
             png = await asyncio.to_thread(render_setup_chart, result)
             if png:
                 await self.notifier.send_photo(png, reply_to=reply_to)
+            return png
         except Exception as e:
             logger.warning("Chart rendering failed", pair=result.symbol, error=str(e))
+            return None
+
+    def _ai_reader(self) -> Optional[AIReader]:
+        """The reader when the read is on AND a key exists, else None —
+        fetched lazily so a stub Watcher built without __init__ (tests)
+        simply has no read."""
+        reader = getattr(self, "ai", None)
+        return reader if reader is not None and reader.enabled else None
+
+    async def _plan_chart_png(self, key: str) -> Optional[bytes]:
+        """The current plan's H1 chart for the AI read's second picture —
+        None when the book has nothing for the pair or the render fails."""
+        entry = self.planbook.get(key)
+        if entry is None or not entry.data.get("h1"):
+            return None
+        try:
+            from app.services.smc.chart import render_plan_chart
+
+            return await asyncio.to_thread(
+                render_plan_chart, entry.plan, entry.data["h1"]
+            )
+        except Exception as e:
+            logger.warning("Plan chart for AI read failed", pair=key, error=str(e))
+            return None
+
+    async def _ai_read_alert(
+        self, key: str, result: AnalysisResult, signal_id: str,
+        message_id: int, text: str, png: Optional[bytes],
+    ) -> None:
+        """D26: ask Claude about the setup just announced and append its 🧠
+        block to the card by EDITING it. Best-effort end to end: no reader,
+        no key, a failed call, a failed edit — the card stays as sent."""
+        reader = self._ai_reader()
+        if reader is None:
+            return
+        try:
+            instrument = get_instrument(key)
+            images = [p for p in (png, await self._plan_chart_png(key)) if p]
+            read = await reader.read(
+                describe_for_ai(result, instrument, audit=None),
+                images=images,
+                as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
+            )
+            if read is None:
+                return
+            new_text = text + "\n\n" + format_ai_read(read)
+            ok = await self.notifier.edit_message(
+                message_id, new_text, reply_markup=took_skipped_keyboard(signal_id),
+            )
+            if ok:
+                # the live card re-renders from the stored text, so the block
+                # must live there too or the next status edit would drop it
+                self.journal.attach_message(signal_id, message_id, new_text)
+                logger.info(
+                    "AI read attached", pair=key, stance=read.stance,
+                    confidence=read.confidence, prefers=read.preferred_entry,
+                )
+        except Exception as e:
+            logger.warning("AI read on alert failed", pair=key, error=str(e), exc_info=True)
+
+    async def _ai_read_audit(self, key: str, entry: PlanEntry) -> Optional[object]:
+        """D26: Claude's read of a freshly built audit (08:05/14:05 snapshot,
+        /plan, or an empty-book button press). None when off or failed."""
+        reader = self._ai_reader()
+        if reader is None or entry.result is None or entry.audit is None:
+            return None
+        try:
+            png = await self._plan_chart_png(key)
+            return await reader.read(
+                describe_for_ai(entry.result, get_instrument(key), audit=entry.audit),
+                images=[png] if png else [],
+                as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
+            )
+        except Exception as e:
+            logger.warning("AI read on audit failed", pair=key, error=str(e), exc_info=True)
+            return None
 
     async def mark_trade(self, signal_id: str, taken: bool) -> str:
         """Callback for the Took/Skipped buttons on alerts."""
@@ -1084,7 +1181,8 @@ class Watcher:
             return
         instrument = get_instrument(key)
         text = format_setup_analysis(
-            key, entry.result, entry.audit, instrument, as_of=entry.as_of
+            key, entry.result, entry.audit, instrument, as_of=entry.as_of,
+            ai_read=entry.ai_read,
         )
         if entry.plan.market_closed:
             text += "\n😴 Market closed — computed on the last closed candles."
@@ -1157,6 +1255,10 @@ class Watcher:
             result=result, audit=self._audit(key, data, result),
         )
         self.planbook.update(key, entry)
+        # D26: the second opinion is taken here — with the fresh fetch — and
+        # carried forward by the per-cycle recompute, so it costs one call
+        # per pair per snapshot rather than one per five minutes.
+        entry.ai_read = await self._ai_read_audit(key, entry)
         return entry
 
     def _autoplan_slots(self) -> List[str]:
@@ -1286,10 +1388,14 @@ class Watcher:
             "m5": result.m5_candles,
         }
         # D25: refresh the audit from this cycle's own engine result — free
-        # by API quota, and it is what the aplan_* button delivers.
+        # by API quota, and it is what the aplan_* button delivers. D26: the
+        # AI read is NOT recomputed here (it costs a call); the snapshot's
+        # read rides along until the next snapshot or /plan replaces it.
+        previous = self.planbook.get(key)
         self.planbook.update(key, PlanEntry(
             plan=plan, data=data, as_of=as_of,
             result=result, audit=self._audit(key, data, result),
+            ai_read=previous.ai_read if previous is not None else None,
         ))
 
     async def _maybe_edit_plan_summary(self) -> None:
@@ -1848,6 +1954,10 @@ class Watcher:
             lines.append("⏸ <b>PAUSED</b> — no alerts, /resume to continue")
         lines.append(f"Pairs: {', '.join(self.state.pairs) or 'none'}")
         lines.append(f"Notify: {self.state.notify_level}")
+        reader = self._ai_reader()
+        lines.append(
+            f"AI read: {escape_html(reader.model)}" if reader else "AI read: off"
+        )
         try:
             forex_source = _forex_source()
         except ConfigurationError:

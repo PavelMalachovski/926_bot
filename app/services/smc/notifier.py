@@ -367,6 +367,23 @@ def took_skipped_keyboard(signal_id: str) -> dict:
     }
 
 
+def format_ai_read(read) -> str:
+    """The 🧠 block (D26): Claude's stance, confidence and preferred entry
+    on one line, the read itself, then the risks. Appended to the 🚨 card
+    and to the audit; every field is model output and goes through
+    escape_html like any other dynamic string."""
+    head = (
+        f"🧠 <b>AI read</b> ({escape_html(read.model)}"
+        + (f" · {escape_html(read.as_of)} Prague" if read.as_of else "")
+        + f"): {escape_html(read.stance.upper())} · confidence "
+        f"{int(read.confidence)}/5 · prefers {escape_html(read.preferred_entry.upper())}"
+    )
+    lines = [head, escape_html(read.read)]
+    if read.risks:
+        lines.append("⚠️ " + " · ".join(escape_html(r) for r in read.risks))
+    return "\n".join(lines)
+
+
 def _analysis_columns(analysis, instrument: Instrument) -> List[str]:
     """The pending-entry table, one column per entry, inside <pre> so the
     numbers line up in Telegram's proportional font. Every cell is escaped
@@ -422,6 +439,7 @@ def format_setup_analysis(
     analysis,
     instrument: Instrument,
     as_of: Optional[str] = None,
+    ai_read=None,
 ) -> str:
     """The Strategy audit the pair buttons under the 08:05/14:05 summary
     answer with (D25, owner decision 2026-09-05): the checklist state, the
@@ -476,6 +494,9 @@ def format_setup_analysis(
             "→ No pending entry to place: "
             + escape_html(analysis.note or "nothing to wait at")
         )
+    if ai_read is not None:
+        lines.append("")
+        lines.append(format_ai_read(ai_read))
     return "\n".join(lines)
 
 
