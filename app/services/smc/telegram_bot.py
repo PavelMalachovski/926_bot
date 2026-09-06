@@ -3,10 +3,11 @@
 The watcher owns the bot token exclusively (the old webhook app is gone), so
 getUpdates long polling is safe. Only the owner's chat is served.
 
-Commands:
-    /pairs  — toggle watched pairs with inline buttons
-    /status — enabled pairs, session, last verdicts
-    /check  — run the strategy cycle right now
+Commands (owner decision D27, 2026-09-06 — the minimal set):
+    /pairs  — pause or resume signals per pair (inline buttons)
+    /plan   — Strategy audit for a pair on fresh candles + Claude's read
+    /journal — trade journal; a photo message parses an MT4 screenshot
+    /news   — today's red news
     /pause, /resume — global mute of all watcher messages
     /start, /help — description
 """
@@ -18,38 +19,25 @@ import httpx
 import structlog
 
 from app.services.smc.instruments import INSTRUMENTS
-from app.services.smc.state import NOTIFY_LEVELS, WatcherState
+from app.services.smc.state import WatcherState
 
 logger = structlog.get_logger(__name__)
 
-# Labels for the /notify keyboard (Task 4b). Order follows NOTIFY_LEVELS.
-NOTIFY_LABELS = {
-    "all": "🔔 All (⭐ loud + regular quiet)",
-    "star": "⭐ Star only (regular setups logged, not sent)",
-    "mute": "🔇 Mute (no setup alerts)",
-}
-
 HELP_TEXT = (
     "<b>SMC Watcher</b> — Triple Sync + Imbalance\n\n"
-    "I check the selected pairs every 5 minutes during sessions and send:\n"
-    "🚨 an urgent alert when a setup is found\n"
-    "(no-setup checks go to the logs)\n\n"
+    "I check the selected pairs every 5 minutes during sessions and send "
+    "exactly two things:\n"
+    "📰 the red-news digest at 07:55 Prague\n"
+    "🚨 a setup alert when a setup has formed — enter at market — with "
+    "Claude's read appended to the card\n\n"
     "<b>Commands:</b>\n"
-    "/pairs — choose currency pairs\n"
-    "/notify — global alert level: all setups, ⭐ only, or mute\n"
-    "/status — current settings and last verdicts\n"
-    "/pd — premium/discount for every watched pair, right now\n"
-    "/check — run the strategy check right now\n"
-    "/plan — pre-market plan for a pair (any time)\n"
-    "Auto-plan: silent 08:05/14:05 summaries — press a pair button "
-    "for its strategy audit: pending (limit) entries, main and deep, "
-    "with entry / SL / TP1-3\n"
-    "/stats — signal journal: setups, TP/SL, winrate\n"
+    "/pairs — pause or resume signals per pair\n"
+    "/plan — strategy audit for a pair: pending (limit) entries + Claude's "
+    "read, on fresh candles\n"
     "/journal — trade journal: send an MT4 history screenshot to log trades\n"
     "/news — today's red news (Forex Factory)\n"
     "/pause — mute all alerts until /resume\n"
     "/resume — resume alerts\n"
-    "/unmute — un-mute zone alerts for every pair\n"
     "/help — this help"
 )
 
@@ -244,27 +232,15 @@ class TelegramCommandBot:
         await self._api(
             "setMyCommands",
             commands=[
-                {"command": "pairs", "description": "Choose currency pairs"},
+                {"command": "pairs", "description": "Pause or resume signals per pair"},
                 {
-                    "command": "notify",
-                    "description": "Alert level: all / star only / mute",
+                    "command": "plan",
+                    "description": "Strategy audit for a pair + Claude's read",
                 },
-                {"command": "check", "description": "Run the strategy check now"},
-                {"command": "plan", "description": "Pre-market plan for a pair"},
-                {"command": "status", "description": "Settings and last verdicts"},
-                {
-                    "command": "pd",
-                    "description": "Premium / discount for every watched pair",
-                },
-                {"command": "stats", "description": "Signal journal and winrate"},
                 {"command": "journal", "description": "Trade journal from MT4 screenshots"},
                 {"command": "news", "description": "Today's red news (Forex Factory)"},
                 {"command": "pause", "description": "Mute all alerts until /resume"},
                 {"command": "resume", "description": "Resume alerts"},
-                {
-                    "command": "unmute",
-                    "description": "Un-mute zone alerts for every pair",
-                },
                 {"command": "help", "description": "What this bot does"},
             ],
         )
@@ -310,21 +286,9 @@ class TelegramCommandBot:
             await self.send(HELP_TEXT)
         elif command == "/pairs":
             await self.send(
-                "Select pairs to watch (tap to toggle):",
+                "Signals per pair — tap to pause (☐) or resume (✅):",
                 reply_markup=self._pairs_keyboard(),
             )
-        elif command == "/notify":
-            await self.send(
-                "Notification level (tap to switch):",
-                reply_markup=self._notify_keyboard(),
-            )
-        elif command == "/status":
-            await self.send(self.status_text())
-        elif command == "/pd":
-            if self.pd_text:
-                await self.send(self.pd_text())
-            else:
-                await self.send("Premium/discount is not available.")
         elif command == "/pause":
             self.state.set_paused(True)
             await self.send(
@@ -338,47 +302,23 @@ class TelegramCommandBot:
         elif command == "/resume":
             self.state.set_paused(False)
             await self.send("▶️ <b>Resumed</b> — watching pairs again.")
-        elif command == "/unmute":
-            freed = self.state.clear_zone_mutes()
-            if freed:
-                await self.send(
-                    "🔔 Zone alerts un-muted for: " + ", ".join(freed)
-                )
-            else:
-                await self.send("No pairs are muted.")
         elif command == "/journal":
             if self.trade_journal:
                 await self.send(self.trade_journal.stats_text())
             else:
                 await self.send("Trade journal is not available.")
-        elif command == "/stats":
-            if self.stats_text:
-                await self.send(self.stats_text())
-            else:
-                await self.send("Journal is not available.")
         elif command == "/news":
             if self.news_text:
                 await self.send(self.news_text())
             else:
                 await self.send("News filter is not available.")
-        elif command == "/check":
-            await self.send("⏳ Checking setups, one moment...")
-            # Intentional inline await, not spawned as a background task:
-            # the owner explicitly asked for a check and wants the summary
-            # when it's done, in this same command handler. run_cycle takes
-            # the watcher's cycle lock (_get_cycle_lock), so it is safe to
-            # simply queue behind a scheduled cycle or an in-flight /plan
-            # build already holding that lock — it will run once the lock
-            # frees, not clobber it. Do not "fix" the latency by firing this
-            # off in the background; that would return before the check ran.
-            summary = await self.run_cycle()
-            await self.send(summary)
         elif command == "/plan":
             if not self.on_plan or not self.state.pairs:
                 await self.send("No pairs enabled — use /pairs first.")
             else:
                 await self.send(
-                    "📋 Pre-Market Plan — choose a pair:",
+                    "🔬 Strategy audit — choose a pair (fresh candles + "
+                    "Claude's read):",
                     reply_markup=self._plan_keyboard(),
                 )
         elif command:
@@ -391,7 +331,7 @@ class TelegramCommandBot:
             return
         if not self.trade_journal.api_key:
             await self.send(
-                "⚠️ Recognition unavailable: OPENAI_API_KEY is not configured."
+                "⚠️ Recognition unavailable: ANTHROPIC_API_KEY is not configured."
             )
             return
 
@@ -441,7 +381,7 @@ class TelegramCommandBot:
             # replace the buttons with the recorded choice
             message = callback.get("message", {})
             if message:
-                chosen = "✅ Taken — tracked in /stats" if taken else "❌ Skipped"
+                chosen = "✅ Taken — tracked in the journal" if taken else "❌ Skipped"
                 await self._api(
                     "editMessageReplyMarkup",
                     chat_id=message["chat"]["id"],
@@ -555,23 +495,6 @@ class TelegramCommandBot:
                 )
             await self._api("answerCallbackQuery", **answer)
             return
-        if data.startswith("notify_"):
-            level = data[len("notify_"):]
-            if level in NOTIFY_LEVELS:
-                self.state.set_notify_level(level)
-                answer["text"] = f"Notifications: {level}"
-                message = callback.get("message", {})
-                if message:
-                    await self._api(
-                        "editMessageReplyMarkup",
-                        chat_id=message["chat"]["id"],
-                        message_id=message["message_id"],
-                        reply_markup=self._notify_keyboard(),
-                    )
-            else:
-                answer["text"] = f"Unknown level {level}"
-            await self._api("answerCallbackQuery", **answer)
-            return
         await self._api("answerCallbackQuery", **answer)
 
     async def _handle_journal_callback(
@@ -617,17 +540,6 @@ class TelegramCommandBot:
             logger.error("Journal callback failed", error=str(e), exc_info=True)
             answer["text"] = "Error while processing"
             await self._api("answerCallbackQuery", **answer)
-
-    def _notify_keyboard(self) -> Dict:
-        current = self.state.notify_level
-        rows = []
-        for level in NOTIFY_LEVELS:
-            mark = "✅ " if level == current else ""
-            rows.append([{
-                "text": f"{mark}{NOTIFY_LABELS[level]}",
-                "callback_data": f"notify_{level}",
-            }])
-        return {"inline_keyboard": rows}
 
     def _pairs_keyboard(self) -> Dict:
         rows = []

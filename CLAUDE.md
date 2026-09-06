@@ -73,14 +73,14 @@ nothing.
 smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           off-session), per-pair cycle, alert dedup, live
                           setup cards, discipline suppression, 07:55 weekday
-                          news digest, on-demand /plan, Rule 0.4 warnings,
-                          journal tracking, auto-plan snapshots at 08:05/14:05
-                          (silent summary + aplan_* buttons -> Strategy
-                          audit, D25), per-cycle plan + audit recompute into
-                          the planbook with silent summary edits on material
-                          change, the per-pair daily setup cap (D25), /pd.
-                          Legacy behind default-off flags: plan-centric zone
-                          alert, PD radar, 🔁 plan-updated message
+                          news digest, /plan -> Strategy audit on fresh
+                          candles with Claude's read (D27), Rule 0.4
+                          warnings, journal tracking, per-cycle plan + audit
+                          recompute into the planbook, the per-pair daily
+                          setup cap (D25). Legacy behind default-off flags:
+                          08:05/14:05 plan summaries (SMC_AUTO_PLAN),
+                          plan-centric zone alert, PD radar, 🔁
+                          plan-updated message
 smc_backtest.py           backtest CLI: cached history -> backtest.py ->
                           plain-text report (see the commands block)
 app/services/smc/
@@ -199,8 +199,13 @@ app/services/smc/
 │                         Binance klines, behind a JSON disk cache in
 │                         data/backtest/ (gitignored) that only fetches the
 │                         ranges it does not already cover
-├── telegram_bot.py       long-polling commands, slash-menu registration,
-│                         Took/Skipped callbacks; serves ONLY the owner chat
+├── telegram_bot.py       long-polling commands (the D27 seven: /pairs
+│                         /plan /journal /news /pause /resume /help),
+│                         slash-menu registration, Took/Skipped callbacks;
+│                         serves ONLY the owner chat
+├── trade_journal.py      /journal: MT4 history screenshots parsed by Claude
+│                         (vision, D27) into trades behind a Save/Cancel
+│                         step; stats text
 ├── notifier.py           send/edit_message/pin/send_photo + escape_html
 ├── state.py              runtime state (pairs, dedup keys, zone-alert
 │                         mutes) on SQLite kv
@@ -280,6 +285,22 @@ tracking → live-card edits on fill/TP/SL events.
   pin stays a ⭐ privilege, and the regular card carries `🔹 Missed for ⭐:
   …` where the star header would be. Detector mode is untouched: nothing
   here decides whether a setup exists.
+- **The minimal bot** (owner decision D27, 2026-09-06). Telegram gets two
+  kinds of trading message — the 07:55 digest and the 🚨 market-entry
+  card (with Claude's read appended) — and seven commands: `/pairs`
+  (pause or resume signals per pair), `/plan` (the Strategy audit for a
+  pair or ALL on FRESH candles: the pending entries table, the H1 chart
+  and Claude's read in one message — `Watcher.on_plan` →
+  `_send_setup_analysis(fresh=True)`), `/journal` (a photo message parses
+  an MT4 history screenshot), `/news`, `/pause`, `/resume`, `/help`.
+  Retired from the menu and the handlers: `/notify`, `/check`, `/status`,
+  `/pd`, `/stats`, `/unmute` (their watcher-side text builders —
+  `status_text`, `stats_text`, `pd_text` — still exist as plumbing). The
+  scheduled 08:05/14:05 plan summaries are legacy, off by default
+  (`SMC_AUTO_PLAN`); a legacy `aplan_*` press answers exactly like
+  `/plan`. The MT4 screenshot parser moved from OpenAI to Claude
+  (`trade_journal.py`, `settings.anthropic`) — one `ANTHROPIC_API_KEY`
+  for everything AI, `OpenAISettings` is gone.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,
@@ -291,8 +312,8 @@ tracking → live-card edits on fill/TP/SL events.
   exactly two points: **after** a 🚨 alert has been sent (`_ai_read_alert`
   edits the card to append the `🧠 AI read` block and re-stores the text
   via `journal.attach_message`, so live-card edits keep it) and with each
-  **fresh audit** (`_fetch_pair_plan` → `_ai_read_audit`, i.e. the
-  08:05/14:05 snapshot, `/plan`, or an empty-book button press);
+  **fresh audit** (`_fetch_pair_plan` → `_ai_read_audit`, i.e. every
+  `/plan` press since D27, or a legacy 08:05/14:05 snapshot);
   `_recompute_plan` carries the stored read forward rather than paying
   for one every five minutes. Nothing about it suppresses, delays,
   re-labels or re-prices a setup: the alert goes out first, the block is

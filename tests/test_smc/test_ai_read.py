@@ -319,7 +319,7 @@ class TestAuditRead:
         entry = self._entry()
         entry.ai_read = READ
         w.planbook.update("ETHUSD", entry)
-        asyncio.run(w.on_setup_analysis("ETHUSD"))
+        asyncio.run(w._send_setup_analysis("ETHUSD", fresh=False))
         text = w.notifier.sent[0]
         assert "Strategy audit — ETHUSD" in text
         assert "🧠 <b>AI read</b> (stub · 10:30 Prague)" in text

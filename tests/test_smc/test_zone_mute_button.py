@@ -230,32 +230,6 @@ class _UnmuteState(_State):
     clear_zone_mutes = WatcherState.clear_zone_mutes
 
 
-class _CommandBot(_Bot):
-    def __init__(self):
-        super().__init__(None)
-        self.state = _UnmuteState()
-        self.sent = []
-
-    async def send(self, text, reply_markup=None):
-        self.sent.append(text)
-        return 1
-
-
-class TestUnmuteCommand:
-    def test_unmute_frees_every_pair(self):
-        bot = _CommandBot()
-        bot.state.mute_zone_alerts("USDCAD", _utc(14, 0))
-        bot.state.mute_zone_alerts("ETHUSD", _utc(14, 0))
-        asyncio.run(bot._handle_command("/unmute"))
-        assert bot.state.zone_muted == {}
-        assert "USDCAD" in bot.sent[0] and "ETHUSD" in bot.sent[0]
-
-    def test_unmute_with_nothing_muted(self):
-        bot = _CommandBot()
-        asyncio.run(bot._handle_command("/unmute"))
-        assert "No pairs are muted" in bot.sent[0]
-
-
 class TestStatusLine:
     def test_status_lists_muted_pairs(self, monkeypatch):
         from smc_watcher import Watcher
