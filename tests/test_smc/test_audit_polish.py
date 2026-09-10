@@ -307,3 +307,78 @@ class TestLocalizedDuration:
         assert format_duration(65) == "1ч05"
         assert format_duration(0) == "0ч00"
         assert format_duration(-5) == "0ч00"
+
+
+class TestAuditCarriesPdAndTheStarVerdict:
+    """2026-09-10 (USDJPY screenshot): the audit announced a formed LONG
+    with no PD line, while Claude's prose said the entry sat at 95% of the
+    H4 range — not a discount — and that sweep and pd had failed the star.
+    Both facts were already on the 🚨 card."""
+
+    def _formed(self, pd=None, star=False, missed=()):
+        from app.services.smc.pending import ROLE_MARKET, PendingEntry
+
+        entry = TestStrategyAuditButton()._audited_entry()
+        entry.result.pd = pd
+        entry.result.setup = _approved_result().setup
+        entry.result.setup.tier_star = star
+        entry.result.setup.tier_missed = list(missed)
+        entry.audit.market = PendingEntry(
+            role=ROLE_MARKET, label="market", direction=entry.audit.direction,
+            entry=154.204, stop_loss=153.546,
+        )
+        return entry
+
+    @staticmethod
+    def _pd_read(pct=95, label="premium"):
+        from app.services.smc.pd import DealingRange, PDRead
+
+        now = datetime.now(tz=timezone.utc)
+        return PDRead(
+            range=DealingRange(
+                low=153.0, high=156.5, low_at=now, high_at=now, timeframe="H4",
+            ),
+            price=154.204, position=pct / 100.0, label=label,
+            ote_low=154.1, ote_high=154.9, in_ote=False,
+            direction=Direction.LONG,
+        )
+
+    def _text(self, entry):
+        return format_setup_analysis(
+            "USDJPY", entry.result, entry.audit, get_instrument("USDJPY"),
+        )
+
+    def test_pd_line_sits_under_the_price(self):
+        i18n.set_language("en")
+        text = self._text(self._formed(pd=self._pd_read()))
+        assert "PD 95% premium (H4 153.00–156.50)" in text
+        assert text.index("💵") < text.index("PD 95%") < text.index("Setup formed")
+
+    def test_no_pd_no_line(self):
+        i18n.set_language("en")
+        assert "PD " not in self._text(self._formed(pd=None))
+
+    def test_missed_star_conditions_are_named(self):
+        i18n.set_language("en")
+        text = self._text(self._formed(missed=["sweep", "pd"]))
+        assert "🔹 Missed for ⭐: sweep, pd" in text
+
+    def test_a_sniper_setup_says_so(self):
+        i18n.set_language("en")
+        text = self._text(self._formed(star=True, missed=[]))
+        assert "⭐ <b>SNIPER</b>" in text
+        assert "Missed for ⭐" not in text
+
+    def test_russian_rendering(self):
+        i18n.set_language("ru")
+        text = self._text(self._formed(pd=self._pd_read(), missed=["sweep", "pd"]))
+        assert "PD 95% премиум (H4 153.00–156.50)" in text
+        assert "🔹 Не хватило для ⭐: свип, PD" in text
+
+    def test_a_waiting_audit_has_no_star_line(self):
+        i18n.set_language("en")
+        entry = TestStrategyAuditButton()._audited_entry()  # no market rung
+        text = format_setup_analysis(
+            "ETHUSD", entry.result, entry.audit, get_instrument("ETHUSD"),
+        )
+        assert "SNIPER" not in text and "Missed for ⭐" not in text

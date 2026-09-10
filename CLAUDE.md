@@ -395,6 +395,11 @@ tracking → live-card edits on fill/TP/SL events.
   can never disagree): a 2.5R-stale market entry paying 1:0.1 used to read
   as a go on the one screen the owner plans from, with only Claude's prose
   naming the problem. Durations are localized (`format_duration`, "0ч26").
+  The audit reaches parity with the card: the `PD …` line sits under the
+  price (`_pd_line`, D17) and the ⭐ verdict (`_tier_line` — `⭐ SNIPER` or
+  `🔹 Missed for ⭐: …`) follows the market line. Anything the 🚨 card
+  states about a setup, the audit states too — one builder per line, so
+  the two screens cannot drift.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,
