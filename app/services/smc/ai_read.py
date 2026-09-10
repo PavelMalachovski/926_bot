@@ -309,6 +309,12 @@ class AIReader:
         self.effort = effort
         self.timeout = timeout
         self._client = client
+        # Why the LAST read returned None, in a few words ("api: 401 …",
+        # "refusal", "max_tokens", "unparsable") — the /plan audit prints it
+        # so the owner sees the reason in Telegram without opening the
+        # Railway logs (2026-09-10: the first live /plan came back without
+        # a 🧠 block and nothing said why). None after a successful read.
+        self.last_error: Optional[str] = None
 
     @property
     def enabled(self) -> bool:
@@ -330,7 +336,9 @@ class AIReader:
         None, because a missing second opinion must never cost the owner
         the alert it was going to decorate."""
         if not self.enabled:
+            self.last_error = "no ANTHROPIC_API_KEY"
             return None
+        self.last_error = None
         content: List[dict] = []
         for png in images:
             if not png:
@@ -350,9 +358,14 @@ class AIReader:
             + LANGUAGE_INSTRUCTION.get(get_language(), LANGUAGE_INSTRUCTION["en"]),
         })
         try:
+            # max_tokens covers the THINKING too: with adaptive thinking on
+            # Sonnet 5 a 2048 cap was spent on reasoning about two charts
+            # before a single JSON byte came out (stop_reason max_tokens,
+            # empty text, "unparsable"). 16000 is the SDK guidance for a
+            # non-streaming call; the JSON itself is a few hundred tokens.
             response = await self._get_client().messages.create(
                 model=self.model,
-                max_tokens=2048,
+                max_tokens=16000,
                 system=[{
                     "type": "text",
                     "text": SYSTEM_PROMPT,
@@ -366,10 +379,14 @@ class AIReader:
                 messages=[{"role": "user", "content": content}],
             )
         except Exception as e:  # network, auth, 4xx/5xx, timeout — all best-effort
+            self.last_error = f"api: {e}"[:160]
             logger.warning("AI read failed", model=self.model, error=str(e))
             return None
-        if getattr(response, "stop_reason", None) == "refusal":
-            logger.warning("AI read refused", model=self.model)
+        stop_reason = getattr(response, "stop_reason", None)
+        request_id = getattr(response, "_request_id", None)
+        if stop_reason == "refusal":
+            self.last_error = "refusal"
+            logger.warning("AI read refused", model=self.model, request_id=request_id)
             return None
         text = "".join(
             getattr(block, "text", "")
@@ -378,5 +395,18 @@ class AIReader:
         )
         read = parse_ai_read(text, model=self.model, as_of=as_of)
         if read is None:
-            logger.warning("AI read unparsable", model=self.model, text=text[:200])
+            self.last_error = (
+                "max_tokens" if stop_reason == "max_tokens" else "unparsable"
+            )
+            logger.warning(
+                "AI read unparsable", model=self.model, stop_reason=stop_reason,
+                request_id=request_id, text=text[:200],
+            )
+            return None
+        usage = getattr(response, "usage", None)
+        logger.info(
+            "AI read ok", model=self.model, request_id=request_id,
+            input_tokens=getattr(usage, "input_tokens", None),
+            output_tokens=getattr(usage, "output_tokens", None),
+        )
         return read

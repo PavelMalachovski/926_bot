@@ -483,8 +483,8 @@ def format_setup_analysis(
         head += f" · {'LONG' if analysis.direction == Direction.LONG else 'SHORT'}"
     if result.h1_trend is not None:
         head += (
-            f" · H4 {escape_html(result.h4_trend.value)}"
-            f" · H1 {escape_html(result.h1_trend.value)}"
+            f" · H4 {trend_label(result.h4_trend)}"
+            f" · H1 {trend_label(result.h1_trend)}"
         )
     lines = [head]
     if result.price:
@@ -493,6 +493,18 @@ def format_setup_analysis(
             if as_of else ""
         )
         lines.append(f"💵 {result.price:.{d}f}{suffix}")
+        main = analysis.main
+        if main is not None and analysis.market is None:
+            # How far the pullback still has to travel to the MAIN rung —
+            # the number the owner reads first when deciding whether to
+            # park a limit now or come back later (2026-09-10).
+            gap = abs(result.price - main.entry)
+            lines.append(t(
+                "📏 To the MAIN entry {entry}: {distance} ({pct}%)",
+                entry=f"{main.entry:.{d}f}",
+                distance=escape_html(format_distance(gap, instrument)),
+                pct=f"{gap / result.price * 100:.1f}",
+            ))
     if result.market_range is not None:
         box = result.market_range
         lines.append(
