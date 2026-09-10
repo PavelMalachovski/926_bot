@@ -278,7 +278,13 @@ tracking → live-card edits on fill/TP/SL events.
   follows it; nothing else needs touching.
 - **Quiet mode is the default**: Telegram receives only found setups (and
   Rule 9/0.4 warnings + the 07:55 digest). Everything else goes to logs.
-  Do not add chatty messages without being asked.
+  Do not add chatty messages without being asked. The Rule 0.4 pre-news
+  warning is **one message per release** (owner request 2026-09-10, after
+  four identical Core PPI warnings for four ETHUSD journal rows): every
+  exposed pair is listed under the event with what is at risk (an open
+  position → SL to breakeven, a limit order → cancel), dedup key
+  `event:<currency>:<time>:<title>` in `state.news_warned`, written only
+  after the send succeeded.
 - **Two modes, minimal messages** (owner decision D25, 2026-09-05, tightened
   the same evening). Telegram receives exactly two kinds of trading message:
   the **07:55 news digest** and the 🚨 **setup alert**, which now means

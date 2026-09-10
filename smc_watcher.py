@@ -1832,35 +1832,53 @@ class Watcher:
         now = datetime.now(tz=timezone.utc)
         horizon = timedelta(minutes=30)
         changed = False
+        # ONE message per release (owner request 2026-09-10): the old key was
+        # per signal, so four active ETHUSD rows produced four identical
+        # warnings for one Core PPI print. Group every exposed signal under
+        # the event it is exposed to and say, per pair, what is at risk. A
+        # signal that appears after the warning went out is covered by it —
+        # the release was already announced, nothing new to say.
+        exposed: Dict[Tuple[datetime, str, str], Dict[str, set]] = {}
         for signal in self.journal.signals:
             if signal["status"] not in ("pending", "open", "open_runner"):
                 continue
             instrument = get_instrument(signal["pair"])
             for event in self.news.upcoming(relevant_currencies(instrument), horizon):
-                warn_key = f"{signal['id']}:{event.time.isoformat()}"
-                if warn_key in self.state.news_warned:
-                    continue
-                minutes_left = int((event.time - now).total_seconds() // 60)
-                is_open_position = signal["status"] in ("open", "open_runner")
-                action = (
-                    t("move the SL to breakeven")
-                    if is_open_position
-                    else t("cancel the pending order")
+                key = (event.time, event.currency, event.title)
+                exposed.setdefault(key, {}).setdefault(signal["pair"], set()).add(
+                    "open" if signal["status"] in ("open", "open_runner") else "pending"
                 )
-                await self.notifier.send(t(
-                    "⚠️ <b>RULE 0.4:</b> {pair} — 🔴 {title} ({currency}) in "
-                    "{minutes} min ({hhmm} Prague). You have {position} — {action}!",
-                    pair=signal["pair"], title=escape_html(event.title),
-                    currency=event.currency, minutes=minutes_left,
-                    hhmm=event.prague_hhmm(),
-                    position=(
-                        t("an open position") if is_open_position
-                        else t("an active limit order")
-                    ),
-                    action=action,
-                ))
-                self.state.news_warned[warn_key] = now.isoformat()
-                changed = True
+        for (event_time, currency, title), pairs in sorted(exposed.items()):
+            warn_key = f"event:{currency}:{event_time.isoformat()}:{title}"
+            if warn_key in self.state.news_warned:
+                continue
+            minutes_left = int((event_time - now).total_seconds() // 60)
+            lines = [t(
+                "⚠️ <b>RULE 0.4:</b> 🔴 {title} ({currency}) in {minutes} min "
+                "({hhmm} Prague)",
+                title=escape_html(title), currency=currency, minutes=minutes_left,
+                hhmm=to_prague(event_time).strftime("%H:%M"),
+            )]
+            for pair in sorted(pairs, key=lambda p: list(INSTRUMENTS).index(p)
+                               if p in INSTRUMENTS else len(INSTRUMENTS)):
+                kinds = pairs[pair]
+                if "open" in kinds:
+                    lines.append(t(
+                        "• {pair} — {position} — {action}!", pair=pair,
+                        position=t("an open position"),
+                        action=t("move the SL to breakeven"),
+                    ))
+                if "pending" in kinds:
+                    lines.append(t(
+                        "• {pair} — {position} — {action}!", pair=pair,
+                        position=t("an active limit order"),
+                        action=t("cancel the pending order"),
+                    ))
+            sent = await self.notifier.send("\n".join(lines))
+            if not sent:
+                continue  # a send that never reached the owner may retry next cycle
+            self.state.news_warned[warn_key] = now.isoformat()
+            changed = True
         # Prune dedup keys older than 2 days. A value that fails to parse, or
         # is naive (a legacy JSON import, or older code before this fix), is
         # garbage with no dedup value of its own — drop it, instead of

@@ -542,10 +542,10 @@ RU.update({
     "No more alerts until tomorrow. A skipped bad day is a win.":
         "🛑 <b>ПРАВИЛО 0.2:</b> два взятых стопа за день — торговый день ЗАКРЫТ. "
         "Алертов до завтра не будет. Пропущенный плохой день — это победа.",
-    "⚠️ <b>RULE 0.4:</b> {pair} — 🔴 {title} ({currency}) in {minutes} min ({hhmm} "
-    "Prague). You have {position} — {action}!":
-        "⚠️ <b>ПРАВИЛО 0.4:</b> {pair} — 🔴 {title} ({currency}) через {minutes} мин "
-        "({hhmm} Прага). У тебя {position} — {action}!",
+    "⚠️ <b>RULE 0.4:</b> 🔴 {title} ({currency}) in {minutes} min ({hhmm} Prague)":
+        "⚠️ <b>ПРАВИЛО 0.4:</b> 🔴 {title} ({currency}) через {minutes} мин "
+        "({hhmm} Прага)",
+    "• {pair} — {position} — {action}!": "• {pair} — {position} — {action}!",
     "move the SL to breakeven": "переставь SL в безубыток",
     "cancel the pending order": "сними отложенный ордер",
     "an open position": "открытая позиция",
