@@ -682,7 +682,9 @@ class TripleSyncEngine:
             + find_liquidity(h1, "H1", tolerance)
             + find_liquidity(h4, "H4", tolerance)
         )
-        ladder = liquidity_ladder(levels, direction, entry)
+        ladder = liquidity_ladder(
+            levels, direction, entry, tolerance=self.instrument.min_fvg,
+        )
         target = None
         take_profit = None
         rr = 0.0
@@ -908,26 +910,44 @@ class TripleSyncEngine:
 
     def _lot_hint(self, entry: float, risk: float) -> Optional[str]:
         """Rule 8: position size from deposit and SL distance."""
-        if not self.deposit:
-            return None
-        risk_usd = self.deposit * self.risk_pct / 100.0
-        if self.instrument.source == "crypto":
-            qty = risk_usd / risk
-            base = self.display_symbol[:3]
-            return (
-                f"{qty:.4f} {base} (risk ${risk_usd:.2f} = {self.risk_pct:.1f}% "
-                f"of ${self.deposit:.0f} deposit)"
-            )
-        # Forex: pip value per standard lot (100k); non-USD quote converts by price
-        sl_pips = risk / self.instrument.pip
-        quote = self.display_symbol[3:]
-        pip_value = (
-            self.instrument.pip * 100_000
-            if quote == "USD"
-            else self.instrument.pip * 100_000 / entry
+        return position_size(
+            self.instrument, entry, risk, self.deposit, self.risk_pct,
         )
-        lots = risk_usd / (sl_pips * pip_value)
+
+
+def position_size(
+    instrument: Instrument, entry: float, risk: float,
+    deposit: Optional[float], risk_pct: float, compact: bool = False,
+) -> Optional[str]:
+    """Rule 8 position size for a given entry and SL distance: crypto in
+    base units, forex in standard lots. `compact` gives the bare size for a
+    table cell ('0.0453 ETH', '0.23 lots'); the long form carries the risk
+    in dollars and the deposit it came from. None without a deposit or with
+    no risk to size against."""
+    if not deposit or risk <= 0:
+        return None
+    risk_usd = deposit * risk_pct / 100.0
+    if instrument.source == "crypto":
+        qty = risk_usd / risk
+        base = instrument.key[:3]
+        if compact:
+            return f"{qty:.4f} {base}"
         return (
-            f"≈{lots:.2f} lots (SL {sl_pips:.0f} pips, risk ${risk_usd:.2f} "
-            f"= {self.risk_pct:.1f}% of ${self.deposit:.0f} deposit)"
+            f"{qty:.4f} {base} (risk ${risk_usd:.2f} = {risk_pct:.1f}% "
+            f"of ${deposit:.0f} deposit)"
         )
+    # Forex: pip value per standard lot (100k); non-USD quote converts by price
+    sl_pips = risk / instrument.pip
+    quote = instrument.key[3:]
+    pip_value = (
+        instrument.pip * 100_000
+        if quote == "USD"
+        else instrument.pip * 100_000 / entry
+    )
+    lots = risk_usd / (sl_pips * pip_value)
+    if compact:
+        return f"{lots:.2f} lots"
+    return (
+        f"≈{lots:.2f} lots (SL {sl_pips:.0f} pips, risk ${risk_usd:.2f} "
+        f"= {risk_pct:.1f}% of ${deposit:.0f} deposit)"
+    )

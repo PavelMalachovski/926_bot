@@ -123,8 +123,14 @@ def _level(
     label: str,
     x_right: int,
     y_bounds: Optional[Tuple[float, float]] = None,
+    placed: Optional[list] = None,
 ) -> None:
     """Draw a horizontal level line + label.
+
+    `placed` (a list the caller shares between calls) stacks labels that
+    would overprint each other: an entry and a stop $9 apart on a $160
+    chart land on the same pixels (2026-09-10 owner screenshot), so the
+    text slides to the nearest free slot while the line stays on price.
 
     When `y_bounds` is given and `price` falls outside it, an autoscaling
     `axhline` would reopen the y-axis to include it (the bug this guards
@@ -155,10 +161,38 @@ def _level(
             )
             return
     ax.axhline(price, color=color, linewidth=1.1, linestyle="--", zorder=4)
+    label_y = price
+    if placed is not None and y_bounds is not None:
+        label_y = _stacked_y(price, placed, y_bounds)
     ax.text(
-        x_right, price, f" {label}", color=color, fontsize=9,
-        fontweight="bold", va="center", ha="left",
+        x_right, label_y, f" {label}", color=color, fontsize=9,
+        fontweight="bold", va="center", ha="left", zorder=6,
+        # a ground under the text: the dashed line otherwise runs straight
+        # through the digits and reads as strike-through on a phone
+        bbox=dict(boxstyle="round,pad=0.15", fc=BG, ec="none"),
     )
+
+
+# One label is about this fraction of the axis height at fontsize 8-9 on
+# the 13x6in / 110dpi figure; two labels closer than that overprint.
+LABEL_SEP_FRAC = 0.05
+
+
+def _stacked_y(y: float, placed: list, y_bounds: Tuple[float, float]) -> float:
+    """The y (data units) to draw a label at so it clears every label in
+    `placed`, nudged away from the neighbour on the side it came from.
+    Appends the chosen y to `placed`. Pure, so it is unit-tested."""
+    lo, hi = y_bounds
+    sep = (hi - lo) * LABEL_SEP_FRAC
+    chosen = y
+    for _ in range(20):
+        clash = [p for p in placed if abs(p - chosen) < sep]
+        if not clash:
+            break
+        nearest = min(clash, key=lambda p: abs(p - chosen))
+        chosen = nearest + sep if y >= nearest else nearest - sep
+    placed.append(chosen)
+    return chosen
 
 
 # ~32h of M5 by default: enough context to see the swing HH/HL structure and
@@ -271,8 +305,9 @@ def render_setup_chart(
         drawn.append(
             (setup.take_profit, "#089981", f"TP {setup.take_profit:.{d}f}")
         )
+    placed: list = []
     for price, color, label in drawn:
-        _level(ax, price, color, label, x_right, y_bounds=ylim)
+        _level(ax, price, color, label, x_right, y_bounds=ylim, placed=placed)
 
     # Range boundaries (spec §3.4). Drawn whenever a range was live,
     # regardless of whether THIS setup's direction came from it —
@@ -282,8 +317,8 @@ def render_setup_chart(
     # `direction_source == "range"`, and this is not that.
     if result.market_range is not None:
         rng = result.market_range
-        _level(ax, rng.top, RANGE_COLOR, t("RANGE HIGH"), x_right, y_bounds=ylim)
-        _level(ax, rng.bottom, RANGE_COLOR, t("RANGE LOW"), x_right, y_bounds=ylim)
+        _level(ax, rng.top, RANGE_COLOR, t("RANGE HIGH"), x_right, y_bounds=ylim, placed=placed)
+        _level(ax, rng.bottom, RANGE_COLOR, t("RANGE LOW"), x_right, y_bounds=ylim, placed=placed)
 
     # Sparse Prague time labels on the x axis
     ticks = list(range(0, len(candles), max(1, len(candles) // 8)))
@@ -360,12 +395,19 @@ def _zone_band(
     )
 
 
-def _zone_label(ax, bottom: float, top: float, text: str, color: str) -> None:
+def _zone_label(
+    ax, bottom: float, top: float, text: str, color: str,
+    placed: Optional[list] = None, y_bounds: Optional[Tuple[float, float]] = None,
+) -> None:
     """Name a zone band at its left edge, vertically centred in the band —
     placed off the candles (which start at x=0) so it never collides with
-    them."""
+    them, and stacked like the level labels so two neighbouring bands (an
+    order block and the imbalance right above it) keep both names legible."""
+    y = (bottom + top) / 2
+    if placed is not None and y_bounds is not None:
+        y = _stacked_y(y, placed, y_bounds)
     ax.text(
-        -0.6, (bottom + top) / 2, text, color=color, fontsize=8,
+        -0.6, y, text, color=color, fontsize=8,
         fontweight="bold", va="center", ha="left", zorder=5,
     )
 
@@ -386,6 +428,20 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
     _draw_candles(ax, candles)
     x_right = len(candles) + 6
 
+    # Clamp the y-axis to the H1 candle range (extended to bracket every
+    # scenario's entry/SL, and every drawn zone band including the
+    # runner-up) before drawing levels — same fix as the alert chart
+    # (Important finding 1): a liquidity take-profit projected off H4 can
+    # sit far outside the visible candles, and so can a runner-up zone.
+    in_range: List[Optional[float]] = []
+    for s in plan.scenarios:
+        in_range.extend([s.entry, s.stop_loss])
+        if s.runner_up is not None:
+            in_range.extend([s.runner_up.bottom, s.runner_up.top])
+    ylim = _price_ylim(candles, in_range)
+    ax.set_ylim(*ylim)
+    placed_left: list = []  # zone labels, left edge
+    placed_right: list = []  # level labels, right edge
     for s in plan.scenarios:
         side = "Demand" if s.direction == Direction.LONG else "Supply"
         # A RANGE band is a boundary of the box, not a demand/supply zone —
@@ -400,7 +456,7 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         _zone_band(ax, s.zone_bottom, s.zone_top, s.kind, WINNER_ZONE_ALPHA)
         _zone_label(
             ax, s.zone_bottom, s.zone_top, band_label,
-            _zone_kind_color(s.kind),
+            _zone_kind_color(s.kind), placed_left, ylim,
         )
         if s.runner_up is not None:
             ru = s.runner_up
@@ -409,21 +465,8 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
             )
             _zone_label(
                 ax, ru.bottom, ru.top, f"{side} {ru.kind} {t('(alt)')}",
-                _zone_kind_color(ru.kind),
+                _zone_kind_color(ru.kind), placed_left, ylim,
             )
-
-    # Clamp the y-axis to the H1 candle range (extended to bracket every
-    # scenario's entry/SL, and every drawn zone band including the
-    # runner-up) before drawing levels — same fix as the alert chart
-    # (Important finding 1): a liquidity take-profit projected off H4 can
-    # sit far outside the visible candles, and so can a runner-up zone.
-    in_range: List[Optional[float]] = []
-    for s in plan.scenarios:
-        in_range.extend([s.entry, s.stop_loss])
-        if s.runner_up is not None:
-            in_range.extend([s.runner_up.bottom, s.runner_up.top])
-    ylim = _price_ylim(candles, in_range)
-    ax.set_ylim(*ylim)
 
     for s in plan.scenarios:
         is_long = s.direction == Direction.LONG
@@ -431,10 +474,16 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         tag = "L" if is_long else "S"
         _level(
             ax, s.entry, zone_color, f"{tag} {t('Entry')} {s.entry:.{d}f} ({s.kind})",
-            x_right, ylim,
+            x_right, ylim, placed_right,
         )
-        _level(ax, s.stop_loss, SUPPLY_COLOR, f"{tag} SL {s.stop_loss:.{d}f}", x_right, ylim)
-        _level(ax, s.take_profit, TP_COLOR, f"{tag} TP {s.take_profit:.{d}f}", x_right, ylim)
+        _level(
+            ax, s.stop_loss, SUPPLY_COLOR, f"{tag} SL {s.stop_loss:.{d}f}",
+            x_right, ylim, placed_right,
+        )
+        _level(
+            ax, s.take_profit, TP_COLOR, f"{tag} TP {s.take_profit:.{d}f}",
+            x_right, ylim, placed_right,
+        )
 
     # Range boundaries (spec §3.4): one RANGE-kind scenario per side at
     # most (D12) — SHORT projects off the top boundary, LONG off the
@@ -457,9 +506,9 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         None,
     )
     if range_top is not None:
-        _level(ax, range_top, RANGE_COLOR, t("RANGE HIGH"), x_right, ylim)
+        _level(ax, range_top, RANGE_COLOR, t("RANGE HIGH"), x_right, ylim, placed_right)
     if range_bottom is not None:
-        _level(ax, range_bottom, RANGE_COLOR, t("RANGE LOW"), x_right, ylim)
+        _level(ax, range_bottom, RANGE_COLOR, t("RANGE LOW"), x_right, ylim, placed_right)
 
     _style_axes(ax, candles, x_right, "%d.%m")
     ax.set_title(

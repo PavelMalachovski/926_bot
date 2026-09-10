@@ -692,3 +692,15 @@ RU.update({
     "no answer": "нет ответа",
     "📏 To the MAIN entry {entry}: {distance} ({pct}%)": "📏 До входа MAIN {entry}: {distance} ({pct}%)",
 })
+
+# ---- audit polish (2026-09-10): size row, session clock, Claude accuracy ----
+RU.update({
+    "Size": "Объём",
+    "⏱ {session} ends in {left} ({hhmm} Prague) — a pending order placed now expires then":
+        "⏱ Сессия {session} закончится через {left} ({hhmm} Прага) — отложка, поставленная "
+        "сейчас, истечёт тогда же",
+    "Claude vs outcomes — last {days} days": "Claude против исходов — последние {days} дней",
+    "no resolved alerts with a read yet": "закрытых алертов с разбором пока нет",
+    "{stance}: {n} · {wins} wins / {losses} stops ({rate}%)":
+        "{stance}: {n} · {wins} в плюс / {losses} стопов ({rate}%)",
+})

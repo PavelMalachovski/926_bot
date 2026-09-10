@@ -6,12 +6,12 @@ from typing import List, Optional
 import httpx
 import structlog
 
-from app.services.smc.engine import trends_disagree
+from app.services.smc.engine import position_size, trends_disagree
 from app.services.smc.i18n import get_language, t, tier_label
 from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.liquidity import LiquidityLevel, take_profits
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
-from app.services.smc.sessions import to_prague
+from app.services.smc.sessions import session_end_utc, to_prague
 
 logger = structlog.get_logger(__name__)
 
@@ -371,7 +371,7 @@ def _market_entry_lines(
         ]
     targets = take_profits(
         setup.ladder, setup.direction, price, setup.stop_loss,
-        instrument.sl_buffer,
+        instrument.sl_buffer, tolerance=instrument.min_fvg,
     )
     return [head, _targets_line(targets, d)]
 
@@ -412,7 +412,9 @@ def format_ai_read(read) -> str:
     return "\n".join(lines)
 
 
-def _analysis_columns(analysis, instrument: Instrument) -> List[str]:
+def _analysis_columns(
+    analysis, instrument: Instrument, deposit=None, risk_pct: float = 2.0,
+) -> List[str]:
     """The pending-entry table, one column per entry, inside <pre> so the
     numbers line up in Telegram's proportional font. Every cell is escaped
     (labels are built from Zone.kind strings and could in principle carry
@@ -440,6 +442,15 @@ def _analysis_columns(analysis, instrument: Instrument) -> List[str]:
     rows.append((t("Entry"), [f"{e.entry:.{d}f}" for e in entries]))
     rows.append(("SL", [f"{e.stop_loss:.{d}f}" for e in entries]))
     rows.append((t("Risk"), [format_distance(e.risk, instrument) for e in entries]))
+    if deposit:
+        # Rule 8 size per rung (2026-09-10): the deeper rung risks fewer
+        # dollars per unit, so it carries a bigger position for the same
+        # risk — the two cells make that trade-off visible.
+        rows.append((t("Size"), [
+            position_size(instrument, e.entry, e.risk, deposit, risk_pct, compact=True)
+            or "—"
+            for e in entries
+        ]))
     for i in range(depth):
         rows.append((f"TP{i + 1}", [
             f"{e.targets[i].price:.{d}f}  1:{e.targets[i].rr:.1f}"
@@ -462,6 +473,33 @@ def _analysis_columns(analysis, instrument: Instrument) -> List[str]:
     return out
 
 
+def session_time_left(result: AnalysisResult):
+    """(minutes left, end datetime UTC) of the session `result` was checked
+    in, or None off session. A pending order placed now dies at that end
+    (Rule 10) — the number the owner needs next to the pending table."""
+    if not result.session_name:
+        return None
+    end = session_end_utc(result.checked_at)
+    if end is None:
+        return None
+    minutes = int((end - result.checked_at).total_seconds() // 60)
+    return max(minutes, 0), end
+
+
+def session_time_left_line(result: AnalysisResult) -> Optional[str]:
+    left = session_time_left(result)
+    if left is None:
+        return None
+    minutes, end = left
+    hh, mm = divmod(minutes, 60)
+    return t(
+        "⏱ {session} ends in {left} ({hhmm} Prague) — a pending order placed now "
+        "expires then",
+        session=escape_html(result.session_name), left=f"{hh}h{mm:02d}",
+        hhmm=to_prague(end).strftime("%H:%M"),
+    )
+
+
 def format_setup_analysis(
     pair: str,
     result: AnalysisResult,
@@ -469,6 +507,8 @@ def format_setup_analysis(
     instrument: Instrument,
     as_of: Optional[str] = None,
     ai_read=None,
+    deposit=None,
+    risk_pct: float = 2.0,
 ) -> str:
     """The Strategy audit the pair buttons under the 08:05/14:05 summary
     answer with (D25, owner decision 2026-09-05): the checklist state, the
@@ -505,6 +545,9 @@ def format_setup_analysis(
                 distance=escape_html(format_distance(gap, instrument)),
                 pct=f"{gap / result.price * 100:.1f}",
             ))
+    session_line = session_time_left_line(result)
+    if session_line:
+        lines.append(session_line)
     if result.market_range is not None:
         box = result.market_range
         lines.append(
@@ -525,7 +568,7 @@ def format_setup_analysis(
     lines.append("")
     if analysis.entries:
         lines.append(f"<b>{t('Pending (limit) entries')}</b>")
-        lines.extend(_analysis_columns(analysis, instrument))
+        lines.extend(_analysis_columns(analysis, instrument, deposit, risk_pct))
         if analysis.range_mode:
             lines.append(
                 t("🎯 one target each — the opposite boundary, full size (D14)")

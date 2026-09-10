@@ -72,6 +72,7 @@ class TelegramCommandBot:
         run_cycle: Callable[[], Awaitable[str]],
         status_text: Callable[[], str],
         stats_text: Optional[Callable[[], str]] = None,
+        ai_stats_text: Optional[Callable[[], str]] = None,
         news_text: Optional[Callable[[], str]] = None,
         pd_text: Optional[Callable[[], str]] = None,
         on_trade_mark: Optional[Callable[[str, bool], Awaitable[str]]] = None,
@@ -89,6 +90,7 @@ class TelegramCommandBot:
         self.run_cycle = run_cycle
         self.status_text = status_text
         self.stats_text = stats_text
+        self.ai_stats_text = ai_stats_text
         self.news_text = news_text
         self.pd_text = pd_text
         self.on_trade_mark = on_trade_mark
@@ -334,7 +336,11 @@ class TelegramCommandBot:
             await self.send(t("▶️ <b>Resumed</b> — watching pairs again."))
         elif command == "/journal":
             if self.trade_journal:
-                await self.send(self.trade_journal.stats_text())
+                text = self.trade_journal.stats_text()
+                if self.ai_stats_text:
+                    # 2026-09-10: how often Claude's alert read was right
+                    text += "\n\n" + self.ai_stats_text()
+                await self.send(text)
             else:
                 await self.send(t("Trade journal is not available."))
         elif command == "/news":
