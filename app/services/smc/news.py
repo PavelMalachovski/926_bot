@@ -144,13 +144,14 @@ class NewsCalendar:
         For every red event: Prague time, title, the watched pairs it hits
         and the exact no-entry window — no abstract rulers to decode.
         """
+        from app.services.smc.i18n import t
         from app.services.smc.notifier import escape_html
 
         now = now or datetime.now(tz=timezone.utc)
         date_str = to_prague(now).strftime("%d.%m.%Y")
-        header = f"📅 <b>Forex Factory — {date_str}</b> (Prague time)"
+        header = f"📅 <b>Forex Factory — {date_str}</b> {t('(Prague time)')}"
         if self.fetched_at is None:
-            return header + "\n⚠️ Calendar not loaded yet" + (
+            return header + "\n" + t("⚠️ Calendar not loaded yet") + (
                 f" ({escape_html(self.fetch_error)})" if self.fetch_error else ""
             )
 
@@ -158,10 +159,9 @@ class NewsCalendar:
         currencies: Set[str] = set().union(*by_pair.values()) if by_pair else set()
         events = self.todays_events(currencies, now)
         if not events:
-            return (
-                header
-                + f"\n✅ No red news for your pairs "
-                f"({', '.join(pairs) if pairs else '—'}) today. Clean hunting."
+            return header + "\n" + t(
+                "✅ No red news for your pairs ({pairs}) today. Clean hunting.",
+                pairs=", ".join(pairs) if pairs else "—",
             )
 
         def block_of(event: NewsEvent) -> str:
@@ -184,13 +184,13 @@ class NewsCalendar:
                 # below), but escape it anyway — defense-in-depth, same as
                 # the title right next to it.
                 f"({escape_html(event.currency)}) → {hits or '—'}",
-                f"    ⛔ no entries {start}–{end}",
+                t("    ⛔ no entries {start}–{end}", start=start, end=end),
             ]
 
         lines = [header, ""]
         for title, key in (
-            ("🌅 <b>London 08:00–14:00</b>", "london"),
-            ("🌇 <b>New York 14:00–18:30</b>", "ny"),
+            (f"🌅 <b>{t('London')} 08:00–14:00</b>", "london"),
+            (f"🌇 <b>{t('New York')} 14:00–18:30</b>", "ny"),
         ):
             lines.append(title)
             block_events = [e for e in events if block_of(e) == key]
@@ -198,17 +198,17 @@ class NewsCalendar:
                 for event in block_events:
                     lines.extend(event_lines(event))
             else:
-                lines.append("✅ clear")
+                lines.append(t("✅ clear"))
         off_hours = [e for e in events if block_of(e) == "off"]
         if off_hours:
-            lines.append("🌙 <b>Outside trading hours</b>")
+            lines.append(f"🌙 <b>{t('Outside trading hours')}</b>")
             for event in off_hours:
                 lines.extend(event_lines(event))
 
         lines.append("")
-        lines.append(
-            f"⛔ Blackout rule: {int(self.before.total_seconds() // 60)} min "
-            f"before / {int(self.after.total_seconds() // 60)} min after "
-            "each release."
-        )
+        lines.append(t(
+            "⛔ Blackout rule: {before} min before / {after} min after each release.",
+            before=int(self.before.total_seconds() // 60),
+            after=int(self.after.total_seconds() // 60),
+        ))
         return "\n".join(lines)

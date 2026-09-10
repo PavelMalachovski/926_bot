@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import structlog
 
 from app.services.smc.db import Database
+from app.services.smc.i18n import normalize_language
 from app.services.smc.instruments import DEFAULT_PAIRS, INSTRUMENTS
 from app.services.smc.sessions import prague_hhmm, to_prague
 
@@ -24,6 +25,11 @@ PlanZone = Tuple[float, float, Optional[str]]
 # alerts at all. This affects SETUP alerts only -- the news digest,
 # plan-zone alerts and Rule 0.4/9 warnings keep flowing regardless.
 NOTIFY_LEVELS: Tuple[str, ...] = ("all", "star", "mute")
+
+# Bot-facing language (owner request 2026-09-10): "ru" (default) or "en",
+# switched from the ⚙️ /settings menu. None in the kv store means "never
+# chosen" -> the SMC_LANG env default applies; a stored value wins after.
+LANGUAGES: Tuple[str, ...] = ("ru", "en")
 
 
 class WatcherState:
@@ -131,6 +137,9 @@ class WatcherState:
         self.notify_level: str = (
             raw_notify_level if raw_notify_level in NOTIFY_LEVELS else "all"
         )
+        # None = never chosen: the env default (SMC_LANG) applies until the
+        # owner picks one in /settings; anything unparseable reads as None.
+        self.language: Optional[str] = normalize_language(db.kv_get("language"))
 
     def save(self) -> None:
         self.db.kv_set("pairs", self.pairs)
@@ -153,6 +162,7 @@ class WatcherState:
         self.db.kv_set("auto_plan_sent", self.auto_plan_sent)
         self.db.kv_set("plan_summary", self.plan_summary)
         self.db.kv_set("notify_level", self.notify_level)
+        self.db.kv_set("language", self.language)
 
     # ------------------------------------------------------------ plan zones
 
@@ -351,6 +361,16 @@ class WatcherState:
             raise ValueError(f"Unknown notify level: {level!r}")
         self.notify_level = level
         self.save()
+
+    def set_language(self, language: str) -> str:
+        """Persist the bot-facing language (⚙️ /settings). Rejects anything
+        outside `LANGUAGES` for the same reason `set_notify_level` does."""
+        code = normalize_language(language)
+        if code is None:
+            raise ValueError(f"Unknown language: {language!r}")
+        self.language = code
+        self.save()
+        return code
 
     def set_profile(self, key: str, profile_key: str) -> None:
         """Set a pair's strategy profile and clear its dedup so the new

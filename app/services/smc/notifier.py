@@ -7,6 +7,7 @@ import httpx
 import structlog
 
 from app.services.smc.engine import trends_disagree
+from app.services.smc.i18n import get_language, t, tier_label
 from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.liquidity import LiquidityLevel, take_profits
 from app.services.smc.models import AnalysisResult, Direction, Trend, Verdict
@@ -15,6 +16,21 @@ from app.services.smc.sessions import to_prague
 logger = structlog.get_logger(__name__)
 
 TREND_LABEL = {Trend.UP: "uptrend", Trend.DOWN: "downtrend", Trend.FLAT: "flat"}
+
+
+def trend_label(trend: Trend) -> str:
+    """'uptrend' / 'downtrend' / 'flat' in the bot's language."""
+    return t(TREND_LABEL[trend])
+
+
+def side_label(is_long: bool) -> str:
+    """'Demand' / 'Supply' in the bot's language (a zone's side)."""
+    return t("Demand") if is_long else t("Supply")
+
+
+def bias_label(is_long: bool) -> str:
+    """'bullish' / 'bearish' in the bot's language."""
+    return t("bullish") if is_long else t("bearish")
 
 
 def escape_html(text: str) -> str:
@@ -66,7 +82,7 @@ def redact_secrets(text: str) -> str:
 
 def format_target(level: LiquidityLevel, decimals: int) -> str:
     """Name a liquidity objective: 'H1 swing high 3221.00 (EQH x2)'."""
-    kind = "swing high" if level.is_high else "swing low"
+    kind = t("swing high") if level.is_high else t("swing low")
     pool = ""
     if level.equal_count > 1:
         pool = f" (EQ{'H' if level.is_high else 'L'} x{level.equal_count})"
@@ -79,7 +95,7 @@ def format_distance(value: float, instrument: Instrument) -> str:
     gets misjudged at a glance."""
     if instrument.source == "crypto":
         return f"${value:,.2f}"
-    return f"{value / instrument.pip:.1f} pips"
+    return t("{pips} pips", pips=f"{value / instrument.pip:.1f}")
 
 
 # Owner decision D22 (2026-08-30): a setup can now form without a valid M5
@@ -95,13 +111,13 @@ _FVG_PROBLEMS = {
 
 def _imbalance_flaw(problems) -> str:
     """'too small, over half filled' — why a gap failed Rule 4."""
-    named = [_FVG_PROBLEMS[p] for p in problems if p in _FVG_PROBLEMS]
-    return ", ".join(named) if named else "not valid"
+    named = [t(_FVG_PROBLEMS[p]) for p in problems if p in _FVG_PROBLEMS]
+    return ", ".join(named) if named else t("not valid")
 
 
 def _entry_label(setup) -> str:
     """What the entry price is measured from — the ladder rung D22 used."""
-    return {"fvg": "FVG", "ob": "OB", "market": "market"}.get(
+    return {"fvg": "FVG", "ob": "OB", "market": t("market")}.get(
         setup.entry_source, "FVG"
     )
 
@@ -128,14 +144,14 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
         ob_entry = setup.order_block.top if is_long else setup.order_block.bottom
     ob_risk = abs(ob_entry - setup.stop_loss) if ob_entry is not None else None
 
-    header = "🎯 Unswept liquidity ahead"
+    header = t("🎯 Unswept liquidity ahead")
     # D22: the first RR column is measured from whatever rung supplied the
     # entry, so it must be named after that rung rather than always "FVG".
     entry_label = _entry_label(setup)
     header += (
-        f"      RR from {entry_label} / from OB"
+        t("      RR from {entry} / from OB", entry=entry_label)
         if ob_risk
-        else f"      RR from {entry_label}"
+        else t("      RR from {entry}", entry=entry_label)
     )
     # The header carries the emoji and stays in the message's normal
     # proportional font, matching every other line (📍/⚡/🛑/🧱). Only the
@@ -174,7 +190,7 @@ def _ladder_lines(setup, instrument: Instrument) -> List[str]:
             f"{cell:<{rr_width}}   {escape_html(lv.timeframe + pool)}"
         )
     if not rows:
-        out.append("     — none ahead")
+        out.append(t("     — none ahead"))
     out.append("</pre>")
     return out
 
@@ -184,16 +200,16 @@ def _zone_lines(setup, decimals: int) -> List[str]:
     entry — alternative deeper entries, the same idea as the 🧱 M5 order
     block one line up. The owner asked to see the untested H1 block the bot
     was hiding (USDCAD 1.40710, 2026-08-06)."""
-    out = ["🧱 Untested zones further out   ← deeper entries"]
+    out = [t("🧱 Untested zones further out   ← deeper entries")]
     for zone in setup.zones_ahead:
         if zone.kind == "FVG":
             # An imbalance never goes through `_mark_zone_state`, so its
             # `touches` is an untouched default, not a count anybody took —
             # and D10 admits a gap only while penetration is zero, so state
             # that instead of printing a number that was never measured.
-            state = "untouched"
+            state = t("untouched")
         else:
-            state = f"{zone.touches} touch{'' if zone.touches == 1 else 'es'}"
+            state = touches_label(zone.touches)
         out.append(
             f"     {zone.bottom:.{decimals}f} – {zone.top:.{decimals}f}"
             f"   ({zone.kind} · {state})"
@@ -201,34 +217,39 @@ def _zone_lines(setup, decimals: int) -> List[str]:
     return out
 
 
+def touches_label(touches: int) -> str:
+    """'1 touch' / '3 touches' — Russian needs three plural forms."""
+    if touches == 1:
+        return t("1 touch")
+    few = 2 <= touches % 10 <= 4 and not 12 <= touches % 100 <= 14
+    if few and get_language() == "ru":
+        return t("{n} touches (few)", n=touches)
+    return t("{n} touches", n=touches)
+
+
 def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
     """Where the direction came from — the guard against a silent first-leg
     or lower-timeframe entry (spec §2, owner constraint: trend only)."""
     source = getattr(result, "direction_source", "h4")
+    trend = t("uptrend") if is_long else t("downtrend")
     if source == "h1":
-        return (
-            "⚠️ H4 flat — direction from H1 "
-            f"{'uptrend' if is_long else 'downtrend'}"
-        )
+        return t("⚠️ H4 flat — direction from H1 {trend}", trend=trend)
     if source == "h1_counter":
         # D23 (owner decision 2026-08-31): H4 trends one way and H1 has
         # turned the other. The setup is shown so the owner sees what his
         # own eye sees on the lower timeframe, and it can never earn the ⭐
         # (D6 denies it) — so the header has to say plainly that this one
         # runs against the higher timeframe.
-        return (
-            "⚠️ against H4 — direction from the H1 "
-            f"{'uptrend' if is_long else 'downtrend'}"
-        )
+        return t("⚠️ against H4 — direction from the H1 {trend}", trend=trend)
     if source == "h4_choch":
-        return "⚠️ H4 flat — direction from CHoCH (first leg, not with-trend)"
+        return t("⚠️ H4 flat — direction from CHoCH (first leg, not with-trend)")
     if source == "range":
         # D11: this direction only exists because BOTH H4 and H1 read FLAT
         # and a range was found — "H4 flat" alone would be true but would
         # hide that H1 was flat too and that the direction came from a
         # boundary, not a trend at all.
-        return "⚠️ H4/H1 flat — direction from the range boundary"
-    return f"H4 {TREND_LABEL[result.h4_trend]}"
+        return t("⚠️ H4/H1 flat — direction from the range boundary")
+    return f"H4 {trend_label(result.h4_trend)}"
 
 
 def _pd_line(result: AnalysisResult) -> Optional[str]:
@@ -248,7 +269,7 @@ def _pd_line(result: AnalysisResult) -> Optional[str]:
     d = result.price_decimals
     ote = f"OTE {read.ote_low:.{d}f}–{read.ote_high:.{d}f}"
     return (
-        f"PD {read.pct}% {escape_html(read.label)} "
+        f"PD {read.pct}% {escape_html(t(read.label))} "
         f"({escape_html(read.range.timeframe)} "
         f"{read.range.low:.{d}f}–{read.range.high:.{d}f}) · "
         f"{ote}{' ✓' if read.in_ote else ''}"
@@ -279,27 +300,27 @@ def format_pd_alert(
     rng = read.range
     head = "🟢" if is_long else "🔴"
     lines = [
-        f"{head} <b>{escape_html(pair)} — {escape_html(read.label.upper())}</b>"
-        f" · bias {'LONG' if is_long else 'SHORT'}",
-        f"{escape_html(rng.timeframe + ' range'):<12} "
+        f"{head} <b>{escape_html(pair)} — {escape_html(t(read.label).upper())}</b>"
+        + t(" · bias {side}", side="LONG" if is_long else "SHORT"),
+        f"{escape_html(rng.timeframe + ' ' + t('range')):<12} "
         f"{rng.low:.{d}f} – {rng.high:.{d}f}",
-        f"{'Price':<12} {read.price:.{d}f}   ← {read.pct}% of the range",
+        f"{t('Price'):<12} {read.price:.{d}f}   ← "
+        + t("{pct}% of the range", pct=read.pct),
         f"{'OTE':<12} {read.ote_low:.{d}f} – {read.ote_high:.{d}f}"
-        + ("   ⭐ price is inside" if read.in_ote else ""),
+        + (t("   ⭐ price is inside") if read.in_ote else ""),
         "",
     ]
     if zone is not None:
-        kind = "Demand" if is_long else "Supply"
         lines.append(
-            f"📍 H1 {kind} zone      {zone.bottom:.{d}f} – {zone.top:.{d}f}"
+            t("📍 H1 {kind} zone      {lo} – {hi}", kind=side_label(is_long),
+              lo=f"{zone.bottom:.{d}f}", hi=f"{zone.top:.{d}f}")
         )
     if target is not None:
         lines.append(
-            f"🎯 Liquidity ahead   {escape_html(format_target(target, d))}"
+            t("🎯 Liquidity ahead   {target}",
+              target=escape_html(format_target(target, d)))
         )
-    lines.append(
-        f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG."
-    )
+    lines.append(t("Watching M5 for a {bias} CHoCH + FVG.", bias=bias_label(is_long)))
     return "\n".join(lines)
 
 
@@ -307,7 +328,7 @@ def _targets_line(targets, decimals: int) -> str:
     """'🎯 TP1 2489.00 (1:1.2) · TP2 2500.37 (1:2.0) · TP3 2529.26 (1:3.5)'
     — or the honest empty case."""
     if not targets:
-        return "🎯 no unswept liquidity ahead"
+        return t("🎯 no unswept liquidity ahead")
     return "🎯 " + " · ".join(
         f"TP{i} {tp.price:.{decimals}f} (1:{tp.rr:.1f})"
         for i, tp in enumerate(targets, start=1)
@@ -327,24 +348,26 @@ def _market_entry_lines(
     risk = price - setup.stop_loss if is_long else setup.stop_loss - price
     if risk <= 0:
         return [
-            f"📈 Market entry         {price:.{d}f}"
-            "   ✗ price is already beyond the stop — no market entry",
+            t("📈 Market entry         {price}"
+              "   ✗ price is already beyond the stop — no market entry",
+              price=f"{price:.{d}f}"),
         ]
-    head = (
-        f"📈 Enter at market      {price:.{d}f}"
-        f"   ← SL {setup.stop_loss:.{d}f} · risk "
-        f"{escape_html(format_distance(risk, instrument))}"
+    head = t(
+        "📈 Enter at market      {price}   ← SL {sl} · risk {risk}",
+        price=f"{price:.{d}f}", sl=f"{setup.stop_loss:.{d}f}",
+        risk=escape_html(format_distance(risk, instrument)),
     )
     if is_range:
         if setup.take_profit is None:
-            return [head, "🎯 no positive reward to the opposite boundary"]
+            return [head, t("🎯 no positive reward to the opposite boundary")]
         reward = (
             setup.take_profit - price if is_long else price - setup.take_profit
         )
         cell = _rr_cell(reward / risk) if reward > 0 else "—"
         return [
             head,
-            f"🎯 Range target         {setup.take_profit:.{d}f}   ({cell})",
+            t("🎯 Range target         {tp}   ({rr})",
+              tp=f"{setup.take_profit:.{d}f}", rr=cell),
         ]
     targets = take_profits(
         setup.ladder, setup.direction, price, setup.stop_loss,
@@ -360,11 +383,14 @@ def took_skipped_keyboard(signal_id: str) -> dict:
     return {
         "inline_keyboard": [
             [
-                {"text": "✅ Took it", "callback_data": f"take_{signal_id}"},
-                {"text": "❌ Skipped", "callback_data": f"skip_{signal_id}"},
+                {"text": t("✅ Took it"), "callback_data": f"take_{signal_id}"},
+                {"text": t("❌ Skipped"), "callback_data": f"skip_{signal_id}"},
             ]
         ]
     }
+
+
+_STANCES = {"agree": "agree", "caution": "caution", "against": "against"}
 
 
 def format_ai_read(read) -> str:
@@ -372,11 +398,13 @@ def format_ai_read(read) -> str:
     on one line, the read itself, then the risks. Appended to the 🚨 card
     and to the audit; every field is model output and goes through
     escape_html like any other dynamic string."""
+    stance = t(_STANCES.get(read.stance, read.stance)).upper()
     head = (
-        f"🧠 <b>AI read</b> ({escape_html(read.model)}"
-        + (f" · {escape_html(read.as_of)} Prague" if read.as_of else "")
-        + f"): {escape_html(read.stance.upper())} · confidence "
-        f"{int(read.confidence)}/5 · prefers {escape_html(read.preferred_entry.upper())}"
+        f"🧠 <b>{t('AI read')}</b> ({escape_html(read.model)}"
+        + (f" · {escape_html(read.as_of)} {t('Prague')}" if read.as_of else "")
+        + f"): {escape_html(stance)} · "
+        + t("confidence {n}/5 · prefers {entry}", n=int(read.confidence),
+            entry=escape_html(read.preferred_entry.upper()))
     )
     lines = [head, escape_html(read.read)]
     if read.risks:
@@ -403,15 +431,15 @@ def _analysis_columns(analysis, instrument: Instrument) -> List[str]:
 
     depth = max((len(e.targets) for e in entries), default=0)
     rows = [("", [header(e) for e in entries])]
-    rows.append(("Where", [e.label for e in entries]))
+    rows.append((t("Where"), [e.label for e in entries]))
     if any(e.zone for e in entries):
-        rows.append(("Zone", [
+        rows.append((t("Zone"), [
             f"{e.zone[0]:.{d}f}–{e.zone[1]:.{d}f}" if e.zone else "—"
             for e in entries
         ]))
-    rows.append(("Entry", [f"{e.entry:.{d}f}" for e in entries]))
+    rows.append((t("Entry"), [f"{e.entry:.{d}f}" for e in entries]))
     rows.append(("SL", [f"{e.stop_loss:.{d}f}" for e in entries]))
-    rows.append(("Risk", [format_distance(e.risk, instrument) for e in entries]))
+    rows.append((t("Risk"), [format_distance(e.risk, instrument) for e in entries]))
     for i in range(depth):
         rows.append((f"TP{i + 1}", [
             f"{e.targets[i].price:.{d}f}  1:{e.targets[i].rr:.1f}"
@@ -419,16 +447,17 @@ def _analysis_columns(analysis, instrument: Instrument) -> List[str]:
             for e in entries
         ]))
     if depth == 0:
-        rows.append(("TP", ["no unswept liquidity ahead" for _ in entries]))
+        rows.append(("TP", [t("no unswept liquidity ahead") for _ in entries]))
     widths = [
         max(len(row[1][col]) for row in rows) for col in range(len(entries))
     ]
+    label_width = max(6, max(len(label) for label, _ in rows))
     out = ["<pre>"]
     for label, cells in rows:
         padded = "   ".join(
             f"{escape_html(cell):<{widths[i]}}" for i, cell in enumerate(cells)
         )
-        out.append(f"{escape_html(label):<6} {padded}".rstrip())
+        out.append(f"{escape_html(label):<{label_width}} {padded}".rstrip())
     out.append("</pre>")
     return out
 
@@ -449,7 +478,7 @@ def format_setup_analysis(
     """
     d = instrument.price_decimals
     name = escape_html(pair)
-    head = f"🔬 <b>Strategy audit — {name}</b>"
+    head = f"🔬 <b>{t('Strategy audit — {pair}', pair=name)}</b>"
     if analysis.direction is not None:
         head += f" · {'LONG' if analysis.direction == Direction.LONG else 'SHORT'}"
     if result.h1_trend is not None:
@@ -459,40 +488,45 @@ def format_setup_analysis(
         )
     lines = [head]
     if result.price:
-        suffix = f" · M5 close {escape_html(as_of)} Prague" if as_of else ""
+        suffix = (
+            " · " + t("M5 close {hhmm} Prague", hhmm=escape_html(as_of))
+            if as_of else ""
+        )
         lines.append(f"💵 {result.price:.{d}f}{suffix}")
     if result.market_range is not None:
         box = result.market_range
-        lines.append(f"📦 Range box {box.bottom:.{d}f}–{box.top:.{d}f}")
+        lines.append(
+            t("📦 Range box {lo}–{hi}", lo=f"{box.bottom:.{d}f}", hi=f"{box.top:.{d}f}")
+        )
     market = analysis.market
     if market is not None:
         lines.append(
-            f"🚨 <b>Setup formed</b> — market entry {market.entry:.{d}f} · "
-            f"SL {market.stop_loss:.{d}f} · risk "
-            f"{escape_html(format_distance(market.risk, instrument))}"
+            t("🚨 <b>Setup formed</b> — market entry {entry} · SL {sl} · risk {risk}",
+              entry=f"{market.entry:.{d}f}", sl=f"{market.stop_loss:.{d}f}",
+              risk=escape_html(format_distance(market.risk, instrument)))
         )
         lines.append(_targets_line(market.targets, d))
     elif result.reasons:
         icon = "👀" if result.verdict == Verdict.WATCH else "⛔"
-        prefix = "" if result.session_name else "(off session) "
+        prefix = "" if result.session_name else t("(off session) ")
         lines.append(f"{icon} {prefix}{escape_html(result.reasons[0])}")
     lines.append("")
     if analysis.entries:
-        lines.append("<b>Pending (limit) entries</b>")
+        lines.append(f"<b>{t('Pending (limit) entries')}</b>")
         lines.extend(_analysis_columns(analysis, instrument))
         if analysis.range_mode:
             lines.append(
-                "🎯 one target each — the opposite boundary, full size (D14)"
+                t("🎯 one target each — the opposite boundary, full size (D14)")
             )
-        lines.append(
+        lines.append(t(
             "⚠️ A pending order lives only within its session (Rule 10); once "
             "the setup forms, the 🚨 alert re-anchors the SL to the swept "
             "extreme (Rule 6)."
-        )
+        ))
     else:
         lines.append(
-            "→ No pending entry to place: "
-            + escape_html(analysis.note or "nothing to wait at")
+            t("→ No pending entry to place: {note}",
+              note=escape_html(analysis.note or t("nothing to wait at")))
         )
     if ai_read is not None:
         lines.append("")
@@ -518,7 +552,7 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     side = "LONG" if is_long else "SHORT"
 
     lines = [
-        f"🚨 <b>SETUP READY — {escape_html(result.symbol)} · {side}</b>"
+        f"🚨 <b>{t('SETUP READY — {pair} · {side}', pair=escape_html(result.symbol), side=side)}</b>"
         f" · {_direction_source_label(result, is_long)}"
     ]
     if result.h1_trend is not None:
@@ -531,7 +565,7 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         # suppresses; it only labels.
         agree = f"H4 {result.h4_trend.value} · H1 {result.h1_trend.value}"
         if trends_disagree(result.h4_trend, result.h1_trend):
-            agree += " ⚠️ counter-hourly"
+            agree += t(" ⚠️ counter-hourly")
         lines.append(agree)
     pd_line = _pd_line(result)
     if pd_line:
@@ -549,12 +583,12 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         # moves here — the most common blocker (pd) has its number on the PD
         # line just above.
         lines.append(
-            "🔹 Missed for ⭐: " + escape_html(", ".join(setup.tier_missed))
+            t("🔹 Missed for ⭐: {missed}", missed=escape_html(missed_label(setup.tier_missed)))
         )
     if in_plan is True:
-        lines.append("   from this morning's plan")
+        lines.append(t("   from this morning's plan"))
     elif in_plan is False:
-        lines.append("   new zone — not in the plan")
+        lines.append(t("   new zone — not in the plan"))
     lines.append("")
 
     # --- the four actionable lines, in the order the owner works them
@@ -567,21 +601,22 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     if is_range:
         box = result.market_range
         lines.append(
-            f"📦 Range box            "
-            f"{box.bottom:.{d}f} – {box.top:.{d}f}"
+            t("📦 Range box            {lo} – {hi}",
+              lo=f"{box.bottom:.{d}f}", hi=f"{box.top:.{d}f}")
         )
     if result.h1_zone:
+        zlo, zhi = f"{result.h1_zone.bottom:.{d}f}", f"{result.h1_zone.top:.{d}f}"
         if is_range:
-            edge = "LOW" if result.h1_zone.is_demand else "HIGH"
             lines.append(
-                f"📍 Range {edge} boundary  "
-                f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
+                t("📍 Range LOW boundary  {lo} – {hi}", lo=zlo, hi=zhi)
+                if result.h1_zone.is_demand
+                else t("📍 Range HIGH boundary  {lo} – {hi}", lo=zlo, hi=zhi)
             )
         else:
-            kind = "Demand" if result.h1_zone.is_demand else "Supply"
             lines.append(
-                f"📍 H1 {kind} zone ({result.h1_zone.kind})  "
-                f"{result.h1_zone.bottom:.{d}f} – {result.h1_zone.top:.{d}f}"
+                t("📍 H1 {kind} zone ({zk})  {lo} – {hi}",
+                  kind=side_label(result.h1_zone.is_demand),
+                  zk=result.h1_zone.kind, lo=zlo, hi=zhi)
             )
     # D22: the entry line names the rung it came from, and the imbalance gets
     # a line of its own whenever it did not supply the entry — present but
@@ -589,9 +624,9 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     # for the gap to stay visible without being decisive.
     if setup.fvg is not None:
         lines.append(
-            f"⚡ M5 imbalance (FVG)   "
-            f"{setup.fvg.bottom:.{d}f} – {setup.fvg.top:.{d}f}"
-            f"   ← limit order ({setup.entry:.{d}f})"
+            t("⚡ M5 imbalance (FVG)   {lo} – {hi}   ← limit order ({entry})",
+              lo=f"{setup.fvg.bottom:.{d}f}", hi=f"{setup.fvg.top:.{d}f}",
+              entry=f"{setup.entry:.{d}f}")
         )
     else:
         if setup.entry_source == "ob" and setup.order_block is None:
@@ -599,33 +634,31 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
             # `order_block` empty (nothing deeper to advertise) and the band
             # is not repeated — the entry price says it.
             lines.append(
-                f"🧱 M5 order block       "
-                f"{setup.entry:.{d}f}"
-                f"   ← limit order (no imbalance)"
+                t("🧱 M5 order block       {entry}   ← limit order (no imbalance)",
+                  entry=f"{setup.entry:.{d}f}")
             )
         else:
             lines.append(
-                f"📈 Market entry         "
-                f"{setup.entry:.{d}f}"
-                f"   ← at the CHoCH (no imbalance)"
+                t("📈 Market entry         {entry}   ← at the CHoCH (no imbalance)",
+                  entry=f"{setup.entry:.{d}f}")
             )
         if setup.rejected_fvg is not None:
             gap = setup.rejected_fvg
             lines.append(
-                f"⚡ M5 imbalance         "
-                f"{gap.bottom:.{d}f} – {gap.top:.{d}f}"
-                f"   ✗ {escape_html(_imbalance_flaw(setup.rejected_fvg_problems))}"
+                t("⚡ M5 imbalance         {lo} – {hi}   ✗ {flaw}",
+                  lo=f"{gap.bottom:.{d}f}", hi=f"{gap.top:.{d}f}",
+                  flaw=escape_html(_imbalance_flaw(setup.rejected_fvg_problems)))
             )
         else:
             lines.append(
-                "⚡ M5 imbalance         none — the impulse left no gap"
+                t("⚡ M5 imbalance         none — the impulse left no gap")
             )
     if setup.order_block:
         ob_entry = setup.order_block.top if is_long else setup.order_block.bottom
         lines.append(
-            f"🧱 M5 order block       "
-            f"{setup.order_block.bottom:.{d}f} – {setup.order_block.top:.{d}f}"
-            f"   ← deeper entry ({ob_entry:.{d}f})"
+            t("🧱 M5 order block       {lo} – {hi}   ← deeper entry ({entry})",
+              lo=f"{setup.order_block.bottom:.{d}f}",
+              hi=f"{setup.order_block.top:.{d}f}", entry=f"{ob_entry:.{d}f}")
         )
     # The stop sits one buffer beyond the swept extreme; show the extreme
     # itself, because that wick is what the owner reads off the chart.
@@ -648,13 +681,13 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         # something false. Name what it actually is: the level the stop sits
         # beyond (review 2026-08-18).
         lines.append(
-            f"🛑 Stop reference       {extreme:.{d}f}"
-            f"   ← stop beyond it ({setup.stop_loss:.{d}f} with buffer)"
+            t("🛑 Stop reference       {extreme}   ← stop beyond it ({sl} with buffer)",
+              extreme=f"{extreme:.{d}f}", sl=f"{setup.stop_loss:.{d}f}")
         )
     else:
         lines.append(
-            f"🛑 Swept liquidity      {extreme:.{d}f}"
-            f"   ← stop behind the wick ({setup.stop_loss:.{d}f} with buffer)"
+            t("🛑 Swept liquidity      {extreme}   ← stop behind the wick ({sl} with buffer)",
+              extreme=f"{extreme:.{d}f}", sl=f"{setup.stop_loss:.{d}f}")
         )
     if is_range and setup.take_profit is not None:
         # D14 (owner decision 2026-08-18): one target, the opposite
@@ -662,14 +695,13 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         # an actionable line here rather than a "ref ·" footnote — the ref
         # objective line below only fires for a liquidity `target`, which a
         # range setup deliberately has none of.
-        far = "HIGH" if is_long else "LOW"
         # Padded to the same column as the 📦/📍/⚡/🛑 lines above, which are
         # hand-aligned one emoji = one cell — "HIGH" is a character wider
         # than "LOW", so the label is justified rather than fixed-spaced.
-        label = f"🎯 Range {far} target"
+        label = t("🎯 Range HIGH target") if is_long else t("🎯 Range LOW target")
         lines.append(
             f"{label:<19}    {setup.take_profit:.{d}f}"
-            f"   ← full size, 1:{setup.rr:.1f}"
+            + t("   ← full size, 1:{rr}", rr=f"{setup.rr:.1f}")
         )
     # D25 (owner decision 2026-09-05): the notification means "the setup has
     # formed — enter at market". The market price, the Rule 6 stop and TP1-3
@@ -697,7 +729,7 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
             "fvg": "   ▶️ price is inside the imbalance right now",
             "ob": "   ▶️ price is inside the order block right now",
         }.get(setup.entry_source, "   ▶️ market entry — price is at the CHoCH")
-        notes.append(inside)
+        notes.append(t(inside))
     for warning in result.warnings:
         notes.append(f"   ⚠️ {escape_html(warning)}")
     if result.funding_warning:
@@ -709,53 +741,61 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
     # --- ref: measured context, not instruction
     lines.append("")
     if setup.fvg is not None:
-        fvg_ref = (
-            f"   ref · FVG {setup.fvg.size:.{d}f}, "
-            f"{setup.fvg.fill_pct * 100:.0f}% filled"
+        fvg_ref = t(
+            "   ref · FVG {size}, {pct}% filled",
+            size=f"{setup.fvg.size:.{d}f}", pct=f"{setup.fvg.fill_pct * 100:.0f}",
         )
     elif setup.rejected_fvg is not None:
         # D22: still measured, still shown — it just does not count.
         flaw = escape_html(_imbalance_flaw(setup.rejected_fvg_problems))
-        fvg_ref = (
-            f"   ref · FVG {setup.rejected_fvg.size:.{d}f}, "
-            f"{setup.rejected_fvg.fill_pct * 100:.0f}% filled — {flaw}"
+        fvg_ref = t(
+            "   ref · FVG {size}, {pct}% filled — {flaw}",
+            size=f"{setup.rejected_fvg.size:.{d}f}",
+            pct=f"{setup.rejected_fvg.fill_pct * 100:.0f}", flaw=flaw,
         )
     else:
-        fvg_ref = "   ref · no M5 imbalance in the impulse"
+        fvg_ref = t("   ref · no M5 imbalance in the impulse")
     if result.session_name:
         fvg_ref += f" · {escape_html(result.session_name)}"
     lines.append(fvg_ref)
     if setup.take_profit is not None and setup.target is not None:
         lines.append(
-            f"   ref · tracked objective {setup.take_profit:.{d}f} "
-            f"(1:{setup.rr:.1f}) · {escape_html(format_target(setup.target, d))}"
+            t("   ref · tracked objective {tp} (1:{rr}) · {target}",
+              tp=f"{setup.take_profit:.{d}f}", rr=f"{setup.rr:.1f}",
+              target=escape_html(format_target(setup.target, d)))
         )
     if setup.lot_hint:
-        lines.append(f"   ref · size {escape_html(setup.lot_hint)}")
+        lines.append(t("   ref · size {size}", size=escape_html(setup.lot_hint)))
     if result.funding_rate is not None and not result.funding_warning:
         # Rule 9.3: a benign funding reading is still measured context. The
         # actionable brackets already left as ⚠️ lines above.
-        lines.append(f"   ref · funding {result.funding_rate * 100:.3f}%/8h")
+        lines.append(t("   ref · funding {rate}%/8h", rate=f"{result.funding_rate * 100:.3f}"))
     if getattr(result, "profile_key", "conservative") == "aggressive":
-        lines.append("   ref · aggressive profile — first-leg entry")
-    lines.append("   ref · a pending order expires with this session (Rule 10)")
+        lines.append(t("   ref · aggressive profile — first-leg entry"))
+    lines.append(t("   ref · a pending order expires with this session (Rule 10)"))
     lines.append(
-        f"   ref · {to_prague(result.checked_at).strftime('%d.%m %H:%M')} Prague"
-        + (f" · price {result.price:.{d}f}" if result.price else "")
+        t("   ref · {when} Prague", when=to_prague(result.checked_at).strftime('%d.%m %H:%M'))
+        + (t(" · price {price}", price=f"{result.price:.{d}f}") if result.price else "")
     )
     return "\n".join(lines)
+
+
+def missed_label(codes) -> str:
+    """'room, sweep' in the bot's language — the ⭐ conditions a setup missed."""
+    return ", ".join(tier_label(c) for c in codes)
 
 
 def format_no_setup(result: AnalysisResult) -> str:
     """Compact heartbeat when there is no setup."""
     time_str = to_prague(result.checked_at).strftime("%H:%M")
     if result.verdict == Verdict.OFF_SESSION:
-        return (
-            f"😴 {result.symbol} {time_str} — off session, entries are not "
-            "allowed. Will check again on schedule."
+        return t(
+            "😴 {pair} {hhmm} — off session, entries are not allowed. "
+            "Will check again on schedule.", pair=result.symbol, hhmm=time_str,
         )
-    reason = escape_html(result.reasons[0] if result.reasons else "conditions not met")
-    return f"🔍 {result.symbol} {time_str} — no setup. {reason}."
+    reason = escape_html(result.reasons[0] if result.reasons else t("conditions not met"))
+    return t("🔍 {pair} {hhmm} — no setup. {reason}.",
+             pair=result.symbol, hhmm=time_str, reason=reason)
 
 
 def format_quiet_setup(result: AnalysisResult) -> str:
@@ -780,16 +820,18 @@ def format_quiet_setup(result: AnalysisResult) -> str:
     d = result.price_decimals
     is_long = setup.direction == Direction.LONG
     side = "LONG" if is_long else "SHORT"
-    missed = ", ".join(setup.tier_missed) if setup.tier_missed else "—"
+    missed = missed_label(setup.tier_missed) if setup.tier_missed else "—"
     time_str = to_prague(result.checked_at).strftime("%d.%m %H:%M")
     # "Missed for ⭐: pd" is the most common verdict on this line and the
     # least actionable one without a number behind it (owner decision D17).
     pd_read = result.pd
     pd_note = (
-        f" · PD {pd_read.pct}% {escape_html(pd_read.label)}"
+        f" · PD {pd_read.pct}% {escape_html(t(pd_read.label))}"
         f" ({escape_html(pd_read.range.timeframe)})"
         if pd_read is not None else ""
     )
+    tail = t("Missed for ⭐: {missed}{pd} · {when} Prague",
+             missed=escape_html(missed), pd=pd_note, when=time_str)
     if result.direction_source == "range" and result.market_range is not None:
         box = result.market_range
         target = (
@@ -798,28 +840,28 @@ def format_quiet_setup(result: AnalysisResult) -> str:
             else "TP n/a"
         )
         return (
-            f"🔹 <b>{escape_html(result.symbol)} {side}</b> · range "
-            f"{box.bottom:.{d}f}–{box.top:.{d}f} · "
-            f"entry {setup.entry:.{d}f} · SL {setup.stop_loss:.{d}f} · "
-            f"{target}\n"
-            f"Missed for ⭐: {escape_html(missed)}{pd_note} · {time_str} Prague"
+            t("🔹 <b>{pair} {side}</b> · range {lo}–{hi} · entry {entry} · SL {sl} · {target}",
+              pair=escape_html(result.symbol), side=side,
+              lo=f"{box.bottom:.{d}f}", hi=f"{box.top:.{d}f}",
+              entry=f"{setup.entry:.{d}f}", sl=f"{setup.stop_loss:.{d}f}", target=target)
+            + "\n" + tail
         )
     tp1 = f"{setup.tp1:.{d}f}" if setup.tp1 is not None else "n/a"
     runner = f"{setup.runner_tp:.{d}f}" if setup.runner_tp is not None else "n/a"
     return (
-        f"🔹 <b>{escape_html(result.symbol)} {side}</b> · "
-        f"entry {setup.entry:.{d}f} · SL {setup.stop_loss:.{d}f} · "
-        f"TP1 {tp1} · runner {runner}\n"
-        f"Missed for ⭐: {escape_html(missed)}{pd_note} · {time_str} Prague"
+        t("🔹 <b>{pair} {side}</b> · entry {entry} · SL {sl} · TP1 {tp1} · runner {runner}",
+          pair=escape_html(result.symbol), side=side, entry=f"{setup.entry:.{d}f}",
+          sl=f"{setup.stop_loss:.{d}f}", tp1=tp1, runner=runner)
+        + "\n" + tail
     )
 
 
 def format_setup_still_active(result: AnalysisResult) -> str:
     """Short reminder when the previously reported setup is still valid."""
     time_str = to_prague(result.checked_at).strftime("%H:%M")
-    return (
-        f"⏳ {result.symbol} {time_str} — the setup reported earlier is still "
-        "active. Nothing new."
+    return t(
+        "⏳ {pair} {hhmm} — the setup reported earlier is still active. Nothing new.",
+        pair=result.symbol, hhmm=time_str,
     )
 
 
@@ -838,58 +880,58 @@ def format_result(result: AnalysisResult, in_plan: Optional[bool] = None) -> str
     lines = []
     lines.append(f"<b>{escape_html(result.symbol)}</b> — Triple Sync + Imbalance")
     if getattr(result, "profile_key", "conservative") == "aggressive":
-        lines.append("⚡ <b>Aggressive profile</b> — first-leg entry, lower-probability")
+        lines.append(t("⚡ <b>Aggressive profile</b> — first-leg entry, lower-probability"))
     lines.append(
-        f"🕐 {to_prague(result.checked_at).strftime('%d.%m.%Y %H:%M')} Prague"
-        + (f" | Session: {result.session_name}" if result.session_name else "")
+        f"🕐 {to_prague(result.checked_at).strftime('%d.%m.%Y %H:%M')} {t('Prague')}"
+        + (f" | {t('Session')}: {result.session_name}" if result.session_name else "")
     )
     d = result.price_decimals
     if result.price:
-        lines.append(f"💵 Price: {result.price:.{d}f}")
+        lines.append(f"💵 {t('Price')}: {result.price:.{d}f}")
     lines.append("")
-    lines.append(f"<b>H4 bias:</b> {TREND_LABEL[result.h4_trend]}")
+    lines.append(f"<b>{t('H4 bias')}:</b> {trend_label(result.h4_trend)}")
 
     if result.market_range is not None:
         # Drawing the boundaries only — the one thing that may key on
         # `market_range` rather than on `direction_source` (models.py).
         box = result.market_range
         lines.append(
-            f"<b>Range box:</b> {box.bottom:.{d}f}–{box.top:.{d}f}"
+            f"<b>{t('Range box')}:</b> {box.bottom:.{d}f}–{box.top:.{d}f}"
         )
     if result.h1_zone:
         if result.h1_zone.kind == "RANGE":
             # A boundary is not an H1 Demand/Supply zone and must not be
             # described as one (review 2026-08-18). The box itself is on the
             # line above only when a range is live, which it always is here.
-            edge = "LOW" if result.h1_zone.is_demand else "HIGH"
+            edge = t("Range LOW boundary") if result.h1_zone.is_demand else t("Range HIGH boundary")
             lines.append(
-                f"<b>Range {edge} boundary:</b> "
+                f"<b>{edge}:</b> "
                 f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
             )
         else:
-            zone_kind = "Demand" if result.h1_zone.is_demand else "Supply"
+            zone_kind = side_label(result.h1_zone.is_demand)
             # The kind (OB / FVG) belongs here more than anywhere: this is
             # the screen the owner reads WHILE waiting for price to arrive,
             # which is the whole life of an imbalance zone — the loud alert
             # may never come.
             lines.append(
-                f"<b>H1 zone ({zone_kind} · {result.h1_zone.kind}):</b> "
+                f"<b>{t('H1 zone')} ({zone_kind} · {result.h1_zone.kind}):</b> "
                 f"{result.h1_zone.bottom:.{d}f}–{result.h1_zone.top:.{d}f}"
             )
 
     if result.verdict == Verdict.WATCH:
         lines.append("")
-        lines.append("<b>No setup yet (Setup Watch):</b>")
+        lines.append(f"<b>{t('No setup yet (Setup Watch)')}:</b>")
         for reason in result.reasons:
             lines.append(f"• {escape_html(reason)}")
         if result.watch_notes:
             lines.append("")
-            lines.append("<b>What is needed for an entry:</b>")
+            lines.append(f"<b>{t('What is needed for an entry')}:</b>")
             for note in result.watch_notes:
                 lines.append(f"→ {escape_html(note)}")
     else:
         lines.append("")
-        lines.append("<b>Verdict:</b> ❌ SKIP")
+        lines.append(f"<b>{t('Verdict')}:</b> ❌ SKIP")
         for reason in result.reasons:
             lines.append(f"• {escape_html(reason)}")
 
@@ -906,13 +948,15 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
     from app.services.smc.plan import PairPlan  # noqa: F401 (type hint only)
 
     d = plan.price_decimals
-    trend_label = TREND_LABEL[plan.h4_trend]
-    lines = [f"📋 <b>{plan.pair}</b> — Pre-Market Plan (H4 {trend_label})"]
+    lines = [
+        f"📋 <b>{plan.pair}</b> — "
+        + t("Pre-Market Plan (H4 {trend})", trend=trend_label(plan.h4_trend))
+    ]
     if plan.price:
-        suffix = f"  ·  M5 close {as_of} Prague" if as_of else ""
+        suffix = "  ·  " + t("M5 close {hhmm} Prague", hhmm=as_of) if as_of else ""
         lines.append(f"💵 {plan.price:.{d}f}{suffix}")
     if live_line:
-        lines.append(f"📍 <b>Live now:</b> {live_line}")
+        lines.append(f"📍 <b>{t('Live now')}:</b> {live_line}")
     if getattr(plan, "direction_note", None):
         lines.append(f"⚠️ {escape_html(plan.direction_note)}")
 
@@ -930,10 +974,10 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
     for s in plan.scenarios:
         is_long = s.direction == Direction.LONG
         arrow = "🔼" if is_long else "🔽"
-        side = "Buy" if is_long else "Sell"
+        side = t("Buy") if is_long else t("Sell")
         head = (
             f"{arrow} <b>{'LONG' if is_long else 'SHORT'}</b>"
-            + (" (speculative)" if s.speculative else " plan")
+            + (t(" (speculative)") if s.speculative else t(" plan"))
         )
         lines.append("")
         lines.append(head)
@@ -941,22 +985,21 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
             # A boundary band, not an H1 Demand/Supply zone — the plan says
             # which edge of the box it is (review 2026-08-18).
             lines.append(
-                f"   Range {'LOW' if is_long else 'HIGH'} boundary "
-                f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f}"
+                "   " + (t("Range LOW boundary") if is_long else t("Range HIGH boundary"))
+                + f" {s.zone_bottom:.{d}f}–{s.zone_top:.{d}f}"
             )
         else:
             lines.append(
-                f"   Zone {'Demand' if is_long else 'Supply'} "
+                f"   {t('Zone')} {side_label(is_long)} "
                 f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f}"
             )
         lines.append(
             f"   {side} Limit {s.entry:.{d}f} | 🛑 SL {s.stop_loss:.{d}f} "
             f"| 🎯 TP {s.take_profit:.{d}f}"
         )
-        lines.append(f"   📐 RR ~1:{s.rr:.1f} (approx)")
+        lines.append(t("   📐 RR ~1:{rr} (approx)", rr=f"{s.rr:.1f}"))
         lines.append(
-            f"   Trigger: M5 {'bullish' if is_long else 'bearish'} CHoCH + "
-            "FVG inside the zone"
+            t("   Trigger: M5 {bias} CHoCH + FVG inside the zone", bias=bias_label(is_long))
         )
         if s.kind == "RANGE" and s.swept:
             # Range.swept_top/swept_bottom (D9/D16): this boundary was
@@ -967,10 +1010,10 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
             # sentence holds either way: it claims the level was raided,
             # never that the raid was shallow. A deeper raid took MORE of
             # the pool, which is the same warning only more so.
-            lines.append(
+            lines.append(t(
                 "   ⚠️ this boundary has already been swept once — "
                 "liquidity may be thinner here"
-            )
+            ))
 
     lines.append("")
     # A range plan holds RANGE scenarios only (D12: they replace the
@@ -978,15 +1021,15 @@ def format_plan(plan, live_line: str = None, as_of: str = None) -> str:
     # boundary the preliminary stop sits beyond instead of an H1 zone the
     # message never mentioned.
     anchor = (
-        "range boundary"
+        t("range boundary")
         if plan.scenarios and all(s.kind == "RANGE" for s in plan.scenarios)
-        else "H1 zone"
+        else t("H1 zone")
     )
-    lines.append(
-        f"⚠️ SL is preliminary (beyond the {anchor}); the live 🚨 alert "
+    lines.append(t(
+        "⚠️ SL is preliminary (beyond the {anchor}); the live 🚨 alert "
         "re-anchors it to the swept extreme and it may be wider. Order "
-        "lives only within its session."
-    )
+        "lives only within its session.", anchor=anchor,
+    ))
     return "\n".join(lines)
 
 
@@ -998,28 +1041,28 @@ def format_plan_summary(slot_hhmm, plans, updated_hhmm=None) -> str:
     this message deliver the full plan on demand (spec 2026-08-11 §2).
     """
     title = (
-        f"📋 <b>Pre-Market Plan {escape_html(slot_hhmm)}</b> "
-        "— press a pair for its strategy audit (pending entries)"
+        f"📋 <b>{t('Pre-Market Plan')} {escape_html(slot_hhmm)}</b> "
+        + t("— press a pair for its strategy audit (pending entries)")
     )
     if updated_hhmm:
-        title += f" · upd {escape_html(updated_hhmm)}"
+        title += " · " + t("upd {hhmm}", hhmm=escape_html(updated_hhmm))
     lines = [title]
     for plan in plans:
         d = plan.price_decimals
         name = escape_html(plan.pair)
         if plan.market_closed:
-            lines.append(f"{name} 😴 market closed")
+            lines.append(f"{name} 😴 {t('market closed')}")
             continue
         if not plan.scenarios:
-            reason = plan.blocker or plan.note or "no plan"
-            lines.append(f"{name} ⛔ waiting: {escape_html(reason)}")
+            reason = plan.blocker or plan.note or t("no plan")
+            lines.append(f"{name} ⛔ {t('waiting')}: {escape_html(reason)}")
             continue
         for s in plan.scenarios:
             is_long = s.direction == Direction.LONG
             arrow = "🔼" if is_long else "🔽"
-            spec = " (speculative)" if s.speculative else ""
+            spec = t(" (speculative)") if s.speculative else ""
             lines.append(
-                f"{name} {arrow} {'LONG' if is_long else 'SHORT'} zone "
+                f"{name} {arrow} {'LONG' if is_long else 'SHORT'} {t('zone')} "
                 f"{s.zone_bottom:.{d}f}–{s.zone_top:.{d}f} (~1:{s.rr:.1f}){spec}"
             )
     return "\n".join(lines)
@@ -1038,7 +1081,7 @@ def plan_summary_keyboard(pairs) -> dict:
             row = []
     if row:
         rows.append(row)
-    rows.append([{"text": "🌐 All pairs", "callback_data": "aplan_ALL"}])
+    rows.append([{"text": t("🌐 All pairs"), "callback_data": "aplan_ALL"}])
     return {"inline_keyboard": rows}
 
 
@@ -1063,28 +1106,31 @@ def format_zone_alert(pair, scenario, decimals: int, marks=None) -> str:
     """
     d = decimals
     is_long = scenario.direction == Direction.LONG
-    spec = " (speculative)" if scenario.speculative else ""
+    spec = t(" (speculative)") if scenario.speculative else ""
+    watching = t("Watching M5 for a {bias} CHoCH + FVG.", bias=bias_label(is_long))
     if scenario.kind == "RANGE":
         this_side = "LOW" if is_long else "HIGH"
         far_side = "HIGH" if is_long else "LOW"
         lines = [
-            f"🔔 <b>{escape_html(pair)}</b>: price is at the range "
-            f"{this_side} {scenario.entry:.{d}f}",
-            f"📋 Plan: {'LONG' if is_long else 'SHORT'} — target the range "
-            f"{far_side} {scenario.take_profit:.{d}f} | 🛑 SL "
-            f"{scenario.stop_loss:.{d}f} | ~1:{scenario.rr:.1f}{spec}",
-            f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG.",
+            t("🔔 <b>{pair}</b>: price is at the range {edge} {price}",
+              pair=escape_html(pair), edge=this_side, price=f"{scenario.entry:.{d}f}"),
+            t("📋 Plan: {side} — target the range {edge} {tp} | 🛑 SL {sl} | ~1:{rr}{spec}",
+              side="LONG" if is_long else "SHORT", edge=far_side,
+              tp=f"{scenario.take_profit:.{d}f}", sl=f"{scenario.stop_loss:.{d}f}",
+              rr=f"{scenario.rr:.1f}", spec=spec),
+            watching,
         ]
     else:
-        kind = "Demand" if is_long else "Supply"
-        side = "Buy" if is_long else "Sell"
+        side = t("Buy") if is_long else t("Sell")
         lines = [
-            f"🔔 <b>{escape_html(pair)}</b>: price reached the {kind} zone "
-            f"{scenario.zone_bottom:.{d}f}–{scenario.zone_top:.{d}f}",
-            f"📋 Plan: {'LONG' if is_long else 'SHORT'} — {side} Limit "
-            f"{scenario.entry:.{d}f} | 🛑 SL {scenario.stop_loss:.{d}f} "
-            f"| 🎯 TP {scenario.take_profit:.{d}f} | ~1:{scenario.rr:.1f}{spec}",
-            f"Watching M5 for a {'bullish' if is_long else 'bearish'} CHoCH + FVG.",
+            t("🔔 <b>{pair}</b>: price reached the {kind} zone {lo}–{hi}",
+              pair=escape_html(pair), kind=side_label(is_long),
+              lo=f"{scenario.zone_bottom:.{d}f}", hi=f"{scenario.zone_top:.{d}f}"),
+            t("📋 Plan: {side} — {order} Limit {entry} | 🛑 SL {sl} | 🎯 TP {tp} | ~1:{rr}{spec}",
+              side="LONG" if is_long else "SHORT", order=side,
+              entry=f"{scenario.entry:.{d}f}", sl=f"{scenario.stop_loss:.{d}f}",
+              tp=f"{scenario.take_profit:.{d}f}", rr=f"{scenario.rr:.1f}", spec=spec),
+            watching,
         ]
     block, gap = marks if marks else (None, None)
     if block or gap:
@@ -1109,7 +1155,7 @@ def zone_alert_keyboard(pair: str, until_hhmm: str, block_id: str) -> dict:
     no underscore, so `pair` and `block_id` split cleanly on the first `_`.
     """
     return {"inline_keyboard": [[{
-        "text": f"🔕 Mute {pair} zone alerts till {until_hhmm}",
+        "text": t("🔕 Mute {pair} zone alerts till {hhmm}", pair=pair, hhmm=until_hhmm),
         "callback_data": f"zmute_{pair}_{block_id}",
     }]]}
 

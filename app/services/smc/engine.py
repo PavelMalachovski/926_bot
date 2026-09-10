@@ -7,6 +7,7 @@ import structlog
 
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.fvg import best_rejected_fvg, select_valid_fvg
+from app.services.smc.i18n import t
 from app.services.smc.instruments import Instrument, get_instrument
 from app.services.smc.liquidity import (
     find_liquidity,
@@ -81,8 +82,8 @@ def _zone_kind_label(zone: Zone) -> str:
     own vocabulary for each kind — a RANGE boundary is not an H1 supply or
     demand zone, so it must not be called one (Task 3 wording fix)."""
     if zone.kind == "RANGE":
-        return "range LOW boundary" if zone.is_demand else "range HIGH boundary"
-    return f"H1 {'Demand' if zone.is_demand else 'Supply'} zone"
+        return t("range LOW boundary") if zone.is_demand else t("range HIGH boundary")
+    return t("H1 Demand zone") if zone.is_demand else t("H1 Supply zone")
 
 
 def _zone_broken(candles: List[Candle], zone: Zone) -> bool:
@@ -194,11 +195,12 @@ class TripleSyncEngine:
         )
         if self.enforce_sessions and result.session_name is None:
             result.verdict = Verdict.OFF_SESSION
-            result.reasons.append(
-                f"Outside trading hours (08:00-18:30 Prague"
-                f"{', Mon-Fri' if self.instrument.source == 'forex' else ''}) "
-                f"— no entries for {self.display_symbol}"
-            )
+            result.reasons.append(t(
+                "Outside trading hours (08:00-18:30 Prague{weekdays}) "
+                "— no entries for {pair}",
+                weekdays=t(", Mon-Fri") if self.instrument.source == "forex" else "",
+                pair=self.display_symbol,
+            ))
             return result
 
         data = await self.fetcher.fetch_all_timeframes()
@@ -211,9 +213,10 @@ class TripleSyncEngine:
         age = now - data["m5"][-1].timestamp
         if age > MARKET_STALE_AFTER:
             result.verdict = Verdict.OFF_SESSION
-            result.reasons.append(
-                f"Market closed — last M5 candle {int(age.total_seconds() // 60)} min ago"
-            )
+            result.reasons.append(t(
+                "Market closed — last M5 candle {minutes} min ago",
+                minutes=int(age.total_seconds() // 60),
+            ))
             return result
 
         if self.instrument.check_funding:
@@ -320,24 +323,26 @@ class TripleSyncEngine:
                     # like Rule 2's "no zone" and Rule 3's "not reached" waits.
                     live = result.market_range
                     result.verdict = Verdict.WATCH
-                    result.reasons.append(
+                    result.reasons.append(t(
                         "H4 and H1 are both flat inside a range "
-                        f"({live.bottom:.2f}–{live.top:.2f}), but price sits "
-                        "mid-range — no boundary to trade from yet"
-                    )
-                    result.watch_notes.append(
-                        f"Set alerts at {live.top:.2f} (short) and "
-                        f"{live.bottom:.2f} (long) — on a boundary touch, "
-                        "check M5 for a CHoCH + FVG"
-                    )
+                        "({lo}–{hi}), but price sits "
+                        "mid-range — no boundary to trade from yet",
+                        lo=f"{live.bottom:.2f}", hi=f"{live.top:.2f}",
+                    ))
+                    result.watch_notes.append(t(
+                        "Set alerts at {hi} (short) and "
+                        "{lo} (long) — on a boundary touch, "
+                        "check M5 for a CHoCH + FVG",
+                        lo=f"{live.bottom:.2f}", hi=f"{live.top:.2f}",
+                    ))
                     return result
         if direction is None:
             result.verdict = Verdict.SKIP
-            result.reasons.append("H4 is flat or CHoCH against the trend — no direction")
-            result.watch_notes.append(
+            result.reasons.append(t("H4 is flat or CHoCH against the trend — no direction"))
+            result.watch_notes.append(t(
                 "Wait for a clear HH+HL or LH+LL structure on H4 "
                 "(2 closed bodies beyond the extreme)"
-            )
+            ))
             return result
 
         # Rule 2 — H1 zone of interest: order block first, untouched
@@ -355,19 +360,19 @@ class TripleSyncEngine:
         )
         if zone is None:
             result.verdict = Verdict.WATCH
-            result.reasons.append(
-                f"H4 is {'bullish' if direction == Direction.LONG else 'bearish'}, "
-                "but H1 has no valid untested "
-                f"{'Demand' if direction == Direction.LONG else 'Supply'} zone "
-                "(no order block, no untouched H1 imbalance)"
-            )
+            result.reasons.append(t(
+                "H4 is {bias}, but H1 has no valid untested {kind} zone "
+                "(no order block, no untouched H1 imbalance)",
+                bias=t("bullish") if direction == Direction.LONG else t("bearish"),
+                kind="Demand" if direction == Direction.LONG else "Supply",
+            ))
             # Kept word-for-word identical to plan._zone_note: the plan
             # reports this stage in the live checklist's own words.
-            result.watch_notes.append(
-                "Wait for a fresh H1 zone to form — an untested "
-                f"{'HL' if direction == Direction.LONG else 'LH'}"
-                " order block or an untouched H1 imbalance"
-            )
+            result.watch_notes.append(t(
+                "Wait for a fresh H1 zone to form — an untested {pivot} "
+                "order block or an untouched H1 imbalance",
+                pivot="HL" if direction == Direction.LONG else "LH",
+            ))
             return result
         result.h1_zone = zone
 
@@ -375,23 +380,26 @@ class TripleSyncEngine:
         span = zone_touch_span(m5, zone)
         if span is None:
             result.verdict = Verdict.WATCH
-            result.reasons.append(
-                f"Price has not reached the {_zone_kind_label(zone)} "
-                f"({zone.bottom:.2f}–{zone.top:.2f}) yet — pullback phase"
-            )
-            result.watch_notes.append(
-                f"Set an alert at {zone.top if zone.is_demand else zone.bottom:.2f} — "
-                "on zone touch, check M5 for a CHoCH + FVG"
-            )
+            result.reasons.append(t(
+                "Price has not reached the {zone} ({lo}–{hi}) yet — pullback phase",
+                zone=_zone_kind_label(zone), lo=f"{zone.bottom:.2f}", hi=f"{zone.top:.2f}",
+            ))
+            result.watch_notes.append(t(
+                "Set an alert at {edge} — on zone touch, check M5 for a CHoCH + FVG",
+                edge=f"{zone.top if zone.is_demand else zone.bottom:.2f}",
+            ))
             far_edge = zone.bottom if zone.is_demand else zone.top
-            beyond = f"{'below' if zone.is_demand else 'above'} {far_edge:.2f}"
+            beyond = t(
+                "below {level}" if zone.is_demand else "above {level}",
+                level=f"{far_edge:.2f}",
+            )
             result.watch_notes.append(
                 # D15: a RANGE boundary survives a pierce that is reclaimed,
                 # so its invalidation is stated the way `_zone_broken` now
                 # measures it. OB/FVG wording is unchanged.
-                f"Invalidation: a close {beyond} that still holds"
+                t("Invalidation: a close {beyond} that still holds", beyond=beyond)
                 if zone.kind == "RANGE"
-                else f"Invalidation: H1 body close {beyond}"
+                else t("Invalidation: H1 body close {beyond}", beyond=beyond)
             )
             return result
         touch = span[0]
@@ -409,10 +417,11 @@ class TripleSyncEngine:
         if _zone_broken(m5[scan_from:], zone):
             far_edge = zone.bottom if zone.is_demand else zone.top
             result.verdict = Verdict.SKIP
-            result.reasons.append(
-                f"Price closed {'below' if zone.is_demand else 'above'} the "
-                f"{_zone_kind_label(zone)} ({far_edge:.2f}) — invalidated"
-            )
+            result.reasons.append(t(
+                "Price closed {below_above} the {zone} ({level}) — invalidated",
+                below_above=t("below") if zone.is_demand else t("above"),
+                zone=_zone_kind_label(zone), level=f"{far_edge:.2f}",
+            ))
             return result
 
         # Price is in a live (non-invalidated) zone — arm the zone-touch ping
@@ -423,16 +432,17 @@ class TripleSyncEngine:
         if choch is None:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                "Price is at the " + _zone_kind_label(zone) + ", but M5 has "
-                "not printed a CHoCH in the trade direction yet"
+                t("Price is at the {zone}, but M5 has not printed a CHoCH "
+                  "in the trade direction yet", zone=_zone_kind_label(zone))
                 if zone.kind == "RANGE"
-                else "Price is in the H1 zone, but M5 has not printed a CHoCH "
-                     "in the trend direction yet"
+                else t("Price is in the H1 zone, but M5 has not printed a CHoCH "
+                       "in the trend direction yet")
             )
-            result.watch_notes.append(
-                f"Wait for a {'bullish' if direction == Direction.LONG else 'bearish'} "
-                f"M5 CHoCH + FVG ≥ {self._fvg_size_label()} inside the zone"
-            )
+            result.watch_notes.append(t(
+                "Wait for a {bias} M5 CHoCH + FVG ≥ {size} inside the zone",
+                bias=t("bullish") if direction == Direction.LONG else t("bearish"),
+                size=self._fvg_size_label(),
+            ))
             return result
 
         # Rule 4 — the M5 imbalance on/after the CHoCH. The gap belongs to the
@@ -457,10 +467,10 @@ class TripleSyncEngine:
         if fvg is None and self.require_imbalance:
             result.verdict = Verdict.WATCH
             result.reasons.append(
-                "M5 CHoCH is there, but no valid FVG — "
+                t("M5 CHoCH is there, but no valid FVG — ")
                 + self._fvg_rejection_detail(m5, direction, fvg_from, same_day)
             )
-            result.watch_notes.append("Wait for an impulse FVG to form on M5")
+            result.watch_notes.append(t("Wait for an impulse FVG to form on M5"))
             return result
 
         # `price` is bound here rather than at Rule 5.1 below: the market rung
@@ -542,7 +552,7 @@ class TripleSyncEngine:
         risk = abs(entry - stop_loss)
         if risk <= 0:
             result.verdict = Verdict.SKIP
-            result.reasons.append("Invalid trade geometry: SL at the entry level")
+            result.reasons.append(t("Invalid trade geometry: SL at the entry level"))
             return result
         # D22: an FVG entry sits on the trading side of the stop by
         # construction (the gap is part of the impulse away from the swept
@@ -556,7 +566,7 @@ class TripleSyncEngine:
         if inverted:
             result.verdict = Verdict.SKIP
             result.reasons.append(
-                "Invalid trade geometry: entry is on the wrong side of the SL"
+                t("Invalid trade geometry: entry is on the wrong side of the SL")
             )
             return result
 
@@ -569,7 +579,7 @@ class TripleSyncEngine:
         stale = gap > self.max_entry_gap_r * risk
         if stale:
             result.warnings.append(
-                f"price has run {gap / risk:.1f}R past the imbalance"
+                t("price has run {r}R past the imbalance", r=f"{gap / risk:.1f}")
             )
 
         # Phase 2 sniper redesign (owner decision 2026-08-12): hybrid exit
@@ -696,16 +706,16 @@ class TripleSyncEngine:
                 # nothing.
                 take_profit = None
                 result.warnings.append(
-                    "the opposite boundary sits inside the stop buffer"
+                    t("the opposite boundary sits inside the stop buffer")
                 )
             else:
                 rr = reward / risk
                 if rr < self.min_rr:
                     result.warnings.append(
-                        f"RR to the opposite boundary is 1:{rr:.1f}"
+                        t("RR to the opposite boundary is 1:{rr}", rr=f"{rr:.1f}")
                     )
         elif (target := nearest_liquidity(levels, direction, entry)) is None:
-            result.warnings.append("no unswept liquidity ahead")
+            result.warnings.append(t("no unswept liquidity ahead"))
         else:
             if direction == Direction.LONG:
                 take_profit = target.price - self.sl_buffer
@@ -718,13 +728,13 @@ class TripleSyncEngine:
                 # the wrong side of the entry. Report it, do not invent a TP.
                 take_profit, target = None, None
                 result.warnings.append(
-                    "nearest liquidity sits inside the stop buffer"
+                    t("nearest liquidity sits inside the stop buffer")
                 )
             else:
                 rr = reward / risk
                 if rr < self.min_rr:
                     result.warnings.append(
-                        f"RR to the nearest liquidity is 1:{rr:.1f}"
+                        t("RR to the nearest liquidity is 1:{rr}", rr=f"{rr:.1f}")
                     )
 
         # The deeper M5 limit option (owner request 2026-08-06) and the
@@ -802,16 +812,16 @@ class TripleSyncEngine:
             danger_pct = FUNDING_DANGER * 100
             warn_pct = FUNDING_WARN * 100
             if direction == Direction.LONG and rate > FUNDING_DANGER:
-                result.funding_warning = (
-                    f"Funding {rate * 100:.3f}%/8h > {danger_pct:.2f}% — longs "
+                result.funding_warning = t(
+                    "Funding {rate}%/8h > {danger}% — longs "
                     "are at elevated squeeze risk. Consider SKIP or a smaller "
-                    "size."
+                    "size.", rate=f"{rate * 100:.3f}", danger=f"{danger_pct:.2f}",
                 )
             elif direction == Direction.SHORT and rate < -FUNDING_DANGER:
-                result.funding_warning = (
-                    f"Funding {rate * 100:.3f}%/8h < -{danger_pct:.2f}% — shorts "
+                result.funding_warning = t(
+                    "Funding {rate}%/8h < -{danger}% — shorts "
                     "are at elevated squeeze risk. Consider SKIP or a smaller "
-                    "size."
+                    "size.", rate=f"{rate * 100:.3f}", danger=f"{danger_pct:.2f}",
                 )
             elif abs(rate) > FUNDING_WARN:
                 # Direction-symmetric danger check above only fires for the
@@ -819,9 +829,9 @@ class TripleSyncEngine:
                 # favorable-direction extreme (e.g. a LONG at -0.15%) falls
                 # through to here too, so this text must hold for ANY
                 # abs(rate) > FUNDING_WARN — no upper-bound claim.
-                result.funding_warning = (
-                    f"Funding {rate * 100:.3f}%/8h is above the "
-                    f"{warn_pct:.2f}% advisory level — your call."
+                result.funding_warning = t(
+                    "Funding {rate}%/8h is above the {warn}% advisory level — your call.",
+                    rate=f"{rate * 100:.3f}", warn=f"{warn_pct:.2f}",
                 )
 
         return result
@@ -870,7 +880,7 @@ class TripleSyncEngine:
         if self.instrument.source == "crypto":
             return f"${value:.2f}"
         pips = value / self.instrument.pip
-        return f"{pips:.1f} pips" if precise else f"{pips:.0f} pips"
+        return t("{pips} pips", pips=f"{pips:.1f}" if precise else f"{pips:.0f}")
 
     def _fvg_rejection_detail(
         self, m5, direction: Direction, from_index: int, same_day: bool
@@ -880,21 +890,21 @@ class TripleSyncEngine:
             m5, direction, from_index, self._effective_min_fvg, same_day_scope=same_day
         )
         if rejected is None:
-            return "no FVG has formed in the impulse yet"
+            return t("no FVG has formed in the impulse yet")
         candidate, problems = rejected
         parts = []
         if "size" in problems:
-            parts.append(
-                f"size {self._fmt_size(candidate.size)} < required "
-                f"{self._fvg_size_label()}"
-            )
+            parts.append(t(
+                "size {size} < required {required}",
+                size=self._fmt_size(candidate.size), required=self._fvg_size_label(),
+            ))
         if "closed" in problems:
-            parts.append("invalidated (body closed through the gap)")
+            parts.append(t("invalidated (body closed through the gap)"))
         elif "fill" in problems:
-            parts.append(f"{candidate.fill_pct * 100:.0f}% filled (max 50%)")
+            parts.append(t("{pct}% filled (max 50%)", pct=f"{candidate.fill_pct * 100:.0f}"))
         if "session" in problems:
-            parts.append("formed in a previous session")
-        return "best candidate: " + ", ".join(parts)
+            parts.append(t("formed in a previous session"))
+        return t("best candidate: ") + ", ".join(parts)
 
     def _lot_hint(self, entry: float, risk: float) -> Optional[str]:
         """Rule 8: position size from deposit and SL distance."""

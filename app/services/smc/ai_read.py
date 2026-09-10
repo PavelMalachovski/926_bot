@@ -32,6 +32,7 @@ from typing import Any, List, Optional, Sequence
 
 import structlog
 
+from app.services.smc.i18n import get_language
 from app.services.smc.instruments import Instrument
 from app.services.smc.models import AnalysisResult, Direction, Verdict
 from app.services.smc.sessions import to_prague
@@ -82,8 +83,21 @@ would prefer — "market" (enter now), "main" (the shallow limit), "deep" \
 (the deeper limit) or "wait" (no entry you like). Use ONLY the levels in the \
 fact sheet; never invent prices. Be concrete and brief: `read` is at most \
 three sentences (under 450 characters), each risk under 90 characters, at \
-most three risks. Plain English, no markdown, no emoji. Confidence is 1 \
-(weak) to 5 (strong)."""
+most three risks. Plain prose, no markdown, no emoji. Write `read` and \
+`risks` in the language the message asks for (English unless told \
+otherwise); `stance` and `preferred_entry` stay the English enum values. \
+Confidence is 1 (weak) to 5 (strong)."""
+
+# The per-language instruction appended to the user turn (owner request
+# 2026-09-10: the read follows the bot's language). The JSON enums are
+# untouched — the parser and the card keep working on English codes.
+LANGUAGE_INSTRUCTION = {
+    "ru": (
+        "Write `read` and `risks` in Russian (по-русски, trader's vocabulary: "
+        "CHoCH, FVG, OB, LONG/SHORT, SL/TP stay Latin)."
+    ),
+    "en": "Write `read` and `risks` in English.",
+}
 
 
 @dataclass
@@ -303,7 +317,8 @@ class AIReader:
         content.append({
             "type": "text",
             "text": "Fact sheet from the rule engine:\n" + facts
-            + "\n\nGive your read as JSON.",
+            + "\n\nGive your read as JSON. "
+            + LANGUAGE_INSTRUCTION.get(get_language(), LANGUAGE_INSTRUCTION["en"]),
         })
         try:
             response = await self._get_client().messages.create(

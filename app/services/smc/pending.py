@@ -23,6 +23,7 @@ out (the zone ladder), or a range boundary (D11).
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Tuple
 
+from app.services.smc.i18n import t
 from app.services.smc.instruments import Instrument
 from app.services.smc.liquidity import (
     LiquidityLevel,
@@ -187,7 +188,7 @@ def _zone_name(zone: Zone) -> str:
     """Short, because it is a column header cell inside a <pre> block on a
     phone: 'H1 Demand OB', 'H1 Supply FVG', 'Range LOW'."""
     if zone.kind == "RANGE":
-        return "Range LOW" if zone.is_demand else "Range HIGH"
+        return t("Range LOW") if zone.is_demand else t("Range HIGH")
     return f"H1 {'Demand' if zone.is_demand else 'Supply'} {zone.kind}"
 
 
@@ -272,7 +273,7 @@ def build_pending(
         rungs: List[PendingEntry] = []
         if setup.fvg is not None:
             band = (setup.fvg.bottom, setup.fvg.top)
-            rungs.append(priced("M5 FVG edge", setup.entry, setup.stop_loss, band, "FVG"))
+            rungs.append(priced(t("M5 FVG edge"), setup.entry, setup.stop_loss, band, "FVG"))
             rungs.append(priced(
                 "M5 FVG 50%", (setup.fvg.bottom + setup.fvg.top) / 2,
                 setup.stop_loss, band, "FVG",
@@ -306,7 +307,7 @@ def build_pending(
         for deeper in setup.zones_ahead[:2]:
             edge, far_stop = _zone_bracket(deeper, direction, buffer)
             rungs.append(priced(
-                _zone_name(deeper) + " · next", edge,
+                _zone_name(deeper) + t(" · next"), edge,
                 _further_stop(direction, setup.stop_loss, far_stop),
                 (deeper.bottom, deeper.top), deeper.kind,
             ))
@@ -314,13 +315,13 @@ def build_pending(
             r for r in rungs
             if r is not None and _pending_side(direction, r.entry, price)
         ]
-        market = priced("market", price, setup.stop_loss)
+        market = priced(t("market"), price, setup.stop_loss)
         if market is not None:
             market.role = ROLE_MARKET
         entries = _pick_two(direction, pending)
         note = None
         if not entries:
-            note = (
+            note = t(
                 "price has run past every limit rung of this setup — the "
                 "market entry is what is left"
             )
@@ -366,7 +367,7 @@ def build_pending(
             d_entry, d_stop = _zone_bracket(deeper, direction, buffer)
             if _well_formed(direction, d_entry, d_stop):
                 rungs.append(PendingEntry(
-                    role="", label=_zone_name(deeper) + " · next",
+                    role="", label=_zone_name(deeper) + t(" · next"),
                     direction=direction, entry=d_entry, stop_loss=d_stop,
                     targets=take_profits(levels, direction, d_entry, d_stop, buffer),
                     zone=(deeper.bottom, deeper.top), kind=deeper.kind,
@@ -400,5 +401,5 @@ def build_pending(
 
     return PendingAnalysis(
         direction=None,
-        note=result.reasons[0] if result.reasons else "no direction",
+        note=result.reasons[0] if result.reasons else t("no direction"),
     )

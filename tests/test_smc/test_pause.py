@@ -133,9 +133,12 @@ class TestPauseCommands:
 
     @pytest.mark.asyncio
     async def test_pause_message_is_current_help(self):
-        from app.services.smc.telegram_bot import HELP_TEXT
+        # 2026-09-10: pause/resume moved into the ⚙️ /settings menu; the
+        # typed commands still answer but /help points at the menu.
+        from app.services.smc.telegram_bot import help_text
 
-        assert "/pause" in HELP_TEXT and "/resume" in HELP_TEXT
+        assert "/settings" in help_text()
+        assert "/pause" not in help_text() and "/resume" not in help_text()
 
 
 class TestNewDefaults:

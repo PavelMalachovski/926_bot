@@ -28,6 +28,7 @@ from typing import Dict, List, Optional, Tuple
 import structlog
 
 from app.services.smc.engine import TripleSyncEngine
+from app.services.smc.i18n import set_language
 from app.services.smc.instruments import get_instrument
 from app.services.smc.journal import SignalJournal, evaluate_signal
 from app.services.smc.models import AnalysisResult, Candle, Verdict
@@ -194,6 +195,10 @@ def run_backtest(
 ) -> BacktestRun:
     """Replay [start, end] the way the watcher lives it.
 
+    The engine's warning labels are matched by `WARNING_BUCKETS`'s English
+    needles, so the replay pins the message language to English — this is
+    an offline CLI, never the watcher's process (owner request 2026-09-10).
+
     One cycle per closed M5 candle: outcome tracking first (the journal
     advances on every closed candle, in and out of session, exactly like
     `evaluate_signal`'s watermark allows), then — in session only — the
@@ -204,6 +209,7 @@ def run_backtest(
     production window — live never runs on less; tests with tiny synthetic
     fixtures turn it off.
     """
+    set_language("en")
     engine = engine or build_backtest_engine(pair, profile)
     instrument = get_instrument(pair)
     run = BacktestRun(

@@ -32,6 +32,7 @@ from app.core.logging import configure_logging
 from app.services.smc.data import BinanceDataFetcher
 from app.services.smc.db import Database, migrate_legacy_json
 from app.services.smc.engine import TripleSyncEngine, trends_disagree
+from app.services.smc.i18n import set_language, t
 from app.services.smc.instruments import INSTRUMENTS, Instrument, get_instrument
 from app.services.smc.journal import SignalJournal
 from app.services.smc.liquidity import find_liquidity, nearest_liquidity
@@ -236,44 +237,46 @@ def _card_footer(signal: Dict) -> str:
             local = to_prague(datetime.fromisoformat(iso))
         except (TypeError, ValueError):
             return ""
-        return f" ({local:%H:%M} Prague)"
+        return f" ({local:%H:%M} {t('Prague')})"
 
     lines = ["", "──────────────"]
     if signal.get("filled_at"):
-        lines.append(f"📈 Filled @ {signal['entry']}{hhmm(signal['filled_at'])}")
+        lines.append(t("📈 Filled @ {entry}{when}", entry=signal["entry"],
+                       when=hhmm(signal["filled_at"])))
     status = signal["status"]
     when = hhmm(signal.get("resolved_at"))
     if status == "tp":
-        lines.append(f"🎯 <b>TP HIT</b>{when} — planned +{signal['rr']:.1f}R")
+        lines.append(t("🎯 <b>TP HIT</b>{when} — planned +{rr}R",
+                       when=when, rr=f"{signal['rr']:.1f}"))
     elif status == "sl":
-        lines.append(f"🛑 <b>SL HIT</b>{when} — −1R")
+        lines.append(t("🛑 <b>SL HIT</b>{when} — −1R", when=when))
     elif status == "tp1_be":
         # Phase 2 hybrid lifecycle: TP1 banked, the rest closed at
         # break-even (or timed out with TP1 already banked — same result).
         r = signal.get("result_r")
         lines.append(
-            f"🎯 <b>TP1 → BE</b>{when}"
+            t("🎯 <b>TP1 → BE</b>{when}", when=when)
             + (f" — +{r:.1f}R" if r is not None else "")
         )
     elif status == "tp1_runner":
         r = signal.get("result_r")
         lines.append(
-            f"🏆 <b>RUNNER HIT</b>{when}"
+            t("🏆 <b>RUNNER HIT</b>{when}", when=when)
             + (f" — +{r:.1f}R" if r is not None else "")
         )
     elif status == "expired":
-        lines.append("🗑 Expired unfilled — order dies with its session (Rule 10)")
+        lines.append(t("🗑 Expired unfilled — order dies with its session (Rule 10)"))
     elif status == "timeout":
-        lines.append("⌛ Timed out — untracked after 5 days")
+        lines.append(t("⌛ Timed out — untracked after 5 days"))
     elif status == "open":
         # Detector mode: a setup with no structural objective carries no
         # take-profit, and `evaluate_signal` can only ever resolve it as SL
         # or timeout. Promising to track a TP that does not exist would be a
         # lie on the live card.
         lines.append(
-            "⏳ Position live — tracking TP/SL"
+            t("⏳ Position live — tracking TP/SL")
             if signal.get("take_profit") is not None
-            else "⏳ Position live — tracking SL (no objective recorded)"
+            else t("⏳ Position live — tracking SL (no objective recorded)")
         )
     return "\n".join(lines)
 
@@ -290,16 +293,17 @@ def _correlation_warnings(approved: List[AnalysisResult]) -> List[str]:
         by_pair.get("USDJPY"),
     )
     if eur and gbp and eur == gbp:
-        warnings.append(
+        warnings.append(t(
             "❌ RULE 9: EURUSD and GBPUSD in the same direction — forbidden "
             "combination (correlation ~0.90). Pick ONE of the pairs."
-        )
+        ))
     for sym, d in (("EURUSD", eur), ("GBPUSD", gbp)):
         if d and jpy and d != jpy:
-            warnings.append(
-                f"❌ RULE 9: {sym} {d.value} + USDJPY {jpy.value} — a triple bet "
-                "on one side of USD. Forbidden."
-            )
+            warnings.append(t(
+                "❌ RULE 9: {pair} {side} + USDJPY {jpy_side} — a triple bet "
+                "on one side of USD. Forbidden.",
+                pair=sym, side=d.value, jpy_side=jpy.value,
+            ))
     return warnings
 
 
@@ -310,6 +314,11 @@ class Watcher:
         self.db = Database(DB_FILE)
         migrate_legacy_json(self.db, STATE_FILE, JOURNAL_FILE)
         self.state = WatcherState(self.db)
+        # Bot-facing language (owner request 2026-09-10): the stored choice
+        # wins; with none made yet in /settings the process keeps the
+        # SMC_LANG default `i18n` already resolves on its own.
+        if self.state.language:
+            set_language(self.state.language)
         chat_id = settings.smc.chat_id or settings.telegram.chat_id
         token = settings.telegram.bot_token
         if not token or token.startswith("your-"):
@@ -563,11 +572,12 @@ class Watcher:
         # like an auth problem.
         is_forex = get_instrument(key).source == "forex"
         hint = (
-            " Check your API key (it may have expired)."
+            t(" Check your API key (it may have expired).")
             if is_forex and _looks_like_auth_failure(detail) else ""
         )
         message_id = await self.notifier.send(
-            f"⚠️ <b>{key}</b>: data source failed — {escape_html(detail)}.{hint}"
+            t("⚠️ <b>{pair}</b>: data source failed — {detail}.{hint}",
+              pair=key, detail=escape_html(detail), hint=hint)
         )
         if not message_id:
             # send() swallows Telegram/network failures and returns None —
@@ -961,17 +971,17 @@ class Watcher:
         """Callback for the Took/Skipped buttons on alerts."""
         signal = self.journal.mark_taken(signal_id, taken)
         if not signal:
-            return "Signal not found (journal may have been reset)"
+            return t("Signal not found (journal may have been reset)")
         if not taken:
-            return f"{signal['pair']} marked as skipped"
+            return t("{pair} marked as skipped", pair=signal["pair"])
         # You are now managing this position: mute new alerts for the pair.
         hours = settings.smc.taken_cooldown_hours
         expiry = datetime.now(tz=timezone.utc) + timedelta(hours=hours)
         self.state.pair_cooldown[signal["pair"]] = expiry.isoformat()
         self.state.save()
-        return (
-            f"{signal['pair']} marked as taken — tracking your stats; "
-            f"muted for {hours:.0f}h"
+        return t(
+            "{pair} marked as taken — tracking your stats; muted for {hours}h",
+            pair=signal["pair"], hours=f"{hours:.0f}",
         )
 
     async def mark_zone_mute(
@@ -1082,11 +1092,11 @@ class Watcher:
                 if self.state.day_stop_notified != today:
                     self.state.day_stop_notified = today
                     self.state.save()
-                    await self.notifier.send(
+                    await self.notifier.send(t(
                         "🛑 <b>RULE 0.2:</b> two taken stop-losses today — "
                         "the trading day is CLOSED. No more alerts until "
                         "tomorrow. A skipped bad day is a win."
-                    )
+                    ))
 
     # ------------------------------------------------------------------ news
 
@@ -1180,7 +1190,7 @@ class Watcher:
             ai_read=entry.ai_read,
         )
         if entry.plan.market_closed:
-            text += "\n😴 Market closed — computed on the last closed candles."
+            text += "\n" + t("😴 Market closed — computed on the last closed candles.")
         await self.notifier.send(text)
         try:
             png = await asyncio.to_thread(
@@ -1497,8 +1507,8 @@ class Watcher:
                 continue
             body = "\n".join(f"• {escape_html(line)}" for line in changes)
             sent = await self.notifier.send(
-                f"🔁 <b>Plan updated — {escape_html(key)}</b>\n{body}\n"
-                f"Full plan: press {escape_html(key)} on today's summary."
+                f"🔁 <b>{t('Plan updated — {pair}', pair=escape_html(key))}</b>\n{body}\n"
+                + t("Full plan: press {pair} on today's summary.", pair=escape_html(key))
             )
             if sent:
                 self.state.plan_change_notified[key] = now.isoformat()
@@ -1611,15 +1621,16 @@ class Watcher:
             tail = (
                 f", TP {s.take_profit:.{d}f} (RR 1:{s.rr:.1f})"
                 if s.take_profit is not None
-                else ", no TP (no structural objective)"
+                else t(", no TP (no structural objective)")
             )
-            return (
-                f"🚨 LIVE SETUP NOW — {s.direction.value} entry {s.entry:.{d}f}, "
-                f"SL {s.stop_loss:.{d}f}{tail}"
+            return t(
+                "🚨 LIVE SETUP NOW — {side} entry {entry}, SL {sl}{tail}",
+                side=s.direction.value, entry=f"{s.entry:.{d}f}",
+                sl=f"{s.stop_loss:.{d}f}", tail=tail,
             )
-        prefix = "" if res.session_name else "(off session) "
+        prefix = "" if res.session_name else t("(off session) ")
         icon = "👀" if res.verdict == Verdict.WATCH else "⛔"
-        reason = res.reasons[0] if res.reasons else "no direction"
+        reason = res.reasons[0] if res.reasons else t("no direction")
         return f"{icon} {prefix}{escape_html(reason)}"
 
     async def _maybe_plan_zone_alert(
@@ -1832,17 +1843,22 @@ class Watcher:
                 minutes_left = int((event.time - now).total_seconds() // 60)
                 is_open_position = signal["status"] in ("open", "open_runner")
                 action = (
-                    "move the SL to breakeven"
+                    t("move the SL to breakeven")
                     if is_open_position
-                    else "cancel the pending order"
+                    else t("cancel the pending order")
                 )
-                await self.notifier.send(
-                    f"⚠️ <b>RULE 0.4:</b> {signal['pair']} — 🔴 {escape_html(event.title)} "
-                    f"({event.currency}) in {minutes_left} min "
-                    f"({event.prague_hhmm()} Prague). You have "
-                    f"{'an open position' if is_open_position else 'an active limit order'} "
-                    f"— {action}!"
-                )
+                await self.notifier.send(t(
+                    "⚠️ <b>RULE 0.4:</b> {pair} — 🔴 {title} ({currency}) in "
+                    "{minutes} min ({hhmm} Prague). You have {position} — {action}!",
+                    pair=signal["pair"], title=escape_html(event.title),
+                    currency=event.currency, minutes=minutes_left,
+                    hhmm=event.prague_hhmm(),
+                    position=(
+                        t("an open position") if is_open_position
+                        else t("an active limit order")
+                    ),
+                    action=action,
+                ))
                 self.state.news_warned[warn_key] = now.isoformat()
                 changed = True
         # Prune dedup keys older than 2 days. A value that fails to parse, or
@@ -2052,7 +2068,7 @@ async def run_telegram_test() -> None:
         "🧪 <b>SMC watcher TEST</b> — Telegram wiring works.",
         "🚨 <b>TEST: SETUP READY — this is how a detector-mode setup alert "
         "opens</b> (NOT a real signal).",
-        "🔍 TEST: commands available: /pairs /status /check /stats /news",
+        "🔍 TEST: commands available: /plan /journal /news /settings /help",
     ]
     for text in samples:
         ok = await watcher.notifier.send(text)
