@@ -390,6 +390,11 @@ tracking → live-card edits on fill/TP/SL events.
   `journal.attach_ai_read`) and `/journal` appends
   `journal.ai_accuracy_text` — wins (tp/tp1_be/tp1_runner) vs stops per
   stance over 90 days; expired/timeout rows never traded and are left out.
+  The audit's `🚨 Setup formed` line is followed by the engine's own `⚠️`
+  warnings (`notifier._warning_lines`, shared with the 🚨 card so the two
+  can never disagree): a 2.5R-stale market entry paying 1:0.1 used to read
+  as a go on the one screen the owner plans from, with only Claude's prose
+  naming the problem. Durations are localized (`format_duration`, "0ч26").
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

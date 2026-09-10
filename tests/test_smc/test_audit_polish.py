@@ -116,7 +116,7 @@ class TestSessionClock:
             "ETHUSD", r, TestStrategyAuditButton()._audited_entry().audit,
             get_instrument("ETHUSD"),
         )
-        assert "⏱ Сессия New York закончится через 1h05 (18:30 Прага)" in text
+        assert "⏱ Сессия New York закончится через 1ч05 (18:30 Прага)" in text
 
 
 class TestStackedLabels:
@@ -220,3 +220,90 @@ class TestClaudeAccuracy:
         bot._api = _api
         await bot._handle_command("/journal")
         assert sent[-1]["text"] == "trades\n\n🧠 acc"
+
+
+class TestAuditCarriesTheEngineWarnings:
+    """2026-09-10 (owner screenshot): the audit announced «Сетап
+    сформирован — вход по рынку 2441.54 · риск $45.22 · TP1 1:0.1» with no
+    hint that price had run 2.5R past the imbalance. The 🚨 card had always
+    carried that warning; the audit — the screen the owner plans from —
+    had not."""
+
+    def _audited(self, warnings=(), funding=None):
+        """A formed setup: the audit's market branch needs a market rung,
+        which the waiting fixture (price not in the zone yet) has none of."""
+        from app.services.smc.pending import ROLE_MARKET, PendingEntry
+
+        entry = TestStrategyAuditButton()._audited_entry()
+        entry.result.warnings = list(warnings)
+        entry.result.funding_warning = funding
+        entry.audit.market = PendingEntry(
+            role=ROLE_MARKET, label="market", direction=entry.audit.direction,
+            entry=3160.0, stop_loss=3128.0,
+        )
+        return entry
+
+    def test_warnings_follow_the_market_line(self):
+        i18n.set_language("en")
+        entry = self._audited(["price has run 2.5R past the imbalance"])
+        text = format_setup_analysis(
+            "ETHUSD", entry.result, entry.audit, get_instrument("ETHUSD"),
+        )
+        assert "🚨 <b>Setup formed</b>" in text
+        assert "⚠️ price has run 2.5R past the imbalance" in text
+        market_at = text.index("Setup formed")
+        table_at = text.index("Pending (limit) entries")
+        assert market_at < text.index("2.5R past") < table_at  # between the two
+
+    def test_funding_warning_too(self):
+        i18n.set_language("en")
+        entry = self._audited(funding="Funding 0.200%/8h is above the 0.10% level")
+        text = format_setup_analysis(
+            "ETHUSD", entry.result, entry.audit, get_instrument("ETHUSD"),
+        )
+        assert "⚠️ Funding 0.200%/8h is above the 0.10% level" in text
+
+    def test_russian_warnings_are_translated(self):
+        i18n.set_language("ru")
+        from app.services.smc.i18n import t
+
+        entry = self._audited([t("price has run {r}R past the imbalance", r="2.5")])
+        text = format_setup_analysis(
+            "ETHUSD", entry.result, entry.audit, get_instrument("ETHUSD"),
+        )
+        assert "⚠️ цена ушла на 2.5R от имбаланса" in text
+
+    def test_a_clean_setup_adds_no_warning_line(self):
+        i18n.set_language("en")
+        entry = self._audited()
+        text = format_setup_analysis(
+            "ETHUSD", entry.result, entry.audit, get_instrument("ETHUSD"),
+        )
+        assert "⚠️ " not in text.split("Pending (limit) entries")[0]
+
+    def test_the_card_and_the_audit_use_one_builder(self):
+        from app.services.smc.notifier import _warning_lines
+
+        entry = self._audited(["a", "b"], funding="c")
+        assert _warning_lines(entry.result) == ["⚠️ a", "⚠️ b", "⚠️ c"]
+
+    def test_html_in_a_warning_is_escaped(self):
+        i18n.set_language("en")
+        entry = self._audited(["fill < 50% of the gap"])
+        text = format_setup_analysis(
+            "ETHUSD", entry.result, entry.audit, get_instrument("ETHUSD"),
+        )
+        assert "fill &lt; 50%" in text and "fill < 50%" not in text
+
+
+class TestLocalizedDuration:
+    def test_hour_marker_follows_the_language(self):
+        from app.services.smc.notifier import format_duration
+
+        i18n.set_language("en")
+        assert format_duration(65) == "1h05"
+        assert format_duration(26) == "0h26"
+        i18n.set_language("ru")
+        assert format_duration(65) == "1ч05"
+        assert format_duration(0) == "0ч00"
+        assert format_duration(-5) == "0ч00"

@@ -713,3 +713,8 @@ RU.update({
     "{stance}: {n} · {wins} wins / {losses} stops ({rate}%)":
         "{stance}: {n} · {wins} в плюс / {losses} стопов ({rate}%)",
 })
+
+# ---- audit warnings + localized duration (2026-09-10) ----
+RU.update({
+    "{h}h{m}": "{h}ч{m}",
+})
