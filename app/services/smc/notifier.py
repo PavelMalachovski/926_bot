@@ -539,6 +539,12 @@ def format_setup_analysis(
             if as_of else ""
         )
         lines.append(f"💵 {result.price:.{d}f}{suffix}")
+        # PD is the most common star-blocker and the thing Claude keeps
+        # naming in prose ("вход в 95% премиуме"): the card has printed it
+        # since D17, the audit had not (2026-09-10).
+        pd_line = _pd_line(result)
+        if pd_line:
+            lines.append(pd_line)
         main = analysis.main
         if main is not None and analysis.market is None:
             # How far the pullback still has to travel to the MAIN rung —
@@ -567,6 +573,9 @@ def format_setup_analysis(
               risk=escape_html(format_distance(market.risk, instrument)))
         )
         lines.append(_targets_line(market.targets, d))
+        star = _tier_line(result)
+        if star:
+            lines.append(star)
         # The warnings the 🚨 card has always carried belong here too
         # (2026-09-10): the audit is the screen the owner plans from, and
         # "Setup formed" with a 2.5R-stale entry paying 1:0.1 read as a go
@@ -598,6 +607,21 @@ def format_setup_analysis(
         lines.append("")
         lines.append(format_ai_read(ai_read))
     return "\n".join(lines)
+
+
+def _tier_line(result: AnalysisResult) -> Optional[str]:
+    """The ⭐ verdict of a formed setup — earned, or what it missed. Same
+    two lines the 🚨 card prints; the audit had neither (2026-09-10), so
+    "Setup formed" gave no hint that sweep and PD had failed."""
+    setup = result.setup
+    if setup is None:
+        return None
+    if setup.tier_star:
+        return "⭐ <b>SNIPER</b>"
+    if setup.tier_missed:
+        return t("🔹 Missed for ⭐: {missed}",
+                 missed=escape_html(missed_label(setup.tier_missed)))
+    return None
 
 
 def _warning_lines(result: AnalysisResult) -> List[str]:
