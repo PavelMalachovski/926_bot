@@ -542,12 +542,17 @@ class Watcher:
         return counter
 
     async def _warn_data_source_failure(self, key: str, detail: str) -> None:
-        """A forex fetch failure must not look like a quiet market — the
-        owner rotates his TwelveData key regularly, and an expired key
-        produces no data, which is indistinguishable from "nothing to alert
-        on" unless something says otherwise. Throttled to one warning per
-        pair per hour (mirrors the news_warned dedup pattern) so a source
-        that is down all day does not spam every cycle.
+        """An EXPIRED KEY must not look like a quiet market — the owner
+        rotates his TwelveData key regularly, and a dead key produces no
+        data, which is indistinguishable from "nothing to alert on" unless
+        something says otherwise. Throttled to one warning per pair per
+        hour (mirrors the news_warned dedup pattern).
+
+        Only a credentials failure on a forex pair reaches Telegram (owner
+        request 2026-09-10: no more "ReadTimeout" messages). A timeout, a
+        rate limit, a 5xx or any Binance error is logged by the fetch path
+        that raised it and goes no further — the next cycle simply fetches
+        again, and there is nothing for the owner to do about it.
         """
         # A fetcher error detail can carry the credential that caused it — a
         # request URL with `apikey=...`, an echoed Authorization header. Logs
@@ -556,6 +561,12 @@ class Watcher:
         # point where the detail becomes a message, so no future fetcher can
         # reopen the hole through this path.
         detail = redact_secrets(detail)
+        is_forex = get_instrument(key).source == "forex"
+        if not (is_forex and _looks_like_auth_failure(detail)):
+            logger.warning(
+                "Data source failure (transient, not sent)", pair=key, detail=detail,
+            )
+            return
         now = datetime.now(tz=timezone.utc)
         last = self.state.source_warned.get(key)
         if last:
@@ -564,20 +575,10 @@ class Watcher:
                     return
             except (ValueError, TypeError):
                 pass
-        # Binance (ETHUSD) is keyless — telling the owner to check an API
-        # key that does not exist is wrong. And on a forex pair the failure
-        # is just as often a rate limit or a transient HTTP error, where
-        # "your key may have expired" sends him to rotate a working key for
-        # nothing: the hint is only shown when the detail actually reads
-        # like an auth problem.
-        is_forex = get_instrument(key).source == "forex"
-        hint = (
-            t(" Check your API key (it may have expired).")
-            if is_forex and _looks_like_auth_failure(detail) else ""
-        )
         message_id = await self.notifier.send(
             t("⚠️ <b>{pair}</b>: data source failed — {detail}.{hint}",
-              pair=key, detail=escape_html(detail), hint=hint)
+              pair=key, detail=escape_html(detail),
+              hint=t(" Check your API key (it may have expired)."))
         )
         if not message_id:
             # send() swallows Telegram/network failures and returns None —
