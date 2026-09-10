@@ -253,3 +253,43 @@ class TestAlertUsesThePlan:
         sent = await w._send_alert("ETHUSD", result, "fp")
         assert sent is True
         assert "📋 Per the 10.09 14:05 plan: LONG · MAIN 3138.00 · Claude: AGREE 5/5, preferred MAIN" in w.notifier.sent[0]
+
+
+class TestAuditSaysWhyTheReadIsMissing:
+    @pytest.mark.asyncio
+    async def test_no_key_line(self, monkeypatch):
+        import app.services.smc.chart as chart_mod
+
+        monkeypatch.setattr(chart_mod, "render_plan_chart", lambda *a, **k: None)
+        i18n.set_language("en")
+        w = _stub_watcher()
+        entry = TestStrategyAuditButton()._audited_entry()  # no ai_read
+
+        async def fake_fetch(key, force_fresh=True):
+            return entry
+
+        w._fetch_pair_plan = fake_fetch
+        await w._send_setup_analysis("ETHUSD", fresh=True)
+        text = w.notifier.sent[0][0] if isinstance(w.notifier.sent[0], tuple) else w.notifier.sent[0]
+        assert "🧠 AI read is off: ANTHROPIC_API_KEY is not set" in text
+        assert "📏 To the MAIN entry" in text
+
+    @pytest.mark.asyncio
+    async def test_reader_failure_reason_line(self, monkeypatch):
+        import app.services.smc.chart as chart_mod
+        from app.services.smc.ai_read import AIReader
+
+        monkeypatch.setattr(chart_mod, "render_plan_chart", lambda *a, **k: None)
+        i18n.set_language("en")
+        w = _stub_watcher()
+        w.ai = AIReader(api_key="k")
+        w.ai.last_error = "max_tokens"
+        entry = TestStrategyAuditButton()._audited_entry()
+
+        async def fake_fetch(key, force_fresh=True):
+            return entry
+
+        w._fetch_pair_plan = fake_fetch
+        await w._send_setup_analysis("ETHUSD", fresh=True)
+        text = w.notifier.sent[0][0] if isinstance(w.notifier.sent[0], tuple) else w.notifier.sent[0]
+        assert "🧠 AI read failed: max_tokens" in text

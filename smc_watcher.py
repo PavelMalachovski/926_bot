@@ -956,6 +956,16 @@ class Watcher:
         except Exception as e:
             logger.warning("AI read on alert failed", pair=key, error=str(e), exc_info=True)
 
+    def _ai_missing_line(self) -> str:
+        """One line naming why the fresh audit carries no Claude read."""
+        if not settings.smc.ai_read:
+            return t("🧠 AI read is off (SMC_AI_READ=false)")
+        reader = self._ai_reader()
+        if reader is None:
+            return t("🧠 AI read is off: ANTHROPIC_API_KEY is not set")
+        reason = getattr(reader, "last_error", None) or t("no answer")
+        return t("🧠 AI read failed: {reason}", reason=escape_html(str(reason)))
+
     async def _ai_read_audit(self, key: str, entry: PlanEntry) -> Optional[object]:
         """D26: Claude's read of a freshly built audit (08:05/14:05 snapshot,
         /plan, or an empty-book button press). None when off or failed."""
@@ -1211,6 +1221,10 @@ class Watcher:
         )
         if entry.plan.market_closed:
             text += "\n" + t("😴 Market closed — computed on the last closed candles.")
+        if fresh and entry.ai_read is None:
+            # A fresh /plan without a 🧠 block must say WHY, in the chat —
+            # the owner has no Railway logs in front of him (2026-09-10).
+            text += "\n" + self._ai_missing_line()
         await self.notifier.send(text)
         try:
             png = await asyncio.to_thread(

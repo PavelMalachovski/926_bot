@@ -683,3 +683,12 @@ RU.update({
     "preferred {entry}": "предпочитал {entry}",
     "no zone": "без зоны",
 })
+
+# ---- /plan audit: AI status + distance to the MAIN entry (2026-09-10) ----
+RU.update({
+    "🧠 AI read is off (SMC_AI_READ=false)": "🧠 Разбор AI выключен (SMC_AI_READ=false)",
+    "🧠 AI read is off: ANTHROPIC_API_KEY is not set": "🧠 Разбор AI выключен: не задан ANTHROPIC_API_KEY",
+    "🧠 AI read failed: {reason}": "🧠 Разбор AI не получен: {reason}",
+    "no answer": "нет ответа",
+    "📏 To the MAIN entry {entry}: {distance} ({pct}%)": "📏 До входа MAIN {entry}: {distance} ({pct}%)",
+})

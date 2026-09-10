@@ -213,7 +213,7 @@ class TestD25Messages:
         analysis.entries[0].label = "M5 FVG <edge> & co"  # a hostile label
         text = format_setup_analysis("ETHUSD", result, analysis, ETH, as_of="15:40")
         self._valid_html(text)
-        assert "🔬 <b>Strategy audit — ETHUSD</b> · LONG · H4 up · H1 flat" in text
+        assert "🔬 <b>Strategy audit — ETHUSD</b> · LONG · H4 uptrend · H1 flat" in text
         assert "🚨 <b>Setup formed</b> — market entry" in text
         assert "MAIN" in text and "DEEP" in text
         assert "M5 FVG &lt;edge&gt; &amp; co" in text

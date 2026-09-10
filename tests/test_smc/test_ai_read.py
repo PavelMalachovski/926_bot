@@ -323,3 +323,40 @@ class TestAuditRead:
         text = w.notifier.sent[0]
         assert "Strategy audit — ETHUSD" in text
         assert "🧠 <b>AI read</b> (stub · 10:30 Prague)" in text
+
+
+class TestLastError:
+    """2026-09-10: the first live /plan came back without a 🧠 block and
+    nothing said why. The reader now remembers the reason of its last
+    failure so the audit can print it."""
+
+    @pytest.mark.asyncio
+    async def test_no_key_names_the_key(self):
+        reader = AIReader(api_key=None)
+        assert await reader.read("facts") is None
+        assert reader.last_error == "no ANTHROPIC_API_KEY"
+
+    @pytest.mark.asyncio
+    async def test_api_error_is_remembered(self):
+        reader = AIReader(client=_FakeClient(error=RuntimeError("401 bad key")))
+        assert await reader.read("facts") is None
+        assert reader.last_error.startswith("api: 401 bad key")
+
+    @pytest.mark.asyncio
+    async def test_refusal_and_max_tokens_are_named(self):
+        reader = AIReader(client=_FakeClient(stop_reason="refusal"))
+        assert await reader.read("facts") is None
+        assert reader.last_error == "refusal"
+        reader = AIReader(client=_FakeClient(reply={"nonsense": 1}, stop_reason="max_tokens"))
+        assert await reader.read("facts") is None
+        assert reader.last_error == "max_tokens"
+
+    @pytest.mark.asyncio
+    async def test_success_clears_it(self):
+        client = _FakeClient()
+        reader = AIReader(client=client)
+        reader.last_error = "stale"
+        assert await reader.read("facts") is not None
+        assert reader.last_error is None
+        # the JSON is small but the cap must leave room for adaptive thinking
+        assert client.calls[0]["max_tokens"] >= 16000
