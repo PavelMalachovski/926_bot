@@ -347,6 +347,24 @@ tracking → live-card edits on fill/TP/SL events.
   `/plan`. The MT4 screenshot parser moved from OpenAI to Claude
   (`trade_journal.py`, `settings.anthropic`) — one `ANTHROPIC_API_KEY`
   for everything AI, `OpenAISettings` is gone.
+- **The plan is primary** (owner decision 2026-09-10, «план — главный»).
+  Every `/plan` press stores the pair's plan in the kv store
+  (`state.primary_plan[pair]`, shape `planbook.primary_plan_snapshot`:
+  the zones the plan showed, the MAIN/DEEP pending prices and Claude's
+  read) and re-writes the older `plan_zones` provenance the D27 `/plan`
+  had stopped writing. The 🚨 alert is that plan's continuation: `_send_alert`
+  reads the formed setup against it (`planbook.match_primary_plan` — same
+  direction AND an overlapping zone, the `zone_was_planned` overlap rule)
+  and the card carries a `📋` line: `Per the 10.09 14:05 plan: LONG · MAIN
+  … · DEEP … · Claude: AGREE 4/5, preferred DEEP`, or `Not the 10.09 14:05
+  plan (SHORT 1.3900–1.3920 there)`; no plan, no line (the `in_plan`
+  provenance line then falls back in). Claude's alert read gets the same
+  plan in its fact sheet (`describe_for_ai(plan=)`, "YOUR EARLIER PLAN")
+  and is told to say whether this is the setup it planned. **Detector
+  mode is untouched**: a mismatch is labelled, never suppressed, and a
+  counter-H1 setup still arrives without the ⭐ and says so. The setup
+  itself is still the engine's — the three-timeframe rule decides when it
+  exists; the plan only says what the owner and Claude expected.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

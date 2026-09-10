@@ -58,8 +58,8 @@ from app.services.smc.notifier import (
 from app.services.smc.ai_read import AIReader, describe_for_ai
 from app.services.smc.pending import build_pending
 from app.services.smc.planbook import (
-    PlanBook, PlanEntry, describe_plan_changes, plan_fingerprint,
-    plan_snapshot,
+    PlanBook, PlanEntry, describe_plan_changes, match_primary_plan,
+    plan_fingerprint, plan_snapshot, primary_plan_snapshot,
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
@@ -776,7 +776,10 @@ class Watcher:
         # failure would survive as a `pending` row with no message and no
         # stored fingerprint, and the next cycle would record a second row
         # for the same setup — the journal grows one row per cycle, silently.
-        text = format_result(result, in_plan=self._plan_provenance(key, result))
+        plan = match_primary_plan(self.state.primary_plan.get(key), result)
+        text = format_result(
+            result, in_plan=self._plan_provenance(key, result), plan=plan,
+        )
         signal = self.journal.record(result)
         if self._alert_send_suppressed(
             result.setup.tier_star, key, result.checked_at
@@ -808,7 +811,9 @@ class Watcher:
         # D26: the second opinion is APPENDED to the card that already went
         # out — the alert is never held for it, and a failed read leaves
         # the card exactly as it was.
-        await self._ai_read_alert(key, result, signal["id"], message_id, text, png)
+        await self._ai_read_alert(
+            key, result, signal["id"], message_id, text, png, plan=plan,
+        )
         return True
 
     def _dedup_store(self, result: AnalysisResult) -> Dict[str, str]:
@@ -918,7 +923,7 @@ class Watcher:
 
     async def _ai_read_alert(
         self, key: str, result: AnalysisResult, signal_id: str,
-        message_id: int, text: str, png: Optional[bytes],
+        message_id: int, text: str, png: Optional[bytes], plan=None,
     ) -> None:
         """D26: ask Claude about the setup just announced and append its 🧠
         block to the card by EDITING it. Best-effort end to end: no reader,
@@ -930,7 +935,7 @@ class Watcher:
             instrument = get_instrument(key)
             images = [p for p in (png, await self._plan_chart_png(key)) if p]
             read = await reader.read(
-                describe_for_ai(result, instrument, audit=None),
+                describe_for_ai(result, instrument, audit=None, plan=plan),
                 images=images,
                 as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
             )
@@ -1180,6 +1185,20 @@ class Watcher:
             entry = await self._fetch_pair_plan(key, force_fresh=True)
             if entry is None:
                 return
+            if not entry.plan.market_closed:
+                # Owner decision 2026-09-10: this plan is the PRIMARY picture
+                # for the pair — the 🚨 alert reads itself against it and
+                # Claude's alert read sees its own earlier plan. Persisted,
+                # so a restart keeps the day's plan. `plan_zones` is the
+                # older "from this morning's plan" provenance (spec
+                # 2026-08-06 §6), which the D27 /plan had stopped writing.
+                self.state.remember_plan_zones(key, entry.plan.zones_shown())
+                self.state.remember_primary_plan(
+                    key,
+                    primary_plan_snapshot(
+                        entry, to_prague(datetime.now(tz=timezone.utc)).date().isoformat(),
+                    ),
+                )
         if entry.result is None or entry.audit is None:
             # the audit could not be computed for this entry — the plan text
             # is the honest fallback, never a half-built table

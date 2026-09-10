@@ -534,7 +534,38 @@ def format_setup_analysis(
     return "\n".join(lines)
 
 
-def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> str:
+def _plan_line(plan, d: int) -> str:
+    """The 📋 line (owner decision 2026-09-10, the plan is primary): does
+    this setup continue the plan the owner pressed, and what did Claude
+    say then. A mismatch is stated, never acted on — detector mode."""
+    side = plan.direction.upper() if plan.direction else "—"
+    if not plan.matches:
+        zone = (
+            f"{min(plan.zones[0][0], plan.zones[0][1]):.{d}f}–"
+            f"{max(plan.zones[0][0], plan.zones[0][1]):.{d}f}"
+            if plan.zones else t("no zone")
+        )
+        return t("📋 Not the {when} plan ({side} {zone} there)",
+                 when=escape_html(plan.when), side=side, zone=zone)
+    parts = [t("📋 Per the {when} plan: {side}", when=escape_html(plan.when), side=side)]
+    if plan.main is not None:
+        parts.append(f"MAIN {plan.main:.{d}f}")
+    if plan.deep is not None:
+        parts.append(f"DEEP {plan.deep:.{d}f}")
+    if plan.ai_stance:
+        stance = t(_STANCES.get(plan.ai_stance, plan.ai_stance)).upper()
+        claude = f"Claude: {escape_html(stance)}"
+        if plan.ai_confidence is not None:
+            claude += f" {plan.ai_confidence}/5"
+        if plan.ai_entry:
+            claude += ", " + t("preferred {entry}", entry=escape_html(plan.ai_entry.upper()))
+        parts.append(claude)
+    return " · ".join(parts)
+
+
+def _format_detector_alert(
+    result: AnalysisResult, in_plan: Optional[bool], plan=None
+) -> str:
     """The announcement: four actionable lines, then the ladders.
 
     Detector mode (spec 2026-08-06): the bot says a setup has formed and shows
@@ -585,7 +616,10 @@ def _format_detector_alert(result: AnalysisResult, in_plan: Optional[bool]) -> s
         lines.append(
             t("🔹 Missed for ⭐: {missed}", missed=escape_html(missed_label(setup.tier_missed)))
         )
-    if in_plan is True:
+    if plan is not None:
+        # the primary plan (2026-09-10) says more than the provenance flag
+        lines.append(_plan_line(plan, d))
+    elif in_plan is True:
         lines.append(t("   from this morning's plan"))
     elif in_plan is False:
         lines.append(t("   new zone — not in the plan"))
@@ -865,17 +899,21 @@ def format_setup_still_active(result: AnalysisResult) -> str:
     )
 
 
-def format_result(result: AnalysisResult, in_plan: Optional[bool] = None) -> str:
+def format_result(
+    result: AnalysisResult, in_plan: Optional[bool] = None, plan=None
+) -> str:
     """Render an AnalysisResult as an HTML Telegram message.
 
     `in_plan` is the plan provenance of the announced zone: True renders "from
     this morning's plan", False "new zone — not in the plan", and None omits
     the line entirely — no `/plan` ran today, so the bot does not claim a
-    provenance it cannot know.
+    provenance it cannot know. `plan` (a `planbook.PlanMatch`, owner decision
+    2026-09-10) supersedes it: the card says whether this setup is the one
+    the owner's last /plan projected and what Claude said then.
     """
     if result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET):
         if result.setup is not None:
-            return _format_detector_alert(result, in_plan)
+            return _format_detector_alert(result, in_plan, plan)
         logger.error("Approved result without a setup", symbol=result.symbol)
     lines = []
     lines.append(f"<b>{escape_html(result.symbol)}</b> — Triple Sync + Imbalance")

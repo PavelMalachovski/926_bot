@@ -831,10 +831,10 @@ class TestAlertSendIsolation:
 
         real_format_result = smc_watcher_mod.format_result
 
-        def raising_for_ethusd(result, in_plan=None):
+        def raising_for_ethusd(result, in_plan=None, **kwargs):
             if result.symbol == "ETHUSD":
                 raise ValueError("simulated formatting failure")
-            return real_format_result(result, in_plan=in_plan)
+            return real_format_result(result, in_plan=in_plan, **kwargs)
 
         monkeypatch.setattr(smc_watcher_mod, "format_result", raising_for_ethusd)
 
@@ -866,7 +866,7 @@ class TestAlertSendIsolation:
 
         import smc_watcher as smc_watcher_mod
 
-        def always_raises(result, in_plan=None):
+        def always_raises(result, in_plan=None, **kwargs):
             raise ValueError("simulated formatting failure")
 
         monkeypatch.setattr(smc_watcher_mod, "format_result", always_raises)
@@ -906,7 +906,7 @@ class TestAlertSendIsolation:
 
         import smc_watcher as smc_watcher_mod
 
-        def always_raises(result, in_plan=None):
+        def always_raises(result, in_plan=None, **kwargs):
             raise ValueError("simulated formatting failure")
 
         monkeypatch.setattr(smc_watcher_mod, "format_result", always_raises)

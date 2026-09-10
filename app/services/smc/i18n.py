@@ -675,3 +675,11 @@ RU.update({
     "Setup alerts: {level}": "Алерты сетапов: {level}",
     "Unknown alert level": "Неизвестный уровень алертов",
 })
+
+# ---- the primary plan on the 🚨 card (owner decision 2026-09-10) ----
+RU.update({
+    "📋 Per the {when} plan: {side}": "📋 По плану {when}: {side}",
+    "📋 Not the {when} plan ({side} {zone} there)": "📋 Не по плану {when} (там {side} {zone})",
+    "preferred {entry}": "предпочитал {entry}",
+    "no zone": "без зоны",
+})

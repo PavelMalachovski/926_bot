@@ -75,6 +75,9 @@ unswept liquidity pools (swing highs/lows, equal highs/lows). Sessions \
 liquidity sweep before the CHoCH, and an entry in the discount (long) or \
 premium (short) half of the dealing range.
 
+When the fact sheet carries YOUR EARLIER PLAN for the pair (the trader's \
+/plan press, his primary picture for the day), treat it as the reference: \
+say whether this setup is the one you planned and, if not, what changed. \
 Your job is to COMMENT, never to decide: say whether the higher-timeframe \
 context and the order flow agree with the setup, what could go wrong (a \
 sweep still ahead, an opposing zone or pool on the way to TP1, premium vs \
@@ -120,6 +123,7 @@ def _fmt(value: Optional[float], d: int) -> str:
 
 def describe_for_ai(
     result: AnalysisResult, instrument: Instrument, audit: Any = None,
+    plan: Any = None,
 ) -> str:
     """The engine's picture as plain text — the ONLY source of numbers the
     model may quote. Same objects the alert and the audit print, so the
@@ -224,6 +228,31 @@ def describe_for_ai(
                 f"Market reference: {_fmt(market.entry, d)}, stop "
                 f"{_fmt(market.stop_loss, d)}"
             )
+    if plan is not None:
+        # Owner decision 2026-09-10: the /plan is the primary picture, so
+        # the alert read compares against it — the model sees its own
+        # earlier stance and levels, and whether the engine's setup is the
+        # one that plan projected.
+        lines.append("")
+        lines.append(
+            f"YOUR EARLIER PLAN for this pair ({plan.when} Prague): direction "
+            f"{(plan.direction or 'none').upper()}; pending entries MAIN "
+            f"{_fmt(plan.main, d)}, DEEP {_fmt(plan.deep, d)}"
+        )
+        if plan.ai_stance:
+            lines.append(
+                f"Your stance then: {plan.ai_stance}, preferred {plan.ai_entry or 'n/a'}, "
+                f"confidence {plan.ai_confidence if plan.ai_confidence is not None else 'n/a'}"
+            )
+        if plan.ai_read:
+            lines.append(f"Your read then: {plan.ai_read}")
+        if plan.ai_risks:
+            lines.append("Your risks then: " + "; ".join(plan.ai_risks))
+        lines.append(
+            "This setup MATCHES that plan's direction and zone."
+            if plan.matches
+            else "This setup does NOT match that plan's direction/zone."
+        )
     return "\n".join(lines)
 
 
