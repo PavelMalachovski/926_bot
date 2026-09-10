@@ -137,6 +137,15 @@ class WatcherState:
         self.notify_level: str = (
             raw_notify_level if raw_notify_level in NOTIFY_LEVELS else "all"
         )
+        # pair -> the last /plan snapshot (planbook.primary_plan_snapshot):
+        # zones, MAIN/DEEP prices and Claude's read. Owner decision
+        # 2026-09-10: the plan is PRIMARY — the 🚨 alert reads itself
+        # against it and Claude's alert read sees its own earlier plan.
+        # Persisted so a Railway restart does not forget the day's plan.
+        raw_primary = db.kv_get("primary_plan") or {}
+        self.primary_plan: Dict[str, dict] = {
+            k: v for k, v in raw_primary.items() if isinstance(v, dict)
+        }
         # None = never chosen: the env default (SMC_LANG) applies until the
         # owner picks one in /settings; anything unparseable reads as None.
         self.language: Optional[str] = normalize_language(db.kv_get("language"))
@@ -163,6 +172,7 @@ class WatcherState:
         self.db.kv_set("plan_summary", self.plan_summary)
         self.db.kv_set("notify_level", self.notify_level)
         self.db.kv_set("language", self.language)
+        self.db.kv_set("primary_plan", self.primary_plan)
 
     # ------------------------------------------------------------ plan zones
 
@@ -360,6 +370,11 @@ class WatcherState:
         if level not in NOTIFY_LEVELS:
             raise ValueError(f"Unknown notify level: {level!r}")
         self.notify_level = level
+        self.save()
+
+    def remember_primary_plan(self, key: str, snapshot: dict) -> None:
+        """Store the pair's primary plan (every /plan press)."""
+        self.primary_plan[key.upper()] = snapshot
         self.save()
 
     def set_language(self, language: str) -> str:

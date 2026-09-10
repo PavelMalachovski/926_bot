@@ -831,10 +831,10 @@ class TestAlertSendIsolation:
 
         real_format_result = smc_watcher_mod.format_result
 
-        def raising_for_ethusd(result, in_plan=None):
+        def raising_for_ethusd(result, in_plan=None, **kwargs):
             if result.symbol == "ETHUSD":
                 raise ValueError("simulated formatting failure")
-            return real_format_result(result, in_plan=in_plan)
+            return real_format_result(result, in_plan=in_plan, **kwargs)
 
         monkeypatch.setattr(smc_watcher_mod, "format_result", raising_for_ethusd)
 
@@ -866,7 +866,7 @@ class TestAlertSendIsolation:
 
         import smc_watcher as smc_watcher_mod
 
-        def always_raises(result, in_plan=None):
+        def always_raises(result, in_plan=None, **kwargs):
             raise ValueError("simulated formatting failure")
 
         monkeypatch.setattr(smc_watcher_mod, "format_result", always_raises)
@@ -906,7 +906,7 @@ class TestAlertSendIsolation:
 
         import smc_watcher as smc_watcher_mod
 
-        def always_raises(result, in_plan=None):
+        def always_raises(result, in_plan=None, **kwargs):
             raise ValueError("simulated formatting failure")
 
         monkeypatch.setattr(smc_watcher_mod, "format_result", always_raises)
@@ -1059,14 +1059,16 @@ class TestDataSourceFailureWarning:
         assert reloaded.notifier.sent == [], "restart must not re-warn within the hour"
 
     @pytest.mark.asyncio
-    async def test_a_different_pair_still_warns(self, monkeypatch, tmp_path):
-        """Default watched pairs are ETHUSD + USDJPY — the throttle is keyed
-        per pair, so both must warn on the same failing cycle."""
+    async def test_only_the_forex_pair_warns(self, monkeypatch, tmp_path):
+        """Default watched pairs are ETHUSD + USDJPY. Only a credentials
+        failure on a FOREX pair reaches Telegram (owner request 2026-09-10):
+        Binance is keyless, so ETHUSD can never have one and stays quiet
+        even when its fetch raises the same 401 wording."""
         watcher = self._watcher(tmp_path)
         assert watcher.state.pairs == ["ETHUSD", "USDJPY"]
         monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
         await watcher.run_cycle()
-        assert any("ETHUSD" in m for m in watcher.notifier.sent)
+        assert not any("ETHUSD" in m for m in watcher.notifier.sent)
         assert any("USDJPY" in m for m in watcher.notifier.sent)
 
     @pytest.mark.asyncio
@@ -1080,18 +1082,19 @@ class TestDataSourceFailureWarning:
         from datetime import datetime, timedelta, timezone
 
         watcher = self._watcher(tmp_path)
+        watcher.state.pairs = ["USDJPY", "USDCAD"]  # two forex pairs
         monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
         await watcher.run_cycle()  # both pairs warn once
         assert len(watcher.notifier.sent) == 2
         watcher.notifier.sent.clear()
 
-        # ETHUSD's warning is now over an hour old; USDJPY's stays fresh
+        # USDCAD's warning is now over an hour old; USDJPY's stays fresh
         stale = datetime.now(tz=timezone.utc) - timedelta(hours=2)
-        watcher.state.source_warned["ETHUSD"] = stale.isoformat()
+        watcher.state.source_warned["USDCAD"] = stale.isoformat()
         watcher.state.save()
 
         await watcher.run_cycle()
-        assert any("ETHUSD" in m for m in watcher.notifier.sent)
+        assert any("USDCAD" in m for m in watcher.notifier.sent)
         assert not any("USDJPY" in m for m in watcher.notifier.sent)
 
     @pytest.mark.asyncio
@@ -1104,9 +1107,9 @@ class TestDataSourceFailureWarning:
         ValueError, so the guard must catch both. The warning must still
         fire rather than the throttle silently eating the failure."""
         watcher = self._watcher(tmp_path)
-        watcher.state.source_warned["ETHUSD"] = 12345  # not a string
-        await watcher._warn_data_source_failure("ETHUSD", "simulated failure")
-        assert any("ETHUSD" in m for m in watcher.notifier.sent)
+        watcher.state.source_warned["USDJPY"] = 12345  # not a string
+        await watcher._warn_data_source_failure("USDJPY", "TwelveData 401 simulated")
+        assert any("USDJPY" in m for m in watcher.notifier.sent)
 
     @pytest.mark.asyncio
     async def test_a_send_failure_does_not_start_the_quiet_window(
@@ -1135,10 +1138,10 @@ class TestDataSourceFailureWarning:
         )
 
     @pytest.mark.asyncio
-    async def test_eth_hint_does_not_mention_an_api_key(self, monkeypatch, tmp_path):
-        """Binance (ETHUSD) is keyless — telling the owner to check an API
-        key that does not exist, for what is really a transient network
-        error, is actively misleading."""
+    async def test_a_binance_failure_is_logged_not_sent(self, monkeypatch, tmp_path):
+        """Binance (ETHUSD) is keyless — a failure there is a transient
+        network error, and those no longer reach the chat at all (owner
+        request 2026-09-10): the next cycle simply fetches again."""
         watcher = self._watcher(tmp_path)
         watcher.state.pairs = ["ETHUSD"]
 
@@ -1149,8 +1152,8 @@ class TestDataSourceFailureWarning:
 
         monkeypatch.setattr(watcher, "_build_fetcher", _raise_for_eth)
         await watcher.run_cycle()
-        assert watcher.notifier.sent
-        assert "API key" not in watcher.notifier.sent[0]
+        assert watcher.notifier.sent == []
+        assert watcher.state.source_warned == {}
 
     @pytest.mark.asyncio
     async def test_forex_hint_still_mentions_the_api_key(self, monkeypatch, tmp_path):
@@ -1164,12 +1167,13 @@ class TestDataSourceFailureWarning:
         assert "API key" in watcher.notifier.sent[0]
 
     @pytest.mark.asyncio
-    async def test_forex_hint_is_absent_on_a_rate_limit_or_transient_error(
+    async def test_a_rate_limit_or_transient_error_is_not_sent(
         self, monkeypatch, tmp_path
     ):
-        """A 429 or a timeout is not an auth problem. Sending the owner to
-        rotate a working key every time TwelveData throttles is noise that
-        trains him to ignore the warning."""
+        """A 429, a timeout or a 5xx is not an auth problem and there is
+        nothing for the owner to do about it (owner request 2026-09-10,
+        after a "ReadTimeout" message reached the chat): logged, never
+        sent, and no throttle stamp is written for it."""
         watcher = self._watcher(tmp_path)
         watcher.state.pairs = ["USDJPY"]
 
@@ -1181,8 +1185,8 @@ class TestDataSourceFailureWarning:
             watcher.notifier.sent.clear()
             watcher.state.source_warned.clear()
             await watcher._warn_data_source_failure("USDJPY", detail)
-            assert watcher.notifier.sent, detail
-            assert "API key" not in watcher.notifier.sent[0], detail
+            assert watcher.notifier.sent == [], detail
+            assert watcher.state.source_warned == {}, detail
 
     @pytest.mark.asyncio
     async def test_forex_hint_is_present_for_other_credential_wordings(
@@ -1214,7 +1218,7 @@ class TestDataSourceFailureWarning:
         watcher = self._watcher(tmp_path)
         watcher.state.paused = True
         monkeypatch.setattr(watcher, "_build_fetcher", self._raising_fetcher)
-        await watcher.on_plan("ETHUSD")
+        await watcher.on_plan("USDJPY")  # a forex pair: the 401 is a dead key
         assert any("data source" in m.lower() for m in watcher.notifier.sent)
 
     @pytest.mark.asyncio

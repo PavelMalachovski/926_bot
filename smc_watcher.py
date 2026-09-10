@@ -58,8 +58,8 @@ from app.services.smc.notifier import (
 from app.services.smc.ai_read import AIReader, describe_for_ai
 from app.services.smc.pending import build_pending
 from app.services.smc.planbook import (
-    PlanBook, PlanEntry, describe_plan_changes, plan_fingerprint,
-    plan_snapshot,
+    PlanBook, PlanEntry, describe_plan_changes, match_primary_plan,
+    plan_fingerprint, plan_snapshot, primary_plan_snapshot,
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
@@ -542,12 +542,17 @@ class Watcher:
         return counter
 
     async def _warn_data_source_failure(self, key: str, detail: str) -> None:
-        """A forex fetch failure must not look like a quiet market — the
-        owner rotates his TwelveData key regularly, and an expired key
-        produces no data, which is indistinguishable from "nothing to alert
-        on" unless something says otherwise. Throttled to one warning per
-        pair per hour (mirrors the news_warned dedup pattern) so a source
-        that is down all day does not spam every cycle.
+        """An EXPIRED KEY must not look like a quiet market — the owner
+        rotates his TwelveData key regularly, and a dead key produces no
+        data, which is indistinguishable from "nothing to alert on" unless
+        something says otherwise. Throttled to one warning per pair per
+        hour (mirrors the news_warned dedup pattern).
+
+        Only a credentials failure on a forex pair reaches Telegram (owner
+        request 2026-09-10: no more "ReadTimeout" messages). A timeout, a
+        rate limit, a 5xx or any Binance error is logged by the fetch path
+        that raised it and goes no further — the next cycle simply fetches
+        again, and there is nothing for the owner to do about it.
         """
         # A fetcher error detail can carry the credential that caused it — a
         # request URL with `apikey=...`, an echoed Authorization header. Logs
@@ -556,6 +561,12 @@ class Watcher:
         # point where the detail becomes a message, so no future fetcher can
         # reopen the hole through this path.
         detail = redact_secrets(detail)
+        is_forex = get_instrument(key).source == "forex"
+        if not (is_forex and _looks_like_auth_failure(detail)):
+            logger.warning(
+                "Data source failure (transient, not sent)", pair=key, detail=detail,
+            )
+            return
         now = datetime.now(tz=timezone.utc)
         last = self.state.source_warned.get(key)
         if last:
@@ -564,20 +575,10 @@ class Watcher:
                     return
             except (ValueError, TypeError):
                 pass
-        # Binance (ETHUSD) is keyless — telling the owner to check an API
-        # key that does not exist is wrong. And on a forex pair the failure
-        # is just as often a rate limit or a transient HTTP error, where
-        # "your key may have expired" sends him to rotate a working key for
-        # nothing: the hint is only shown when the detail actually reads
-        # like an auth problem.
-        is_forex = get_instrument(key).source == "forex"
-        hint = (
-            t(" Check your API key (it may have expired).")
-            if is_forex and _looks_like_auth_failure(detail) else ""
-        )
         message_id = await self.notifier.send(
             t("⚠️ <b>{pair}</b>: data source failed — {detail}.{hint}",
-              pair=key, detail=escape_html(detail), hint=hint)
+              pair=key, detail=escape_html(detail),
+              hint=t(" Check your API key (it may have expired)."))
         )
         if not message_id:
             # send() swallows Telegram/network failures and returns None —
@@ -775,7 +776,10 @@ class Watcher:
         # failure would survive as a `pending` row with no message and no
         # stored fingerprint, and the next cycle would record a second row
         # for the same setup — the journal grows one row per cycle, silently.
-        text = format_result(result, in_plan=self._plan_provenance(key, result))
+        plan = match_primary_plan(self.state.primary_plan.get(key), result)
+        text = format_result(
+            result, in_plan=self._plan_provenance(key, result), plan=plan,
+        )
         signal = self.journal.record(result)
         if self._alert_send_suppressed(
             result.setup.tier_star, key, result.checked_at
@@ -807,7 +811,9 @@ class Watcher:
         # D26: the second opinion is APPENDED to the card that already went
         # out — the alert is never held for it, and a failed read leaves
         # the card exactly as it was.
-        await self._ai_read_alert(key, result, signal["id"], message_id, text, png)
+        await self._ai_read_alert(
+            key, result, signal["id"], message_id, text, png, plan=plan,
+        )
         return True
 
     def _dedup_store(self, result: AnalysisResult) -> Dict[str, str]:
@@ -917,7 +923,7 @@ class Watcher:
 
     async def _ai_read_alert(
         self, key: str, result: AnalysisResult, signal_id: str,
-        message_id: int, text: str, png: Optional[bytes],
+        message_id: int, text: str, png: Optional[bytes], plan=None,
     ) -> None:
         """D26: ask Claude about the setup just announced and append its 🧠
         block to the card by EDITING it. Best-effort end to end: no reader,
@@ -929,7 +935,7 @@ class Watcher:
             instrument = get_instrument(key)
             images = [p for p in (png, await self._plan_chart_png(key)) if p]
             read = await reader.read(
-                describe_for_ai(result, instrument, audit=None),
+                describe_for_ai(result, instrument, audit=None, plan=plan),
                 images=images,
                 as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
             )
@@ -1179,6 +1185,20 @@ class Watcher:
             entry = await self._fetch_pair_plan(key, force_fresh=True)
             if entry is None:
                 return
+            if not entry.plan.market_closed:
+                # Owner decision 2026-09-10: this plan is the PRIMARY picture
+                # for the pair — the 🚨 alert reads itself against it and
+                # Claude's alert read sees its own earlier plan. Persisted,
+                # so a restart keeps the day's plan. `plan_zones` is the
+                # older "from this morning's plan" provenance (spec
+                # 2026-08-06 §6), which the D27 /plan had stopped writing.
+                self.state.remember_plan_zones(key, entry.plan.zones_shown())
+                self.state.remember_primary_plan(
+                    key,
+                    primary_plan_snapshot(
+                        entry, to_prague(datetime.now(tz=timezone.utc)).date().isoformat(),
+                    ),
+                )
         if entry.result is None or entry.audit is None:
             # the audit could not be computed for this entry — the plan text
             # is the honest fallback, never a half-built table
@@ -1832,35 +1852,53 @@ class Watcher:
         now = datetime.now(tz=timezone.utc)
         horizon = timedelta(minutes=30)
         changed = False
+        # ONE message per release (owner request 2026-09-10): the old key was
+        # per signal, so four active ETHUSD rows produced four identical
+        # warnings for one Core PPI print. Group every exposed signal under
+        # the event it is exposed to and say, per pair, what is at risk. A
+        # signal that appears after the warning went out is covered by it —
+        # the release was already announced, nothing new to say.
+        exposed: Dict[Tuple[datetime, str, str], Dict[str, set]] = {}
         for signal in self.journal.signals:
             if signal["status"] not in ("pending", "open", "open_runner"):
                 continue
             instrument = get_instrument(signal["pair"])
             for event in self.news.upcoming(relevant_currencies(instrument), horizon):
-                warn_key = f"{signal['id']}:{event.time.isoformat()}"
-                if warn_key in self.state.news_warned:
-                    continue
-                minutes_left = int((event.time - now).total_seconds() // 60)
-                is_open_position = signal["status"] in ("open", "open_runner")
-                action = (
-                    t("move the SL to breakeven")
-                    if is_open_position
-                    else t("cancel the pending order")
+                key = (event.time, event.currency, event.title)
+                exposed.setdefault(key, {}).setdefault(signal["pair"], set()).add(
+                    "open" if signal["status"] in ("open", "open_runner") else "pending"
                 )
-                await self.notifier.send(t(
-                    "⚠️ <b>RULE 0.4:</b> {pair} — 🔴 {title} ({currency}) in "
-                    "{minutes} min ({hhmm} Prague). You have {position} — {action}!",
-                    pair=signal["pair"], title=escape_html(event.title),
-                    currency=event.currency, minutes=minutes_left,
-                    hhmm=event.prague_hhmm(),
-                    position=(
-                        t("an open position") if is_open_position
-                        else t("an active limit order")
-                    ),
-                    action=action,
-                ))
-                self.state.news_warned[warn_key] = now.isoformat()
-                changed = True
+        for (event_time, currency, title), pairs in sorted(exposed.items()):
+            warn_key = f"event:{currency}:{event_time.isoformat()}:{title}"
+            if warn_key in self.state.news_warned:
+                continue
+            minutes_left = int((event_time - now).total_seconds() // 60)
+            lines = [t(
+                "⚠️ <b>RULE 0.4:</b> 🔴 {title} ({currency}) in {minutes} min "
+                "({hhmm} Prague)",
+                title=escape_html(title), currency=currency, minutes=minutes_left,
+                hhmm=to_prague(event_time).strftime("%H:%M"),
+            )]
+            for pair in sorted(pairs, key=lambda p: list(INSTRUMENTS).index(p)
+                               if p in INSTRUMENTS else len(INSTRUMENTS)):
+                kinds = pairs[pair]
+                if "open" in kinds:
+                    lines.append(t(
+                        "• {pair} — {position} — {action}!", pair=pair,
+                        position=t("an open position"),
+                        action=t("move the SL to breakeven"),
+                    ))
+                if "pending" in kinds:
+                    lines.append(t(
+                        "• {pair} — {position} — {action}!", pair=pair,
+                        position=t("an active limit order"),
+                        action=t("cancel the pending order"),
+                    ))
+            sent = await self.notifier.send("\n".join(lines))
+            if not sent:
+                continue  # a send that never reached the owner may retry next cycle
+            self.state.news_warned[warn_key] = now.isoformat()
+            changed = True
         # Prune dedup keys older than 2 days. A value that fails to parse, or
         # is naive (a legacy JSON import, or older code before this fix), is
         # garbage with no dedup value of its own — drop it, instead of

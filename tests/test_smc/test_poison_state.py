@@ -342,3 +342,58 @@ class _NullNotifier:
 
     async def send_photo(self, *args, **kwargs):
         return None
+
+
+class TestRule04OneMessagePerRelease:
+    """Owner request 2026-09-10 (screenshot: four identical Core PPI
+    warnings for ETHUSD at 14:00): the pre-news warning is ONE message per
+    release, listing every exposed pair, not one per journal row."""
+
+    _watcher = TestRule04WarningsCoverTheRunnerLeg._watcher
+    _FakeNotifier = TestRule04WarningsCoverTheRunnerLeg._FakeNotifier
+
+    @pytest.mark.asyncio
+    async def test_four_signals_one_event_one_message(self, tmp_path):
+        watcher = self._watcher(tmp_path, "open")
+        for i in range(2, 5):
+            watcher.journal.signals.append(
+                {"id": f"sig{i}", "pair": "ETHUSD", "status": "pending" if i == 4 else "open"}
+            )
+
+        await watcher._rule_04_warnings()
+
+        assert len(watcher.notifier.sent) == 1
+        message = watcher.notifier.sent[0]
+        assert "RULE 0.4" in message and "Fed Speech" in message
+        # one line per exposure kind, not per row
+        assert message.count("ETHUSD") == 2
+        assert "an open position — move the SL to breakeven" in message
+        assert "an active limit order — cancel the pending order" in message
+
+    @pytest.mark.asyncio
+    async def test_two_pairs_share_the_message_and_it_does_not_repeat(self, tmp_path):
+        watcher = self._watcher(tmp_path, "open")
+        watcher.journal.signals.append(
+            {"id": "sig2", "pair": "USDJPY", "status": "pending"}
+        )
+
+        await watcher._rule_04_warnings()
+        await watcher._rule_04_warnings()
+
+        assert len(watcher.notifier.sent) == 1
+        message = watcher.notifier.sent[0]
+        assert "• ETHUSD — an open position" in message
+        assert "• USDJPY — an active limit order" in message
+        keys = list(watcher.state.news_warned)
+        assert len(keys) == 1 and keys[0].startswith("event:USD:")
+
+    @pytest.mark.asyncio
+    async def test_failed_send_is_retried_next_cycle(self, tmp_path):
+        watcher = self._watcher(tmp_path, "open")
+
+        async def failing_send(text, **kwargs):
+            return None
+
+        watcher.notifier.send = failing_send
+        await watcher._rule_04_warnings()
+        assert watcher.state.news_warned == {}

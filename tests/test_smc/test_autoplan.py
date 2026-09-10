@@ -228,9 +228,13 @@ class _StubState:
         self.plan_zones = {}
         self.plan_zones_date = ""
         self.paused = False
+        self.primary_plan = {}
 
     def save(self):
         pass
+
+    def remember_primary_plan(self, key, snapshot):
+        self.primary_plan[key.upper()] = snapshot
 
     def remember_plan_zones(self, key, zones, now=None):
         from app.services.smc.state import WatcherState
