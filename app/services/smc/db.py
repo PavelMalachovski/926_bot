@@ -49,6 +49,11 @@ SIGNAL_COLUMNS = [
     # can later separate range setups from trend setups; nothing branches
     # on it. NULL on rows recorded before this column existed.
     "zone_kind",
+    # D26/2026-09-10: Claude's stance on the alert ("agree"/"caution"/
+    # "against") and its 1-5 confidence, written when the 🧠 block is
+    # appended, so /journal can say how often the read was right.
+    "ai_stance",
+    "ai_confidence",
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -104,7 +109,9 @@ SIGNALS_TABLE_SQL = """
                     tier TEXT,
                     result_r REAL,
                     tp1_at TEXT,
-                    zone_kind TEXT
+                    zone_kind TEXT,
+                    ai_stance TEXT,
+                    ai_confidence INTEGER
                 )
 """
 
@@ -195,6 +202,8 @@ class Database:
                     ("result_r", "REAL"),
                     ("tp1_at", "TEXT"),
                     ("zone_kind", "TEXT"),
+                    ("ai_stance", "TEXT"),
+                    ("ai_confidence", "INTEGER"),
                 ):
                     if column not in existing:
                         self.conn.execute(

@@ -117,7 +117,7 @@ def nearest_liquidity(
 
 def liquidity_ladder(
     levels: List[LiquidityLevel], direction: Direction, entry: float,
-    limit: int = 5,
+    limit: int = 5, tolerance: float = 0.0,
 ) -> List[LiquidityLevel]:
     """The pools ahead, nearest first — not just the closest one.
 
@@ -125,7 +125,12 @@ def liquidity_ladder(
     pips from the entry against a 14-pip stop (RR 1:0.02) while the fourth
     pool out gave 1:1.0. The owner takes profit at liquidity and there is
     more than one pool; picking the closest for him was a decision made
-    badly. Duplicate prices across timeframes collapse to the richer pool.
+    badly. Pools within `tolerance` of the previous rung collapse to the
+    richer one (more equal highs, higher timeframe) — with the default 0.0
+    only exact duplicates across timeframes merge; callers pass the raw
+    per-instrument `min_fvg` (the sweep tolerance) so TP2 and TP3 are two
+    different objectives rather than one pool seen from H1 and H4
+    (2026-09-10: ETHUSD showed 2519.48 and 2521.30 as separate targets).
     """
     if direction == Direction.LONG:
         ahead = [lv for lv in levels if lv.is_high and lv.price > entry]
@@ -133,18 +138,18 @@ def liquidity_ladder(
     else:
         ahead = [lv for lv in levels if not lv.is_high and lv.price < entry]
         ahead.sort(key=lambda lv: -lv.price)
-    best: dict = {}
-    order: List[float] = []
+
+    def richness(lv: LiquidityLevel):
+        return (lv.equal_count, _TF_RANK.get(lv.timeframe, 0))
+
+    kept: List[LiquidityLevel] = []
     for lv in ahead:
-        key = round(lv.price, 8)
-        if key not in best:
-            best[key] = lv
-            order.append(key)
-        elif (lv.equal_count, _TF_RANK.get(lv.timeframe, 0)) > (
-            best[key].equal_count, _TF_RANK.get(best[key].timeframe, 0)
-        ):
-            best[key] = lv
-    return [best[k] for k in order[:limit]]
+        if kept and abs(lv.price - kept[-1].price) <= max(tolerance, 1e-8):
+            if richness(lv) > richness(kept[-1]):
+                kept[-1] = lv
+            continue
+        kept.append(lv)
+    return kept[:limit]
 
 
 @dataclass(frozen=True)
@@ -166,6 +171,7 @@ def take_profits(
     stop_loss: float,
     sl_buffer: float,
     limit: int = 3,
+    tolerance: float = 0.0,
 ) -> List[TakeProfit]:
     """TP1..TPn (owner decision D25, 2026-09-05): the nearest unswept pools
     ahead of `entry`, each one buffer short of its level, with RR from this
@@ -177,7 +183,9 @@ def take_profits(
         return []
     is_long = direction == Direction.LONG
     out: List[TakeProfit] = []
-    for lv in liquidity_ladder(levels, direction, entry, limit=limit + 4):
+    for lv in liquidity_ladder(
+        levels, direction, entry, limit=limit + 4, tolerance=tolerance,
+    ):
         tp = lv.price - sl_buffer if is_long else lv.price + sl_buffer
         reward = tp - entry if is_long else entry - tp
         if reward <= 0:

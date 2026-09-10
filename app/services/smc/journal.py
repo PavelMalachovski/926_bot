@@ -42,6 +42,7 @@ from typing import Dict, List, Optional, Tuple
 import structlog
 
 from app.services.smc.db import Database
+from app.services.smc.i18n import t
 from app.services.smc.models import AnalysisResult, Candle, Direction
 from app.services.smc.notifier import escape_html
 from app.services.smc.sessions import session_end_utc, to_prague
@@ -309,6 +310,46 @@ class SignalJournal:
             signal["message_id"] = message_id
             signal["alert_text"] = alert_text
             self._persist(signal)
+
+    def attach_ai_read(
+        self, signal_id: str, stance: str, confidence: int
+    ) -> None:
+        """Remember Claude's stance on the alert (2026-09-10) so the
+        outcome can later be scored against it."""
+        signal = self.get(signal_id)
+        if signal:
+            signal["ai_stance"] = stance
+            signal["ai_confidence"] = int(confidence)
+            self._persist(signal)
+
+    def ai_accuracy_text(self, days: int = 90) -> str:
+        """Claude's stance vs the resolved outcome, per stance (2026-09-10):
+        a win is tp / tp1_be / tp1_runner, a loss is sl; expired and timed
+        out signals never traded and are left out."""
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
+        scored = [
+            s for s in self.signals
+            if s.get("ai_stance")
+            and s["status"] in ("tp", "tp1_be", "tp1_runner", "sl")
+            and _parse(s["created_at"]) >= cutoff
+        ]
+        head = f"🧠 <b>{t('Claude vs outcomes — last {days} days', days=days)}</b>"
+        if not scored:
+            return head + "\n" + t("no resolved alerts with a read yet")
+        lines = [head]
+        for stance in ("agree", "caution", "against"):
+            pool = [s for s in scored if s["ai_stance"] == stance]
+            if not pool:
+                continue
+            wins = sum(1 for s in pool if s["status"] != "sl")
+            losses = len(pool) - wins
+            rate = wins / len(pool) * 100
+            lines.append(t(
+                "{stance}: {n} · {wins} wins / {losses} stops ({rate}%)",
+                stance=t(stance), n=len(pool), wins=wins, losses=losses,
+                rate=f"{rate:.0f}",
+            ))
+        return "\n".join(lines)
 
     def mark_taken(self, signal_id: str, taken: bool) -> Optional[Dict]:
         """Owner pressed ✅ Took it / ❌ Skipped on the alert."""
