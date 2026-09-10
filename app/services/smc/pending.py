@@ -263,7 +263,7 @@ def build_pending(
             targets = (
                 _range_targets(box, direction, entry, stop, buffer)
                 if range_mode
-                else take_profits(levels, direction, entry, stop, buffer)
+                else take_profits(levels, direction, entry, stop, buffer, tolerance=instrument.min_fvg)
             )
             return PendingEntry(
                 role="", label=label, direction=direction, entry=entry,
@@ -360,7 +360,7 @@ def build_pending(
                 rungs.append(PendingEntry(
                     role="", label=label, direction=direction, entry=at,
                     stop_loss=stop,
-                    targets=take_profits(levels, direction, at, stop, buffer),
+                    targets=take_profits(levels, direction, at, stop, buffer, tolerance=instrument.min_fvg),
                     zone=(zone.bottom, zone.top), kind=zone.kind,
                 ))
         for deeper in zone_ladder(list(h1), direction, entry, exclude=zone)[:2]:
@@ -369,7 +369,7 @@ def build_pending(
                 rungs.append(PendingEntry(
                     role="", label=_zone_name(deeper) + t(" · next"),
                     direction=direction, entry=d_entry, stop_loss=d_stop,
-                    targets=take_profits(levels, direction, d_entry, d_stop, buffer),
+                    targets=take_profits(levels, direction, d_entry, d_stop, buffer, tolerance=instrument.min_fvg),
                     zone=(deeper.bottom, deeper.top), kind=deeper.kind,
                 ))
         entries = _pick_two(direction, [

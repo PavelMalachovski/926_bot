@@ -701,3 +701,15 @@ RU.update({
         "📋 <b>План {pair} отменён</b> — зона H1 {kind} {lo}–{hi} пробита закрытием "
         "{close} ({hhmm} Прага). Сними лимитку, если ставил; нажми /plan для нового разбора.",
 })
+
+# ---- audit polish (2026-09-10): size row, session clock, Claude accuracy ----
+RU.update({
+    "Size": "Объём",
+    "⏱ {session} ends in {left} ({hhmm} Prague) — a pending order placed now expires then":
+        "⏱ Сессия {session} закончится через {left} ({hhmm} Прага) — отложка, поставленная "
+        "сейчас, истечёт тогда же",
+    "Claude vs outcomes — last {days} days": "Claude против исходов — последние {days} дней",
+    "no resolved alerts with a read yet": "закрытых алертов с разбором пока нет",
+    "{stance}: {n} · {wins} wins / {losses} stops ({rate}%)":
+        "{stance}: {n} · {wins} в плюс / {losses} стопов ({rate}%)",
+})

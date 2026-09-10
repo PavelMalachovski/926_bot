@@ -375,6 +375,21 @@ tracking → live-card edits on fill/TP/SL events.
   by `_send_alert` on a matching card) never cancels. No API call, no
   model. It is not a get-ready message: it cancels an order the owner
   already placed. Snapshot zones carry their kind as a 4th element.
+- **Audit polish** (owner picks, 2026-09-10): the pending table carries a
+  `Size` row (Rule 8, `engine.position_size`, compact form; only with
+  `SMC_DEPOSIT`); a `⏱ <session> ends in 1h05 (18:30 Prague)` clock sits
+  under the price (`notifier.session_time_left`) and the same minutes go
+  into Claude's fact sheet; `liquidity_ladder`/`take_profits` take a
+  `tolerance` and every caller passes the raw per-instrument `min_fvg`,
+  so two pools within the sweep tolerance (2519.48 H1 / 2521.30 H4) are
+  one objective, the richer pool kept — Rule 7's `nearest_liquidity` is
+  untouched; chart level and zone labels are stacked (`chart._stacked_y`,
+  `LABEL_SEP_FRAC`) so an entry and a stop a few dollars apart do not
+  overprint, the lines stay on price. Claude's alert stance and
+  confidence are stored on the signal (`ai_stance`, `ai_confidence`,
+  `journal.attach_ai_read`) and `/journal` appends
+  `journal.ai_accuracy_text` — wins (tp/tp1_be/tp1_runner) vs stops per
+  stance over 90 days; expired/timeout rows never traded and are left out.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

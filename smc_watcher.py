@@ -343,6 +343,7 @@ class Watcher:
             run_cycle=self.run_cycle,
             status_text=self.status_text,
             stats_text=self.journal.stats_text,
+            ai_stats_text=self.journal.ai_accuracy_text,
             news_text=self.news_text,
             pd_text=self.pd_text,
             on_trade_mark=self.mark_trade,
@@ -955,6 +956,7 @@ class Watcher:
                 # the live card re-renders from the stored text, so the block
                 # must live there too or the next status edit would drop it
                 self.journal.attach_message(signal_id, message_id, new_text)
+                self.journal.attach_ai_read(signal_id, read.stance, read.confidence)
                 logger.info(
                     "AI read attached", pair=key, stance=read.stance,
                     confidence=read.confidence, prefers=read.preferred_entry,
@@ -1257,7 +1259,8 @@ class Watcher:
         instrument = get_instrument(key)
         text = format_setup_analysis(
             key, entry.result, entry.audit, instrument, as_of=entry.as_of,
-            ai_read=entry.ai_read,
+            ai_read=entry.ai_read, deposit=settings.smc.deposit,
+            risk_pct=settings.smc.risk_pct,
         )
         if entry.plan.market_closed:
             text += "\n" + t("😴 Market closed — computed on the last closed candles.")

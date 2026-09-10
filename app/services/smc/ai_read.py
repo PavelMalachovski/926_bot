@@ -35,7 +35,7 @@ import structlog
 from app.services.smc.i18n import get_language
 from app.services.smc.instruments import Instrument
 from app.services.smc.models import AnalysisResult, Direction, Verdict
-from app.services.smc.sessions import to_prague
+from app.services.smc.sessions import session_end_utc, to_prague
 
 logger = structlog.get_logger(__name__)
 
@@ -134,6 +134,17 @@ def describe_for_ai(
         f"Time: {to_prague(result.checked_at).strftime('%Y-%m-%d %H:%M')} Prague"
         + (f", session {result.session_name}" if result.session_name else ", off session"),
         f"Price: {_fmt(result.price, d)}",
+    ]
+    if result.session_name:
+        end = session_end_utc(result.checked_at)
+        if end is not None:
+            minutes = max(int((end - result.checked_at).total_seconds() // 60), 0)
+            lines.append(
+                f"Session ends at {to_prague(end).strftime('%H:%M')} Prague "
+                f"({minutes} min left); a pending order placed now expires then "
+                "(Rule 10)"
+            )
+    lines += [
         f"H4 trend: {result.h4_trend.value}; H1 trend: "
         f"{result.h1_trend.value if result.h1_trend is not None else 'n/a'}; "
         f"direction source: {result.direction_source}",
