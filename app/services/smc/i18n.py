@@ -693,6 +693,15 @@ RU.update({
     "📏 To the MAIN entry {entry}: {distance} ({pct}%)": "📏 До входа MAIN {entry}: {distance} ({pct}%)",
 })
 
+# ---- plan cancelled (owner request 2026-09-10) ----
+RU.update({
+    "📋 <b>{pair} plan cancelled</b> — the H1 {kind} zone {lo}–{hi} was broken by a close "
+    "at {close} ({hhmm} Prague). Pull the limit if you placed one; press /plan for a "
+    "fresh read.":
+        "📋 <b>План {pair} отменён</b> — зона H1 {kind} {lo}–{hi} пробита закрытием "
+        "{close} ({hhmm} Прага). Сними лимитку, если ставил; нажми /plan для нового разбора.",
+})
+
 # ---- audit polish (2026-09-10): size row, session clock, Claude accuracy ----
 RU.update({
     "Size": "Объём",

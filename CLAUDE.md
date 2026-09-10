@@ -365,6 +365,16 @@ tracking → live-card edits on fill/TP/SL events.
   counter-H1 setup still arrives without the ⭐ and says so. The setup
   itself is still the engine's — the three-timeframe rule decides when it
   exists; the plan only says what the owner and Claude expected.
+  **Plan cancelled** (owner request 2026-09-10): every cycle
+  `_maybe_plan_cancelled` runs `planbook.plan_zone_break` over the candles
+  the engine already fetched — a BODY close beyond the far edge of a plan
+  zone (Rule 3's invalidation; M5 first, H1 for older plans; RANGE
+  boundaries skipped per D15) after the plan was built sends ONE `📋 <pair>
+  plan cancelled — … pull the limit` message and stamps `cancelled_at` on
+  the snapshot; a plan whose setup already alerted (`alerted_at`, written
+  by `_send_alert` on a matching card) never cancels. No API call, no
+  model. It is not a get-ready message: it cancels an order the owner
+  already placed. Snapshot zones carry their kind as a 4th element.
 - **Audit polish** (owner picks, 2026-09-10): the pending table carries a
   `Size` row (Rule 8, `engine.position_size`, compact form; only with
   `SMC_DEPOSIT`); a `⏱ <session> ends in 1h05 (18:30 Prague)` clock sits

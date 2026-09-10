@@ -59,7 +59,7 @@ from app.services.smc.ai_read import AIReader, describe_for_ai
 from app.services.smc.pending import build_pending
 from app.services.smc.planbook import (
     PlanBook, PlanEntry, describe_plan_changes, match_primary_plan,
-    plan_fingerprint, plan_snapshot, primary_plan_snapshot,
+    plan_fingerprint, plan_snapshot, plan_zone_break, primary_plan_snapshot,
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
@@ -622,6 +622,7 @@ class Watcher:
                     continue
                 line, result = await self.check_pair(key)
                 self._recompute_plan(key, result)
+                await self._maybe_plan_cancelled(key, result)
                 # D23 (owner decision 2026-08-31): when H4 and H1 disagree the
                 # H1-side setup is announced ALONGSIDE the primary one, never
                 # instead of it. Both go through the same dedup, discipline
@@ -804,6 +805,11 @@ class Watcher:
             return False
         self._dedup_store(result)[key] = fingerprint
         self.state.bump_daily("setup", key, result.checked_at)
+        if plan is not None and plan.matches:
+            # the plan played out — no "plan cancelled" message can follow
+            stored = self.state.primary_plan.get(key)
+            if isinstance(stored, dict):
+                stored["alerted_at"] = result.checked_at.isoformat()
         self.state.save()
         self.journal.attach_message(signal["id"], message_id, text)
         if result.setup.tier_star:
@@ -957,6 +963,40 @@ class Watcher:
                 )
         except Exception as e:
             logger.warning("AI read on alert failed", pair=key, error=str(e), exc_info=True)
+
+    async def _maybe_plan_cancelled(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> None:
+        """One message when the zone the owner's /plan rests on is gone
+        (owner request 2026-09-10): a body close beyond its far edge means
+        the setup Claude described can no longer form there and a limit
+        parked at that zone should be pulled. Deterministic — Rule 3's own
+        invalidation on the candles this cycle already fetched — so it
+        costs no API call and no model. Sent once per plan (`cancelled_at`
+        in the snapshot), never for a plan whose setup already alerted.
+        Not a get-ready message: it cancels an order the owner already has.
+        """
+        if result is None:
+            return
+        stored = self.state.primary_plan.get(key)
+        broken = plan_zone_break(stored, result.m5_candles, result.h1_candles)
+        if broken is None:
+            return
+        (lo, hi, direction), candle = broken
+        d = result.price_decimals
+        kind = t("Demand") if direction == "long" else t("Supply")
+        sent = await self.notifier.send(t(
+            "📋 <b>{pair} plan cancelled</b> — the H1 {kind} zone {lo}–{hi} was "
+            "broken by a close at {close} ({hhmm} Prague). Pull the limit if you "
+            "placed one; press /plan for a fresh read.",
+            pair=key, kind=kind, lo=f"{lo:.{d}f}", hi=f"{hi:.{d}f}",
+            close=f"{candle.close:.{d}f}",
+            hhmm=to_prague(candle.timestamp).strftime("%H:%M"),
+        ))
+        if sent:
+            stored["cancelled_at"] = datetime.now(tz=timezone.utc).isoformat()
+            self.state.save()
+            logger.info("Plan cancelled", pair=key, zone=(lo, hi), close=candle.close)
 
     def _ai_missing_line(self) -> str:
         """One line naming why the fresh audit carries no Claude read."""
