@@ -7,7 +7,8 @@ leaves the book empty until the next cycle refills it.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import timezone
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from app.services.smc.models import AnalysisResult, Candle
 from app.services.smc.plan import PairPlan, PlanScenario
@@ -224,14 +225,77 @@ def primary_plan_snapshot(entry: PlanEntry, date: str) -> dict:
             "confidence": int(r.confidence), "read": r.read,
             "risks": list(r.risks), "model": r.model,
         }
+    # Zones carry their kind as a 4th element (2026-09-10, plan
+    # cancellation): a RANGE boundary survives a pierce that is reclaimed
+    # (D15), so only OB/FVG zones can cancel a plan on a body close.
+    zones = [
+        [s.zone_bottom, s.zone_top, s.direction.value, s.kind]
+        for s in entry.plan.scenarios
+    ]
+    if entry.plan.blocker_zone:
+        b = entry.plan.blocker_zone
+        zones.append([b[0], b[1], b[2], "OB"])
     return {
         "date": date,
         "as_of": entry.as_of,
         "direction": direction,
-        "zones": [list(z) for z in entry.plan.zones_shown()],
+        "zones": zones,
         "entries": entries,
         "ai": ai,
     }
+
+
+def plan_zone_break(
+    stored: Optional[dict], m5: Sequence[Any], h1: Sequence[Any],
+) -> Optional[Tuple[Tuple[float, float, str], Any]]:
+    """The first closed candle that killed a zone of the stored plan, or
+    None while every plan zone still stands (owner request 2026-09-10).
+
+    Rule 3's invalidation, applied to the plan the owner is holding a
+    limit against: a BODY close beyond the far edge — below a demand zone,
+    above a supply zone — after the plan was built. M5 is asked first (the
+    same candles Rule 3 judges on), H1 covers a plan older than the M5
+    window. RANGE boundaries are skipped: pierce-and-reclaim is the
+    stop-hunt the owner trades, not a breakout (D15). Returns the zone
+    (bottom, top, direction) and the candle, so the message can name both.
+    A plan already cancelled or already alerted never breaks again.
+    """
+    if not isinstance(stored, dict) or stored.get("cancelled_at") or stored.get("alerted_at"):
+        return None
+    since = _plan_built_at(stored)
+    for z in stored.get("zones") or []:
+        if not isinstance(z, (list, tuple)) or len(z) < 3 or z[2] is None:
+            continue
+        if len(z) > 3 and z[3] == "RANGE":
+            continue
+        try:
+            lo, hi = float(min(z[0], z[1])), float(max(z[0], z[1]))
+        except (TypeError, ValueError):
+            continue
+        is_long = str(z[2]) == "long"
+        for candles in (m5, h1):
+            for c in candles or []:
+                if since is not None and c.timestamp < since:
+                    continue
+                if (is_long and c.close < lo) or (not is_long and c.close > hi):
+                    return (lo, hi, str(z[2])), c
+    return None
+
+
+def _plan_built_at(stored: dict):
+    """UTC datetime the plan was built (Prague date + HH:MM), or None
+    when the snapshot cannot say — then every candle counts."""
+    from datetime import datetime
+
+    from app.services.smc.sessions import PRAGUE
+
+    try:
+        local = datetime.strptime(
+            f"{stored.get('date')} {stored.get('as_of')}", "%Y-%m-%d %H:%M"
+        )
+        return PRAGUE.localize(local).astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return None
 
 
 def match_primary_plan(stored: Optional[dict], result: AnalysisResult) -> Optional[PlanMatch]:

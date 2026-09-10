@@ -3,7 +3,7 @@ the 🚨 alert reads itself against it, and Claude's alert read sees its own
 earlier plan. Detector mode is untouched — a mismatch is labelled, never
 suppressed."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -36,7 +36,7 @@ class TestSnapshot:
         snap = primary_plan_snapshot(_entry_with_read(), "2026-09-10")
         assert snap["date"] == "2026-09-10"
         assert snap["direction"] == "long"
-        assert snap["zones"] and all(len(z) == 3 for z in snap["zones"])
+        assert snap["zones"] and all(len(z) == 4 for z in snap["zones"])  # kind rides along
         roles = [e["role"] for e in snap["entries"]]
         assert "main" in roles
         assert snap["ai"]["stance"] == "agree"
@@ -293,3 +293,135 @@ class TestAuditSaysWhyTheReadIsMissing:
         await w._send_setup_analysis("ETHUSD", fresh=True)
         text = w.notifier.sent[0][0] if isinstance(w.notifier.sent[0], tuple) else w.notifier.sent[0]
         assert "🧠 AI read failed: max_tokens" in text
+
+
+class TestPlanCancelled:
+    """Owner request 2026-09-10: when the zone the /plan rests on is broken
+    by a body close, say so once and tell the owner to pull the limit."""
+
+    @staticmethod
+    def _candle(ts, close, low=None, high=None):
+        from app.services.smc.models import Candle
+
+        return Candle(
+            timestamp=ts, open=close, high=high if high is not None else close + 1,
+            low=low if low is not None else close - 1, close=close,
+        )
+
+    @staticmethod
+    def _stored(direction="long", kind="OB", date="2026-09-10", as_of="14:05", **extra):
+        s = {
+            "date": date, "as_of": as_of, "direction": direction,
+            "zones": [[2390.0, 2396.83, direction, kind]],
+            "entries": [], "ai": None,
+        }
+        s.update(extra)
+        return s
+
+    def _after(self, minutes):
+        from app.services.smc.sessions import PRAGUE
+
+        base = PRAGUE.localize(datetime(2026, 9, 10, 14, 5)).astimezone(timezone.utc)
+        return base + timedelta(minutes=minutes)
+
+    def test_body_close_below_a_demand_zone_breaks_it(self):
+        from app.services.smc.planbook import plan_zone_break
+
+        m5 = [
+            self._candle(self._after(5), 2400.0),
+            self._candle(self._after(10), 2392.0, low=2386.0),  # wick only — still fine
+            self._candle(self._after(15), 2385.1),  # body close below the far edge
+        ]
+        broken = plan_zone_break(self._stored(), m5, [])
+        assert broken is not None
+        (lo, hi, direction), candle = broken
+        assert (lo, hi, direction) == (2390.0, 2396.83, "long") and candle.close == 2385.1
+
+    def test_close_before_the_plan_does_not_count(self):
+        from app.services.smc.planbook import plan_zone_break
+
+        m5 = [self._candle(self._after(-30), 2380.0), self._candle(self._after(5), 2400.0)]
+        assert plan_zone_break(self._stored(), m5, []) is None
+
+    def test_supply_zone_breaks_upward_and_range_never_breaks(self):
+        from app.services.smc.planbook import plan_zone_break
+
+        m5 = [self._candle(self._after(5), 2400.0)]
+        assert plan_zone_break(self._stored("short"), m5, []) is not None
+        assert plan_zone_break(self._stored("short", kind="RANGE"), m5, []) is None
+
+    def test_h1_covers_an_older_plan(self):
+        from app.services.smc.planbook import plan_zone_break
+
+        h1 = [self._candle(self._after(120), 2380.0)]
+        assert plan_zone_break(self._stored(), [], h1) is not None
+
+    def test_cancelled_or_alerted_plans_are_left_alone(self):
+        from app.services.smc.planbook import plan_zone_break
+
+        m5 = [self._candle(self._after(5), 2380.0)]
+        assert plan_zone_break(self._stored(cancelled_at="x"), m5, []) is None
+        assert plan_zone_break(self._stored(alerted_at="x"), m5, []) is None
+        assert plan_zone_break(None, m5, []) is None
+
+    @pytest.mark.asyncio
+    async def test_watcher_sends_once_and_stamps_the_plan(self, tmp_path):
+        from smc_watcher import Watcher
+
+        class _Notifier:
+            def __init__(self):
+                self.sent = []
+
+            async def send(self, text, **kwargs):
+                self.sent.append(text)
+                return len(self.sent)
+
+        db = Database(str(tmp_path / "smc.db"))
+        w = Watcher.__new__(Watcher)
+        w.state = WatcherState(db)
+        w.notifier = _Notifier()
+        w.state.remember_primary_plan("ETHUSD", self._stored())
+        i18n.set_language("ru")
+        result = _approved_result()
+        result.m5_candles = [self._candle(self._after(15), 2385.1)]
+        result.h1_candles = []
+        await w._maybe_plan_cancelled("ETHUSD", result)
+        await w._maybe_plan_cancelled("ETHUSD", result)
+        assert len(w.notifier.sent) == 1
+        text = w.notifier.sent[0]
+        assert "📋 <b>План ETHUSD отменён</b>" in text
+        assert "зона H1 Demand 2390.00–2396.83 пробита закрытием 2385.10" in text
+        assert "Сними лимитку" in text and "/plan" in text
+        reloaded = WatcherState(Database(str(tmp_path / "smc.db")))
+        assert reloaded.primary_plan["ETHUSD"]["cancelled_at"]
+
+    @pytest.mark.asyncio
+    async def test_matching_alert_marks_the_plan_as_played_out(self, tmp_path):
+        from app.services.smc.journal import SignalJournal
+        from smc_watcher import Watcher
+
+        class _Notifier:
+            async def send(self, text, reply_markup=None, disable_notification=False):
+                return 1
+
+            async def send_photo(self, *a, **k):
+                return None
+
+            async def pin(self, message_id):
+                pass
+
+        db = Database(str(tmp_path / "smc.db"))
+        w = Watcher.__new__(Watcher)
+        w.db = db
+        w.state = WatcherState(db)
+        w.journal = SignalJournal(db)
+        w.notifier = _Notifier()
+        w.ai = None
+        w.state.remember_primary_plan("ETHUSD", {
+            "date": "2026-09-10", "as_of": "14:05", "direction": "long",
+            "zones": [[3131.0, 3138.0, "long", "OB"]], "entries": [], "ai": None,
+        })
+        result = _approved_result()
+        result.checked_at = datetime.now(tz=timezone.utc)
+        assert await w._send_alert("ETHUSD", result, "fp") is True
+        assert w.state.primary_plan["ETHUSD"]["alerted_at"]
