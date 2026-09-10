@@ -486,16 +486,22 @@ def session_time_left(result: AnalysisResult):
     return max(minutes, 0), end
 
 
+def format_duration(minutes: int) -> str:
+    """'0h26' / '0ч26' — the hour marker is a word, so it is translated
+    like any other string (2026-09-10: the Russian clock read '0h26')."""
+    hh, mm = divmod(max(minutes, 0), 60)
+    return t("{h}h{m}", h=hh, m=f"{mm:02d}")
+
+
 def session_time_left_line(result: AnalysisResult) -> Optional[str]:
     left = session_time_left(result)
     if left is None:
         return None
     minutes, end = left
-    hh, mm = divmod(minutes, 60)
     return t(
         "⏱ {session} ends in {left} ({hhmm} Prague) — a pending order placed now "
         "expires then",
-        session=escape_html(result.session_name), left=f"{hh}h{mm:02d}",
+        session=escape_html(result.session_name), left=format_duration(minutes),
         hhmm=to_prague(end).strftime("%H:%M"),
     )
 
@@ -561,6 +567,11 @@ def format_setup_analysis(
               risk=escape_html(format_distance(market.risk, instrument)))
         )
         lines.append(_targets_line(market.targets, d))
+        # The warnings the 🚨 card has always carried belong here too
+        # (2026-09-10): the audit is the screen the owner plans from, and
+        # "Setup formed" with a 2.5R-stale entry paying 1:0.1 read as a go
+        # while only Claude's prose mentioned the problem.
+        lines.extend(_warning_lines(result))
     elif result.reasons:
         icon = "👀" if result.verdict == Verdict.WATCH else "⛔"
         prefix = "" if result.session_name else t("(off session) ")
@@ -587,6 +598,16 @@ def format_setup_analysis(
         lines.append("")
         lines.append(format_ai_read(ai_read))
     return "\n".join(lines)
+
+
+def _warning_lines(result: AnalysisResult) -> List[str]:
+    """The engine's ⚠️ labels (Rules 5.1 / 7, demoted to warnings by
+    detector mode) plus funding — shared by the 🚨 card and the audit so
+    the two can never disagree about what is wrong with a setup."""
+    out = [f"⚠️ {escape_html(w)}" for w in result.warnings]
+    if result.funding_warning:
+        out.append(f"⚠️ {escape_html(result.funding_warning)}")
+    return out
 
 
 def _plan_line(plan, d: int) -> str:
