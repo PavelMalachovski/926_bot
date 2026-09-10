@@ -16,6 +16,7 @@ import structlog
 
 from app.core.config import settings
 from app.services.smc.db import Database
+from app.services.smc.i18n import t
 from app.services.smc.notifier import escape_html
 
 logger = structlog.get_logger(__name__)
@@ -373,40 +374,40 @@ class TradeJournal:
     # ------------------------------------------------------------------ #
     def format_preview(self, trades: List[Dict[str, Any]]) -> str:
         if not trades:
-            return (
+            return t(
                 "🔍 No trades could be recognized in the screenshot.\n"
                 "Try sending a clearer screenshot of the MT4 history."
             )
 
-        lines = [f"📸 <b>Recognized trades: {len(trades)}</b>\n"]
+        lines = [f"📸 <b>{t('Recognized trades: {n}', n=len(trades))}</b>\n"]
         total = 0.0
-        for i, t in enumerate(trades, 1):
-            profit = t.get("profit") or 0.0
+        for i, trade in enumerate(trades, 1):
+            profit = trade.get("profit") or 0.0
             total += profit
             emoji = "🟢" if profit > 0 else ("🔴" if profit < 0 else "⚪️")
-            direction = (t.get("direction") or "?").upper()
-            vol = t.get("volume")
+            direction = (trade.get("direction") or "?").upper()
+            vol = trade.get("volume")
             vol_str = f"{vol:g}" if vol is not None else "?"
-            op = self._fmt_price(t.get("open_price"))
-            cp = self._fmt_price(t.get("close_price"))
-            sl_mark = " 🛑SL" if t.get("closed_by_sl") else ""
-            ct = self._parse_dt(t.get("close_time"))
+            op = self._fmt_price(trade.get("open_price"))
+            cp = self._fmt_price(trade.get("close_price"))
+            sl_mark = " 🛑SL" if trade.get("closed_by_sl") else ""
+            ct = self._parse_dt(trade.get("close_time"))
             ct_str = ct.strftime("%Y.%m.%d %H:%M") if ct else "—"
-            ticket = t.get("ticket")
+            ticket = trade.get("ticket")
             ticket_str = f"🎫 {ticket} · " if ticket else ""
             lines.append(
-                f"{i}. {emoji} <b>{escape_html(t.get('symbol'))}</b> "
+                f"{i}. {emoji} <b>{escape_html(trade.get('symbol'))}</b> "
                 f"{escape_html(direction)} {vol_str} "
                 f"| {op} → {cp} | <b>{profit:+.2f}</b>{sl_mark}\n"
                 f"    {ticket_str}{ct_str}"
             )
-        lines.append(f"\n💰 <b>Batch total: {total:+.2f}</b>")
-        lines.append("\nSave these trades to the journal?")
+        lines.append(f"\n💰 <b>{t('Batch total: {total}', total=f'{total:+.2f}')}</b>")
+        lines.append("\n" + t("Save these trades to the journal?"))
         return "\n".join(lines)
 
     def format_journal(self, stats: Dict[str, Any]) -> str:
         if stats.get("total", 0) == 0:
-            return (
+            return t(
                 "📓 <b>Trade journal is empty</b>\n\n"
                 "Send a screenshot of your MetaTrader history — "
                 "I'll recognize the trades and save them here."
@@ -418,21 +419,21 @@ class TradeJournal:
         result_emoji = "🟢" if total_net >= 0 else "🔴"
 
         lines = [
-            "📓 <b>Trade journal</b>",
+            f"📓 <b>{t('Trade journal')}</b>",
             "━━━━━━━━━━━━━━━━━━━━",
-            f"{result_emoji} <b>Total P/L:</b> {total_net:+.2f}",
-            f"📊 <b>Total trades:</b> {stats['total']}",
-            f"✅ <b>Winners:</b> {stats['wins']}   "
-            f"❌ <b>Losers:</b> {stats['losses']}",
-            f"🎯 <b>Win rate:</b> {stats['win_rate']:.1f}%",
-            f"⚖️ <b>Profit factor:</b> {pf_str}",
-            f"🏆 <b>Best:</b> {stats['best']:+.2f}   "
-            f"💥 <b>Worst:</b> {stats['worst']:+.2f}",
+            f"{result_emoji} <b>{t('Total P/L')}:</b> {total_net:+.2f}",
+            f"📊 <b>{t('Total trades')}:</b> {stats['total']}",
+            f"✅ <b>{t('Winners')}:</b> {stats['wins']}   "
+            f"❌ <b>{t('Losers')}:</b> {stats['losses']}",
+            f"🎯 <b>{t('Win rate')}:</b> {stats['win_rate']:.1f}%",
+            f"⚖️ <b>{t('Profit factor')}:</b> {pf_str}",
+            f"🏆 <b>{t('Best')}:</b> {stats['best']:+.2f}   "
+            f"💥 <b>{t('Worst')}:</b> {stats['worst']:+.2f}",
         ]
 
         by_symbol = stats.get("by_symbol", {})
         if by_symbol:
-            lines.append("\n<b>By symbol:</b>")
+            lines.append(f"\n<b>{t('By symbol')}:</b>")
             for sym, s in sorted(
                 by_symbol.items(), key=lambda kv: kv[1]["net"], reverse=True
             ):
@@ -440,20 +441,20 @@ class TradeJournal:
                 se = "🟢" if s["net"] >= 0 else "🔴"
                 lines.append(
                     f"  {se} <b>{escape_html(sym)}</b>: {s['net']:+.2f} "
-                    f"({s['count']} trades, WR {wr:.0f}%)"
+                    + t("({n} trades, WR {wr}%)", n=s["count"], wr=f"{wr:.0f}")
                 )
 
         recent = stats.get("recent", [])
         if recent:
-            lines.append("\n<b>Recent trades:</b>")
-            for t in recent:
-                profit = t.get("profit") or 0.0
+            lines.append(f"\n<b>{t('Recent trades')}:</b>")
+            for trade in recent:
+                profit = trade.get("profit") or 0.0
                 emoji = "🟢" if profit > 0 else ("🔴" if profit < 0 else "⚪️")
-                ct = self._parse_dt(t.get("close_time"))
+                ct = self._parse_dt(trade.get("close_time"))
                 ct_str = ct.strftime("%m.%d %H:%M") if ct else "—"
-                direction = (t.get("direction") or "?").upper()
+                direction = (trade.get("direction") or "?").upper()
                 lines.append(
-                    f"  {emoji} {escape_html(t.get('symbol'))} "
+                    f"  {emoji} {escape_html(trade.get('symbol'))} "
                     f"{escape_html(direction)} {profit:+.2f} · {ct_str}"
                 )
 

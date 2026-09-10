@@ -115,6 +115,13 @@ class SMCSettings(BaseSettings):
         description="After you press 'Took it', mute new alerts for that pair "
         "for this many hours (you are managing the position)",
     )
+    language: str = Field(
+        default="ru",
+        description="Bot-facing language on first start: ru | en (owner "
+        "request 2026-09-10, Russian by default). The ⚙️ /settings menu "
+        "switches it at runtime and the choice is persisted in the DB, "
+        "which wins over this value afterwards",
+    )
     ai_read: bool = Field(
         default=True,
         description="AI read (D26, 2026-09-06): after a 🚨 alert is sent, and "

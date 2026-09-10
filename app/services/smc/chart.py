@@ -24,6 +24,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
 
+from app.services.smc.i18n import t  # noqa: E402
 from app.services.smc.models import AnalysisResult, Direction  # noqa: E402
 from app.services.smc.sessions import to_prague  # noqa: E402
 
@@ -263,7 +264,7 @@ def render_setup_chart(
     # line and edge annotation are skipped rather than faked.
     d = result.price_decimals
     drawn = [
-        (setup.entry, "#2962ff", f"ENTRY {setup.entry:.{d}f}"),
+        (setup.entry, "#2962ff", f"{t('ENTRY')} {setup.entry:.{d}f}"),
         (setup.stop_loss, "#f23645", f"SL {setup.stop_loss:.{d}f}"),
     ]
     if setup.take_profit is not None:
@@ -281,8 +282,8 @@ def render_setup_chart(
     # `direction_source == "range"`, and this is not that.
     if result.market_range is not None:
         rng = result.market_range
-        _level(ax, rng.top, RANGE_COLOR, "RANGE HIGH", x_right, y_bounds=ylim)
-        _level(ax, rng.bottom, RANGE_COLOR, "RANGE LOW", x_right, y_bounds=ylim)
+        _level(ax, rng.top, RANGE_COLOR, t("RANGE HIGH"), x_right, y_bounds=ylim)
+        _level(ax, rng.bottom, RANGE_COLOR, t("RANGE LOW"), x_right, y_bounds=ylim)
 
     # Sparse Prague time labels on the x axis
     ticks = list(range(0, len(candles), max(1, len(candles) // 8)))
@@ -303,11 +304,12 @@ def render_setup_chart(
     # objective rather than an absent one.
     rr_part = (
         f"RR 1:{setup.rr:.1f}" if setup.take_profit is not None
-        else "no liquidity ahead"
+        else t("no liquidity ahead")
     )
     ax.set_title(
-        f"{result.symbol} M5 — {side} setup | {rr_part} | "
-        f"{to_prague(result.checked_at).strftime('%d.%m %H:%M')} Prague",
+        t("{pair} M5 — {side} setup | {rr} | {when} Prague",
+          pair=result.symbol, side=side, rr=rr_part,
+          when=to_prague(result.checked_at).strftime('%d.%m %H:%M')),
         color=FG,
         fontsize=11,
         fontweight="bold",
@@ -391,7 +393,7 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         # 2026-08-18); the runner-up below is OB/FVG only, so it keeps the
         # side wording.
         band_label = (
-            f"RANGE {'LOW' if s.direction == Direction.LONG else 'HIGH'}"
+            (t("RANGE LOW") if s.direction == Direction.LONG else t("RANGE HIGH"))
             if s.kind == "RANGE"
             else f"{side} {s.kind}"
         )
@@ -406,7 +408,7 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
                 ax, ru.bottom, ru.top, ru.kind, RUNNER_UP_ZONE_ALPHA, dashed=True,
             )
             _zone_label(
-                ax, ru.bottom, ru.top, f"{side} {ru.kind} (alt)",
+                ax, ru.bottom, ru.top, f"{side} {ru.kind} {t('(alt)')}",
                 _zone_kind_color(ru.kind),
             )
 
@@ -428,7 +430,7 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         zone_color = DEMAND_COLOR if is_long else SUPPLY_COLOR
         tag = "L" if is_long else "S"
         _level(
-            ax, s.entry, zone_color, f"{tag} Entry {s.entry:.{d}f} ({s.kind})",
+            ax, s.entry, zone_color, f"{tag} {t('Entry')} {s.entry:.{d}f} ({s.kind})",
             x_right, ylim,
         )
         _level(ax, s.stop_loss, SUPPLY_COLOR, f"{tag} SL {s.stop_loss:.{d}f}", x_right, ylim)
@@ -455,13 +457,14 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         None,
     )
     if range_top is not None:
-        _level(ax, range_top, RANGE_COLOR, "RANGE HIGH", x_right, ylim)
+        _level(ax, range_top, RANGE_COLOR, t("RANGE HIGH"), x_right, ylim)
     if range_bottom is not None:
-        _level(ax, range_bottom, RANGE_COLOR, "RANGE LOW", x_right, ylim)
+        _level(ax, range_bottom, RANGE_COLOR, t("RANGE LOW"), x_right, ylim)
 
     _style_axes(ax, candles, x_right, "%d.%m")
     ax.set_title(
-        f"{plan.pair} H1 — Pre-Market Plan | price {plan.price:.{d}f}",
+        t("{pair} H1 — Pre-Market Plan | price {price}",
+          pair=plan.pair, price=f"{plan.price:.{d}f}"),
         color=FG,
         fontsize=11,
         fontweight="bold",

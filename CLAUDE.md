@@ -199,10 +199,23 @@ app/services/smc/
 │                         Binance klines, behind a JSON disk cache in
 │                         data/backtest/ (gitignored) that only fetches the
 │                         ranges it does not already cover
-├── telegram_bot.py       long-polling commands (the D27 seven: /pairs
-│                         /plan /journal /news /pause /resume /help),
-│                         slash-menu registration, Took/Skipped callbacks;
+├── telegram_bot.py       long-polling commands (/plan /journal /news
+│                         /settings /help since 2026-09-10; /pairs /pause
+│                         /resume still answer when typed but left the menu),
+│                         the ⚙️ /settings hub (language, pairs, setup-alert
+│                         level, pause — every press edits one message in
+│                         place, callbacks `st_*`), slash-menu registration
+│                         in the current language, Took/Skipped callbacks;
 │                         serves ONLY the owner chat
+├── i18n.py               bot-facing text in two languages (owner request
+│                         2026-09-10): `t("English key", **fields)` looks the
+│                         key up in the RU catalog when the language is
+│                         Russian (the default, SMC_LANG) and returns the
+│                         key itself in English; `set_language` is
+│                         process-wide, applied from `state.language` at
+│                         startup and by the /settings button. Trading
+│                         vocabulary (CHoCH, FVG, OB, LONG/SHORT, SL/TP,
+│                         Supply/Demand, PD, OTE, RR) stays Latin in both
 ├── trade_journal.py      /journal: MT4 history screenshots parsed by Claude
 │                         (vision, D27) into trades behind a Save/Cancel
 │                         step; stats text
@@ -221,8 +234,26 @@ tracking → live-card edits on fill/TP/SL events.
 
 ## Conventions and gotchas
 
-- **All bot-facing text is English**; conversation with the owner is Russian
-  (address him as «Брат»). Message timestamps are **Prague time**.
+- **Bot-facing text is bilingual, Russian by default** (owner request
+  2026-09-10; `SMC_LANG=ru|en` is the first-start default, the ⚙️
+  `/settings` choice is stored in the kv store and wins afterwards).
+  Every string the owner can see — cards, buttons, the slash menu, engine
+  reasons/warnings, plan notes, the digest, the journal, chart labels —
+  is written in English in the code and wrapped in `i18n.t(...)`; the
+  English text IS the catalog key, `i18n.RU` maps it to Russian, and a
+  missing entry degrades to English (tests pin that every literal key in
+  the code is translated and that placeholders match). Format numbers
+  BEFORE passing them as `t()` fields; `t` never escapes — the caller
+  still runs every dynamic value through `escape_html`. Terms stay Latin
+  in both languages (CHoCH, FVG, OB, LONG/SHORT, SL/TP, H4/H1/M5,
+  Supply/Demand, PD, OTE, EQH/EQL, RR); only prose is translated. The AI
+  read is asked for the bot's language (`ai_read.LANGUAGE_INSTRUCTION`,
+  enum values stay English). Logs stay English. The test suite runs in
+  English (`tests/conftest.py` pins it) so assertions read as written;
+  `smc_backtest` pins English too because `backtest.WARNING_BUCKETS`
+  matches the engine's warning text. Do not shadow `t` with a loop
+  variable in a module that imports it. Conversation with the owner is
+  Russian (address him as «Брат»). Message timestamps are **Prague time**.
 - **Telegram messages use parse_mode=HTML**: any dynamic string embedded in a
   message MUST go through `notifier.escape_html` (a raw `<` in "fill < 50%"
   once broke message delivery in production). Only `<b>` and `<pre>` tags are
@@ -287,12 +318,17 @@ tracking → live-card edits on fill/TP/SL events.
   here decides whether a setup exists.
 - **The minimal bot** (owner decision D27, 2026-09-06). Telegram gets two
   kinds of trading message — the 07:55 digest and the 🚨 market-entry
-  card (with Claude's read appended) — and seven commands: `/pairs`
-  (pause or resume signals per pair), `/plan` (the Strategy audit for a
-  pair or ALL on FRESH candles: the pending entries table, the H1 chart
-  and Claude's read in one message — `Watcher.on_plan` →
-  `_send_setup_analysis(fresh=True)`), `/journal` (a photo message parses
-  an MT4 history screenshot), `/news`, `/pause`, `/resume`, `/help`.
+  card (with Claude's read appended) — and, since 2026-09-10, five
+  commands: `/plan` (the Strategy audit for a pair or ALL on FRESH
+  candles: the pending entries table, the H1 chart and Claude's read in
+  one message — `Watcher.on_plan` → `_send_setup_analysis(fresh=True)`),
+  `/journal` (a photo message parses an MT4 history screenshot), `/news`,
+  `/settings` (ONE ⚙️ menu for every setting, owner request 2026-09-10:
+  🌐 language ru/en, 📊 pairs on/off, 🔔 setup-alert level — the retired
+  `/notify` levels all / ⭐ only / none, back as buttons — and ⏸/▶️
+  pause; the language button also re-registers the slash menu in the new
+  language) and `/help`. `/pairs`, `/pause` and `/resume` still answer
+  when typed (muscle memory) but are gone from the menu and from `/help`.
   Retired from the menu and the handlers: `/notify`, `/check`, `/status`,
   `/pd`, `/stats`, `/unmute` (their watcher-side text builders —
   `status_text`, `stats_text`, `pd_text` — still exist as plumbing). The

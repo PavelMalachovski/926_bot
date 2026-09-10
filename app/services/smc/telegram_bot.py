@@ -3,13 +3,21 @@
 The watcher owns the bot token exclusively (the old webhook app is gone), so
 getUpdates long polling is safe. Only the owner's chat is served.
 
-Commands (owner decision D27, 2026-09-06 — the minimal set):
-    /pairs  — pause or resume signals per pair (inline buttons)
+Commands (owner decision D27, 2026-09-06 — the minimal set; /settings
+replaced /pairs, /pause and /resume on 2026-09-10, owner request):
     /plan   — Strategy audit for a pair on fresh candles + Claude's read
     /journal — trade journal; a photo message parses an MT4 screenshot
     /news   — today's red news
-    /pause, /resume — global mute of all watcher messages
+    /settings — ONE menu for every setting: language (ru/en), pairs on/off,
+              setup-alert level (all / ⭐ only / none), pause/resume
     /start, /help — description
+
+/pairs, /pause and /resume still answer when typed (muscle memory), but
+they are gone from the slash menu and from /help — the ⚙️ menu is the one
+place settings live.
+
+All text goes through `i18n.t` (owner request 2026-09-10: Russian by
+default, English switchable in /settings).
 """
 
 import asyncio
@@ -18,28 +26,39 @@ from typing import Any, Awaitable, Callable, Dict, Optional
 import httpx
 import structlog
 
+from app.services.smc import i18n
+from app.services.smc.i18n import t
 from app.services.smc.instruments import INSTRUMENTS
-from app.services.smc.state import WatcherState
+from app.services.smc.state import NOTIFY_LEVELS, WatcherState
 
 logger = structlog.get_logger(__name__)
 
-HELP_TEXT = (
-    "<b>SMC Watcher</b> — Triple Sync + Imbalance\n\n"
-    "I check the selected pairs every 5 minutes during sessions and send "
-    "exactly two things:\n"
-    "📰 the red-news digest at 07:55 Prague\n"
-    "🚨 a setup alert when a setup has formed — enter at market — with "
-    "Claude's read appended to the card\n\n"
-    "<b>Commands:</b>\n"
-    "/pairs — pause or resume signals per pair\n"
-    "/plan — strategy audit for a pair: pending (limit) entries + Claude's "
-    "read, on fresh candles\n"
-    "/journal — trade journal: send an MT4 history screenshot to log trades\n"
-    "/news — today's red news (Forex Factory)\n"
-    "/pause — mute all alerts until /resume\n"
-    "/resume — resume alerts\n"
-    "/help — this help"
-)
+
+def help_text() -> str:
+    """/start and /help, in the current language."""
+    return t(
+        "<b>SMC Watcher</b> — Triple Sync + Imbalance\n\n"
+        "I check the selected pairs every 5 minutes during sessions and send "
+        "exactly two things:\n"
+        "📰 the red-news digest at 07:55 Prague\n"
+        "🚨 a setup alert when a setup has formed — enter at market — with "
+        "Claude's read appended to the card\n\n"
+        "<b>Commands:</b>\n"
+        "/plan — strategy audit for a pair: pending (limit) entries + Claude's "
+        "read, on fresh candles\n"
+        "/journal — trade journal: send an MT4 history screenshot to log trades\n"
+        "/news — today's red news (Forex Factory)\n"
+        "/settings — language, pairs, alert level, pause\n"
+        "/help — this help"
+    )
+
+
+# The setup-alert level names (`state.notify_level`) as the owner reads them.
+_NOTIFY_LABELS = {
+    "all": "all setups",
+    "star": "⭐ only",
+    "mute": "no setup alerts",
+}
 
 
 class TelegramCommandBot:
@@ -228,29 +247,35 @@ class TelegramCommandBot:
         return True
 
     async def _setup_bot_profile(self) -> None:
-        """Register the slash-command menu and profile texts (best effort)."""
+        """Register the slash-command menu and profile texts (best effort),
+        in the current language — called at startup and again after every
+        language switch so the menu follows the choice."""
         await self._api(
             "setMyCommands",
             commands=[
-                {"command": "pairs", "description": "Pause or resume signals per pair"},
                 {
                     "command": "plan",
-                    "description": "Strategy audit for a pair + Claude's read",
+                    "description": t("Strategy audit for a pair + Claude's read"),
                 },
-                {"command": "journal", "description": "Trade journal from MT4 screenshots"},
-                {"command": "news", "description": "Today's red news (Forex Factory)"},
-                {"command": "pause", "description": "Mute all alerts until /resume"},
-                {"command": "resume", "description": "Resume alerts"},
-                {"command": "help", "description": "What this bot does"},
+                {
+                    "command": "journal",
+                    "description": t("Trade journal from MT4 screenshots"),
+                },
+                {"command": "news", "description": t("Today's red news (Forex Factory)")},
+                {
+                    "command": "settings",
+                    "description": t("Language, pairs, alert level, pause"),
+                },
+                {"command": "help", "description": t("What this bot does")},
             ],
         )
         await self._api(
             "setMyShortDescription",
-            short_description="SMC Triple Sync + Imbalance setup alerts",
+            short_description=t("SMC Triple Sync + Imbalance setup alerts"),
         )
         await self._api(
             "setMyDescription",
-            description=(
+            description=t(
                 "Watches ETHUSD and forex pairs for Triple Sync + Imbalance "
                 "setups (H4 trend → H1 zone → M5 CHoCH + FVG) and sends an "
                 "urgent alert with entry/SL/TP when everything lines up. "
@@ -283,65 +308,70 @@ class TelegramCommandBot:
     async def _handle_command(self, text: str) -> None:
         command = text.split()[0].lower() if text else ""
         if command in ("/start", "/help"):
-            await self.send(HELP_TEXT)
-        elif command == "/pairs":
+            await self.send(help_text())
+        elif command == "/settings":
             await self.send(
-                "Signals per pair — tap to pause (☐) or resume (✅):",
+                self._settings_text(), reply_markup=self._settings_keyboard()
+            )
+        elif command == "/pairs":
+            # Hidden alias since 2026-09-10: the pairs live in /settings.
+            await self.send(
+                t("Signals per pair — tap to pause (☐) or resume (✅):"),
                 reply_markup=self._pairs_keyboard(),
             )
         elif command == "/pause":
             self.state.set_paused(True)
             await self.send(
-                "⏸ <b>Paused</b> — no alerts or messages until you resume.",
+                t("⏸ <b>Paused</b> — no alerts or messages until you resume."),
                 reply_markup={
                     "inline_keyboard": [
-                        [{"text": "▶️ Resume", "callback_data": "resume"}]
+                        [{"text": t("▶️ Resume"), "callback_data": "resume"}]
                     ]
                 },
             )
         elif command == "/resume":
             self.state.set_paused(False)
-            await self.send("▶️ <b>Resumed</b> — watching pairs again.")
+            await self.send(t("▶️ <b>Resumed</b> — watching pairs again."))
         elif command == "/journal":
             if self.trade_journal:
                 await self.send(self.trade_journal.stats_text())
             else:
-                await self.send("Trade journal is not available.")
+                await self.send(t("Trade journal is not available."))
         elif command == "/news":
             if self.news_text:
                 await self.send(self.news_text())
             else:
-                await self.send("News filter is not available.")
+                await self.send(t("News filter is not available."))
         elif command == "/plan":
             if not self.on_plan or not self.state.pairs:
-                await self.send("No pairs enabled — use /pairs first.")
+                await self.send(t("No pairs enabled — turn one on in /settings first."))
             else:
                 await self.send(
-                    "🔬 Strategy audit — choose a pair (fresh candles + "
-                    "Claude's read):",
+                    t("🔬 Strategy audit — choose a pair (fresh candles + "
+                      "Claude's read):"),
                     reply_markup=self._plan_keyboard(),
                 )
         elif command:
-            await self.send("Unknown command. /help for the list.")
+            await self.send(t("Unknown command. /help for the list."))
 
     async def _handle_screenshot(self, message: Dict) -> None:
         """Parse a MetaTrader history screenshot into the trade journal."""
         if not self.trade_journal:
-            await self.send("Trade journal is not available.")
+            await self.send(t("Trade journal is not available."))
             return
         if not self.trade_journal.api_key:
             await self.send(
-                "⚠️ Recognition unavailable: ANTHROPIC_API_KEY is not configured."
+                t("⚠️ Recognition unavailable: ANTHROPIC_API_KEY is not configured.")
             )
             return
 
-        await self.send("🔍 Recognizing trades from the screenshot, one moment...")
+        await self.send(t("🔍 Recognizing trades from the screenshot, one moment..."))
         try:
             # Largest available photo size is the last entry.
             file_id = message["photo"][-1]["file_id"]
             image_bytes = await self._download_file(file_id)
             if not image_bytes:
-                await self.send("❌ Could not download the image. Please try again.")
+                await self.send(t("❌ Could not download the image. Please try again."))
                 return
 
             trades = await self.trade_journal.parse_screenshot(image_bytes)
@@ -353,8 +383,8 @@ class TelegramCommandBot:
             keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "💾 Save", "callback_data": f"jrnl_save_{batch_id}"},
-                        {"text": "❌ Cancel", "callback_data": f"jrnl_cancel_{batch_id}"},
+                        {"text": t("💾 Save"), "callback_data": f"jrnl_save_{batch_id}"},
+                        {"text": t("❌ Cancel"), "callback_data": f"jrnl_cancel_{batch_id}"},
                     ]
                 ]
             }
@@ -363,16 +393,19 @@ class TelegramCommandBot:
             )
         except Exception as e:
             logger.error("Failed to process screenshot", error=str(e), exc_info=True)
-            await self.send(
+            await self.send(t(
                 "❌ Error while recognizing the screenshot. "
                 "Please send a clearer image."
-            )
+            ))
 
     async def _handle_callback(self, callback: Dict) -> None:
         data = callback.get("data", "")
         answer: Dict[str, Any] = {"callback_query_id": callback["id"]}
         if data.startswith(("jrnl_save_", "jrnl_cancel_")) and self.trade_journal:
             await self._handle_journal_callback(data, callback, answer)
+            return
+        if data.startswith("st_"):
+            await self._handle_settings_callback(data, callback, answer)
             return
         if data.startswith(("take_", "skip_")) and self.on_trade_mark:
             taken = data.startswith("take_")
@@ -381,7 +414,7 @@ class TelegramCommandBot:
             # replace the buttons with the recorded choice
             message = callback.get("message", {})
             if message:
-                chosen = "✅ Taken — tracked in the journal" if taken else "❌ Skipped"
+                chosen = t("✅ Taken — tracked in the journal") if taken else t("❌ Skipped")
                 await self._api(
                     "editMessageReplyMarkup",
                     chat_id=message["chat"]["id"],
@@ -397,7 +430,7 @@ class TelegramCommandBot:
             return
         if data == "resume":
             self.state.set_paused(False)
-            answer["text"] = "Resumed"
+            answer["text"] = t("Resumed")
             message = callback.get("message", {})
             if message:
                 await self._api(
@@ -406,12 +439,12 @@ class TelegramCommandBot:
                     message_id=message["message_id"],
                     reply_markup={
                         "inline_keyboard": [
-                            [{"text": "▶️ Resumed", "callback_data": "noop"}]
+                            [{"text": t("▶️ Resumed"), "callback_data": "noop"}]
                         ]
                     },
                 )
             await self._api("answerCallbackQuery", **answer)
-            await self.send("▶️ <b>Resumed</b> — watching pairs again.")
+            await self.send(t("▶️ <b>Resumed</b> — watching pairs again."))
             return
         if data.startswith("zmute_") and self.on_zone_mute:
             # "zmute_<PAIR>_<block_id>" — instrument keys carry no
@@ -429,9 +462,9 @@ class TelegramCommandBot:
             until = await self.on_zone_mute(key, block_id)
             message = callback.get("message", {})
             if until is None:
-                answer["text"] = (
-                    f"{key}: that alert's session block already ended — "
-                    "nothing muted"
+                answer["text"] = t(
+                    "{pair}: that alert's session block already ended — "
+                    "nothing muted", pair=key,
                 )
                 if message:
                     await self._api(
@@ -439,20 +472,20 @@ class TelegramCommandBot:
                         chat_id=message["chat"]["id"],
                         message_id=message["message_id"],
                         reply_markup={"inline_keyboard": [[{
-                            "text": "🔕 Block already ended",
+                            "text": t("🔕 Block already ended"),
                             "callback_data": "noop",
                         }]]},
                     )
                 await self._api("answerCallbackQuery", **answer)
                 return
-            answer["text"] = f"{key} zone alerts muted till {until}"
+            answer["text"] = t("{pair} zone alerts muted till {hhmm}", pair=key, hhmm=until)
             if message:
                 await self._api(
                     "editMessageReplyMarkup",
                     chat_id=message["chat"]["id"],
                     message_id=message["message_id"],
                     reply_markup={"inline_keyboard": [[{
-                        "text": f"🔕 Muted till {until}",
+                        "text": t("🔕 Muted till {hhmm}", hhmm=until),
                         "callback_data": "noop",
                     }]]},
                 )
@@ -464,7 +497,8 @@ class TelegramCommandBot:
             # (limit) entries, computed on schedule — not the plan text.
             key = data[len("aplan_"):]
             answer["text"] = (
-                "Sending all audits…" if key == "ALL" else f"Sending {key} audit…"
+                t("Sending all audits…") if key == "ALL"
+                else t("Sending {pair} audit…", pair=key)
             )
             await self._api("answerCallbackQuery", **answer)
             # Fire-and-forget: keeps getUpdates free while the fetch runs
@@ -473,17 +507,13 @@ class TelegramCommandBot:
             return
         if data.startswith("plan_") and self.on_plan:
             key = data[5:]
-            answer["text"] = f"Building {key} plan…"
+            answer["text"] = t("Building {pair} plan…", pair=key)
             await self._api("answerCallbackQuery", **answer)
             self._spawn(self.on_plan(key), f"on_plan:{key}")
             return
         if data.startswith("pair_"):
             key = data[5:]
-            try:
-                enabled = self.state.toggle_pair(key)
-                answer["text"] = f"{key}: {'✅ enabled' if enabled else '⛔ disabled'}"
-            except KeyError:
-                answer["text"] = f"Unknown pair {key}"
+            answer["text"] = self._toggle_pair_answer(key)
             # refresh the keyboard in place
             message = callback.get("message", {})
             if message:
@@ -508,20 +538,20 @@ class TelegramCommandBot:
                 result = self.trade_journal.confirm_batch(batch_id)
                 saved, dup = result["saved"], result["duplicates"]
                 if saved == 0 and dup == 0:
-                    text = "⚠️ Nothing to save (batch not found or already processed)."
-                    chosen = "⚠️ Empty"
+                    text = t("⚠️ Nothing to save (batch not found or already processed).")
+                    chosen = t("⚠️ Empty")
                 else:
-                    text = f"✅ Saved trades: {saved}"
+                    text = t("✅ Saved trades: {n}", n=saved)
                     if dup:
-                        text += f"\n♻️ Skipped duplicates: {dup}"
-                    chosen = f"💾 Saved ({saved})"
-                answer["text"] = "Done"
+                        text += "\n" + t("♻️ Skipped duplicates: {n}", n=dup)
+                    chosen = t("💾 Saved ({n})", n=saved)
+                answer["text"] = t("Done")
             else:  # jrnl_cancel_
                 batch_id = data[len("jrnl_cancel_"):]
                 removed = self.trade_journal.discard_batch(batch_id)
-                text = f"❌ Cancelled. Trades were not saved (removed: {removed})."
-                chosen = "❌ Cancelled"
-                answer["text"] = "Cancelled"
+                text = t("❌ Cancelled. Trades were not saved (removed: {n}).", n=removed)
+                chosen = t("❌ Cancelled")
+                answer["text"] = t("Cancelled")
 
             if message:
                 await self._api(
@@ -538,8 +568,175 @@ class TelegramCommandBot:
             await self.send(text)
         except Exception as e:
             logger.error("Journal callback failed", error=str(e), exc_info=True)
-            answer["text"] = "Error while processing"
+            answer["text"] = t("Error while processing")
             await self._api("answerCallbackQuery", **answer)
+
+    # -------------------------------------------------------------- settings
+    #
+    # Owner request 2026-09-10: ONE ⚙️ menu holds every setting — language,
+    # pairs, the setup-alert level (the retired /notify, back as a button)
+    # and pause/resume. Every press edits the same message in place
+    # (editMessageText), so the chat never fills up with menu copies.
+    # Callback data is prefixed `st_` and never collides with the legacy
+    # `pair_*` / `resume` payloads, which still answer for old messages.
+
+    def _settings_text(self) -> str:
+        pairs = ", ".join(self.state.pairs) if self.state.pairs else t("none")
+        lang = i18n.get_language()
+        lines = [
+            f"⚙️ <b>{t('Settings')}</b>",
+            f"🌐 {t('Language')}: {i18n.LANGUAGE_NAMES[lang]}",
+            f"📊 {t('Pairs')}: {pairs}",
+            f"🔔 {t('Setup alerts')}: "
+            + t(_NOTIFY_LABELS.get(self.state.notify_level, self.state.notify_level)),
+            (f"⏸ {t('Status')}: {t('paused')}" if self.state.paused
+             else f"▶️ {t('Status')}: {t('active')}"),
+        ]
+        return "\n".join(lines)
+
+    def _settings_keyboard(self) -> Dict:
+        pause_button = (
+            {"text": t("▶️ Resume"), "callback_data": "st_resume"}
+            if self.state.paused
+            else {"text": t("⏸ Pause"), "callback_data": "st_pause"}
+        )
+        return {"inline_keyboard": [
+            [
+                {"text": t("🌐 Language"), "callback_data": "st_lang"},
+                {"text": t("📊 Pairs"), "callback_data": "st_pairs"},
+            ],
+            [
+                {"text": t("🔔 Alerts"), "callback_data": "st_notify"},
+                pause_button,
+            ],
+        ]}
+
+    def _back_row(self) -> list:
+        return [{"text": t("« Back"), "callback_data": "st_home"}]
+
+    def _language_keyboard(self) -> Dict:
+        current = i18n.get_language()
+        row = [
+            {
+                "text": f"{i18n.LANGUAGE_FLAGS[code]} {i18n.LANGUAGE_NAMES[code]}"
+                + (" ✅" if code == current else ""),
+                "callback_data": f"st_lang_{code}",
+            }
+            for code in i18n.LANGUAGES
+        ]
+        return {"inline_keyboard": [row, self._back_row()]}
+
+    def _settings_pairs_keyboard(self) -> Dict:
+        rows = []
+        for key in INSTRUMENTS:
+            mark = "✅" if key in self.state.pairs else "☐"
+            rows.append([{"text": f"{mark} {key}", "callback_data": f"st_pair_{key}"}])
+        rows.append(self._back_row())
+        return {"inline_keyboard": rows}
+
+    def _notify_keyboard(self) -> Dict:
+        current = self.state.notify_level
+        rows = [
+            [{
+                "text": ("✅ " if level == current else "") + t(_NOTIFY_LABELS[level]),
+                "callback_data": f"st_notify_{level}",
+            }]
+            for level in NOTIFY_LEVELS
+        ]
+        rows.append(self._back_row())
+        return {"inline_keyboard": rows}
+
+    def _toggle_pair_answer(self, key: str) -> str:
+        """Toggle a pair and phrase the toast — shared by the /settings
+        pairs page and the legacy `pair_*` buttons."""
+        try:
+            enabled = self.state.toggle_pair(key)
+        except KeyError:
+            return t("Unknown pair {pair}", pair=key)
+        return (
+            t("{pair}: ✅ enabled", pair=key) if enabled
+            else t("{pair}: ⛔ disabled", pair=key)
+        )
+
+    async def _edit_menu(self, message: Dict, text: str, reply_markup: Dict) -> None:
+        """Redraw a settings page in place; no message -> nothing to edit."""
+        if not message:
+            return
+        await self._api(
+            "editMessageText",
+            chat_id=message["chat"]["id"],
+            message_id=message["message_id"],
+            text=text,
+            parse_mode="HTML",
+            reply_markup=reply_markup,
+        )
+
+    async def _handle_settings_callback(
+        self, data: str, callback: Dict, answer: Dict[str, Any]
+    ) -> None:
+        message = callback.get("message", {})
+        page = "home"
+        if data == "st_lang":
+            page = "lang"
+        elif data.startswith("st_lang_"):
+            code = data[len("st_lang_"):]
+            if i18n.normalize_language(code) is None:
+                answer["text"] = t("Unknown language")
+            else:
+                self.state.set_language(code)
+                i18n.set_language(code)
+                answer["text"] = t("Language: {name}", name=i18n.LANGUAGE_NAMES[code])
+                # the slash menu and the bot profile follow the language
+                await self._setup_bot_profile()
+            page = "lang"
+        elif data == "st_pairs":
+            page = "pairs"
+        elif data.startswith("st_pair_"):
+            answer["text"] = self._toggle_pair_answer(data[len("st_pair_"):])
+            page = "pairs"
+        elif data == "st_notify":
+            page = "notify"
+        elif data.startswith("st_notify_"):
+            level = data[len("st_notify_"):]
+            try:
+                self.state.set_notify_level(level)
+                answer["text"] = t("Setup alerts: {level}", level=t(_NOTIFY_LABELS[level]))
+            except (ValueError, KeyError):
+                answer["text"] = t("Unknown alert level")
+            page = "notify"
+        elif data == "st_pause":
+            self.state.set_paused(True)
+            answer["text"] = t("Paused")
+        elif data == "st_resume":
+            self.state.set_paused(False)
+            answer["text"] = t("Resumed")
+        elif data != "st_home":
+            await self._api("answerCallbackQuery", **answer)
+            return
+
+        if page == "lang":
+            await self._edit_menu(
+                message, f"🌐 <b>{t('Language')}</b>", self._language_keyboard()
+            )
+        elif page == "pairs":
+            await self._edit_menu(
+                message,
+                f"📊 <b>{t('Pairs')}</b> — " + t("tap to pause (☐) or resume (✅)"),
+                self._settings_pairs_keyboard(),
+            )
+        elif page == "notify":
+            await self._edit_menu(
+                message,
+                f"🔔 <b>{t('Setup alerts')}</b> — "
+                + t("a ⭐ always goes through; regular setups are still "
+                    "journal-recorded when not sent"),
+                self._notify_keyboard(),
+            )
+        else:
+            await self._edit_menu(
+                message, self._settings_text(), self._settings_keyboard()
+            )
+        await self._api("answerCallbackQuery", **answer)
 
     def _pairs_keyboard(self) -> Dict:
         rows = []
@@ -558,5 +755,5 @@ class TelegramCommandBot:
             ]
             for i in range(0, len(pairs), 2)
         ]
-        rows.append([{"text": "🌐 All pairs", "callback_data": "plan_ALL"}])
+        rows.append([{"text": t("🌐 All pairs"), "callback_data": "plan_ALL"}])
         return {"inline_keyboard": rows}

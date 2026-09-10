@@ -20,9 +20,12 @@ setup appears.
 - 🤫 **Silent otherwise** — checks without a setup only go to the logs, with
   precise reasons («best FVG candidate: 3.2 pips < required 5»); `/check`
   shows the current picture on demand
-- 💱 **Pairs are switchable at runtime** via Telegram: `/pairs`
-- ⚡ **Strategy profile per pair** via Telegram: `/strategy` (🛡 Conservative /
-  ⚡ Aggressive)
+- 🌐 **Russian by default, English switchable** — every message, button,
+  chart label and Claude's read follow the language picked in `/settings`
+  (`SMC_LANG` sets the first-start default)
+- ⚙️ **One `/settings` menu** — language, watched pairs on/off, setup-alert
+  level (all / ⭐ only / none) and pause/resume, all in one message that
+  edits itself in place
 - 📅 **Forex Factory red-news digest** every weekday at 07:55 Prague
   (incl. a session-block breakdown of today's releases)
 - 📋 **`/plan`** — an on-demand Pre-Market Plan for any watched pair, folded
@@ -36,8 +39,8 @@ setup appears.
   zone named by the *current* Pre-Market Plan, carrying that scenario's
   projected entry/SL/TP/RR, before the full 🚨 setup forms (on by default,
   `SMC_ZONE_PING=false` to disable)
-- ⏸ **`/pause` / `/resume`** — mute everything (alerts, digest, warnings)
-  until you switch it back on; survives restarts
+- ⏸ **Pause / resume** from `/settings` — mute everything (alerts, digest,
+  warnings) until you switch it back on; survives restarts
 - 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;
   `/stats` shows signal winrate and your personal (taken) winrate separately
 
@@ -62,7 +65,7 @@ trading day ending at 18:30 that is ~170 credits/day/pair — four forex pairs
 fit inside the free budget with room to spare for `/plan`. Grab a free key
 at [twelvedata.com](https://twelvedata.com).
 
-Default watched pairs: **ETHUSD + USDJPY** (change with `/pairs` or `SMC_PAIRS`).
+Default watched pairs: **ETHUSD + USDJPY** (change in `/settings` or via `SMC_PAIRS`).
 
 ## Telegram commands
 
@@ -70,15 +73,11 @@ Commands are registered in the bot's slash menu (type `/` in the chat).
 
 | Command | What it does |
 |---|---|
-| `/pairs` | inline keyboard — toggle watched pairs on/off |
-| `/strategy` | inline keyboard — switch a pair's strategy profile (🛡 Conservative / ⚡ Aggressive), or all pairs at once |
-| `/status` | enabled pairs, current session, last verdicts |
-| `/check` | run the full strategy check right now |
-| `/plan` | pre-market plan for a pair (buttons pick from enabled pairs / all) |
-| `/stats` | journal: winrate bars, outcome sparkline, personal (taken) stats |
+| `/plan` | strategy audit for a pair on fresh candles: pending (limit) entries + H1 chart + Claude's read (buttons pick from enabled pairs / all) |
 | `/journal` | manual trade journal — send an MT4 history screenshot to log trades |
 | `/news` | today's red news (Forex Factory) and blackout windows |
-| `/help` | command list |
+| `/settings` | ⚙️ one menu for everything: 🌐 language (Русский / English), 📊 pairs on/off, 🔔 setup-alert level (all / ⭐ only / none), ⏸ pause / ▶️ resume |
+| `/help` | what the bot does and the command list |
 
 ## Red-news filter (Forex Factory)
 
@@ -201,7 +200,8 @@ Key ones:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SMC_PAIRS` | `ETHUSD,USDJPY` | initial pairs (runtime changes via `/pairs`) |
+| `SMC_PAIRS` | `ETHUSD,USDJPY` | initial pairs (runtime changes via `/settings`) |
+| `SMC_LANG` | `ru` | bot language on first start (`ru` / `en`); the `/settings` choice is stored and wins afterwards |
 | `SMC_SESSION_INTERVAL_MINUTES` | `5` | check cadence inside sessions (M5 close) |
 | `SMC_INTERVAL_MINUTES` | `15` | check cadence outside sessions |
 | `SMC_DEPOSIT` | — | deposit in USD for lot hints |

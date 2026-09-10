@@ -12,6 +12,7 @@ tighter than this preliminary stop.
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
+from app.services.smc.i18n import t
 from app.services.smc.instruments import Instrument
 from app.services.smc.liquidity import find_liquidity, nearest_liquidity
 from app.services.smc.models import Candle, Direction, Trend, Zone
@@ -104,20 +105,21 @@ class PairPlan:
 # second vocabulary. Stages the plan cannot evaluate — M5 CHoCH and the
 # imbalance — are never reported: price has not reached the zone yet, so they
 # are not yet due.
-H4_STRUCTURE_NOTE = (
-    "Wait for a clear HH+HL or LH+LL structure on H4 "
-    "(2 closed bodies beyond the extreme)"
-)
+def _h4_structure_note() -> str:
+    return t(
+        "Wait for a clear HH+HL or LH+LL structure on H4 "
+        "(2 closed bodies beyond the extreme)"
+    )
 
 
 def _zone_note(direction: Direction) -> str:
     """Word-for-word the engine's own Rule 2 watch note (engine.py) — the
     plan reports the stage it stopped at in the live checklist's words, and
     a test pins the two sentences equal."""
-    return (
-        "Wait for a fresh H1 zone to form — an untested "
-        f"{'HL' if direction == Direction.LONG else 'LH'}"
-        " order block or an untouched H1 imbalance"
+    return t(
+        "Wait for a fresh H1 zone to form — an untested {pivot} "
+        "order block or an untouched H1 imbalance",
+        pivot="HL" if direction == Direction.LONG else "LH",
     )
 
 
@@ -182,12 +184,13 @@ def _scenario(
             round(zone.bottom, d), round(zone.top, d), direction.value,
         )
 
-    zone_label = (
-        f"H1 {kind} zone ({zone.kind}) {zone.bottom:.{d}f}-{zone.top:.{d}f}"
+    zone_label = t(
+        "H1 {kind} zone ({zk}) {lo}-{hi}",
+        kind=kind, zk=zone.kind, lo=f"{zone.bottom:.{d}f}", hi=f"{zone.top:.{d}f}",
     )
-    inside = (
-        f"Price is already inside the {zone_label} — no pullback left to "
-        "project, the live checklist takes over"
+    inside = t(
+        "Price is already inside the {zone} — no pullback left to "
+        "project, the live checklist takes over", zone=zone_label,
     )
     if direction == Direction.LONG:
         # a pullback-to-demand plan: the zone must sit at/below current price
@@ -196,8 +199,8 @@ def _scenario(
         if not _is_pullback_side(zone, direction, price):
             return None, named(
                 _NO_ZONE,
-                f"Price is below the {zone_label} — wait for a fresh untested "
-                "HL to form under price",
+                t("Price is below the {zone} — wait for a fresh untested "
+                  "HL to form under price", zone=zone_label),
             )
         entry, stop = zone.top, zone.bottom - instrument.sl_buffer
     else:
@@ -206,8 +209,8 @@ def _scenario(
         if not _is_pullback_side(zone, direction, price):
             return None, named(
                 _NO_ZONE,
-                f"Price is above the {zone_label} — wait for a fresh untested "
-                "LH to form above price",
+                t("Price is above the {zone} — wait for a fresh untested "
+                  "LH to form above price", zone=zone_label),
             )
         entry, stop = zone.bottom, zone.top + instrument.sl_buffer
 
@@ -215,8 +218,8 @@ def _scenario(
     if risk <= 0:
         return None, named(
             _LIVE_ZONE,
-            f"{zone_label} is live, but entry and stop coincide — no risk to "
-            "measure",
+            t("{zone} is live, but entry and stop coincide — no risk to "
+              "measure", zone=zone_label),
         )
 
     tolerance = instrument.min_fvg
@@ -227,8 +230,8 @@ def _scenario(
     if target is None:
         return None, named(
             _LIVE_ZONE,
-            f"{zone_label} is live, but there is no unswept liquidity ahead "
-            "of it to aim at",
+            t("{zone} is live, but there is no unswept liquidity ahead "
+              "of it to aim at", zone=zone_label),
         )
 
     sign = -1 if direction == Direction.LONG else 1
@@ -240,17 +243,18 @@ def _scenario(
     if reward <= 0:
         return None, named(
             _LIVE_ZONE,
-            f"Zone {kind} {zone.bottom:.{d}f}-{zone.top:.{d}f} is live, but "
-            "the nearest liquidity sits inside the SL buffer — no positive "
-            "reward",
+            t("Zone {kind} {lo}-{hi} is live, but "
+              "the nearest liquidity sits inside the SL buffer — no positive "
+              "reward", kind=kind, lo=f"{zone.bottom:.{d}f}", hi=f"{zone.top:.{d}f}"),
         )
     rr = reward / risk
     if rr < min_rr:
         return None, named(
             _LIVE_ZONE,
-            f"Zone {kind} {zone.bottom:.{d}f}-{zone.top:.{d}f} is live, but "
-            f"the nearest liquidity gives 1:{rr:.1f} — waiting for other "
-            "structure",
+            t("Zone {kind} {lo}-{hi} is live, but "
+              "the nearest liquidity gives 1:{rr} — waiting for other "
+              "structure", kind=kind, lo=f"{zone.bottom:.{d}f}",
+              hi=f"{zone.top:.{d}f}", rr=f"{rr:.1f}"),
         )
 
     # D4's runner-up (spec 2026-08-16 §2.4): when the order block won zone
@@ -309,25 +313,25 @@ def _range_scenario(
 
     risk = abs(entry - stop_loss)
     if risk <= 0:
-        return None, named(
+        return None, named(t(
             "Range boundary is live, but entry and stop coincide — no risk "
             "to measure"
-        )
+        ))
     reward = (
         (take_profit - entry) if direction == Direction.LONG
         else (entry - take_profit)
     )
     if reward <= 0:
-        return None, named(
+        return None, named(t(
             "Range boundary is live, but the opposite boundary sits inside "
             "the SL buffer — no positive reward"
-        )
+        ))
     rr = reward / risk
     if rr < min_rr:
-        return None, named(
-            f"Range boundary is live, but the target gives 1:{rr:.1f} — "
-            "waiting for other structure"
-        )
+        return None, named(t(
+            "Range boundary is live, but the target gives 1:{rr} — "
+            "waiting for other structure", rr=f"{rr:.1f}",
+        ))
     return PlanScenario(
         direction=direction,
         entry=round(entry, d),
@@ -380,7 +384,7 @@ def build_plan(
         market_closed=market_closed,
     )
     if market_closed:
-        plan.note = "Market closed (weekend) — no plan"
+        plan.note = t("Market closed (weekend) — no plan")
         return plan
 
     directions: List[Tuple[Direction, bool]] = []
@@ -399,10 +403,10 @@ def build_plan(
         h1_trend = detect_trend(h1)
         if h1_trend == Trend.UP:
             directions = [(Direction.LONG, False)]
-            plan.direction_note = "H4 flat — direction from H1 uptrend"
+            plan.direction_note = t("H4 flat — direction from H1 uptrend")
         elif h1_trend == Trend.DOWN:
             directions = [(Direction.SHORT, False)]
-            plan.direction_note = "H4 flat — direction from H1 downtrend"
+            plan.direction_note = t("H4 flat — direction from H1 downtrend")
         else:
             # D11 (owner decision 2026-08-18): both H4 and H1 read FLAT —
             # exactly the engine's Rule 1 flat branch (engine.py, the `else`
@@ -429,14 +433,14 @@ def build_plan(
                 range_scenarios, range_reasons = _range_scenarios(
                     instrument, rng, min_rr,
                 )
-                plan.direction_note = (
+                plan.direction_note = t(
                     "H4 and H1 are both flat — trading the range boundaries"
                 )
             elif profile.allow_h4_choch_entry:
                 choch = h4_choch_direction(h4)
                 if choch is not None:
                     directions = [(choch, False)]  # aggressive: first-leg direction
-                    plan.direction_note = (
+                    plan.direction_note = t(
                         "H4 flat — direction from CHoCH (first leg, not "
                         "with-trend)"
                     )
@@ -468,6 +472,6 @@ def build_plan(
         if best and (best[0] == _LIVE_ZONE or not speculative_only):
             plan.blocker, plan.blocker_zone = best[1], best[2]
         else:
-            plan.blocker = H4_STRUCTURE_NOTE
+            plan.blocker = _h4_structure_note()
         plan.note = plan.blocker
     return plan
