@@ -101,6 +101,13 @@ class WatcherState:
         self.plan_change_notified: Dict[str, str] = (
             db.kv_get("plan_change_notified") or {}
         )
+        # D28 re-read (owner pick 2026-09-13): pair -> ISO UTC of the last
+        # event-driven AI re-read (the per-pair throttle), and shadow order
+        # id -> ISO UTC of the approach re-read it already got (one per
+        # order, so a price hovering at the entry does not re-read every
+        # five minutes).
+        self.ai_reread_at: Dict[str, str] = db.kv_get("ai_reread_at") or {}
+        self.ai_reread_orders: Dict[str, str] = db.kv_get("ai_reread_orders") or {}
         # kind -> pair -> [prague_date, count]: how many messages of `kind`
         # ("setup") actually reached Telegram today (D25: one, at most two
         # trades per pair per day). Reset implicitly by the date stamp — a
@@ -164,6 +171,8 @@ class WatcherState:
         self.db.kv_set("daily_counts", self.daily_counts)
         self.db.kv_set("zone_muted", self.zone_muted)
         self.db.kv_set("plan_change_notified", self.plan_change_notified)
+        self.db.kv_set("ai_reread_at", self.ai_reread_at)
+        self.db.kv_set("ai_reread_orders", self.ai_reread_orders)
         self.db.kv_set("pair_profile", self.pair_profile)
         self.db.kv_set("paused", self.paused)
         self.db.kv_set("plan_zones", self.plan_zones)

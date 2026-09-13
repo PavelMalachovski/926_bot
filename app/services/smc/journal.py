@@ -342,6 +342,15 @@ class SignalJournal:
         )
         return signal
 
+    def active_ai_orders(self, pair: str) -> List[Dict]:
+        """The pair's shadow orders still in play (pending or open), oldest
+        first — what the re-read and the alert read are told about."""
+        return [
+            s for s in self.signals
+            if s.get("origin") == "ai" and s["pair"] == pair
+            and s["status"] in ("pending", "open")
+        ]
+
     def cancel_ai_orders(
         self, pair: str, candles: List[Candle]
     ) -> List[Tuple[Dict, Candle, str]]:

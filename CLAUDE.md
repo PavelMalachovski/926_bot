@@ -466,6 +466,29 @@ tracking → live-card edits on fill/TP/SL events.
   beyond the stop is deliberately NOT a cancellation: a resting limit
   sits between price and its stop, so that candle touched the entry
   first — it is a fill, then a stop, the journal's conservative reading.
+  (6) **The re-read is event-driven, never a timer** (owner pick, same
+  day, after asking about a cheap-model recheck every X minutes: what a
+  timer would verify — zone broken, target taken, order expired, news
+  due — is already code, and a weaker model contradicting Opus is noise,
+  not a check). `_maybe_ai_reread` runs each cycle and fires a fresh
+  **Opus** read (`_ai_read_audit(reread=…)`, `SMC_AI_REREAD`) on exactly
+  three triggers: the plan fingerprint moved since the read was taken
+  (`PlanEntry.read_fingerprint` vs `plan_fingerprint`, i.e. a new zone /
+  direction / range broken); price came within `SMC_AI_APPROACH_R`
+  (0.5R of the order's own risk) of a resting AI order — about to fill,
+  keep or pull? — once per order (`state.ai_reread_orders`); and a new
+  engine setup while an AI order rests, which is the alert read itself
+  (its fact sheet now carries `YOUR PENDING ORDERS`,
+  `journal.active_ai_orders`). At most one re-read per pair per
+  `SMC_AI_REREAD_MIN_MINUTES` (`state.ai_reread_at`). The fact sheet's
+  `RE-READ` block names the trigger and quotes the previous read and
+  order, and asks whether they still stand. The new read replaces the
+  book's (`/plan` shows it) and records its order as a shadow row
+  (source "reread"; the dedup keeps the same price as one row). A message
+  (`🧠 <pair>: AI re-read — AGREE → AGAINST · order: LIMIT SHORT 2520.40
+  → none`) goes out ONLY when `_read_changed`: the stance moved, the
+  order appeared/disappeared, or moved to another price beyond `min_fvg`
+  / side — confidence and wording alone stay silent.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

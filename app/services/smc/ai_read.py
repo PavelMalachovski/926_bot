@@ -41,6 +41,7 @@ changes what the engine announced.
 
 import base64
 import json
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -149,7 +150,15 @@ answer order "none" with direction "none", null prices, and say in `read` \
 what would have to happen for a trade to appear. `invalidation` is one \
 short sentence (under 120 characters): the candle event that cancels the \
 order. Every price you give is checked against the allowed lists and \
-snapped or rejected; a rejected proposal is simply dropped."""
+snapped or rejected; a rejected proposal is simply dropped.
+
+When the fact sheet says RE-READ, the picture changed after your previous \
+read (the trigger is named): say plainly whether your previous read and \
+order still stand, and if not, what changed and what you would do now — \
+keep the order when nothing material moved; do not re-price it for the \
+sake of novelty. YOUR PENDING ORDERS lists the orders you proposed earlier \
+that are still resting or open; a new proposal at the same price means \
+"keep it", order "none" means "pull it"."""
 
 # The per-language instruction appended to the user turn (owner request
 # 2026-09-10: the read follows the bot's language). The JSON enums are
@@ -385,11 +394,52 @@ def describe_catalog(catalog: LevelCatalog, min_rr: float) -> str:
     return "\n".join(lines)
 
 
+def describe_orders(orders: Sequence[dict], d: int) -> List[str]:
+    """YOUR PENDING ORDERS — the shadow rows still in play, in the fact
+    sheet's words (D28 re-read). Empty list when there are none."""
+    lines = []
+    for o in orders:
+        try:
+            lines.append(
+                f"  {'open (filled)' if o.get('status') == 'open' else 'pending (resting)'}: "
+                f"{str(o.get('direction') or '').upper()} at {_fmt(float(o['entry']), d)}, "
+                f"stop {_fmt(float(o['stop_loss']), d)}, target {_fmt(o.get('take_profit'), d)}"
+                f" (proposed {to_prague(datetime.fromisoformat(o['created_at'])).strftime('%H:%M')} "
+                f"Prague from the {o.get('profile_key') or 'alert'} read)"
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    return (["YOUR PENDING ORDERS:"] + lines) if lines else []
+
+
+def describe_reread(trigger: str, previous: Optional["AIRead"], d: int) -> List[str]:
+    """The RE-READ block (D28 re-read): what changed and what the model
+    said last time, so it can say whether that still stands."""
+    lines = ["", f"RE-READ, trigger: {trigger}"]
+    if previous is not None:
+        lines.append(
+            f"Your previous read ({previous.as_of or 'earlier'} Prague): stance "
+            f"{previous.stance}, preferred {previous.preferred_entry}, confidence "
+            f"{previous.confidence}; read: {previous.read}"
+        )
+        p = previous.proposal
+        if p is not None and p.is_trade:
+            lines.append(
+                f"Your previous order: {p.order} {p.direction.upper()} at {_fmt(p.entry, d)}, "
+                f"stop {_fmt(p.stop, d)}, target {_fmt(p.target, d)} (1:{p.rr:.1f})"
+            )
+        elif p is not None:
+            lines.append("Your previous order: none (wait)")
+    lines.append("Say whether that still stands.")
+    return lines
+
+
 def describe_for_ai(
     result: AnalysisResult, instrument: Instrument, audit: Any = None,
     plan: Any = None, news: Optional[str] = None,
     catalog: Optional[LevelCatalog] = None, min_rr: float = DEFAULT_MIN_RR,
-    candles: bool = True,
+    candles: bool = True, orders: Sequence[dict] = (),
+    reread: Optional[str] = None, previous: Optional["AIRead"] = None,
 ) -> str:
     """The engine's picture as plain text — the ONLY source of numbers the
     model may quote. Same objects the alert and the audit print, so the
@@ -545,6 +595,11 @@ def describe_for_ai(
     lines.extend(_day_level_lines(result, d))
     if news:
         lines.append(news)
+    if orders:
+        lines.append("")
+        lines.extend(describe_orders(orders, d))
+    if reread:
+        lines.extend(describe_reread(reread, previous, d))
     if candles:
         if result.h1_candles:
             lines.append(

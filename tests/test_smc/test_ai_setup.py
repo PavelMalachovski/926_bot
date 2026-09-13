@@ -632,3 +632,124 @@ class TestShadowOrdersInTheWatcher:
             assert text.startswith("📐 <b>ETHUSD: ордер AI снят</b>")
         finally:
             i18n.set_language("en")
+
+
+# ----------------------------------------------------------------- re-read
+
+
+class TestReread:
+    """D28 re-read (owner pick 2026-09-13): a fresh Opus read when the
+    picture changed — plan fingerprint moved, or price is about to fill
+    the AI order — never on a timer; a message only when the mind changed."""
+
+    def _entry_with_read(self):
+        from app.services.smc.planbook import plan_fingerprint
+
+        result, entry, p = TestPlanbook()._entry()
+        entry.read_fingerprint = plan_fingerprint(entry.plan)
+        return result, entry, p
+
+    def _watcher_with(self, tmp_path, entry, reply):
+        w = _watcher(tmp_path, _StubReader(read=reply))
+        w.notifier = _Notifier()
+        w.planbook = PlanBook()
+        w.planbook.update("ETHUSD", entry)
+        return w
+
+    def test_fact_sheet_carries_orders_and_the_reread_block(self):
+        result, entry, p = self._entry_with_read()
+        orders = [{
+            "status": "pending", "direction": "long", "entry": 3139.5, "stop_loss": 3128.0,
+            "take_profit": 3221.0, "created_at": T0.isoformat(), "profile_key": "plan",
+        }]
+        text = describe_for_ai(
+            result, ETH, orders=orders, reread="the plan changed", previous=entry.ai_read,
+            candles=False,
+        )
+        assert "YOUR PENDING ORDERS:" in text and "pending (resting): LONG at 3139.50" in text
+        assert "RE-READ, trigger: the plan changed" in text
+        assert "Your previous read (10:30 Prague): stance agree" in text
+        assert f"Your previous order: limit LONG at {p.entry:.2f}" in text
+        assert "Say whether that still stands." in text
+
+    def test_read_changed_rules(self):
+        from smc_watcher import _read_changed
+
+        result, entry, p = self._entry_with_read()
+        same = _read_with(p)
+        assert _read_changed(entry.ai_read, same, 2.0) is False
+        against = AIRead(stance="against", preferred_entry="wait", confidence=2, read="x", proposal=p)
+        assert _read_changed(entry.ai_read, against, 2.0) is True
+        pulled = _read_with(AIProposal(order="none", direction="none", basis="none"))
+        assert _read_changed(entry.ai_read, pulled, 2.0) is True
+        moved = _read_with(AIProposal(**{**p.to_dict(), "entry": p.entry - 30}))
+        assert _read_changed(entry.ai_read, moved, 2.0) is True
+        nudged = _read_with(AIProposal(**{**p.to_dict(), "entry": p.entry + 0.5}))
+        assert _read_changed(entry.ai_read, nudged, 2.0) is False
+
+    @pytest.mark.asyncio
+    async def test_plan_change_triggers_a_reread_and_a_changed_mind_is_announced(self, tmp_path):
+        result, entry, p = self._entry_with_read()
+        entry.read_fingerprint = "stale-fingerprint"
+        against = AIRead(
+            stance="against", preferred_entry="wait", confidence=2,
+            read="Structure broke.", risks=["new supply"], as_of="11:00",
+            proposal=AIProposal(order="none", direction="none", basis="none"),
+        )
+        w = self._watcher_with(tmp_path, entry, against)
+        await w._maybe_ai_reread("ETHUSD", result)
+
+        facts, images, _ = w.ai.facts[0]
+        assert "RE-READ, trigger: the plan changed materially" in facts
+        assert "Your previous order: limit LONG" in facts
+        assert len(images) == 2  # H1 plan chart + M5 chart, a setup formed
+        assert entry.ai_read is against and entry.read_fingerprint != "stale-fingerprint"
+        assert len(w.notifier.sent) == 1
+        head = w.notifier.sent[0].splitlines()[0]
+        assert head.startswith("🧠 <b>ETHUSD: AI re-read</b> — AGREE → AGAINST · order: LIMIT LONG 3139.50 → none")
+        assert "Structure broke." in w.notifier.sent[0]
+        assert "ETHUSD" in w.state.ai_reread_at
+
+    @pytest.mark.asyncio
+    async def test_unchanged_mind_stays_silent_and_the_throttle_holds(self, tmp_path):
+        result, entry, p = self._entry_with_read()
+        entry.read_fingerprint = "stale-fingerprint"
+        w = self._watcher_with(tmp_path, entry, _read_with(p))
+        await w._maybe_ai_reread("ETHUSD", result)
+        assert len(w.ai.facts) == 1 and w.notifier.sent == []
+        # the fingerprint now matches, and even a forced change is throttled
+        entry.read_fingerprint = "another-stale"
+        await w._maybe_ai_reread("ETHUSD", result)
+        assert len(w.ai.facts) == 1
+
+    @pytest.mark.asyncio
+    async def test_price_approaching_the_order_triggers_once_per_order(self, tmp_path):
+        result, entry, p = self._entry_with_read()  # fingerprint matches: no plan trigger
+        w = self._watcher_with(tmp_path, entry, _read_with(p))
+        # price 3150, order at 3150.5 with a 10.5 risk: 0.05R away
+        row = w.journal.record_ai("ETHUSD", _limit(entry=3150.5, stop=3140.0, target=3221.0), T0, "NY")
+        await w._maybe_ai_reread("ETHUSD", result)
+        assert len(w.ai.facts) == 1
+        assert "about to fill" in w.ai.facts[0][0]
+        assert row["id"] in w.state.ai_reread_orders
+        w.state.ai_reread_at = {}  # lift the throttle: the per-order mark alone must hold
+        await w._maybe_ai_reread("ETHUSD", result)
+        assert len(w.ai.facts) == 1
+
+    @pytest.mark.asyncio
+    async def test_no_trigger_no_call(self, tmp_path):
+        result, entry, p = self._entry_with_read()
+        w = self._watcher_with(tmp_path, entry, _read_with(p))
+        w.journal.record_ai("ETHUSD", _limit(entry=3100.0, stop=3090.0, target=3221.0), T0, "NY")  # far away
+        await w._maybe_ai_reread("ETHUSD", result)
+        assert w.ai.facts == []
+
+    @pytest.mark.asyncio
+    async def test_the_alert_read_sees_the_resting_order(self, tmp_path):
+        result, audit, cat = _catalog()
+        p, _ = validate_proposal(_good_proposal(result), cat)
+        w = _watcher(tmp_path, _StubReader(read=_read_with(p)))
+        w.notifier = _Notifier()
+        w.journal.record_ai("ETHUSD", _limit(entry=3100.0, stop=3090.0, target=3221.0), T0, "NY")
+        assert await w._send_alert("ETHUSD", result, "fp") is True
+        assert "YOUR PENDING ORDERS:" in w.ai.facts[0][0]

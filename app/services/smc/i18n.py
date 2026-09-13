@@ -754,3 +754,10 @@ RU.update({
     "{wins} wins / {losses} stops ({rate}%) · realized {r}R":
         "{wins} в плюс / {losses} стопов ({rate}%) · итог {r}R",
 })
+
+# ---- D28 re-read (owner pick 2026-09-13): event-driven second look ----
+RU.update({
+    "no read": "без разбора",
+    "🧠 <b>{pair}: AI re-read</b> — {before} → {after} · order: {old} → {new}":
+        "🧠 <b>{pair}: AI перечитал</b> — {before} → {after} · ордер: {old} → {new}",
+})

@@ -143,6 +143,23 @@ class SMCSettings(BaseSettings):
         "it is still printed, flagged 'below the floor — wait'. Label "
         "only: the engine's own alert is untouched",
     )
+    ai_reread: bool = Field(
+        default=True,
+        description="D28 re-read (owner pick 2026-09-13): take a fresh Opus "
+        "read when the picture materially changed — the plan fingerprint "
+        "moved (new zone / direction / range broken) or price came within "
+        "SMC_AI_APPROACH_R of Claude's pending order. Event-driven, never a "
+        "timer; a message only when the stance or the order changed",
+    )
+    ai_reread_min_minutes: int = Field(
+        default=30,
+        description="At most one re-read per pair per this many minutes",
+    )
+    ai_approach_r: float = Field(
+        default=0.5,
+        description="The approach trigger: price within this many R of the "
+        "pending AI order's entry (R = its own risk) fires one re-read per order",
+    )
     ai_timeout_s: float = Field(
         default=90.0, description="Per-call timeout for the AI read, seconds"
     )
