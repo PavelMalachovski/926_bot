@@ -282,6 +282,148 @@ class SignalJournal:
         logger.info("Signal recorded", id=signal["id"], pair=signal["pair"])
         return signal
 
+    def record_ai(
+        self, pair: str, proposal, checked_at: datetime,
+        session: Optional[str], tolerance: float = 0.0, source: str = "alert",
+    ) -> Optional[Dict]:
+        """Store Claude's proposed order as a SHADOW signal (D28 follow-up,
+        2026-09-13): `origin == "ai"`, no card, no buttons, no taken mark —
+        it exists so the same pending→open→tp/sl/expired tracking that
+        scores the engine's setups scores Claude's proposals too. A
+        "none" proposal records nothing. Rule 10 applies: the order expires
+        with the session it was proposed in. Deduplicated against the
+        pair's still-active shadow rows within `tolerance` (the same order
+        proposed twice by two /plan presses is one order), and against a
+        row the same source recorded this session at any price — one
+        proposal per source per session."""
+        if proposal is None or not getattr(proposal, "is_trade", False):
+            return None
+        for s in self.signals:
+            if (
+                s.get("origin") == "ai" and s["pair"] == pair
+                and s["status"] in ("pending", "open")
+                and s["direction"] == proposal.direction
+                and abs(float(s["entry"]) - float(proposal.entry)) <= tolerance
+            ):
+                return None
+        expires = session_end_utc(checked_at)
+        is_market = proposal.order == "market"
+        signal = {
+            "id": uuid.uuid4().hex[:10],
+            "pair": pair,
+            "direction": proposal.direction,
+            "entry": float(proposal.entry),
+            "stop_loss": float(proposal.stop),
+            "take_profit": float(proposal.target) if proposal.target is not None else None,
+            "rr": round(float(proposal.rr), 2),
+            "session": session,
+            "created_at": checked_at.isoformat(),
+            "expires_at": expires.isoformat() if expires else None,
+            "status": "open" if is_market else "pending",
+            "filled_at": checked_at.isoformat() if is_market else None,
+            "resolved_at": None,
+            "checked_until": None,
+            "taken": None,
+            "message_id": None,
+            "alert_text": None,
+            "profile_key": source,  # "alert" / "plan": which read proposed it
+            "tp1": None,
+            "runner_tp": None,
+            "tier": "ai",
+            "result_r": None,
+            "zone_kind": getattr(proposal, "basis", None),
+            "origin": "ai",
+        }
+        self.signals.append(signal)
+        self._persist(signal)
+        logger.info(
+            "AI shadow order recorded", id=signal["id"], pair=pair,
+            order=proposal.order, entry=signal["entry"], source=source,
+        )
+        return signal
+
+    def cancel_ai_orders(
+        self, pair: str, candles: List[Candle]
+    ) -> List[Tuple[Dict, Candle, str]]:
+        """The AI order's invalidation as code (D28 follow-up, 2026-09-13).
+
+        A resting limit sits between price and its stop, so price cannot
+        close beyond the stop without first touching the entry — that is a
+        fill, and `evaluate_signal` takes it from there. What actually
+        cancels a PENDING order is the market finishing the move without
+        it: the first closed M5 candle after the proposal that takes the
+        TARGET before the entry was ever touched ("target_taken" — the
+        pool it aimed at is gone, a fill now would chase). A gap over the
+        stop is not a separate case: the fill rule (touch = fill) counts
+        the gapping candle as a fill, and the stop resolves it — the
+        conservative reading the whole journal uses. Returns (signal,
+        candle, reason) per cancelled order, once — the status change is
+        the memory.
+        """
+        cancelled: List[Tuple[Dict, Candle, str]] = []
+        for signal in self.signals:
+            if (
+                signal.get("origin") != "ai" or signal["pair"] != pair
+                or signal["status"] != "pending"
+            ):
+                continue
+            is_long = signal["direction"] == Direction.LONG.value
+            since = _parse(signal["created_at"])
+            entry = float(signal["entry"])
+            tp = signal.get("take_profit")
+            for candle in candles:
+                if candle.timestamp < since:
+                    continue
+                touched = candle.low <= entry if is_long else candle.high >= entry
+                if touched:
+                    break
+                if tp is not None and (
+                    candle.high >= float(tp) if is_long else candle.low <= float(tp)
+                ):
+                    signal["status"] = "cancelled"
+                    signal["resolved_at"] = candle.timestamp.isoformat()
+                    self._persist(signal)
+                    cancelled.append((signal, candle, "target_taken"))
+                    logger.info(
+                        "AI shadow order cancelled", id=signal["id"], pair=pair,
+                        reason="target_taken", close=candle.close,
+                    )
+                    break
+        return cancelled
+
+    def ai_setups_text(self, days: int = 90) -> str:
+        """How Claude's proposed orders fared (D28 follow-up): proposed,
+        filled, wins vs stops, expired unfilled, cancelled, and the sum of
+        realized R (a win pays its own RR to the target, a stop costs 1R).
+        Shadow rows only — the engine's setups are /stats' business."""
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
+        rows = [
+            s for s in self.signals
+            if s.get("origin") == "ai" and _parse(s["created_at"]) >= cutoff
+        ]
+        head = f"📐 <b>{t('AI setups — last {days} days', days=days)}</b>"
+        if not rows:
+            return head + "\n" + t("no proposed orders yet")
+        wins = [s for s in rows if s["status"] == "tp"]
+        stops = [s for s in rows if s["status"] == "sl"]
+        filled = wins + stops + [s for s in rows if s["status"] in ("open", "timeout")]
+        expired = sum(1 for s in rows if s["status"] == "expired")
+        cancelled = sum(1 for s in rows if s["status"] == "cancelled")
+        realized = sum(float(s.get("rr") or 0.0) for s in wins) - len(stops)
+        lines = [head, t(
+            "{n} proposed · {filled} filled · {expired} expired unfilled · "
+            "{cancelled} cancelled",
+            n=len(rows), filled=len(filled), expired=expired, cancelled=cancelled,
+        )]
+        if wins or stops:
+            rate = len(wins) / (len(wins) + len(stops)) * 100
+            lines.append(t(
+                "{wins} wins / {losses} stops ({rate}%) · realized {r}R",
+                wins=len(wins), losses=len(stops), rate=f"{rate:.0f}",
+                r=f"{realized:+.1f}",
+            ))
+        return "\n".join(lines)
+
     def discard(self, signal_id: str) -> None:
         """Remove a signal that was recorded but never actually delivered.
 
@@ -454,7 +596,10 @@ class SignalJournal:
     def stats_text(self, days: int = 30) -> str:
         """Human summary for /stats."""
         cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
-        recent = [s for s in self.signals if _parse(s["created_at"]) >= cutoff]
+        recent = [
+            s for s in self.signals
+            if _parse(s["created_at"]) >= cutoff and s.get("origin") != "ai"
+        ]
         if not recent:
             return f"📒 Journal is empty for the last {days} days — no setups yet."
 

@@ -54,6 +54,14 @@ SIGNAL_COLUMNS = [
     # appended, so /journal can say how often the read was right.
     "ai_stance",
     "ai_confidence",
+    # D28 follow-up (2026-09-13): where the row came from — NULL/"engine"
+    # for the 🚨 setup the engine announced, "ai" for the SHADOW order
+    # Claude proposed (journal.record_ai). Shadow rows ride the same
+    # pending→open→tp/sl/expired tracking so /journal can score Claude's
+    # proposals against the market, and are excluded from /stats, the Rule
+    # 0.4 warning and every discipline count — they have no card, no
+    # buttons and no taken mark.
+    "origin",
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -111,7 +119,8 @@ SIGNALS_TABLE_SQL = """
                     tp1_at TEXT,
                     zone_kind TEXT,
                     ai_stance TEXT,
-                    ai_confidence INTEGER
+                    ai_confidence INTEGER,
+                    origin TEXT
                 )
 """
 
@@ -204,6 +213,7 @@ class Database:
                     ("zone_kind", "TEXT"),
                     ("ai_stance", "TEXT"),
                     ("ai_confidence", "INTEGER"),
+                    ("origin", "TEXT"),
                 ):
                     if column not in existing:
                         self.conn.execute(

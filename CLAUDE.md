@@ -447,6 +447,25 @@ tracking → live-card edits on fill/TP/SL events.
   (off `sniper._session_candles`), and the next red-news release
   (`Watcher._next_news_line`). Model: **Opus 5 at xhigh** by default
   (`ANTHROPIC_MODEL`, `SMC_AI_EFFORT`) — a handful of calls a day.
+  (4) **The proposal is scored** (owner pick, same day): every proposed
+  order becomes a SHADOW journal row (`journal.record_ai`, column
+  `origin == "ai"`, `tier == "ai"`, `profile_key` = "alert"/"plan" says
+  which read proposed it; no card, no buttons, no taken mark) and rides
+  the same pending→open→tp/sl/expired tracking as the engine's setups;
+  `/journal` appends `journal.ai_setups_text` (proposed / filled / wins
+  vs stops / expired / cancelled / realized R). Shadow rows are invisible
+  to `/stats`, the Rule 0.4 warning and every discipline count. One order
+  per pair/direction/price within `min_fvg` while it is active, so two
+  /plan presses do not double-count; a market-closed read is never
+  recorded. (5) **The order's invalidation is code** (owner pick, same
+  day): each cycle `_maybe_ai_order_cancelled` runs
+  `journal.cancel_ai_orders` over the M5 candles the engine already
+  fetched — a PENDING shadow order whose TARGET is taken before the
+  entry was ever touched is `cancelled` (the move played out without an
+  entry) and ONE `📐 <pair>: AI order cancelled` message says so. A close
+  beyond the stop is deliberately NOT a cancellation: a resting limit
+  sits between price and its stop, so that candle touched the entry
+  first — it is a fill, then a stop, the journal's conservative reading.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

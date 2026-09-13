@@ -492,3 +492,143 @@ class TestChartMarks:
         s = result.setup
         s.rejected_fvg, s.fvg, s.order_block = s.fvg, None, None
         assert render_setup_chart(result)[:4] == b"\x89PNG"
+
+
+# ---------------------------------------------------------- shadow orders
+
+
+def _shadow_journal(tmp_path):
+    from app.services.smc.db import Database
+    from app.services.smc.journal import SignalJournal
+
+    return SignalJournal(Database(str(tmp_path / "j.db")))
+
+
+def candle(ts, open_, high, low, close):
+    from app.services.smc.models import Candle
+
+    return Candle(timestamp=ts, open=open_, high=high, low=low, close=close)
+
+
+def _limit(entry=3139.5, stop=3128.0, target=3221.0, order="limit", direction="long"):
+    return AIProposal(
+        order=order, direction=direction, basis="m5_fvg", entry=entry, stop=stop,
+        target=target, rr=round(abs(target - entry) / abs(entry - stop), 2),
+    )
+
+
+class TestShadowOrders:
+    """D28 follow-up (owner pick 2026-09-13): Claude's proposed order is a
+    shadow journal row — tracked like a setup, invisible to /stats,
+    discipline and Rule 0.4."""
+
+    def test_a_limit_is_recorded_pending_with_rule_10_expiry(self, tmp_path):
+        j = _shadow_journal(tmp_path)
+        row = j.record_ai("ETHUSD", _limit(), T0, "Frankfurt/London", tolerance=2.0)
+        assert row["origin"] == "ai" and row["status"] == "pending"
+        assert row["tier"] == "ai" and row["message_id"] is None and row["taken"] is None
+        assert row["expires_at"] is not None and row["profile_key"] == "alert"
+        # persisted through the origin column
+        assert j.db.signals_all()[0]["origin"] == "ai"
+
+    def test_market_is_open_at_once_and_none_records_nothing(self, tmp_path):
+        j = _shadow_journal(tmp_path)
+        assert j.record_ai("ETHUSD", _limit(order="market"), T0, "NY")["status"] == "open"
+        none = AIProposal(order="none", direction="none", basis="none")
+        assert j.record_ai("ETHUSD", none, T0, "NY") is None
+
+    def test_the_same_order_twice_is_one_row(self, tmp_path):
+        j = _shadow_journal(tmp_path)
+        assert j.record_ai("ETHUSD", _limit(), T0, "NY", tolerance=2.0) is not None
+        assert j.record_ai("ETHUSD", _limit(entry=3140.5), T0, "NY", tolerance=2.0) is None
+        assert j.record_ai("ETHUSD", _limit(entry=3100.0, stop=3090.0), T0, "NY", tolerance=2.0)
+        assert len(j.signals) == 2
+
+    def test_tracking_fills_and_resolves_like_a_setup(self, tmp_path):
+        j = _shadow_journal(tmp_path)
+        j.record_ai("ETHUSD", _limit(), T0, "NY")
+        candles = [
+            candle(T0.replace(minute=35), 3150, 3152, 3139, 3145),  # touch -> open
+            candle(T0.replace(minute=40), 3145, 3222, 3144, 3220),  # target
+        ]
+        events = j.update_pair("ETHUSD", candles)
+        assert [e for _, e in events] == ["filled", "tp"]
+        assert j.signals[0]["status"] == "tp"
+        assert "AI setups" in j.ai_setups_text()
+        assert "1 wins / 0 stops (100%) · realized +7.1R" in j.ai_setups_text()
+        # the engine's own /stats never sees the shadow row
+        assert "Journal is empty" in j.stats_text()
+
+    def test_the_target_taken_before_the_fill_cancels_the_order_once(self, tmp_path):
+        j = _shadow_journal(tmp_path)
+        j.record_ai("ETHUSD", _limit(), T0, "NY")
+        before = [candle(T0.replace(minute=25), 3150, 3225, 3149, 3200)]  # before the order
+        near = [candle(T0.replace(minute=35), 3150, 3215, 3149, 3210)]  # short of the target
+        assert j.cancel_ai_orders("ETHUSD", before + near) == []
+        taken = [candle(T0.replace(minute=40), 3210, 3222, 3209, 3218)]  # target swept, no fill
+        cancelled = j.cancel_ai_orders("ETHUSD", before + near + taken)
+        assert len(cancelled) == 1
+        signal, _, reason = cancelled[0]
+        assert signal["status"] == "cancelled" and reason == "target_taken"
+        assert j.cancel_ai_orders("ETHUSD", before + near + taken) == []
+        assert "1 cancelled" in j.ai_setups_text()
+
+    def test_a_gap_over_the_stop_is_a_fill_then_a_stop_not_a_cancel(self, tmp_path):
+        j = _shadow_journal(tmp_path)
+        j.record_ai("ETHUSD", _limit(direction="short", entry=3160.0, stop=3170.0, target=3100.0), T0, "NY")
+        gap = [candle(T0.replace(minute=35), 3180, 3185, 3175, 3182)]  # opened above the stop
+        assert j.cancel_ai_orders("ETHUSD", gap) == []
+        j.update_pair("ETHUSD", gap)
+        assert j.signals[0]["status"] == "sl"
+
+    def test_a_touch_before_the_close_through_is_a_fill_not_a_cancel(self, tmp_path):
+        j = _shadow_journal(tmp_path)
+        j.record_ai("ETHUSD", _limit(), T0, "NY")
+        candles = [
+            candle(T0.replace(minute=35), 3150, 3151, 3139, 3141),  # touches the entry
+            candle(T0.replace(minute=40), 3141, 3142, 3120, 3125),  # closes through the stop
+        ]
+        assert j.cancel_ai_orders("ETHUSD", candles) == []
+        j.update_pair("ETHUSD", candles)
+        assert j.signals[0]["status"] == "sl"  # filled, then stopped — a real loss
+
+
+class TestShadowOrdersInTheWatcher:
+    @pytest.mark.asyncio
+    async def test_the_alert_read_records_the_order(self, tmp_path):
+        result, audit, cat = _catalog()
+        p, _ = validate_proposal(_good_proposal(result), cat)
+        w = _watcher(tmp_path, _StubReader(read=_read_with(p)))
+        w.notifier = _Notifier()
+        assert await w._send_alert("ETHUSD", result, "fp") is True
+        rows = [s for s in w.journal.signals if s.get("origin") == "ai"]
+        assert len(rows) == 1 and rows[0]["entry"] == p.entry
+        assert rows[0]["profile_key"] == "alert"
+        engine_rows = [s for s in w.journal.signals if s.get("origin") != "ai"]
+        assert len(engine_rows) == 1
+
+    @pytest.mark.asyncio
+    async def test_the_cycle_cancels_and_says_so_once(self, tmp_path):
+        w = _watcher(tmp_path, _StubReader())
+        w.notifier = _Notifier()
+        w.journal.record_ai("ETHUSD", _limit(), T0, "NY")
+        result, *_ = _evaluated()
+        result.m5_candles = [candle(T0.replace(minute=40), 3210, 3222, 3209, 3218)]
+        await w._maybe_ai_order_cancelled("ETHUSD", result)
+        await w._maybe_ai_order_cancelled("ETHUSD", result)
+        assert len(w.notifier.sent) == 1
+        assert "📐 <b>ETHUSD: AI order cancelled</b>" in w.notifier.sent[0]
+        assert "limit at 3139.50 never filled and its target 3221.00" in w.notifier.sent[0]
+
+    def test_russian_cancel_message(self):
+        i18n.set_language("ru")
+        try:
+            text = i18n.t(
+                "📐 <b>{pair}: AI order cancelled</b> — the {side} limit at {entry} never "
+                "filled and its target {tp} was already taken ({hhmm} Prague): the move "
+                "played out without an entry. Pull the limit if you placed it.",
+                pair="ETHUSD", side="SHORT", entry="2520.40", tp="2436.39", hhmm="15:40",
+            )
+            assert text.startswith("📐 <b>ETHUSD: ордер AI снят</b>")
+        finally:
+            i18n.set_language("en")
