@@ -718,3 +718,22 @@ RU.update({
 RU.update({
     "{h}h{m}": "{h}ч{m}",
 })
+
+# ---- D28 (owner decision 2026-09-13): the AI setup, limit-first alerts ----
+RU.update({
+    "⏳ Limit order at {rung}   {entry}   ← SL {sl} · risk {risk}":
+        "⏳ Лимитка на {rung}    {entry}   ← SL {sl} · риск {risk}",
+    "   price {price} has run {r}R past it — no market entry (Rule 5.1)":
+        "   цена {price} ушла на {r}R от неё — по рынку не входим (правило 5.1)",
+    "Setup formed": "Сетап сформирован",
+    "📐 AI setup: none — wait": "📐 Сетап от AI: нет — ждать",
+    "📐 AI setup: {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr} ({basis})":
+        "📐 Сетап от AI: {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr} ({basis})",
+    "   ⚠️ below the 1:{floor} floor — wait": "   ⚠️ ниже порога 1:{floor} — ждать",
+    "   ✖ cancel if: {text}": "   ✖ отменить, если: {text}",
+    "AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}":
+        "AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}",
+    "H1 zone": "зона H1",
+    "next zone": "следующая зона",
+    "range boundary": "граница диапазона",
+})

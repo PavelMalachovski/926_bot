@@ -154,6 +154,14 @@ class TradeSetup:
     runner_tp: Optional[float] = None
     tier_star: bool = False
     tier_missed: List[str] = field(default_factory=list)
+    # Rule 5.1 staleness, carried as data since owner decision D28
+    # (2026-09-13): how many R price has already run past `entry` (0.0 when
+    # it has not) and whether that exceeds the engine's `max_entry_gap_r`.
+    # Until D28 the only trace was the warning text; the 🚨 card now keys
+    # on `stale` to print a LIMIT order at the rung instead of "enter at
+    # market" — detector mode untouched, the alert still fires either way.
+    entry_gap_r: float = 0.0
+    stale: bool = False
 
 
 @dataclass

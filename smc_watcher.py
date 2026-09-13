@@ -46,6 +46,7 @@ from app.services.smc.notifier import (
     format_plan,
     format_plan_summary,
     format_ai_read,
+    set_ai_floor,
     format_result,
     format_pd_alert,
     format_setup_analysis,
@@ -55,7 +56,7 @@ from app.services.smc.notifier import (
     took_skipped_keyboard,
     zone_alert_keyboard,
 )
-from app.services.smc.ai_read import AIReader, describe_for_ai
+from app.services.smc.ai_read import AIReader, build_catalog, describe_for_ai
 from app.services.smc.pending import build_pending
 from app.services.smc.planbook import (
     PlanBook, PlanEntry, describe_plan_changes, match_primary_plan,
@@ -362,9 +363,14 @@ class Watcher:
                 model=settings.anthropic.model,
                 effort=settings.smc.ai_effort,
                 timeout=settings.smc.ai_timeout_s,
+                min_rr=settings.smc.ai_min_rr,
             )
             if settings.smc.ai_read else None
         )
+        set_ai_floor(settings.smc.ai_min_rr)
+        # D28: the chart photo under each 🚨 card, keyed by the card's
+        # message id, so the AI read can redraw it with the proposed order
+        self._chart_messages: Dict[int, int] = {}
         # Serializes run_cycle/on_plan/on_setup_analysis bodies (see
         # _get_cycle_lock): the dedup fingerprint (state.last_setup) is only
         # written after a successful alert send, so two of these racing —
@@ -899,7 +905,9 @@ class Watcher:
 
             png = await asyncio.to_thread(render_setup_chart, result)
             if png:
-                await self.notifier.send_photo(png, reply_to=reply_to)
+                photo_id = await self.notifier.send_photo(png, reply_to=reply_to)
+                if photo_id:
+                    self._chart_messages[reply_to] = photo_id
             return png
         except Exception as e:
             logger.warning("Chart rendering failed", pair=result.symbol, error=str(e))
@@ -911,6 +919,21 @@ class Watcher:
         simply has no read."""
         reader = getattr(self, "ai", None)
         return reader if reader is not None and reader.enabled else None
+
+    async def _m5_chart_png(
+        self, key: str, result: AnalysisResult, proposal=None,
+    ) -> Optional[bytes]:
+        """The M5 setup chart for a formed setup, optionally with Claude's
+        order drawn (D28); None when there is no setup or the render fails."""
+        if result.setup is None or not result.m5_candles:
+            return None
+        try:
+            from app.services.smc.chart import render_setup_chart
+
+            return await asyncio.to_thread(render_setup_chart, result, proposal=proposal)
+        except Exception as e:
+            logger.warning("M5 chart failed", pair=key, error=str(e))
+            return None
 
     async def _plan_chart_png(self, key: str) -> Optional[bytes]:
         """The current plan's H1 chart for the AI read's second picture —
@@ -941,10 +964,22 @@ class Watcher:
         try:
             instrument = get_instrument(key)
             images = [p for p in (png, await self._plan_chart_png(key)) if p]
+            # D28: the catalog bounds the proposal; the audit prices the
+            # limit rungs the model may rest an order on
+            audit = self._audit(key, {
+                "h4": result.h4_candles or [], "h1": result.h1_candles or [],
+                "m5": result.m5_candles or [],
+            }, result) if result.m5_candles else None
+            catalog = build_catalog(result, instrument, audit)
             read = await reader.read(
-                describe_for_ai(result, instrument, audit=None, plan=plan),
+                describe_for_ai(
+                    result, instrument, audit=audit, plan=plan,
+                    news=self._next_news_line(key), catalog=catalog,
+                    min_rr=getattr(reader, "min_rr", settings.smc.ai_min_rr),
+                ),
                 images=images,
                 as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
+                catalog=catalog,
             )
             if read is None:
                 return
@@ -960,9 +995,57 @@ class Watcher:
                 logger.info(
                     "AI read attached", pair=key, stance=read.stance,
                     confidence=read.confidence, prefers=read.preferred_entry,
+                    proposal=read.proposal.to_dict() if read.proposal else None,
                 )
+            await self._redraw_chart_with_proposal(key, result, message_id, read)
         except Exception as e:
             logger.warning("AI read on alert failed", pair=key, error=str(e), exc_info=True)
+
+    async def _redraw_chart_with_proposal(
+        self, key: str, result: AnalysisResult, message_id: int, read,
+    ) -> None:
+        """D28: once Claude's order is in, redraw the M5 chart with its box
+        and swap the picture under the card in place. Best-effort: no
+        chart message, a render failure or a failed edit leave the first
+        chart standing."""
+        proposal = getattr(read, "proposal", None)
+        photo_id = getattr(self, "_chart_messages", {}).get(message_id)
+        if proposal is None or not proposal.is_trade or not photo_id:
+            return
+        try:
+            from app.services.smc.chart import render_setup_chart
+
+            png = await asyncio.to_thread(render_setup_chart, result, proposal=proposal)
+            if png and await self.notifier.edit_photo(photo_id, png):
+                logger.info("Alert chart redrawn with the AI setup", pair=key)
+        except Exception as e:
+            logger.warning("Chart redraw with AI setup failed", pair=key, error=str(e))
+
+    def _next_news_line(self, key: str) -> Optional[str]:
+        """D28: the next red-news release for the pair within the day, for
+        the fact sheet — the model kept flagging 'news' as a risk without
+        knowing when it was. None when there is no calendar or nothing due."""
+        calendar = getattr(self, "news", None)
+        if not calendar:
+            return None
+        try:
+            from app.services.smc.news import relevant_currencies
+
+            now = datetime.now(tz=timezone.utc)
+            events = calendar.upcoming(
+                relevant_currencies(get_instrument(key)), timedelta(hours=12), now=now,
+            )
+        except Exception as e:  # a calendar hiccup must not cost the read
+            logger.warning("News line for the AI read failed", pair=key, error=str(e))
+            return None
+        if not events:
+            return "Next red news: none within 12 hours"
+        first = min(events, key=lambda e: e.time)
+        minutes = max(int((first.time - now).total_seconds() // 60), 0)
+        return (
+            f"Next red news: {first.currency} {first.title} at "
+            f"{first.prague_hhmm()} Prague (in {minutes} min)"
+        )
 
     async def _maybe_plan_cancelled(
         self, key: str, result: Optional[AnalysisResult]
@@ -1016,10 +1099,24 @@ class Watcher:
             return None
         try:
             png = await self._plan_chart_png(key)
+            instrument = get_instrument(key)
+            catalog = build_catalog(entry.result, instrument, entry.audit)
+            images = [png] if png else []
+            if entry.result.setup is not None and entry.result.m5_candles:
+                # the M5 picture too, once a setup exists: the imbalance
+                # and the order block the proposal may rest on live there
+                m5_png = await self._m5_chart_png(key, entry.result)
+                if m5_png:
+                    images.append(m5_png)
             return await reader.read(
-                describe_for_ai(entry.result, get_instrument(key), audit=entry.audit),
-                images=[png] if png else [],
+                describe_for_ai(
+                    entry.result, instrument, audit=entry.audit,
+                    news=self._next_news_line(key), catalog=catalog,
+                    min_rr=getattr(reader, "min_rr", settings.smc.ai_min_rr),
+                ),
+                images=images,
                 as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
+                catalog=catalog,
             )
         except Exception as e:
             logger.warning("AI read on audit failed", pair=key, error=str(e), exc_info=True)
@@ -1269,14 +1366,23 @@ class Watcher:
             # the owner has no Railway logs in front of him (2026-09-10).
             text += "\n" + self._ai_missing_line()
         await self.notifier.send(text)
+        # D28: both charts carry Claude's proposed order as a position box
+        # — the H1 plan chart always, the M5 chart once a setup has formed
+        # (that is where the imbalance / order block the order rests on is
+        # visible at all).
+        proposal = getattr(entry.ai_read, "proposal", None)
         try:
             png = await asyncio.to_thread(
-                render_plan_chart, entry.plan, entry.data["h1"]
+                render_plan_chart, entry.plan, entry.data["h1"], proposal=proposal,
             )
             if png:
                 await self.notifier.send_photo(png)
         except Exception as e:
             logger.warning("Plan chart failed", pair=key, error=str(e))
+        if entry.result.setup is not None and entry.result.m5_candles:
+            m5_png = await self._m5_chart_png(key, entry.result, proposal=proposal)
+            if m5_png:
+                await self.notifier.send_photo(m5_png)
 
     def _audit(
         self, key: str, data: dict, result: AnalysisResult

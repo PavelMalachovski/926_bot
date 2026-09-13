@@ -1,5 +1,6 @@
 """Telegram message formatting and delivery for SMC analysis results."""
 
+import json
 import re
 from typing import List, Optional
 
@@ -345,6 +346,16 @@ def _market_entry_lines(
     d = result.price_decimals
     price = result.price or setup.entry
     is_long = setup.direction == Direction.LONG
+    if setup.stale and not setup.entry_is_market:
+        # D28 (owner decision 2026-09-13): once price has run more than
+        # `SMC_MAX_ENTRY_GAP_R` past the rung, a market entry pays the run
+        # twice — the stop is still behind the swept wick, so the risk is
+        # the whole excursion and the RR collapses (1:1.1 on the 12.09
+        # ETHUSD card while the rung itself paid 1:15.9). The card now says
+        # LIMIT at the rung Rule 5 already priced; the journal was tracking
+        # that price all along (`record` stores `setup.entry`). Detector
+        # mode: the alert still fires, only the order type changed.
+        return _limit_entry_lines(result, instrument, is_range)
     risk = price - setup.stop_loss if is_long else setup.stop_loss - price
     if risk <= 0:
         return [
@@ -374,6 +385,46 @@ def _market_entry_lines(
         instrument.sl_buffer, tolerance=instrument.min_fvg,
     )
     return [head, _targets_line(targets, d)]
+
+
+def _limit_entry_lines(
+    result: AnalysisResult, instrument: Instrument, is_range: bool
+) -> List[str]:
+    """The D28 block: a limit order at the Rule 5 rung with the Rule 6
+    stop, the risk, the run price already made, then TP1-3 (or the range
+    target) priced from the rung. One builder for the 🚨 card and the
+    audit, so the two never disagree about the order."""
+    setup = result.setup
+    d = result.price_decimals
+    is_long = setup.direction == Direction.LONG
+    risk = abs(setup.entry - setup.stop_loss)
+    rung = {"fvg": "M5 FVG", "ob": "M5 OB"}.get(setup.entry_source, "M5")
+    head = t(
+        "⏳ Limit order at {rung}   {entry}   ← SL {sl} · risk {risk}",
+        rung=rung, entry=f"{setup.entry:.{d}f}", sl=f"{setup.stop_loss:.{d}f}",
+        risk=escape_html(format_distance(risk, instrument)),
+    )
+    ran = t(
+        "   price {price} has run {r}R past it — no market entry (Rule 5.1)",
+        price=f"{(result.price or setup.entry):.{d}f}", r=f"{setup.entry_gap_r:.1f}",
+    )
+    if is_range:
+        if setup.take_profit is None:
+            return [head, ran, t("🎯 no positive reward to the opposite boundary")]
+        reward = (
+            setup.take_profit - setup.entry if is_long else setup.entry - setup.take_profit
+        )
+        cell = _rr_cell(reward / risk) if reward > 0 else "—"
+        return [
+            head, ran,
+            t("🎯 Range target         {tp}   ({rr})",
+              tp=f"{setup.take_profit:.{d}f}", rr=cell),
+        ]
+    targets = take_profits(
+        setup.ladder, setup.direction, setup.entry, setup.stop_loss,
+        instrument.sl_buffer, tolerance=instrument.min_fvg,
+    )
+    return [head, ran, _targets_line(targets, d)]
 
 
 def took_skipped_keyboard(signal_id: str) -> dict:
@@ -409,7 +460,60 @@ def format_ai_read(read) -> str:
     lines = [head, escape_html(read.read)]
     if read.risks:
         lines.append("⚠️ " + " · ".join(escape_html(r) for r in read.risks))
+    lines.extend(_proposal_lines(getattr(read, "proposal", None)))
     return "\n".join(lines)
+
+
+_BASIS_LABELS = {
+    "m5_fvg": "M5 FVG", "m5_ob": "M5 OB", "h1_zone": "H1 zone",
+    "zone_next": "next zone", "range_boundary": "range boundary", "market": "market",
+}
+
+
+def _proposal_lines(proposal, decimals: Optional[int] = None) -> List[str]:
+    """The 📐 block (D28): the one order Claude would place — snapped onto
+    the engine's own levels, RR computed by the code — or its explicit
+    "none". A proposal under the floor is shown and flagged, never hidden:
+    the owner sees what the model liked and why the rule says wait."""
+    if proposal is None:
+        return []
+    if not proposal.is_trade:
+        return [t("📐 AI setup: none — wait")
+                + (f" · {escape_html(proposal.invalidation)}" if proposal.invalidation else "")]
+    d = decimals if decimals is not None else _decimals_of(proposal.entry)
+    side = "LONG" if proposal.direction == "long" else "SHORT"
+    order = "LIMIT" if proposal.order == "limit" else "MARKET"
+    basis = t(_BASIS_LABELS.get(proposal.basis, proposal.basis))
+    line = t(
+        "📐 AI setup: {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr} ({basis})",
+        order=order, side=side, entry=f"{proposal.entry:.{d}f}",
+        sl=f"{proposal.stop:.{d}f}", tp=f"{proposal.target:.{d}f}",
+        rr=f"{proposal.rr:.1f}", basis=escape_html(basis),
+    )
+    out = [line]
+    if proposal.below_floor:
+        out.append(t("   ⚠️ below the 1:{floor} floor — wait", floor=f"{_FLOOR_HINT:.0f}"))
+    if proposal.invalidation:
+        out.append(t("   ✖ cancel if: {text}", text=escape_html(proposal.invalidation)))
+    return out
+
+
+# The floor the ⚠️ line names. Set once by the watcher from SMC_AI_MIN_RR
+# (see `set_ai_floor`); the default matches ai_read.DEFAULT_MIN_RR.
+_FLOOR_HINT = 2.0
+
+
+def set_ai_floor(min_rr: float) -> None:
+    global _FLOOR_HINT
+    _FLOOR_HINT = float(min_rr)
+
+
+def _decimals_of(value: Optional[float]) -> int:
+    """Decimals to print a model price with when the caller gave none:
+    the count the number itself carries (the proposal was rounded to the
+    instrument's decimals by `validate_proposal`), at least 2."""
+    text = f"{value:.5f}".rstrip("0") if value is not None else ""
+    return max(2, len(text.split(".")[1]) if "." in text else 0)
 
 
 def _analysis_columns(
@@ -566,7 +670,19 @@ def format_setup_analysis(
             t("📦 Range box {lo}–{hi}", lo=f"{box.bottom:.{d}f}", hi=f"{box.top:.{d}f}")
         )
     market = analysis.market
-    if market is not None:
+    setup = result.setup
+    if market is not None and setup is not None and setup.stale and not setup.entry_is_market:
+        # D28: the same limit block the 🚨 card prints — the audit is the
+        # screen the owner plans from, so it must name the same order.
+        lines.append(f"🚨 <b>{t('Setup formed')}</b>")
+        lines.extend(_limit_entry_lines(
+            result, instrument, bool(getattr(analysis, "range_mode", False)),
+        ))
+        star = _tier_line(result)
+        if star:
+            lines.append(star)
+        lines.extend(_warning_lines(result))
+    elif market is not None:
         lines.append(
             t("🚨 <b>Setup formed</b> — market entry {entry} · SL {sl} · risk {risk}",
               entry=f"{market.entry:.{d}f}", sl=f"{market.stop_loss:.{d}f}",
@@ -1378,6 +1494,29 @@ class TelegramNotifier:
         except (httpx.HTTPError, ValueError) as e:
             logger.error("Telegram sendPhoto error", error=str(e))
             return None
+
+    async def edit_photo(self, message_id: int, photo: bytes) -> bool:
+        """Replace the picture of a photo message in place (editMessageMedia,
+        multipart with an attach:// reference). D28: the alert chart is
+        re-drawn with Claude's proposed order once the read is in, so the
+        owner's chart shows the box without a second photo message."""
+        media = json.dumps({"type": "photo", "media": "attach://photo"})
+        data = {"chat_id": self.chat_id, "message_id": str(message_id), "media": media}
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/editMessageMedia",
+                    data=data,
+                    files={"photo": ("setup.png", photo, "image/png")},
+                )
+                payload = response.json()
+                if response.status_code == 200 and payload.get("ok"):
+                    return True
+                logger.error("Telegram editMessageMedia failed", response=response.text[:300])
+                return False
+        except (httpx.HTTPError, ValueError) as e:
+            logger.error("Telegram editMessageMedia error", error=str(e))
+            return False
 
     async def pin(self, message_id: int) -> None:
         await self._api(

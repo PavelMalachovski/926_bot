@@ -195,15 +195,71 @@ def _stacked_y(y: float, placed: list, y_bounds: Tuple[float, float]) -> float:
     return chosen
 
 
+# The AI setup box (owner decision D28, 2026-09-13): TradingView's position
+# tool — a red box from the entry to the stop, a green one from the entry
+# to the target, the entry line itself in white so it reads over both.
+AI_RISK_COLOR = "#f23645"
+AI_REWARD_COLOR = "#089981"
+AI_ENTRY_COLOR = "#ffffff"
+
+
+def _draw_proposal(
+    ax, proposal, x_start: float, x_right: float, ylim: Tuple[float, float],
+    decimals: int, placed: list,
+) -> None:
+    """Draw Claude's proposed order as a position box (D28). Nothing is
+    drawn for a "none" proposal. The reward box is clipped to the visible
+    window — the target can be an H4 pool far outside it — and the target
+    price is still named in the label so the number is never lost."""
+    if proposal is None or not getattr(proposal, "is_trade", False):
+        return
+    lo, hi = ylim
+    entry, stop, target = proposal.entry, proposal.stop, proposal.target
+    width = max(x_right - x_start, 1.0)
+
+    def box(y0: float, y1: float, color: str) -> None:
+        bottom, top = max(min(y0, y1), lo), min(max(y0, y1), hi)
+        if top <= bottom:
+            return
+        ax.add_patch(Rectangle(
+            (x_start, bottom), width, top - bottom,
+            facecolor=color, alpha=0.16, edgecolor=color, linewidth=0.8,
+            linestyle="-", zorder=2,
+        ))
+
+    box(entry, stop, AI_RISK_COLOR)
+    box(entry, target, AI_REWARD_COLOR)
+    d = decimals
+    side = "LONG" if proposal.direction == "long" else "SHORT"
+    order = "LIMIT" if proposal.order == "limit" else "MARKET"
+    label = t("AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}",
+              order=order, side=side, entry=f"{entry:.{d}f}", sl=f"{stop:.{d}f}",
+              tp=f"{target:.{d}f}", rr=f"{proposal.rr:.1f}")
+    if lo <= entry <= hi:
+        ax.plot([x_start, x_right], [entry, entry], color=AI_ENTRY_COLOR,
+                linewidth=1.3, linestyle="-", zorder=5)
+        y = _stacked_y(entry, placed, ylim)
+        ax.text(
+            x_start + width * 0.02, y, label, color=AI_ENTRY_COLOR, fontsize=8.5,
+            fontweight="bold", va="bottom", ha="left", zorder=7,
+            bbox=dict(boxstyle="round,pad=0.2", fc=BG, ec=AI_ENTRY_COLOR, lw=0.6),
+        )
+    else:
+        # the whole order sits outside the window: name it at the edge it
+        # sits on, the same way `_level` handles a far-away target
+        _level(ax, entry, AI_ENTRY_COLOR, label, int(x_right), ylim, placed)
+
+
 # ~32h of M5 by default: enough context to see the swing HH/HL structure and
 # the move into the zone behind the setup. Tunable via SMC_CHART_CANDLES.
 CHART_CANDLES = int(os.getenv("SMC_CHART_CANDLES", "384"))
 
 
 def render_setup_chart(
-    result: AnalysisResult, candles_back: int = CHART_CANDLES
+    result: AnalysisResult, candles_back: int = CHART_CANDLES, proposal=None,
 ) -> Optional[bytes]:
-    """Render the approved setup as a PNG (last ~16h of M5). None if no data."""
+    """Render the approved setup as a PNG (last ~16h of M5). None if no data.
+    `proposal` (D28, an ai_read.AIProposal) adds Claude's order as a box."""
     if not result.m5_candles or not result.setup:
         return None
     candles = result.m5_candles[-candles_back:]
@@ -290,6 +346,10 @@ def render_setup_chart(
         in_range_prices.extend(
             [result.market_range.top, result.market_range.bottom]
         )
+    if proposal is not None and getattr(proposal, "is_trade", False):
+        # the proposed entry and stop sit near price by construction (they
+        # are the engine's own levels); the target stays out, like TP
+        in_range_prices.extend([proposal.entry, proposal.stop])
     ylim = _price_ylim(candles, in_range_prices)
     ax.set_ylim(*ylim)
 
@@ -319,6 +379,11 @@ def render_setup_chart(
         rng = result.market_range
         _level(ax, rng.top, RANGE_COLOR, t("RANGE HIGH"), x_right, y_bounds=ylim, placed=placed)
         _level(ax, rng.bottom, RANGE_COLOR, t("RANGE LOW"), x_right, y_bounds=ylim, placed=placed)
+
+    # D28: Claude's proposed order, drawn over the last quarter of the
+    # window so the box starts where the trade would — now — not at the
+    # chart's left edge.
+    _draw_proposal(ax, proposal, len(candles) * 0.75, x_right, ylim, d, placed)
 
     # Sparse Prague time labels on the x axis
     ticks = list(range(0, len(candles), max(1, len(candles) // 8)))
@@ -412,12 +477,16 @@ def _zone_label(
     )
 
 
-def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[bytes]:
+def render_plan_chart(
+    plan, h1_candles, candles_back: int = 120, proposal=None,
+) -> Optional[bytes]:
     """Render a pre-market plan on H1 candles: zones + projected E/SL/TP.
 
-    `plan` is a plan.PairPlan. Returns None if there is nothing to draw.
+    `plan` is a plan.PairPlan. Returns None if there is nothing to draw —
+    unless a `proposal` (D28) is given, which is worth a chart on its own.
     """
-    if not h1_candles or not plan.scenarios:
+    has_proposal = proposal is not None and getattr(proposal, "is_trade", False)
+    if not h1_candles or (not plan.scenarios and not has_proposal):
         return None
     candles = list(h1_candles[-candles_back:])
     d = plan.price_decimals
@@ -438,6 +507,8 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         in_range.extend([s.entry, s.stop_loss])
         if s.runner_up is not None:
             in_range.extend([s.runner_up.bottom, s.runner_up.top])
+    if has_proposal:
+        in_range.extend([proposal.entry, proposal.stop])
     ylim = _price_ylim(candles, in_range)
     ax.set_ylim(*ylim)
     placed_left: list = []  # zone labels, left edge
@@ -509,6 +580,9 @@ def render_plan_chart(plan, h1_candles, candles_back: int = 120) -> Optional[byt
         _level(ax, range_top, RANGE_COLOR, t("RANGE HIGH"), x_right, ylim, placed_right)
     if range_bottom is not None:
         _level(ax, range_bottom, RANGE_COLOR, t("RANGE LOW"), x_right, ylim, placed_right)
+
+    # D28: Claude's proposed order as a position box over the right third
+    _draw_proposal(ax, proposal, len(candles) * 0.7, x_right, ylim, d, placed_right)
 
     _style_axes(ax, candles, x_right, "%d.%m")
     ax.set_title(

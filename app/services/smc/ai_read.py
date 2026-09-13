@@ -23,26 +23,72 @@ Strict boundaries, in order:
 
 `anthropic` is imported lazily: the watcher must start (and every test must
 run) on a box without the package or a key — the read simply stays off.
+
+**The AI setup** (owner decision D28, 2026-09-13). On top of the comment,
+Claude now proposes ONE concrete order — limit by default, market only
+when price is still at the rung — with an entry, a stop, a target and the
+band it rests on. The numbers are bounded twice: the prompt lists the only
+levels it may use (`LevelCatalog`, printed into the fact sheet), and
+`validate_proposal` snaps every price back onto that catalog within the
+instrument's own tolerance and computes the RR itself. A proposal that
+does not fit the catalog is dropped — the read survives without it. The
+floor is `min_rr` (SMC_AI_MIN_RR, 1:2 by the owner's choice): a proposal
+under it is still shown, flagged "below 1:2 — wait", so the owner sees
+what the model liked and why the rule says no. Still a comment: the
+proposal is drawn on the chart and printed under the card, it never
+changes what the engine announced.
 """
 
 import base64
 import json
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import structlog
 
 from app.services.smc.i18n import get_language
 from app.services.smc.instruments import Instrument
-from app.services.smc.models import AnalysisResult, Direction, Verdict
+from app.services.smc.models import AnalysisResult, Candle, Direction, Verdict
 from app.services.smc.sessions import session_end_utc, to_prague
 
 logger = structlog.get_logger(__name__)
 
-DEFAULT_MODEL = "claude-sonnet-5"
+# Owner decision D28 (2026-09-13): Opus 5 at xhigh — a /plan press is a
+# handful of calls a day, and the setup proposal is reasoning over levels,
+# which is exactly where the stronger model earns its price.
+DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_EFFORT = "xhigh"
+DEFAULT_MIN_RR = 2.0
 
 STANCES = ("agree", "caution", "against")
 ENTRIES = ("market", "main", "deep", "wait")
+ORDERS = ("limit", "market", "none")
+# Where a proposed entry rests, in the strategy's own vocabulary. Every
+# band in `LevelCatalog.entries` carries one of these, so the model's label
+# and the code's snapping speak the same names.
+BASES = ("m5_fvg", "m5_ob", "h1_zone", "zone_next", "range_boundary", "market", "none")
+DIRECTIONS = ("long", "short", "none")
+
+# How many closed candles the fact sheet prints as numbers (D28): the
+# model used to read swings off the PNG by eye; with OHLC rows it can
+# place a level on an actual wick. ~3 hours of M5 and a day of H1.
+FACT_M5_CANDLES = 36
+FACT_H1_CANDLES = 24
+
+PROPOSAL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "order": {"type": "string", "enum": list(ORDERS)},
+        "direction": {"type": "string", "enum": list(DIRECTIONS)},
+        "basis": {"type": "string", "enum": list(BASES)},
+        "entry": {"type": ["number", "null"]},
+        "stop": {"type": ["number", "null"]},
+        "target": {"type": ["number", "null"]},
+        "invalidation": {"type": "string"},
+    },
+    "required": ["order", "direction", "basis", "entry", "stop", "target", "invalidation"],
+    "additionalProperties": False,
+}
 
 # The answer's shape. Kept to type/enum/required so any structured-output
 # validator accepts it; numeric clamps happen in `parse_ai_read`.
@@ -54,8 +100,9 @@ READ_SCHEMA = {
         "confidence": {"type": "integer"},
         "read": {"type": "string"},
         "risks": {"type": "array", "items": {"type": "string"}},
+        "proposal": PROPOSAL_SCHEMA,
     },
-    "required": ["stance", "preferred_entry", "confidence", "read", "risks"],
+    "required": ["stance", "preferred_entry", "confidence", "read", "risks", "proposal"],
     "additionalProperties": False,
 }
 
@@ -89,7 +136,20 @@ three sentences (under 450 characters), each risk under 90 characters, at \
 most three risks. Plain prose, no markdown, no emoji. Write `read` and \
 `risks` in the language the message asks for (English unless told \
 otherwise); `stance` and `preferred_entry` stay the English enum values. \
-Confidence is 1 (weak) to 5 (strong)."""
+Confidence is 1 (weak) to 5 (strong).
+
+Then propose ONE order in `proposal` — the trade you would actually place \
+right now, as a limit order resting at one of the ALLOWED ENTRY BANDS the \
+fact sheet lists (its `basis` names the band). A market order is allowed \
+only when price is still inside or within tolerance of a band. The stop \
+must be one of the ALLOWED STOPS, the target one of the ALLOWED TARGETS \
+(prefer the nearest unswept pool that still pays); the trader's floor is \
+the MINIMUM RR the fact sheet states — if no allowed entry reaches it, \
+answer order "none" with direction "none", null prices, and say in `read` \
+what would have to happen for a trade to appear. `invalidation` is one \
+short sentence (under 120 characters): the candle event that cancels the \
+order. Every price you give is checked against the allowed lists and \
+snapped or rejected; a rejected proposal is simply dropped."""
 
 # The per-language instruction appended to the user turn (owner request
 # 2026-09-10: the read follows the bot's language). The JSON enums are
@@ -104,6 +164,55 @@ LANGUAGE_INSTRUCTION = {
 
 
 @dataclass
+class AIProposal:
+    """The one order Claude would place (D28), after validation: every
+    price snapped onto the level catalog, RR computed here, never by the
+    model. `order == "none"` is a deliberate "no trade" and carries no
+    prices."""
+
+    order: str  # limit | market | none
+    direction: str  # long | short | none
+    basis: str  # one of BASES
+    entry: Optional[float] = None
+    stop: Optional[float] = None
+    target: Optional[float] = None
+    invalidation: str = ""
+    rr: float = 0.0
+    below_floor: bool = False  # rr < min_rr — shown, flagged, never hidden
+
+    @property
+    def is_trade(self) -> bool:
+        return self.order != "none" and self.entry is not None
+
+    def to_dict(self) -> dict:
+        return {
+            "order": self.order, "direction": self.direction, "basis": self.basis,
+            "entry": self.entry, "stop": self.stop, "target": self.target,
+            "invalidation": self.invalidation, "rr": round(self.rr, 2),
+            "below_floor": self.below_floor,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Any) -> Optional["AIProposal"]:
+        if not isinstance(raw, dict) or raw.get("order") not in ORDERS:
+            return None
+        try:
+            return cls(
+                order=str(raw["order"]),
+                direction=str(raw.get("direction") or "none"),
+                basis=str(raw.get("basis") or "none"),
+                entry=float(raw["entry"]) if raw.get("entry") is not None else None,
+                stop=float(raw["stop"]) if raw.get("stop") is not None else None,
+                target=float(raw["target"]) if raw.get("target") is not None else None,
+                invalidation=str(raw.get("invalidation") or ""),
+                rr=float(raw.get("rr") or 0.0),
+                below_floor=bool(raw.get("below_floor")),
+            )
+        except (TypeError, ValueError):
+            return None
+
+
+@dataclass
 class AIRead:
     stance: str
     preferred_entry: str
@@ -112,6 +221,100 @@ class AIRead:
     risks: List[str] = field(default_factory=list)
     model: str = DEFAULT_MODEL
     as_of: str = ""  # Prague HH:MM the read was made
+    # D28: the proposed order, None when the model gave none or the one it
+    # gave did not fit the catalog (`proposal_note` says which, for logs).
+    proposal: Optional[AIProposal] = None
+    proposal_note: str = ""
+
+
+@dataclass
+class LevelCatalog:
+    """Every price the model may use (D28), built from the same objects
+    the card and the audit print — so a proposal can never name a level
+    the owner cannot see. Bands are (basis, low, high); a single price is
+    a band of zero height. `tolerance` is the raw per-instrument min_fvg,
+    the sweep tolerance the rest of the engine uses."""
+
+    direction: Optional[Direction]
+    price: float
+    tolerance: float
+    entries: List[Tuple[str, float, float]] = field(default_factory=list)
+    stops: List[float] = field(default_factory=list)
+    targets: List[float] = field(default_factory=list)
+    decimals: int = 2
+
+    def _add_entry(self, basis: str, low: float, high: float) -> None:
+        lo, hi = (low, high) if low <= high else (high, low)
+        if (basis, lo, hi) not in self.entries:
+            self.entries.append((basis, lo, hi))
+
+    def _add(self, bucket: List[float], value: Optional[float]) -> None:
+        if value is None:
+            return
+        if all(abs(value - v) > 1e-9 for v in bucket):
+            bucket.append(float(value))
+
+
+def build_catalog(
+    result: AnalysisResult, instrument: Instrument, audit: Any = None,
+) -> LevelCatalog:
+    """The allowed bands, stops and targets for this state of the pair."""
+    setup = result.setup
+    direction = setup.direction if setup is not None else (
+        getattr(audit, "direction", None) if audit is not None else None
+    )
+    cat = LevelCatalog(
+        direction=direction, price=float(result.price or 0.0),
+        tolerance=float(instrument.min_fvg), decimals=instrument.price_decimals,
+    )
+    zone = result.h1_zone
+    formed = result.verdict in (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET) and setup
+    if formed:
+        cat._add_entry("market", cat.price, cat.price)
+        if setup.fvg is not None:
+            cat._add_entry("m5_fvg", setup.fvg.bottom, setup.fvg.top)
+        elif setup.entry_source == "ob":
+            cat._add_entry("m5_ob", setup.entry, setup.entry)
+        if setup.order_block is not None:
+            cat._add_entry("m5_ob", setup.order_block.bottom, setup.order_block.top)
+        cat._add(cat.stops, setup.stop_loss)
+        cat._add(cat.targets, setup.take_profit)
+        for lv in setup.ladder:
+            cat._add(cat.targets, lv.price)
+        for z in setup.zones_ahead:
+            cat._add_entry("zone_next", z.bottom, z.top)
+    if zone is not None:
+        cat._add_entry(
+            "range_boundary" if zone.kind == "RANGE" else "h1_zone",
+            zone.bottom, zone.top,
+        )
+    if audit is not None:
+        for e in getattr(audit, "entries", None) or []:
+            basis = {
+                "RANGE": "range_boundary", "FVG": "m5_fvg", "OB": "m5_ob",
+            }.get(e.kind, "h1_zone")
+            if e.zone is not None:
+                if e.kind in ("OB", "FVG") and zone is not None and (
+                    min(e.zone) >= min(zone.bottom, zone.top) - cat.tolerance
+                    and max(e.zone) <= max(zone.bottom, zone.top) + cat.tolerance
+                    and getattr(e, "role", "") == "deep"
+                ):
+                    basis = "h1_zone"
+                if "next" in (e.label or ""):
+                    basis = "zone_next"
+                cat._add_entry(basis, e.zone[0], e.zone[1])
+            else:
+                cat._add_entry(basis, e.entry, e.entry)
+            cat._add(cat.stops, e.stop_loss)
+            for tp in e.targets:
+                cat._add(cat.targets, tp.price)
+        market = getattr(audit, "market", None)
+        if market is not None:
+            cat._add_entry("market", market.entry, market.entry)
+            cat._add(cat.stops, market.stop_loss)
+            for tp in market.targets:
+                cat._add(cat.targets, tp.price)
+    return cat
 
 
 # ------------------------------------------------------------- fact sheet
@@ -121,13 +324,81 @@ def _fmt(value: Optional[float], d: int) -> str:
     return "n/a" if value is None else f"{value:.{d}f}"
 
 
+def _candle_rows(candles: Sequence[Candle], count: int, d: int, fmt: str) -> str:
+    rows = list(candles)[-count:]
+    return "; ".join(
+        f"{to_prague(c.timestamp).strftime(fmt)} "
+        f"{c.open:.{d}f}/{c.high:.{d}f}/{c.low:.{d}f}/{c.close:.{d}f}"
+        for c in rows
+    )
+
+
+def _day_level_lines(result: AnalysisResult, d: int) -> List[str]:
+    """PDH/PDL and today's Asia range off the same candles the ⭐'s sweep
+    label reads (sniper.py) — the day-level pools the model kept asking
+    about without being given."""
+    from app.services.smc import sniper
+
+    m5 = list(result.m5_candles or [])
+    h1 = list(result.h1_candles or [])
+    if not m5 and not h1:
+        return []
+    rows = sniper._session_candles(m5, h1, result.checked_at)
+    if not rows:
+        return []
+    today = sniper._prague_date(result.checked_at)
+    days = sorted({sniper._prague_date(c.timestamp) for c in rows if sniper._prague_date(c.timestamp) < today})
+    out = []
+    if days:
+        prev = sniper._day_extremes(rows, days[-1])
+        if prev is not None:
+            out.append(
+                f"Previous day ({days[-1].strftime('%d.%m')}): PDL {_fmt(prev[0], d)}, "
+                f"PDH {_fmt(prev[1], d)}"
+            )
+    asia = sniper._asia_extremes(rows, today)
+    if asia is not None:
+        out.append(f"Asia range today (00:00-08:00 Prague): {_fmt(asia[0], d)}-{_fmt(asia[1], d)}")
+    return out
+
+
+def describe_catalog(catalog: LevelCatalog, min_rr: float) -> str:
+    """The ALLOWED lists the prompt refers to, in the fact sheet's own
+    words. Printed last so the model reads the context first."""
+    d = catalog.decimals
+    lines = ["", "ALLOWED ENTRY BANDS (basis: low-high):"]
+    for basis, lo, hi in catalog.entries:
+        lines.append(
+            f"  {basis}: {_fmt(lo, d)}" + (f"-{_fmt(hi, d)}" if hi != lo else "")
+        )
+    lines.append("ALLOWED STOPS: " + (", ".join(_fmt(p, d) for p in catalog.stops) or "none"))
+    lines.append("ALLOWED TARGETS: " + (", ".join(_fmt(p, d) for p in catalog.targets) or "none"))
+    lines.append(
+        f"Tolerance: {_fmt(catalog.tolerance, d)}. MINIMUM RR: 1:{min_rr:.1f} to the target "
+        "(below it: order none)."
+        + (
+            f" Trade direction is fixed: {'LONG' if catalog.direction == Direction.LONG else 'SHORT'}."
+            if catalog.direction is not None else
+            " No direction yet (range mid-box): pick the boundary you would trade and its direction."
+        )
+    )
+    return "\n".join(lines)
+
+
 def describe_for_ai(
     result: AnalysisResult, instrument: Instrument, audit: Any = None,
-    plan: Any = None,
+    plan: Any = None, news: Optional[str] = None,
+    catalog: Optional[LevelCatalog] = None, min_rr: float = DEFAULT_MIN_RR,
+    candles: bool = True,
 ) -> str:
     """The engine's picture as plain text — the ONLY source of numbers the
     model may quote. Same objects the alert and the audit print, so the
-    read can never disagree with the message it is attached to."""
+    read can never disagree with the message it is attached to.
+
+    D28 additions: the day levels (PDH/PDL, Asia), the next red-news line
+    the watcher hands in, the recent candles as OHLC rows, and — when a
+    `catalog` is given — the ALLOWED lists the proposal is validated
+    against, with the RR floor."""
     d = instrument.price_decimals
     lines = [
         f"Pair: {result.symbol}",
@@ -259,22 +530,138 @@ def describe_for_ai(
             lines.append(f"Your read then: {plan.ai_read}")
         if plan.ai_risks:
             lines.append("Your risks then: " + "; ".join(plan.ai_risks))
+        proposal = getattr(plan, "ai_proposal", None)
+        if isinstance(proposal, dict) and proposal.get("order") in ("limit", "market"):
+            lines.append(
+                f"Your proposed order then: {proposal['order']} "
+                f"{str(proposal.get('direction') or '').upper()} at {_fmt(proposal.get('entry'), d)}, "
+                f"stop {_fmt(proposal.get('stop'), d)}, target {_fmt(proposal.get('target'), d)}"
+            )
         lines.append(
             "This setup MATCHES that plan's direction and zone."
             if plan.matches
             else "This setup does NOT match that plan's direction/zone."
         )
+    lines.extend(_day_level_lines(result, d))
+    if news:
+        lines.append(news)
+    if candles:
+        if result.h1_candles:
+            lines.append(
+                f"Recent H1 candles, oldest first, Prague time, O/H/L/C: "
+                + _candle_rows(result.h1_candles, FACT_H1_CANDLES, d, "%d.%m %H:%M")
+            )
+        if result.m5_candles:
+            lines.append(
+                f"Recent M5 candles, oldest first, Prague time, O/H/L/C: "
+                + _candle_rows(result.m5_candles, FACT_M5_CANDLES, d, "%H:%M")
+            )
+    if catalog is not None:
+        lines.append(describe_catalog(catalog, min_rr))
     return "\n".join(lines)
 
 
 # ---------------------------------------------------------------- parsing
 
 
+def _near(value: float, level: float, tolerance: float) -> bool:
+    return abs(value - level) <= tolerance + 1e-9
+
+
+def _snap(value: float, levels: Sequence[float], tolerance: float) -> Optional[float]:
+    """The listed level within `tolerance` of `value` (the closest), else None."""
+    best = None
+    for lv in levels:
+        if _near(value, lv, tolerance) and (best is None or abs(value - lv) < abs(value - best)):
+            best = lv
+    return best
+
+
+def validate_proposal(
+    raw: Any, catalog: LevelCatalog, min_rr: float = DEFAULT_MIN_RR,
+) -> Tuple[Optional[AIProposal], str]:
+    """Snap the model's order onto the catalog, or reject it (D28).
+
+    Returns (proposal, note). The note is English, for the logs: why the
+    proposal was dropped, or "" when it stands. Rules, in order: a "none"
+    order is accepted as-is; the direction must be the catalog's when it
+    has one; the entry must sit inside an allowed band (±tolerance — an
+    entry just outside is pulled to the edge); the stop and the target
+    must each be within tolerance of a listed one and on the right side of
+    the entry; "market" is only honest while price is at the entry; RR is
+    computed here and compared with the floor."""
+    if not isinstance(raw, dict):
+        return None, "proposal missing"
+    order = str(raw.get("order") or "none").lower()
+    if order not in ORDERS:
+        return None, f"unknown order {order!r}"
+    invalidation = str(raw.get("invalidation") or "").strip()[:160]
+    if order == "none":
+        return AIProposal(order="none", direction="none", basis="none",
+                          invalidation=invalidation), ""
+    direction = str(raw.get("direction") or "none").lower()
+    if catalog.direction is not None:
+        wanted = catalog.direction.value
+        if direction != wanted:
+            return None, f"direction {direction} vs engine {wanted}"
+    elif direction not in ("long", "short"):
+        return None, "no direction"
+    is_long = direction == "long"
+    try:
+        entry = float(raw["entry"])
+        stop = float(raw["stop"])
+        target = float(raw["target"])
+    except (KeyError, TypeError, ValueError):
+        return None, "prices missing"
+    tol = catalog.tolerance
+    basis = str(raw.get("basis") or "none").lower()
+    # the band: the model's own basis when its band holds the entry, else
+    # the first band that does — the code names the rung, not the model
+    bands = [b for b in catalog.entries if b[1] - tol <= entry <= b[2] + tol]
+    if not bands:
+        return None, f"entry {entry} outside every allowed band"
+    band = next((b for b in bands if b[0] == basis), bands[0])
+    basis = band[0]
+    entry = min(max(entry, band[1]), band[2])
+    snapped_stop = _snap(stop, catalog.stops, tol)
+    if snapped_stop is None:
+        return None, f"stop {stop} not an allowed stop"
+    snapped_target = _snap(target, catalog.targets, tol)
+    if snapped_target is None:
+        return None, f"target {target} not an allowed target"
+    stop, target = snapped_stop, snapped_target
+    risk = entry - stop if is_long else stop - entry
+    reward = target - entry if is_long else entry - target
+    if risk <= 0:
+        return None, "stop on the wrong side of the entry"
+    if reward <= 0:
+        return None, "target on the wrong side of the entry"
+    if order == "market" and not _near(entry, catalog.price, tol):
+        order = "limit"
+    if order == "limit" and catalog.price and (
+        (is_long and entry > catalog.price + tol) or (not is_long and entry < catalog.price - tol)
+    ):
+        # a buy limit above price (or a sell limit below it) fills at
+        # market the moment it is placed — that is not the order it claims
+        return None, "limit on the wrong side of price"
+    rr = reward / risk
+    d = catalog.decimals
+    return AIProposal(
+        order=order, direction=direction, basis=basis,
+        entry=round(entry, d), stop=round(stop, d), target=round(target, d),
+        invalidation=invalidation, rr=round(rr, 2), below_floor=rr < min_rr,
+    ), ""
+
+
 def parse_ai_read(
-    payload: Any, model: str = DEFAULT_MODEL, as_of: str = ""
+    payload: Any, model: str = DEFAULT_MODEL, as_of: str = "",
+    catalog: Optional[LevelCatalog] = None, min_rr: float = DEFAULT_MIN_RR,
 ) -> Optional[AIRead]:
     """A validated AIRead from the model's JSON, or None when the shape is
-    wrong — a half-parsed opinion is worse than none."""
+    wrong — a half-parsed opinion is worse than none. The proposal (D28)
+    is validated against `catalog` when one is given and dropped on its
+    own when it does not fit; without a catalog it is ignored, because an
+    unchecked price must never reach the card."""
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
@@ -295,9 +682,13 @@ def parse_ai_read(
     if not isinstance(risks_raw, list):
         risks_raw = []
     risks = [str(r).strip() for r in risks_raw if str(r).strip()][:3]
+    proposal, note = None, ""
+    if catalog is not None and "proposal" in payload:
+        proposal, note = validate_proposal(payload.get("proposal"), catalog, min_rr)
     return AIRead(
         stance=stance, preferred_entry=entry, confidence=confidence,
         read=read[:600], risks=[r[:120] for r in risks], model=model, as_of=as_of,
+        proposal=proposal, proposal_note=note,
     )
 
 
@@ -311,14 +702,16 @@ class AIReader:
         self,
         api_key: Optional[str] = None,
         model: str = DEFAULT_MODEL,
-        effort: str = "medium",
+        effort: str = DEFAULT_EFFORT,
         timeout: float = 90.0,
         client: Any = None,
+        min_rr: float = DEFAULT_MIN_RR,
     ):
         self.api_key = api_key
         self.model = model or DEFAULT_MODEL
         self.effort = effort
         self.timeout = timeout
+        self.min_rr = min_rr
         self._client = client
         # Why the LAST read returned None, in a few words ("api: 401 …",
         # "refusal", "max_tokens", "unparsable") — the /plan audit prints it
@@ -342,10 +735,12 @@ class AIReader:
 
     async def read(
         self, facts: str, images: Sequence[bytes] = (), as_of: str = "",
+        catalog: Optional[LevelCatalog] = None,
     ) -> Optional[AIRead]:
         """Ask for the read. Never raises: every failure logs and returns
         None, because a missing second opinion must never cost the owner
-        the alert it was going to decorate."""
+        the alert it was going to decorate. `catalog` (D28) is what the
+        proposal is validated against; without one no proposal is kept."""
         if not self.enabled:
             self.last_error = "no ANTHROPIC_API_KEY"
             return None
@@ -404,7 +799,9 @@ class AIReader:
             for block in getattr(response, "content", [])
             if getattr(block, "type", "") == "text"
         )
-        read = parse_ai_read(text, model=self.model, as_of=as_of)
+        read = parse_ai_read(
+            text, model=self.model, as_of=as_of, catalog=catalog, min_rr=self.min_rr,
+        )
         if read is None:
             self.last_error = (
                 "max_tokens" if stop_reason == "max_tokens" else "unparsable"
@@ -419,5 +816,7 @@ class AIReader:
             "AI read ok", model=self.model, request_id=request_id,
             input_tokens=getattr(usage, "input_tokens", None),
             output_tokens=getattr(usage, "output_tokens", None),
+            proposal=read.proposal.to_dict() if read.proposal else None,
+            proposal_note=read.proposal_note or None,
         )
         return read
