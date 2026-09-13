@@ -474,3 +474,21 @@ class TestWatcher:
         assert len(w.notifier.photos) == 2  # H1 plan chart + M5 setup chart
         assert "📐 AI setup" in w.notifier.sent[0]
         assert asyncio.iscoroutinefunction(w._m5_chart_png)
+
+
+class TestChartMarks:
+    """Owner request 2026-09-13: the AI order in a readable top-left box,
+    the M5 FVG / OB outlined and named on both charts."""
+
+    def test_plan_chart_draws_the_setup_bands(self):
+        result, h4, h1, m5 = _evaluated()
+        plan = build_plan(ETH, h4, h1, m5, min_rr=1.0)
+        plain = render_plan_chart(plan, h1)
+        marked = render_plan_chart(plan, h1, setup=result.setup)
+        assert marked[:4] == b"\x89PNG" and marked != plain
+
+    def test_setup_chart_survives_a_rejected_imbalance_and_no_order_block(self):
+        result, *_ = _evaluated()
+        s = result.setup
+        s.rejected_fvg, s.fvg, s.order_block = s.fvg, None, None
+        assert render_setup_chart(result)[:4] == b"\x89PNG"

@@ -534,8 +534,11 @@ class TestChart:
 
 class TestZoneKindOnCharts:
     def test_setup_chart_renders_with_an_fvg_zone(self):
-        """A zone of kind FVG renders exactly like an OB one — the kind is a
-        label, not a geometry change."""
+        """A zone of kind FVG renders with the same band as an OB one — the
+        kind is a label, not a geometry change. Since 2026-09-13 (owner
+        request: name the bands) the label DOES carry the kind, so the two
+        PNGs differ by the text only; the band itself is coloured by
+        is_demand either way."""
         from app.services.smc.chart import render_setup_chart
 
         result_ob = _approved_result()
@@ -548,9 +551,8 @@ class TestZoneKindOnCharts:
 
         assert png_fvg is not None and png_fvg[:4] == b"\x89PNG"
         assert len(png_fvg) > 1000
-        # The H1 zone band is colored by is_demand, never labelled by kind on
-        # this chart — changing only the kind must not move a single pixel.
-        assert png_fvg == png_ob
+        assert png_fvg != png_ob  # "H1 Demand FVG …" vs "H1 Demand OB …"
+        assert abs(len(png_fvg) - len(png_ob)) < len(png_ob) * 0.05
 
     def test_plan_chart_renders_with_both_zone_kinds(self, monkeypatch):
         """Two scenarios, one OB and one FVG, both draw — and the entry

@@ -1374,6 +1374,7 @@ class Watcher:
         try:
             png = await asyncio.to_thread(
                 render_plan_chart, entry.plan, entry.data["h1"], proposal=proposal,
+                setup=entry.result.setup,
             )
             if png:
                 await self.notifier.send_photo(png)

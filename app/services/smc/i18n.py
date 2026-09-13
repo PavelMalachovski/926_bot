@@ -731,8 +731,9 @@ RU.update({
         "📐 Сетап от AI: {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr} ({basis})",
     "   ⚠️ below the 1:{floor} floor — wait": "   ⚠️ ниже порога 1:{floor} — ждать",
     "   ✖ cancel if: {text}": "   ✖ отменить, если: {text}",
-    "AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}":
-        "AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}",
+    "AI {order} {side} {entry}": "AI {order} {side} {entry}",
+    "SL {sl} · TP {tp} · RR 1:{rr}": "SL {sl} · TP {tp} · RR 1:{rr}",
+    "AI entry": "вход AI",
     "H1 zone": "зона H1",
     "next zone": "следующая зона",
     "range boundary": "граница диапазона",
