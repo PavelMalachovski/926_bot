@@ -40,11 +40,11 @@ logger = structlog.get_logger(__name__)
 DEFAULT_CACHE_DIR = Path("data/backtest")
 
 # Candle duration per engine timeframe key (the fetchers' own vocabulary).
-CANDLE_MINUTES: Dict[str, int] = {"m5": 5, "h1": 60, "h4": 240}
+CANDLE_MINUTES: Dict[str, int] = {"m5": 5, "h1": 60, "h4": 240, "d1": 1440}
 
 # Fetcher interval strings per timeframe key — Binance takes these verbatim;
 # Twelve Data goes through the production `_INTERVAL` map.
-_FETCH_INTERVAL: Dict[str, str] = {"m5": "5m", "h1": "1h", "h4": "4h"}
+_FETCH_INTERVAL: Dict[str, str] = {"m5": "5m", "h1": "1h", "h4": "4h", "d1": "1d"}
 
 _BINANCE_PAGE = 1000  # klines hard limit per request
 _TWELVE_PAGE = 5000  # time_series outputsize hard limit per request

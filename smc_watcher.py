@@ -308,6 +308,36 @@ def _correlation_warnings(approved: List[AnalysisResult]) -> List[str]:
     return warnings
 
 
+def _proposal_short(proposal, d: int) -> str:
+    """'LIMIT SHORT 2520.40' / 'none' — the order in five words, for the
+    re-read header (D28 re-read)."""
+    if proposal is None or not getattr(proposal, "is_trade", False):
+        return t("none")
+    return (
+        f"{'LIMIT' if proposal.order == 'limit' else 'MARKET'} "
+        f"{'LONG' if proposal.direction == 'long' else 'SHORT'} {proposal.entry:.{d}f}"
+    )
+
+
+def _read_changed(before, after, tolerance: float) -> bool:
+    """Whether a re-read is worth a message (D28 re-read): the stance
+    moved, the order appeared or disappeared, or it moved to another
+    price / side. Confidence and wording alone stay silent."""
+    if before.stance != after.stance:
+        return True
+    p0, p1 = getattr(before, "proposal", None), getattr(after, "proposal", None)
+    t0 = p0 is not None and p0.is_trade
+    t1 = p1 is not None and p1.is_trade
+    if t0 != t1:
+        return True
+    if t0 and t1:
+        return (
+            p0.direction != p1.direction
+            or abs(p0.entry - p1.entry) > tolerance
+        )
+    return False
+
+
 class Watcher:
     """Owns the state, the 15-minute scheduler and result reporting."""
 
@@ -524,6 +554,7 @@ class Watcher:
         counter.m5_candles = result.m5_candles
         counter.h4_candles = result.h4_candles
         counter.h1_candles = result.h1_candles
+        counter.d1_candles = result.d1_candles
         try:
             # `evaluate` is pure and never touches the fetcher, so the engine
             # is built with a placeholder rather than constructing a second
@@ -535,6 +566,7 @@ class Watcher:
                 m5=result.m5_candles,
                 result=counter,
                 force_direction=direction,
+                d1=result.d1_candles,
             )
         except Exception as e:
             logger.warning(
@@ -632,6 +664,7 @@ class Watcher:
                 self._recompute_plan(key, result)
                 await self._maybe_plan_cancelled(key, result)
                 await self._maybe_ai_order_cancelled(key, result)
+                await self._maybe_ai_reread(key, result)
                 # D23 (owner decision 2026-08-31): when H4 and H1 disagree the
                 # H1-side setup is announced ALONGSIDE the primary one, never
                 # instead of it. Both go through the same dedup, discipline
@@ -948,7 +981,8 @@ class Watcher:
             from app.services.smc.chart import render_plan_chart
 
             return await asyncio.to_thread(
-                render_plan_chart, entry.plan, entry.data["h1"]
+                render_plan_chart, entry.plan, entry.data["h1"],
+                d1=entry.data.get("d1"),
             )
         except Exception as e:
             logger.warning("Plan chart for AI read failed", pair=key, error=str(e))
@@ -971,7 +1005,7 @@ class Watcher:
             # limit rungs the model may rest an order on
             audit = self._audit(key, {
                 "h4": result.h4_candles or [], "h1": result.h1_candles or [],
-                "m5": result.m5_candles or [],
+                "m5": result.m5_candles or [], "d1": result.d1_candles or [],
             }, result) if result.m5_candles else None
             catalog = build_catalog(result, instrument, audit)
             read = await reader.read(
@@ -979,6 +1013,10 @@ class Watcher:
                     result, instrument, audit=audit, plan=plan,
                     news=self._next_news_line(key), catalog=catalog,
                     min_rr=getattr(reader, "min_rr", settings.smc.ai_min_rr),
+                    # D28 re-read, trigger 3: a new engine setup while an AI
+                    # order is still resting — the alert read sees that
+                    # order and says whether it still stands
+                    orders=self.journal.active_ai_orders(key),
                 ),
                 images=images,
                 as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
@@ -1144,9 +1182,13 @@ class Watcher:
         reason = getattr(reader, "last_error", None) or t("no answer")
         return t("🧠 AI read failed: {reason}", reason=escape_html(str(reason)))
 
-    async def _ai_read_audit(self, key: str, entry: PlanEntry) -> Optional[object]:
+    async def _ai_read_audit(
+        self, key: str, entry: PlanEntry, reread: Optional[str] = None,
+    ) -> Optional[object]:
         """D26: Claude's read of a freshly built audit (08:05/14:05 snapshot,
-        /plan, or an empty-book button press). None when off or failed."""
+        /plan, or an empty-book button press). None when off or failed.
+        `reread` (D28 re-read) names the trigger; the fact sheet then
+        carries the previous read and asks whether it still stands."""
         reader = self._ai_reader()
         if reader is None or entry.result is None or entry.audit is None:
             return None
@@ -1161,16 +1203,21 @@ class Watcher:
                 m5_png = await self._m5_chart_png(key, entry.result)
                 if m5_png:
                     images.append(m5_png)
-            return await reader.read(
+            read = await reader.read(
                 describe_for_ai(
                     entry.result, instrument, audit=entry.audit,
                     news=self._next_news_line(key), catalog=catalog,
                     min_rr=getattr(reader, "min_rr", settings.smc.ai_min_rr),
+                    orders=self.journal.active_ai_orders(key),
+                    reread=reread, previous=entry.ai_read if reread else None,
                 ),
                 images=images,
                 as_of=to_prague(datetime.now(tz=timezone.utc)).strftime("%H:%M"),
                 catalog=catalog,
             )
+            if read is not None:
+                entry.read_fingerprint = plan_fingerprint(entry.plan)
+            return read
         except Exception as e:
             logger.warning("AI read on audit failed", pair=key, error=str(e), exc_info=True)
             return None
@@ -1427,7 +1474,7 @@ class Watcher:
         try:
             png = await asyncio.to_thread(
                 render_plan_chart, entry.plan, entry.data["h1"], proposal=proposal,
-                setup=entry.result.setup,
+                setup=entry.result.setup, d1=entry.data.get("d1"),
             )
             if png:
                 await self.notifier.send_photo(png)
@@ -1447,6 +1494,7 @@ class Watcher:
         try:
             return build_pending(
                 result, get_instrument(key), data["h4"], data["h1"], data["m5"],
+                d1=data.get("d1") or None,
             )
         except Exception as e:
             logger.warning("Audit failed", pair=key, error=str(e), exc_info=True)
@@ -1630,6 +1678,7 @@ class Watcher:
             "h4": result.h4_candles,
             "h1": result.h1_candles,
             "m5": result.m5_candles,
+            "d1": result.d1_candles or [],
         }
         # D25: refresh the audit from this cycle's own engine result — free
         # by API quota, and it is what the aplan_* button delivers. D26: the
@@ -1640,7 +1689,90 @@ class Watcher:
             plan=plan, data=data, as_of=as_of,
             result=result, audit=self._audit(key, data, result),
             ai_read=previous.ai_read if previous is not None else None,
+            read_fingerprint=(
+                previous.read_fingerprint if previous is not None else None
+            ),
         ))
+
+    async def _maybe_ai_reread(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> None:
+        """D28 re-read (owner pick 2026-09-13): a fresh Opus read when the
+        picture changed, never on a timer. Two triggers here — the plan
+        fingerprint moved since the read was taken (new zone, new
+        direction, range broken), or price came within
+        `SMC_AI_APPROACH_R` of a resting AI order (about to fill: keep or
+        pull?) — the third (a new engine setup while an AI order rests) is
+        the alert read itself, which now sees the order. At most one
+        re-read per pair per `SMC_AI_REREAD_MIN_MINUTES`, one approach
+        re-read per order. A message goes out ONLY when the stance or the
+        order changed; the same answer stays in the book silently."""
+        if (
+            not settings.smc.ai_reread or self._ai_reader() is None
+            or result is None or not result.session_name
+        ):
+            return
+        entry = self.planbook.get(key)
+        if entry is None or entry.result is None or entry.audit is None:
+            return
+        now = datetime.now(tz=timezone.utc)
+        fingerprint = plan_fingerprint(entry.plan)
+        trigger = order_id = None
+        if (
+            entry.ai_read is not None and entry.read_fingerprint
+            and fingerprint != entry.read_fingerprint
+        ):
+            trigger = "the plan changed materially (zones / direction / range) since your read"
+        else:
+            price = float(result.price or 0.0)
+            for order in self.journal.active_ai_orders(key):
+                if order["status"] != "pending" or order["id"] in self.state.ai_reread_orders:
+                    continue
+                risk = abs(float(order["entry"]) - float(order["stop_loss"]))
+                if risk > 0 and abs(price - float(order["entry"])) <= settings.smc.ai_approach_r * risk:
+                    trigger = (
+                        f"price {price:.{result.price_decimals}f} is within "
+                        f"{settings.smc.ai_approach_r:.2f}R of your pending order — it is "
+                        "about to fill: keep it or pull it?"
+                    )
+                    order_id = order["id"]
+                    break
+        if trigger is None:
+            return
+        last = self.state.ai_reread_at.get(key)
+        if last:
+            try:
+                if now - datetime.fromisoformat(last) < timedelta(
+                    minutes=settings.smc.ai_reread_min_minutes
+                ):
+                    return
+            except (TypeError, ValueError):
+                pass
+        previous = entry.ai_read
+        read = await self._ai_read_audit(key, entry, reread=trigger)
+        self.state.ai_reread_at[key] = now.isoformat()
+        if order_id is not None:
+            self.state.ai_reread_orders[order_id] = now.isoformat()
+        self.state.save()
+        if read is None:
+            return
+        entry.ai_read = read
+        self._record_ai_order(key, entry.result, read, source="reread")
+        if previous is not None and not _read_changed(previous, read, get_instrument(key).min_fvg):
+            logger.info("AI re-read unchanged", pair=key, trigger=trigger[:40])
+            return
+        d = result.price_decimals
+        old_line = _proposal_short(getattr(previous, "proposal", None), d) if previous else t("no read")
+        new_line = _proposal_short(read.proposal, d)
+        head = t(
+            "🧠 <b>{pair}: AI re-read</b> — {before} → {after} · order: {old} → {new}",
+            pair=key,
+            before=escape_html(t(previous.stance).upper() if previous else t("no read")),
+            after=escape_html(t(read.stance).upper()),
+            old=escape_html(old_line), new=escape_html(new_line),
+        )
+        await self.notifier.send(head + "\n" + format_ai_read(read))
+        logger.info("AI re-read sent", pair=key, trigger=trigger[:40], stance=read.stance)
 
     async def _maybe_edit_plan_summary(self) -> None:
         """Silently edit today's summary when any pair's plan materially
@@ -1810,7 +1942,8 @@ class Watcher:
         )
         try:
             png = await asyncio.to_thread(
-                render_plan_chart, entry.plan, entry.data["h1"]
+                render_plan_chart, entry.plan, entry.data["h1"],
+                d1=entry.data.get("d1"),
             )
             if png:
                 await self.notifier.send_photo(png)
@@ -1836,6 +1969,7 @@ class Watcher:
         res.m5_candles = data["m5"]
         res.h4_candles = data["h4"]
         res.h1_candles = data["h1"]
+        res.d1_candles = data.get("d1") or None
         from app.services.smc.profiles import get_profile
 
         profile = get_profile(
@@ -1846,7 +1980,8 @@ class Watcher:
         # `evaluate` is pure and never touches the fetcher, so a placeholder
         # stands in for the live client (see `_counter_trend_result`).
         return _build_engine(instrument, profile, fetcher=_NO_FETCH).evaluate(
-            h4=data["h4"], h1=data["h1"], m5=data["m5"], result=res
+            h4=data["h4"], h1=data["h1"], m5=data["m5"], result=res,
+            d1=data.get("d1") or None,
         )
 
     def _live_status(self, instrument: Instrument, data: dict, now) -> str:

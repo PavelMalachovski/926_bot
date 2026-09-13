@@ -43,7 +43,10 @@ from app.services.smc.profiles import get_profile
 # Calendar lead per timeframe so every window is full at --start: 300 H4 is
 # ~50 trading days (~70 calendar with weekends), 400 H1 ~17 trading days,
 # 400 M5 fits in two days plus a weekend.
-_LEAD = {"h4": timedelta(days=75), "h1": timedelta(days=30), "m5": timedelta(days=4)}
+_LEAD = {
+    "h4": timedelta(days=75), "h1": timedelta(days=30), "m5": timedelta(days=4),
+    "d1": timedelta(days=130),  # D29: the daily window the live fetchers serve
+}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -139,7 +142,7 @@ def _selftest() -> int:
 
 async def _run_pair(pair: str, args, start, end, api_key):
     candles = {}
-    for tf in ("h4", "h1", "m5"):
+    for tf in ("h4", "h1", "m5", "d1"):
         candles[tf] = await load_history(
             pair,
             tf,
@@ -165,6 +168,7 @@ async def _run_pair(pair: str, args, start, end, api_key):
             end,
             journal=journal,
             engine=build_backtest_engine(pair, get_profile(args.profile)),
+            d1=candles.get("d1"),
         )
     finally:
         try:

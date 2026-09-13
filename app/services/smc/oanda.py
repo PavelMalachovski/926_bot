@@ -16,7 +16,7 @@ HOSTS = {
     "live": "https://api-fxtrade.oanda.com",
 }
 
-GRANULARITY = {"4h": "H4", "1h": "H1", "5m": "M5"}
+GRANULARITY = {"1d": "D", "4h": "H4", "1h": "H1", "5m": "M5"}
 
 
 class OandaDataFetcher:
@@ -76,11 +76,17 @@ class OandaDataFetcher:
         self, force_fresh: bool = False
     ) -> Dict[str, List[Candle]]:
         # OANDA is not cached; force_fresh is a no-op (uniform interface).
-        return {
+        data = {
             "h4": await self.fetch_candles("4h", limit=300),
             "h1": await self.fetch_candles("1h", limit=400),
             "m5": await self.fetch_candles("5m", limit=400),
         }
+        try:  # D29: daily candles, best-effort
+            data["d1"] = await self.fetch_candles("1d", limit=120)
+        except DataFetchError as e:
+            logger.warning("OANDA D1 fetch failed — continuing without", error=str(e))
+            data["d1"] = []
+        return data
 
     async def fetch_funding_rate(self) -> Optional[float]:
         """Forex has no funding rate."""

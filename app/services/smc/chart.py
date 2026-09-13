@@ -6,6 +6,7 @@ Rendering failures must never block an alert: callers wrap in try/except.
 """
 
 import os
+from datetime import timedelta
 from io import BytesIO
 from typing import List, Optional, Sequence, Tuple
 
@@ -288,6 +289,34 @@ def _marked_box(
     )
 
 
+# D29: daily levels (PDH/PDL off the previous closed daily candle, PWH/PWL
+# off the previous ISO week) — dotted, a quiet grey-blue, so they read as
+# reference lines behind the setup's own levels rather than as levels to
+# trade.
+DAILY_COLOR = "#8fa3bf"
+
+
+def _draw_daily_levels(ax, d1, as_of, x_right, ylim, d, placed) -> None:
+    from app.services.smc.sniper import daily_levels
+
+    if not d1:
+        return
+    levels = daily_levels(list(d1), as_of)
+    if not levels:
+        return
+    lo, hi = ylim
+    for key, name in (("pdh", "PDH"), ("pdl", "PDL"), ("pwh", "PWH"), ("pwl", "PWL")):
+        price = levels.get(key)
+        if price is None or not (lo <= price <= hi):
+            continue  # off-window daily levels are context, not a chart-flattener
+        ax.axhline(price, color=DAILY_COLOR, linewidth=0.9, linestyle=":", zorder=3)
+        ax.text(
+            x_right, _stacked_y(price, placed, ylim), f" {name} {price:.{d}f}",
+            color=DAILY_COLOR, fontsize=8, va="center", ha="left", zorder=6,
+            bbox=dict(boxstyle="round,pad=0.15", fc=BG, ec="none"),
+        )
+
+
 # ~32h of M5 by default: enough context to see the swing HH/HL structure and
 # the move into the zone behind the setup. Tunable via SMC_CHART_CANDLES.
 CHART_CANDLES = int(os.getenv("SMC_CHART_CANDLES", "384"))
@@ -424,6 +453,9 @@ def render_setup_chart(
         _level(ax, rng.top, RANGE_COLOR, t("RANGE HIGH"), x_right, y_bounds=ylim, placed=placed)
         _level(ax, rng.bottom, RANGE_COLOR, t("RANGE LOW"), x_right, y_bounds=ylim, placed=placed)
 
+    # D29: daily levels, dotted, only the ones inside the window
+    _draw_daily_levels(ax, result.d1_candles, result.checked_at, x_right, ylim, d, placed)
+
     # D28: Claude's proposed order, drawn over the last quarter of the
     # window so the box starts where the trade would — now — not at the
     # chart's left edge.
@@ -523,6 +555,7 @@ def _zone_label(
 
 def render_plan_chart(
     plan, h1_candles, candles_back: int = 120, proposal=None, setup=None,
+    d1=None,
 ) -> Optional[bytes]:
     """Render a pre-market plan on H1 candles: zones + projected E/SL/TP.
 
@@ -646,6 +679,11 @@ def render_plan_chart(
                 ax, x0, x_right, ob.bottom, ob.top, OB_COLOR,
                 f"M5 OB {ob.bottom:.{d}f}–{ob.top:.{d}f}", ylim, placed_left, alpha=0.3,
             )
+
+    # D29: daily levels (PDH/PDL, PWH/PWL) off the daily candles, dotted
+    _draw_daily_levels(
+        ax, d1, candles[-1].timestamp + timedelta(hours=1), x_right, ylim, d, placed_right,
+    )
 
     # D28: Claude's proposed order as a position box over the right third
     _draw_proposal(ax, proposal, len(candles) * 0.7, x_right, ylim, d, placed_right)

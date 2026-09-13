@@ -34,6 +34,11 @@ class PlanEntry:
     # snapshot (and /plan); the per-cycle recompute carries it forward
     # rather than paying for a new one every five minutes. None = no read.
     ai_read: Optional[Any] = None  # ai_read.AIRead
+    # D28 re-read (owner pick 2026-09-13): the plan fingerprint the current
+    # `ai_read` was taken on. The per-cycle recompute compares the live
+    # fingerprint against it — a material change (new zone, new direction,
+    # range broken) is one of the three triggers for a fresh Opus read.
+    read_fingerprint: Optional[str] = None
 
 
 def plan_fingerprint(plan: PairPlan) -> str:

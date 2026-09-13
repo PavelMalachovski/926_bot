@@ -67,12 +67,14 @@ class _RateLimiter:
 _LIMITER = _RateLimiter(MAX_PER_MIN)
 
 # our interval -> Twelve Data interval string
-_INTERVAL = {"4h": "4h", "1h": "1h", "5m": "5min"}
-_CANDLE_MINUTES = {"4h": 240, "1h": 60, "5m": 5}
+D1_LIMIT = 120  # D29
+_INTERVAL = {"1d": "1day", "4h": "4h", "1h": "1h", "5m": "5min"}
+_CANDLE_MINUTES = {"1d": 1440, "4h": 240, "1h": 60, "5m": 5}
 
 # how long a fetched series stays fresh; higher TFs change slowly so caching
 # them keeps the daily request budget comfortably under the free-tier limit
 _TF_CACHE_TTL = {
+    "1d": timedelta(hours=6),  # D29: changes once a day; keeps the free quota
     "4h": timedelta(hours=1),
     "1h": timedelta(minutes=15),
     "5m": timedelta(seconds=60),
@@ -231,11 +233,19 @@ class TwelveDataFetcher:
     async def fetch_all_timeframes(
         self, force_fresh: bool = False
     ) -> Dict[str, List[Candle]]:
-        return {
+        data = {
             "h4": await self.fetch_candles("4h", 300, force_fresh=force_fresh),
             "h1": await self.fetch_candles("1h", 400, force_fresh=force_fresh),
             "m5": await self.fetch_candles("5m", 400, force_fresh=force_fresh),
         }
+        # D29: daily candles, best-effort and never force-fresh — one call
+        # per pair per 6 hours is all the free quota should pay for them
+        try:
+            data["d1"] = await self.fetch_candles("1d", D1_LIMIT)
+        except DataFetchError as e:
+            logger.warning("Twelve Data D1 fetch failed — continuing without", error=str(e))
+            data["d1"] = []
+        return data
 
     async def fetch_funding_rate(self) -> Optional[float]:
         """Forex has no funding rate."""

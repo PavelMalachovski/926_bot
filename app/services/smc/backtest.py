@@ -41,10 +41,12 @@ logger = structlog.get_logger(__name__)
 H4_WINDOW = 300
 H1_WINDOW = 400
 M5_WINDOW = 400
+D1_WINDOW = 120  # D29: optional — a replay without daily history runs as before
 
 _M5 = timedelta(minutes=5)
 _H1 = timedelta(hours=1)
 _H4 = timedelta(hours=4)
+_D1 = timedelta(days=1)
 
 
 def synthetic_history(
@@ -192,6 +194,7 @@ def run_backtest(
     engine: Optional[TripleSyncEngine] = None,
     profile=None,
     require_full_windows: bool = True,
+    d1: Optional[List[Candle]] = None,
 ) -> BacktestRun:
     """Replay [start, end] the way the watcher lives it.
 
@@ -221,7 +224,8 @@ def run_backtest(
     last_fingerprint: Optional[str] = None
     from smc_watcher import _setup_fingerprint
 
-    h4_end = h1_end = 0
+    h4_end = h1_end = d1_end = 0
+    d1 = d1 or []
     for i, candle in enumerate(m5):
         now = candle.timestamp + _M5  # the moment this candle closed
         if now < start or now > end:
@@ -248,6 +252,9 @@ def run_backtest(
             h4_end += 1
         while h1_end < len(h1) and h1[h1_end].timestamp + _H1 <= now:
             h1_end += 1
+        while d1_end < len(d1) and d1[d1_end].timestamp + _D1 <= now:
+            d1_end += 1
+        d1_view = d1[max(0, d1_end - D1_WINDOW):d1_end]
         m5_view = m5[max(0, i + 1 - M5_WINDOW):i + 1]
         h4_view = h4[max(0, h4_end - H4_WINDOW):h4_end]
         h1_view = h1[max(0, h1_end - H1_WINDOW):h1_end]
@@ -267,7 +274,13 @@ def run_backtest(
         )
         result.session_name = session
         result.price = m5_view[-1].close
-        result = engine.evaluate(h4=h4_view, h1=h1_view, m5=m5_view, result=result)
+        result.d1_candles = d1_view or None
+        # D29: `d1=` only when daily history was supplied — a replay without
+        # it (and every engine stub) calls evaluate exactly as before
+        result = engine.evaluate(
+            h4=h4_view, h1=h1_view, m5=m5_view, result=result,
+            **({"d1": d1_view} if d1_view else {}),
+        )
         run.cycles += 1
         run.verdicts[result.verdict.value] = (
             run.verdicts.get(result.verdict.value, 0) + 1
