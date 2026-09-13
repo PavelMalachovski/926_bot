@@ -232,22 +232,60 @@ def _draw_proposal(
     d = decimals
     side = "LONG" if proposal.direction == "long" else "SHORT"
     order = "LIMIT" if proposal.order == "limit" else "MARKET"
-    label = t("AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}",
-              order=order, side=side, entry=f"{entry:.{d}f}", sl=f"{stop:.{d}f}",
-              tp=f"{target:.{d}f}", rr=f"{proposal.rr:.1f}")
+    # The full order goes into a fixed box in the top-left corner (owner
+    # request 2026-09-13: the label on the entry line sat in the zone band
+    # among the level labels and was unreadable on a phone). Two lines,
+    # solid ground, nothing else is drawn there.
+    ax.annotate(
+        t("AI {order} {side} {entry}", order=order, side=side, entry=f"{entry:.{d}f}")
+        + "\n"
+        + t("SL {sl} · TP {tp} · RR 1:{rr}", sl=f"{stop:.{d}f}", tp=f"{target:.{d}f}",
+            rr=f"{proposal.rr:.1f}"),
+        xy=(0.01, 0.97), xycoords="axes fraction",
+        color=AI_ENTRY_COLOR, fontsize=10.5, fontweight="bold",
+        ha="left", va="top", zorder=8, linespacing=1.4,
+        bbox=dict(boxstyle="round,pad=0.4", fc=BG, ec=AI_ENTRY_COLOR, lw=1.0),
+    )
     if lo <= entry <= hi:
         ax.plot([x_start, x_right], [entry, entry], color=AI_ENTRY_COLOR,
                 linewidth=1.3, linestyle="-", zorder=5)
+        # a short tag on the line itself, so the box and the line pair up
         y = _stacked_y(entry, placed, ylim)
         ax.text(
-            x_start + width * 0.02, y, label, color=AI_ENTRY_COLOR, fontsize=8.5,
-            fontweight="bold", va="bottom", ha="left", zorder=7,
-            bbox=dict(boxstyle="round,pad=0.2", fc=BG, ec=AI_ENTRY_COLOR, lw=0.6),
+            x_right, y, " " + t("AI entry"), color=AI_ENTRY_COLOR, fontsize=9,
+            fontweight="bold", va="center", ha="left", zorder=7,
+            bbox=dict(boxstyle="round,pad=0.15", fc=BG, ec="none"),
         )
     else:
         # the whole order sits outside the window: name it at the edge it
         # sits on, the same way `_level` handles a far-away target
-        _level(ax, entry, AI_ENTRY_COLOR, label, int(x_right), ylim, placed)
+        _level(ax, entry, AI_ENTRY_COLOR, t("AI entry") + f" {entry:.{d}f}",
+               int(x_right), ylim, placed)
+
+
+def _marked_box(
+    ax, x0: float, x1: float, bottom: float, top: float, color: str, label: str,
+    ylim: Tuple[float, float], placed: list, alpha: float = 0.22,
+    hatch: Optional[str] = None,
+) -> None:
+    """A highlighted band with an outline and a name (owner request
+    2026-09-13: the M5 order block and imbalance were faint fills with no
+    label — the very bands the AI order rests on). The label sits at the
+    box's left edge, stacked so two neighbouring bands keep both names."""
+    lo, hi = ylim
+    if top <= lo or bottom >= hi:
+        return
+    ax.add_patch(Rectangle(
+        (x0, bottom), max(x1 - x0, 1.0), top - bottom,
+        facecolor=color, alpha=alpha, edgecolor=color, linewidth=1.0,
+        linestyle="--" if hatch else "-", hatch=hatch, zorder=1,
+    ))
+    y = _stacked_y((bottom + top) / 2, placed, ylim)
+    ax.text(
+        x0 + 0.5, y, label, color=color, fontsize=8.5, fontweight="bold",
+        va="center", ha="left", zorder=6,
+        bbox=dict(boxstyle="round,pad=0.15", fc=BG, ec="none"),
+    )
 
 
 # ~32h of M5 by default: enough context to see the swing HH/HL structure and
@@ -295,47 +333,6 @@ def render_setup_chart(
         zone_color = "#2962ff" if zone.is_demand else "#f23645"
         ax.axhspan(zone.bottom, zone.top, color=zone_color, alpha=0.12, zorder=1)
 
-    # FVG box from its formation candle to the right edge. Optional since
-    # owner decision D22 (2026-08-30): a setup can form on the CHoCH alone,
-    # and the rejected candidate (when there is one) is drawn instead —
-    # hatched, so the chart shows the gap the message is talking about
-    # without pretending it is the entry.
-    fvg = setup.fvg or setup.rejected_fvg
-    if fvg is not None:
-        fvg_start = max(0, len(candles) - (len(result.m5_candles) - fvg.index))
-        ax.add_patch(
-            Rectangle(
-                (fvg_start, fvg.bottom),
-                x_right - fvg_start,
-                fvg.size,
-                facecolor="#26a69a" if fvg.is_bullish else "#ef5350",
-                alpha=0.18 if setup.fvg is not None else 0.08,
-                edgecolor="none",
-                hatch=None if setup.fvg is not None else "///",
-                zorder=1,
-            )
-        )
-
-    # 5m order block box (the deeper M5 limit option, engine.py) — a second,
-    # narrower entry option the owner may take instead of the FVG entry.
-    # Optional: not every setup has a qualifying candidate (find_order_block).
-    order_block = setup.order_block
-    if order_block is not None:
-        ob_start = max(
-            0, len(candles) - (len(result.m5_candles) - order_block.pivot_index)
-        )
-        ax.add_patch(
-            Rectangle(
-                (ob_start, order_block.bottom),
-                x_right - ob_start,
-                order_block.top - order_block.bottom,
-                facecolor=OB_COLOR,
-                alpha=0.18,
-                edgecolor="none",
-                zorder=1,
-            )
-        )
-
     # Clamp the y-axis to the candle range (extended to bracket entry/SL,
     # which sit close to price by construction) before drawing levels. A
     # liquidity take-profit can be an H4 pool hundreds of points away; left
@@ -352,11 +349,58 @@ def render_setup_chart(
         in_range_prices.extend([proposal.entry, proposal.stop])
     ylim = _price_ylim(candles, in_range_prices)
     ax.set_ylim(*ylim)
+    d = result.price_decimals
+    band_labels: list = []
+
+    if result.h1_zone:
+        zone = result.h1_zone
+        if result.market_range is not None and zone.kind == "RANGE":
+            zone_name = t("RANGE LOW") if zone.is_demand else t("RANGE HIGH")
+        else:
+            zone_name = ("Demand" if zone.is_demand else "Supply") + f" {zone.kind}"
+        ax.text(
+            0.5, _stacked_y((zone.bottom + zone.top) / 2, band_labels, ylim),
+            f"H1 {zone_name} {zone.bottom:.{d}f}–{zone.top:.{d}f}",
+            color="#2962ff" if zone.is_demand else "#f23645", fontsize=8.5,
+            fontweight="bold", va="center", ha="left", zorder=6,
+            bbox=dict(boxstyle="round,pad=0.15", fc=BG, ec="none"),
+        )
+
+    # FVG box from its formation candle to the right edge. Optional since
+    # owner decision D22 (2026-08-30): a setup can form on the CHoCH alone,
+    # and the rejected candidate (when there is one) is drawn instead —
+    # hatched, so the chart shows the gap the message is talking about
+    # without pretending it is the entry. Outlined and named (owner request
+    # 2026-09-13): this band is where the limit order rests.
+    fvg = setup.fvg or setup.rejected_fvg
+    if fvg is not None:
+        fvg_start = max(0, len(candles) - (len(result.m5_candles) - fvg.index))
+        _marked_box(
+            ax, fvg_start, x_right, fvg.bottom, fvg.top, FVG_COLOR,
+            f"M5 FVG {fvg.bottom:.{d}f}–{fvg.top:.{d}f}"
+            + ("" if setup.fvg is not None else " ✗"),
+            ylim, band_labels,
+            alpha=0.22 if setup.fvg is not None else 0.08,
+            hatch=None if setup.fvg is not None else "///",
+        )
+
+    # 5m order block box (the deeper M5 limit option, engine.py) — a second,
+    # narrower entry option the owner may take instead of the FVG entry.
+    # Optional: not every setup has a qualifying candidate (find_order_block).
+    order_block = setup.order_block
+    if order_block is not None:
+        ob_start = max(
+            0, len(candles) - (len(result.m5_candles) - order_block.pivot_index)
+        )
+        _marked_box(
+            ax, ob_start, x_right, order_block.bottom, order_block.top, OB_COLOR,
+            f"M5 OB {order_block.bottom:.{d}f}–{order_block.top:.{d}f}",
+            ylim, band_labels,
+        )
 
     # Entry / SL / TP levels. The take-profit is optional (detector mode): a
     # setup with no unswept liquidity ahead has no objective to draw, and its
     # line and edge annotation are skipped rather than faked.
-    d = result.price_decimals
     drawn = [
         (setup.entry, "#2962ff", f"{t('ENTRY')} {setup.entry:.{d}f}"),
         (setup.stop_loss, "#f23645", f"SL {setup.stop_loss:.{d}f}"),
@@ -478,12 +522,16 @@ def _zone_label(
 
 
 def render_plan_chart(
-    plan, h1_candles, candles_back: int = 120, proposal=None,
+    plan, h1_candles, candles_back: int = 120, proposal=None, setup=None,
 ) -> Optional[bytes]:
     """Render a pre-market plan on H1 candles: zones + projected E/SL/TP.
 
     `plan` is a plan.PairPlan. Returns None if there is nothing to draw —
     unless a `proposal` (D28) is given, which is worth a chart on its own.
+    `setup` (a formed TradeSetup) adds its M5 imbalance and order block as
+    outlined, named bands over the right third (owner request 2026-09-13):
+    on H1 they are a dollar tall and invisible without the outline, and
+    they are the bands the AI order rests on.
     """
     has_proposal = proposal is not None and getattr(proposal, "is_trade", False)
     if not h1_candles or (not plan.scenarios and not has_proposal):
@@ -580,6 +628,24 @@ def render_plan_chart(
         _level(ax, range_top, RANGE_COLOR, t("RANGE HIGH"), x_right, ylim, placed_right)
     if range_bottom is not None:
         _level(ax, range_bottom, RANGE_COLOR, t("RANGE LOW"), x_right, ylim, placed_right)
+
+    if setup is not None:
+        x0 = len(candles) * 0.7
+        fvg = getattr(setup, "fvg", None) or getattr(setup, "rejected_fvg", None)
+        if fvg is not None:
+            _marked_box(
+                ax, x0, x_right, fvg.bottom, fvg.top, FVG_COLOR,
+                f"M5 FVG {fvg.bottom:.{d}f}–{fvg.top:.{d}f}"
+                + ("" if getattr(setup, "fvg", None) is not None else " ✗"),
+                ylim, placed_left, alpha=0.3,
+                hatch=None if getattr(setup, "fvg", None) is not None else "///",
+            )
+        ob = getattr(setup, "order_block", None)
+        if ob is not None:
+            _marked_box(
+                ax, x0, x_right, ob.bottom, ob.top, OB_COLOR,
+                f"M5 OB {ob.bottom:.{d}f}–{ob.top:.{d}f}", ylim, placed_left, alpha=0.3,
+            )
 
     # D28: Claude's proposed order as a position box over the right third
     _draw_proposal(ax, proposal, len(candles) * 0.7, x_right, ylim, d, placed_right)

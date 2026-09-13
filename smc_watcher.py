@@ -344,7 +344,9 @@ class Watcher:
             run_cycle=self.run_cycle,
             status_text=self.status_text,
             stats_text=self.journal.stats_text,
-            ai_stats_text=self.journal.ai_accuracy_text,
+            ai_stats_text=lambda: (
+                self.journal.ai_accuracy_text() + "\n\n" + self.journal.ai_setups_text()
+            ),
             news_text=self.news_text,
             pd_text=self.pd_text,
             on_trade_mark=self.mark_trade,
@@ -629,6 +631,7 @@ class Watcher:
                 line, result = await self.check_pair(key)
                 self._recompute_plan(key, result)
                 await self._maybe_plan_cancelled(key, result)
+                await self._maybe_ai_order_cancelled(key, result)
                 # D23 (owner decision 2026-08-31): when H4 and H1 disagree the
                 # H1-side setup is announced ALONGSIDE the primary one, never
                 # instead of it. Both go through the same dedup, discipline
@@ -998,8 +1001,58 @@ class Watcher:
                     proposal=read.proposal.to_dict() if read.proposal else None,
                 )
             await self._redraw_chart_with_proposal(key, result, message_id, read)
+            self._record_ai_order(key, result, read, source="alert")
         except Exception as e:
             logger.warning("AI read on alert failed", pair=key, error=str(e), exc_info=True)
+
+    def _record_ai_order(
+        self, key: str, result: AnalysisResult, read, source: str,
+    ) -> None:
+        """D28 follow-up: Claude's proposed order becomes a shadow journal
+        row (`journal.record_ai`) so /journal can score it. Best-effort;
+        a market-closed read (weekend candles) is not an order anyone
+        could place and is skipped."""
+        proposal = getattr(read, "proposal", None)
+        if proposal is None or not proposal.is_trade or not result.session_name:
+            return
+        try:
+            self.journal.record_ai(
+                key, proposal, result.checked_at, result.session_name,
+                tolerance=get_instrument(key).min_fvg, source=source,
+            )
+        except Exception as e:
+            logger.warning("AI shadow order not recorded", pair=key, error=str(e))
+
+    async def _maybe_ai_order_cancelled(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> None:
+        """The AI order's invalidation as code (D28 follow-up, owner pick
+        2026-09-13): every cycle, over the M5 candles the engine already
+        fetched, a pending shadow order whose target was taken before it
+        filled is cancelled
+        (`journal.cancel_ai_orders`) and ONE message says so — it cancels
+        an order the owner may have placed off the 📐 line, the same
+        category as "plan cancelled". No API call, no model."""
+        if result is None or not result.m5_candles:
+            return
+        try:
+            cancelled = self.journal.cancel_ai_orders(key, result.m5_candles)
+        except Exception as e:
+            logger.warning("AI order cancellation check failed", pair=key, error=str(e))
+            return
+        d = result.price_decimals
+        for signal, candle, reason in cancelled:
+            side = "LONG" if signal["direction"] == "long" else "SHORT"
+            hhmm = to_prague(candle.timestamp).strftime("%H:%M")
+            entry = f"{float(signal['entry']):.{d}f}"
+            await self.notifier.send(t(
+                "📐 <b>{pair}: AI order cancelled</b> — the {side} limit at {entry} "
+                "never filled and its target {tp} was already taken ({hhmm} "
+                "Prague): the move played out without an entry. Pull the limit "
+                "if you placed it.",
+                pair=key, side=side, entry=entry,
+                tp=f"{float(signal['take_profit']):.{d}f}", hhmm=hhmm,
+            ))
 
     async def _redraw_chart_with_proposal(
         self, key: str, result: AnalysisResult, message_id: int, read,
@@ -1374,6 +1427,7 @@ class Watcher:
         try:
             png = await asyncio.to_thread(
                 render_plan_chart, entry.plan, entry.data["h1"], proposal=proposal,
+                setup=entry.result.setup,
             )
             if png:
                 await self.notifier.send_photo(png)
@@ -1447,6 +1501,8 @@ class Watcher:
         # carried forward by the per-cycle recompute, so it costs one call
         # per pair per snapshot rather than one per five minutes.
         entry.ai_read = await self._ai_read_audit(key, entry)
+        if entry.ai_read is not None and not plan.market_closed:
+            self._record_ai_order(key, result, entry.ai_read, source="plan")
         return entry
 
     def _autoplan_slots(self) -> List[str]:
@@ -2024,6 +2080,10 @@ class Watcher:
         exposed: Dict[Tuple[datetime, str, str], Dict[str, set]] = {}
         for signal in self.journal.signals:
             if signal["status"] not in ("pending", "open", "open_runner"):
+                continue
+            if signal.get("origin") == "ai":
+                # a shadow row is Claude's proposal, not an order the owner
+                # told the bot about — the engine's card covers the pair
                 continue
             instrument = get_instrument(signal["pair"])
             for event in self.news.upcoming(relevant_currencies(instrument), horizon):

@@ -731,9 +731,26 @@ RU.update({
         "📐 Сетап от AI: {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr} ({basis})",
     "   ⚠️ below the 1:{floor} floor — wait": "   ⚠️ ниже порога 1:{floor} — ждать",
     "   ✖ cancel if: {text}": "   ✖ отменить, если: {text}",
-    "AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}":
-        "AI {order} {side} {entry} · SL {sl} · TP {tp} · 1:{rr}",
+    "AI {order} {side} {entry}": "AI {order} {side} {entry}",
+    "SL {sl} · TP {tp} · RR 1:{rr}": "SL {sl} · TP {tp} · RR 1:{rr}",
+    "AI entry": "вход AI",
     "H1 zone": "зона H1",
     "next zone": "следующая зона",
     "range boundary": "граница диапазона",
+})
+
+# ---- D28 follow-up (2026-09-13): shadow AI orders, their cancellation, stats ----
+RU.update({
+    "📐 <b>{pair}: AI order cancelled</b> — the {side} limit at {entry} never filled and "
+    "its target {tp} was already taken ({hhmm} Prague): the move played out without an "
+    "entry. Pull the limit if you placed it.":
+        "📐 <b>{pair}: ордер AI снят</b> — лимитка {side} на {entry} не исполнилась, а цель "
+        "{tp} уже взята ({hhmm} Прага): движение отработало без входа. Сними лимитку, "
+        "если ставил.",
+    "AI setups — last {days} days": "Сетапы AI — последние {days} дней",
+    "no proposed orders yet": "предложенных ордеров пока нет",
+    "{n} proposed · {filled} filled · {expired} expired unfilled · {cancelled} cancelled":
+        "{n} предложено · {filled} исполнено · {expired} истекло без входа · {cancelled} снято",
+    "{wins} wins / {losses} stops ({rate}%) · realized {r}R":
+        "{wins} в плюс / {losses} стопов ({rate}%) · итог {r}R",
 })
