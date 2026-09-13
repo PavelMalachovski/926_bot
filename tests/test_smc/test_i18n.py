@@ -20,7 +20,11 @@ from app.services.smc.i18n import RU, t
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot, help_text
 
-SOURCE_FILES = sorted(glob.glob("app/services/smc/*.py")) + ["smc_watcher.py"]
+SOURCE_FILES = (
+    sorted(glob.glob("app/services/smc/*.py"))
+    + sorted(glob.glob("app/services/opus/*.py"))
+    + ["smc_watcher.py", "opus_bot.py"]
+)
 
 
 def _placeholders(text: str):

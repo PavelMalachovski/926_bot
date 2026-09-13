@@ -718,3 +718,122 @@ RU.update({
 RU.update({
     "{h}h{m}": "{h}ч{m}",
 })
+
+# ---- Opus analyst bot (owner request 2026-09-13, opus_bot.py) ----
+RU.update({
+    # card
+    "🧠 <b>Opus · {pair}</b> · {as_of} Prague · price {price}":
+        "🧠 <b>Opus · {pair}</b> · {as_of} Прага · цена {price}",
+    "📊 Bias: {bias} · confidence {n}/5": "📊 Уклон: {bias} · уверенность {n}/5",
+    "🔁 Re-read after: {event}": "🔁 Пересмотр после: {event}",
+    "📍 <b>LIMIT {side} @ {entry}</b>": "📍 <b>ЛИМИТКА {side} @ {entry}</b>",
+    "📈 <b>ENTER AT MARKET {side} @ {entry}</b>": "📈 <b>ВХОД ПО РЫНКУ {side} @ {entry}</b>",
+    "⏸ <b>WAIT</b>": "⏸ <b>ЖДЁМ</b>",
+    "🚫 <b>NO TRADE</b>": "🚫 <b>СДЕЛКИ НЕТ</b>",
+    " — watch zone {lo}–{hi}; Opus is asked again when price gets there":
+        " — зона наблюдения {lo}–{hi}; когда цена дойдёт, спрошу Opus снова",
+    "🛑 SL {sl} (risk {risk})": "🛑 SL {sl} (риск {risk})",
+    "🎯 TP1 {tp1} (RR {rr1})": "🎯 TP1 {tp1} (RR {rr1})",
+    " · TP2 {tp2} ({rr2})": " · TP2 {tp2} ({rr2})",
+    "❌ Cancel if M5 closes {beyond} {level}": "❌ Отмена, если M5 закроется {beyond} {level}",
+    "⏳ Valid until {hhmm} Prague ({what})": "⏳ Действует до {hhmm} Прага ({what})",
+    "block end": "конец блока",
+    "day end": "конец дня",
+    "⚠️ Opus wanted {action} {side} @ {entry} — rejected by the hard limits:":
+        "⚠️ Opus хотел {action} {side} @ {entry} — отклонено жёсткими рамками:",
+    "<b>Why:</b>": "<b>Почему:</b>",
+    "<b>Risks:</b>": "<b>Риски:</b>",
+    "📰 {hhmm} {currency} {title} — no entries {start}–{end}; pull the limit "
+    "before if it has not filled":
+        "📰 {hhmm} {currency} {title} — входов нет {start}–{end}; сними лимитку "
+        "до этого, если не исполнилась",
+    # events
+    "⏳ <b>{pair}</b>: the limit plan expired at {hhmm} Prague — pull the order if "
+    "it is still in the terminal. /plan for a fresh read.":
+        "⏳ <b>{pair}</b>: план с лимиткой истёк в {hhmm} Прага — сними ордер, если "
+        "он ещё в терминале. /plan для нового разбора.",
+    "⏳ <b>{pair}</b>: the watch plan expired at {hhmm} Prague. /plan for a fresh read.":
+        "⏳ <b>{pair}</b>: план наблюдения истёк в {hhmm} Прага. /plan для нового разбора.",
+    "👀 <b>{pair}</b>: price reached the watch zone {lo}–{hi} ({price}).":
+        "👀 <b>{pair}</b>: цена дошла до зоны наблюдения {lo}–{hi} ({price}).",
+    "❌ <b>{pair}</b>: M5 closed beyond the invalidation {level} ({close}) — pull "
+    "the limit if you placed one.":
+        "❌ <b>{pair}</b>: M5 закрылся за уровнем отмены {level} ({close}) — сними "
+        "лимитку, если ставил.",
+    "🔔 <b>{pair}</b>: {event}.": "🔔 <b>{pair}</b>: {event}.",
+    "{reason} — press /plan to ask Opus.": "{reason} — нажми /plan, чтобы спросить Opus.",
+    "Opus event calls for today are spent ({n}/{cap})":
+        "Лимит запросов к Opus по событиям на сегодня исчерпан ({n}/{cap})",
+    "Opus was asked {n} min ago": "Opus спрашивали {n} мин назад",
+    "no ANTHROPIC_API_KEY": "не задан ANTHROPIC_API_KEY",
+    "🧠 <b>{pair}</b>: Opus did not answer ({reason}). Try /plan again.":
+        "🧠 <b>{pair}</b>: Opus не ответил ({reason}). Попробуй /plan ещё раз.",
+    "⚠️ <b>{pair}</b>: data error ({detail})": "⚠️ <b>{pair}</b>: ошибка данных ({detail})",
+    "price reached the watch zone": "цена дошла до зоны наблюдения",
+    "M5 closed beyond the invalidation": "M5 закрылся за уровнем отмены",
+    "a new session opened": "открылась новая сессия",
+    # status / journal
+    "<b>Opus bot — status</b>": "<b>Opus-бот — статус</b>",
+    "no plan yet — /plan": "плана ещё нет — /plan",
+    "<b>Open trades (tracked to TP1/SL):</b>": "<b>Открытые сделки (веду до TP1/SL):</b>",
+    "limit pending": "лимитка ждёт",
+    "watching the zone": "наблюдаю зону",
+    "no trade": "сделки нет",
+    "limit filled": "лимитка исполнена",
+    "entered at market": "вход по рынку",
+    "expired": "истёк",
+    "replaced": "заменён",
+    "<b>Opus journal — last {days} days</b>": "<b>Журнал Opus — последние {days} дней</b>",
+    "Decisions: {n} · limit {limit} · market {market} · wait {wait} · no trade {no}":
+        "Решений: {n} · лимиток {limit} · по рынку {market} · ждать {wait} · без сделки {no}",
+    "Trades: {n} opened · {closed} closed · {wins} TP / {losses} SL · {r}R":
+        "Сделок: {n} открыто · {closed} закрыто · {wins} TP / {losses} SL · {r}R",
+    "nothing yet — press /plan": "пока пусто — нажми /plan",
+    "News filter is off (SMC_NEWS_ENABLED=false)": "Фильтр новостей выключен (SMC_NEWS_ENABLED=false)",
+    # chart
+    "WATCH": "ЗОНА",
+    "Cancel": "Отмена",
+    "Market": "Рынок",
+    "{pair} M5 — Opus plan {action} | price {price}": "{pair} M5 — план Opus {action} | цена {price}",
+    # bot
+    "<b>Opus analyst</b> — the alternative bot\n\n"
+    "Claude Opus reads H4/H1/M5 itself and names the order: a limit, a "
+    "market entry, wait (with a zone it wants to see price at) or no "
+    "trade. The code only enforces the session window, the red-news "
+    "blackout and the minimum RR.\n\n"
+    "After a plan I watch the price every 5 minutes: when price reaches "
+    "the zone, or a candle closes beyond the invalidation, or a new "
+    "session opens, I ask Opus again — a few times a day, never more. "
+    "Once you are in, the trade is yours; I only track the outcome for "
+    "the journal.\n\n"
+    "<b>Commands:</b>\n"
+    "/plan — ask Opus about a pair (or all)\n"
+    "/status — current plans and open trades\n"
+    "/journal — decisions and outcomes, last 30 days\n"
+    "/news — today's red news (Forex Factory)\n"
+    "/help — this help":
+        "<b>Аналитик Opus</b> — альтернативный бот\n\n"
+        "Claude Opus сам читает H4/H1/M5 и называет ордер: лимитку, вход по "
+        "рынку, ждать (с зоной, где хочет увидеть цену) или без сделки. Код "
+        "проверяет только сессию, новостной блэкаут и минимальный RR.\n\n"
+        "После плана я смотрю цену каждые 5 минут: когда цена дошла до зоны, "
+        "свеча закрылась за уровнем отмены или открылась новая сессия — "
+        "спрашиваю Opus снова, несколько раз в день, не больше. Как только ты "
+        "вошёл, сделка твоя; я лишь веду исход для журнала.\n\n"
+        "<b>Команды:</b>\n"
+        "/plan — спросить Opus про пару (или все)\n"
+        "/status — текущие планы и открытые сделки\n"
+        "/journal — решения и исходы за 30 дней\n"
+        "/news — красные новости на сегодня (Forex Factory)\n"
+        "/help — эта справка",
+    "Ask Opus about a pair": "Спросить Opus про пару",
+    "Current plans and open trades": "Текущие планы и открытые сделки",
+    "Decisions and outcomes": "Решения и исходы",
+    "Claude Opus names the order: limit, market, wait":
+        "Claude Opus называет ордер: лимитка, рынок, ждать",
+    "ALL pairs": "ВСЕ пары",
+    "Which pair should Opus read?": "Какую пару разобрать Opus?",
+    "Unknown pair: {pair}. Watched: {pairs}": "Неизвестная пара: {pair}. Слежу за: {pairs}",
+    "Unknown command. /help lists what I can do.": "Неизвестная команда. /help — что я умею.",
+    "🧠 Asking Opus about {pairs} — a minute or two…": "🧠 Спрашиваю Opus про {pairs} — минута-две…",
+})

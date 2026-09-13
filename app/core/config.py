@@ -233,6 +233,87 @@ class SMCSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SMC_")
 
 
+class OpusSettings(BaseSettings):
+    """The Opus analyst bot (`opus_bot.py`, owner request 2026-09-13): a
+    SECOND Telegram bot, a second Railway service from this repo, where
+    Claude Opus reads the candles itself and names the order — limit,
+    market, wait or no trade. Separate token and chat so the two bots can
+    be compared side by side; the Anthropic key and the market-data keys
+    are shared with the watcher."""
+
+    bot_token: Optional[str] = Field(
+        default=None, description="Telegram bot token of the Opus bot"
+    )
+    chat_id: Optional[str] = Field(
+        default=None,
+        description="Owner chat id for the Opus bot (falls back to "
+        "TELEGRAM_CHAT_ID — same owner, second bot)",
+    )
+    model: str = Field(
+        default="claude-opus-5",
+        description="Claude model that makes the decision (Opus 5 by the "
+        "owner's choice; the watcher's ANTHROPIC_MODEL is not used here)",
+    )
+    effort: str = Field(
+        default="high",
+        description="Claude effort for a decision: low | medium | high | xhigh",
+    )
+    timeout_s: float = Field(
+        default=240.0, description="Per-call timeout for a decision, seconds"
+    )
+    fallbacks: bool = Field(
+        default=True,
+        description="Server-side refusal fallbacks (beta): a policy decline "
+        "is re-run on the default fallback model inside the same call. "
+        "Retried without the parameter when the API rejects it",
+    )
+    pairs: str = Field(
+        default="ETHUSD,USDJPY,USDCAD",
+        description="Comma-separated pairs the Opus bot serves and monitors",
+    )
+    min_rr: float = Field(
+        default=2.0,
+        description="Hard limit: an order whose RR to TP1 is below this is "
+        "sent back to the model once, then downgraded to WAIT",
+    )
+    h4_candles: int = Field(default=80, description="H4 candles shown to the model")
+    h1_candles: int = Field(default=150, description="H1 candles shown to the model")
+    m5_candles: int = Field(default=200, description="M5 candles shown to the model")
+    monitor_interval_minutes: int = Field(
+        default=5,
+        description="In-session cadence of the cheap price check that "
+        "drives the event calls (zone reached, plan invalidated). Off "
+        "session nothing is monitored — no entries there",
+    )
+    tick_offset_s: int = Field(
+        default=90,
+        description="Seconds after the aligned slot the monitor ticks at, so "
+        "its Twelve Data requests do not collide with the watcher's burst "
+        "at slot+10s (the two services share one key)",
+    )
+    max_event_calls_per_day: int = Field(
+        default=6,
+        description="Event-driven Opus calls per pair per Prague day (a "
+        "/plan press is never counted). Past the cap the event is still "
+        "announced, without a new read",
+    )
+    event_cooldown_min: int = Field(
+        default=15,
+        description="Minutes after any Opus call before an event may "
+        "trigger another one for the same pair",
+    )
+    db_file: str = Field(
+        default=".opus_bot.db",
+        description="SQLite file for the Opus bot's plans and journal — "
+        "separate from the watcher's SMC_DB_FILE",
+    )
+
+    def default_pairs(self) -> list[str]:
+        return [p.strip().upper() for p in self.pairs.split(",") if p.strip()]
+
+    model_config = SettingsConfigDict(env_prefix="OPUS_")
+
+
 class LoggingSettings(BaseSettings):
     """Logging configuration."""
 
@@ -261,6 +342,7 @@ class Settings(BaseSettings):
     oanda: OandaSettings = Field(default_factory=OandaSettings)
     twelvedata: TwelveDataSettings = Field(default_factory=TwelveDataSettings)
     smc: SMCSettings = Field(default_factory=SMCSettings)
+    opus: OpusSettings = Field(default_factory=OpusSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     model_config = SettingsConfigDict(

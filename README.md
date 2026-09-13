@@ -44,6 +44,43 @@ setup appears.
 - 📒 **Signal journal**: every alert is auto-tracked to its TP/SL outcome;
   `/stats` shows signal winrate and your personal (taken) winrate separately
 
+## Opus analyst bot — the alternative (`opus_bot.py`)
+
+A **second, separate Telegram bot** (owner request 2026-09-13) in which
+**Claude Opus is the strategy**: on `/plan` it reads H4/H1/M5 itself — the
+candles as rows, the H1 and M5 charts, today's red news, the rule engine's
+reading as a labelled hint — and names the order: **limit** (entry / SL /
+TP1 / TP2 / a cancel level / validity), **market**, **wait** (with the zone
+it wants to see price at) or **no trade**, plus a read, the reasons and the
+risks. The code enforces only what the owner asked it to: the session
+window, the red-news blackout and the minimum RR to TP1 (`OPUS_MIN_RR`,
+1:2), plus order geometry — a failing answer goes back to the model once
+with the violations, a still-failing order is downgraded to WAIT and the
+card says what the model wanted and why it was rejected.
+
+After a plan the bot watches the price every five minutes in session and
+asks Opus again — at most `OPUS_MAX_EVENT_CALLS_PER_DAY` times per pair —
+when price **reaches the watch zone**, when an M5 candle **closes beyond
+the cancel level**, or when a **new session block opens**. A plan that
+expires sends one "pull the order" line. A filled limit becomes a trade
+tracked silently to TP1/SL for `/journal`; the position is yours (Opus is
+consulted only up to the entry). Commands: `/plan`, `/status`, `/journal`,
+`/news`, `/help`. Russian by default (`SMC_LANG`).
+
+Run it as a **second Railway service from this repo**: start command
+`python opus_bot.py`, its own volume (`OPUS_DB_FILE=/data/opus.db`), its
+own `OPUS_BOT_TOKEN`; `ANTHROPIC_API_KEY`, the forex key and the news
+settings are shared with the watcher. Set `TWELVEDATA_MAX_PER_MIN=4` on
+both services when they share one free Twelve Data key. One decision costs
+roughly $0.15–0.30 in Opus tokens (two charts, ~430 candle rows, adaptive
+thinking at `OPUS_EFFORT=high`).
+
+```bash
+python opus_bot.py                 # run forever: monitor + command bot
+python opus_bot.py --plan USDJPY   # one decision for a pair, sent + printed
+python opus_bot.py --test-telegram
+```
+
 ## Supported pairs
 
 | Pair | Data source | Min FVG | Notes |

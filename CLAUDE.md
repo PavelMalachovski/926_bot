@@ -52,7 +52,7 @@ warning. "No valid FVG" left this list on 2026-08-30 (D22).
 
 ```bash
 pytest tests/ -v                       # full test suite (fast, no network)
-flake8 app/ tests/ smc_watcher.py smc_backtest.py   # lint (config in .flake8)
+flake8 app/ tests/ smc_watcher.py smc_backtest.py opus_bot.py   # lint (config in .flake8)
 python smc_watcher.py --once           # live one-shot check (real market data)
 python smc_backtest.py --pair USDJPY --days 365     # walk-forward backtest
                                        # (forex needs TWELVEDATA_API_KEY;
@@ -61,6 +61,9 @@ python smc_backtest.py --selftest      # offline pipeline check on synthetic
                                        # candles — no network, no keys
 python smc_watcher.py --test-telegram  # sends test messages to the owner chat
 python smc_watcher.py                  # run forever: scheduler + command bot
+python opus_bot.py                     # the Opus analyst bot (second service,
+                                       # needs OPUS_BOT_TOKEN + ANTHROPIC_API_KEY)
+python opus_bot.py --plan USDJPY       # one Opus decision, sent + printed
 ```
 
 Local runs need `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (a dummy token
@@ -83,6 +86,44 @@ smc_watcher.py            Watcher class: 5-min in-session scheduler (15-min
                           plan-updated message
 smc_backtest.py           backtest CLI: cached history -> backtest.py ->
                           plain-text report (see the commands block)
+opus_bot.py               the Opus analyst bot (owner request 2026-09-13):
+                          a SECOND Telegram bot / Railway service in which
+                          Claude Opus reads the candles itself and names
+                          the order. OpusWatcher: /plan -> fetch -> brief +
+                          context charts -> analyst -> hard limits -> card
+                          + M5 chart; 5-min in-session monitor that
+                          re-asks Opus on events (zone reached /
+                          invalidated / new session), tracks fills to
+                          TP1/SL for /journal. Never imported by the
+                          watcher
+app/services/opus/        the Opus bot's own package (shares only sources,
+├── analyst.py            news, sessions, i18n, chart primitives with smc/)
+│                         OpusAnalyst: system prompt (the model IS the
+│                         strategy), one call with a JSON schema, one
+│                         retry carrying the violations, downgrade to WAIT
+├── decision.py           Decision + DECISION_SCHEMA + `violations` (the
+│                         hard limits: session, blackout, min RR, order
+│                         geometry, invalidation side) + `downgrade`
+├── brief.py              the text the model reasons from: clock/session,
+│                         news, orders today, the rule engine's reading
+│                         (describe_for_ai over engine.evaluate) as a
+│                         labelled hint, liquidity, candle rows; previous
+│                         plan + event on follow-ups
+├── plan.py               OpusPlan / Trade dataclasses; advance_plan (fill,
+│                         invalidation, zone reached, expiry — each once)
+│                         and advance_trade (TP1/SL, same candle = SL)
+├── store.py              PlanStore on db.Database kv (own file
+│                         OPUS_DB_FILE): plans, trades, history, the
+│                         event-call budget, last session block
+├── messages.py           the card, event notices, /status, /journal
+├── chart.py              context charts for the model, plan chart for
+│                         the owner (smc.chart primitives)
+└── telegram.py           OpusCommandBot: /plan /status /journal /news
+                          /help, long polling, owner chat only
+app/services/smc/sources.py  forex_source / build_fetcher — the fetcher
+                          factory both bots use (moved out of the watcher
+                          2026-09-13; smc_watcher re-exports the private
+                          names for its tests)
 app/services/smc/
 ├── engine.py             TripleSyncEngine: rules 0-8 checklist; pure
 │                         evaluate() is fully unit-testable on synthetic candles
@@ -276,6 +317,32 @@ tracking → live-card edits on fill/TP/SL events.
   plan slots and the digest time into `_seconds_until_next_wake`, and the
   scheduler sleeps to whichever comes first. Change a time and the wake
   follows it; nothing else needs touching.
+- **The Opus analyst bot is a separate product** (owner request
+  2026-09-13, «альтернатива этому боту»): `opus_bot.py` +
+  `app/services/opus/`, its own token (`OPUS_BOT_TOKEN`), its own SQLite
+  file, a second Railway service from this image. There the model IS the
+  strategy — none of the strategy rules above apply to it, and nothing in
+  it may be imported by the watcher or change the watcher's behaviour.
+  What the code enforces is exactly the owner's three picks — the session
+  window, the red-news blackout (60/15), RR ≥ `OPUS_MIN_RR` to TP1 — plus
+  the geometry that makes an order an order (`decision.violations`); a
+  failing answer is sent back to the model ONCE with the violations, a
+  still-failing order is downgraded to WAIT with the model's numbers kept
+  on the card (`decision.downgrade`). Never "fix" the model's levels in
+  code. The invalidation has two meanings and `plan.cancel_side` is the
+  one place that knows them: for a LIMIT it sits on the target side of
+  the market (a close there = the move left without a fill, pull the
+  order); for WAIT / NO TRADE it sits on the stop side of the watch zone.
+  Opus is asked on a `/plan` press (never budgeted) and on three events
+  only — zone reached, invalidated, new session block — each once per
+  plan, under `OPUS_MAX_EVENT_CALLS_PER_DAY` and `OPUS_EVENT_COOLDOWN_MIN`;
+  past the budget the event is still announced without a read. After the
+  entry the bot is silent: a fill opens a `Trade` tracked to TP1/SL for
+  `/journal`, no message. Bot text follows the same i18n rule as the
+  watcher (English keys, RU catalog; `test_i18n` scans the package).
+  The two services share one Twelve Data key: the monitor fetches M5 only,
+  ticks at slot+`OPUS_TICK_OFFSET_S`, and both should run with
+  `TWELVEDATA_MAX_PER_MIN=4`.
 - **Quiet mode is the default**: Telegram receives only found setups (and
   Rule 9/0.4 warnings + the 07:55 digest). Everything else goes to logs.
   Do not add chatty messages without being asked. The Rule 0.4 pre-news

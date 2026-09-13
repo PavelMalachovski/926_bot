@@ -63,6 +63,7 @@ from app.services.smc.planbook import (
 )
 from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
+from app.services.smc.sources import build_fetcher, forex_source
 from app.services.smc.sessions import (
     PRAGUE, active_session, block_mute_deadline, prague_hhmm, session_block,
     to_prague,
@@ -91,56 +92,12 @@ APPROVED = (Verdict.APPROVED_LIMIT, Verdict.APPROVED_MARKET)
 _NO_FETCH = object()
 
 
-def _forex_source() -> str:
-    """Resolve the configured forex source, honouring 'auto'.
-
-    There is no keyless fallback any more (the previous keyless forex feed
-    was removed — its data was bad enough to have produced a wrong strategy
-    conclusion during replay validation). A forex pair with no usable key is
-    a configuration error, not a silent downgrade: it must fail clearly here
-    so the caller can warn the owner instead of quietly returning no data.
-    """
-    source = settings.smc.forex_source.strip().lower()
-    if source == "auto":
-        if settings.twelvedata.api_key:
-            return "twelvedata"
-        if settings.oanda.api_token:
-            return "oanda"
-        raise ConfigurationError(
-            "No forex data source configured: set TWELVEDATA_API_KEY or "
-            "OANDA_API_TOKEN (SMC_FOREX_SOURCE=auto has nothing to pick "
-            "from — the keyless forex fallback has been removed)."
-        )
-    if source == "twelvedata":
-        if not settings.twelvedata.api_key:
-            raise ConfigurationError(
-                "SMC_FOREX_SOURCE=twelvedata but TWELVEDATA_API_KEY is not set."
-            )
-        return "twelvedata"
-    if source == "oanda":
-        if not settings.oanda.api_token:
-            raise ConfigurationError(
-                "SMC_FOREX_SOURCE=oanda but OANDA_API_TOKEN is not set."
-            )
-        return "oanda"
-    raise ConfigurationError(
-        f"Unknown SMC_FOREX_SOURCE: {source!r} (use 'auto', 'twelvedata' or "
-        "'oanda')."
-    )
-
-
-def _build_fetcher(instrument: Instrument):
-    if instrument.source == "crypto":
-        # ETHUSD stays on Binance: unlimited, deep history, funding rate.
-        return BinanceDataFetcher(instrument.source_symbol)
-    source = _forex_source()
-    if source == "twelvedata":
-        return TwelveDataFetcher(instrument.key, settings.twelvedata.api_key)
-    return OandaDataFetcher(
-        symbol=instrument.source_symbol,
-        api_token=settings.oanda.api_token,
-        environment=settings.oanda.environment,
-    )
+# The source resolution and the fetcher factory moved to
+# `app.services.smc.sources` (2026-09-13) so the Opus analyst bot builds its
+# fetchers the same way. The private names stay bound here: tests and
+# `Watcher._build_fetcher` refer to them through this module.
+_forex_source = forex_source
+_build_fetcher = build_fetcher
 
 
 def _build_engine(
