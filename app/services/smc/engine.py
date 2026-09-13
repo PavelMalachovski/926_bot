@@ -208,6 +208,7 @@ class TripleSyncEngine:
         result.m5_candles = data["m5"]  # kept for chart rendering
         result.h4_candles = data["h4"]  # planbook recompute reads these —
         result.h1_candles = data["h1"]  # zero extra fetches per cycle
+        result.d1_candles = data.get("d1") or None  # D29, best-effort
 
         # Closed market (forex weekend): the newest M5 candle is stale.
         age = now - data["m5"][-1].timestamp
@@ -227,6 +228,7 @@ class TripleSyncEngine:
             h1=data["h1"],
             m5=data["m5"],
             result=result,
+            d1=data.get("d1") or None,
         )
 
     def evaluate(
@@ -236,8 +238,15 @@ class TripleSyncEngine:
         m5: List[Candle],
         result: AnalysisResult,
         force_direction: Optional[Direction] = None,
+        d1: Optional[List[Candle]] = None,
     ) -> AnalysisResult:
         """Evaluate rules 1-8 on the given candles (pure, testable).
+
+        `d1` (owner decision D29, 2026-09-13) is optional and LABEL-ONLY:
+        the daily trend goes on the result for the card, the audit and the
+        AI fact sheet, and the daily unswept pools join the liquidity
+        ladder (TP1-3, the audit's targets) — Rule 1's direction and Rule
+        7's nearest-pool objective read exactly what they read before.
 
         `force_direction` (owner decision D23, 2026-08-31) skips Rule 1's
         own resolution and trades the side it names. It exists for exactly
@@ -257,6 +266,7 @@ class TripleSyncEngine:
         # of calling detect_trend(h1) a second time.
         result.h4_trend = detect_trend(h4)
         result.h1_trend = detect_trend(h1)
+        result.d1_trend = detect_trend(d1) if d1 else None
         direction = None
         # The range boundary the setup forms at, when a range supplied the
         # direction — Rule 2 takes it as the zone of interest, and Rules 6/7
@@ -686,8 +696,12 @@ class TripleSyncEngine:
             + find_liquidity(h1, "H1", tolerance)
             + find_liquidity(h4, "H4", tolerance)
         )
+        # D29: daily pools join the LADDER (what TP1-3 and the audit pick
+        # from) but not `levels` — Rule 7's nearest-liquidity objective
+        # below stays byte-for-byte what it was without D1.
+        ladder_levels = levels + (find_liquidity(d1, "D1", tolerance) if d1 else [])
         ladder = liquidity_ladder(
-            levels, direction, entry, tolerance=self.instrument.min_fvg,
+            ladder_levels, direction, entry, tolerance=self.instrument.min_fvg,
         )
         target = None
         take_profit = None

@@ -75,6 +75,7 @@ DIRECTIONS = ("long", "short", "none")
 # place a level on an actual wick. ~3 hours of M5 and a day of H1.
 FACT_M5_CANDLES = 36
 FACT_H1_CANDLES = 24
+FACT_D1_CANDLES = 60  # D29: ~three months of daily structure
 
 PROPOSAL_SCHEMA = {
     "type": "object",
@@ -371,6 +372,33 @@ def _day_level_lines(result: AnalysisResult, d: int) -> List[str]:
     return out
 
 
+def _d1_lines(result: AnalysisResult, d: int) -> List[str]:
+    """D29: what the daily chart says — the previous day's and week's
+    extremes off DAILY candles, and the last daily candles as rows (the
+    top-down context an ICT read starts from, which the model used to
+    infer from H4 by eye)."""
+    from app.services.smc import sniper
+
+    d1 = list(result.d1_candles or [])
+    if not d1:
+        return []
+    out = []
+    levels = sniper.daily_levels(d1, result.checked_at)
+    if levels:
+        out.append(
+            f"Daily levels (D1): PDH {_fmt(levels['pdh'], d)}, PDL {_fmt(levels['pdl'], d)}"
+            + (
+                f"; previous week high {_fmt(levels['pwh'], d)}, low {_fmt(levels['pwl'], d)}"
+                if levels["pwh"] is not None else ""
+            )
+        )
+    out.append(
+        "Recent D1 candles, oldest first, O/H/L/C: "
+        + _candle_rows(d1, FACT_D1_CANDLES, d, "%d.%m")
+    )
+    return out
+
+
 def describe_catalog(catalog: LevelCatalog, min_rr: float) -> str:
     """The ALLOWED lists the prompt refers to, in the fact sheet's own
     words. Printed last so the model reads the context first."""
@@ -468,6 +496,7 @@ def describe_for_ai(
     lines += [
         f"H4 trend: {result.h4_trend.value}; H1 trend: "
         f"{result.h1_trend.value if result.h1_trend is not None else 'n/a'}; "
+        f"D1 trend: {result.d1_trend.value if result.d1_trend is not None else 'n/a'}; "
         f"direction source: {result.direction_source}",
     ]
     box = result.market_range
@@ -593,6 +622,7 @@ def describe_for_ai(
             else "This setup does NOT match that plan's direction/zone."
         )
     lines.extend(_day_level_lines(result, d))
+    lines.extend(_d1_lines(result, d))
     if news:
         lines.append(news)
     if orders:

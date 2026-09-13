@@ -34,6 +34,7 @@ C:\\temp\\926_bot_data\\scripts\\sn_run.py).
 """
 
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
@@ -71,6 +72,28 @@ def _asia_extremes(candles: List[Candle], day) -> Optional[Tuple[float, float]]:
     if not rows:
         return None
     return min(c.low for c in rows), max(c.high for c in rows)
+
+
+def daily_levels(d1: List[Candle], as_of) -> Optional[dict]:
+    """D29: the day-level pools read off DAILY candles — the previous
+    closed day's high/low (PDH/PDL) and the previous ISO week's high/low
+    (PWH/PWL) — for the charts and the AI fact sheet. `as_of` slices the
+    series so a backtest never sees a day that had not closed. None
+    without a closed daily candle; the weekly pair is None until a full
+    previous week exists in the series."""
+    rows = [c for c in d1 if as_of is None or c.timestamp + timedelta(days=1) <= as_of]
+    if not rows:
+        return None
+    last = rows[-1]
+    out = {"pdh": last.high, "pdl": last.low, "pwh": None, "pwl": None}
+    this_week = _prague_date(as_of or last.timestamp).isocalendar()[:2]
+    prev = [c for c in rows if _prague_date(c.timestamp).isocalendar()[:2] < this_week]
+    if prev:
+        wk = _prague_date(prev[-1].timestamp).isocalendar()[:2]
+        week = [c for c in prev if _prague_date(c.timestamp).isocalendar()[:2] == wk]
+        out["pwh"] = max(c.high for c in week)
+        out["pwl"] = min(c.low for c in week)
+    return out
 
 
 def _session_candles(

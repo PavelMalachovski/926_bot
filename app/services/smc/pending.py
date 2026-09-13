@@ -105,6 +105,7 @@ def _levels(
     h4: Sequence[Candle],
     h1: Sequence[Candle],
     m5: Optional[Sequence[Candle]] = None,
+    d1: Optional[Sequence[Candle]] = None,
 ) -> List[LiquidityLevel]:
     """The pools the targets are picked from. M5 joins only once a setup has
     formed — hours before price reaches a zone its swings will have been
@@ -118,6 +119,8 @@ def _levels(
     )
     if m5:
         levels = find_liquidity(list(m5), "M5", tolerance) + levels
+    if d1:  # D29: the daily pools are targets too
+        levels = levels + find_liquidity(list(d1), "D1", tolerance)
     return levels
 
 
@@ -227,6 +230,7 @@ def build_pending(
     h4: Sequence[Candle],
     h1: Sequence[Candle],
     m5: Sequence[Candle],
+    d1: Optional[Sequence[Candle]] = None,
 ) -> PendingAnalysis:
     """Price the pending entries for the state the engine left `result` in.
 
@@ -255,7 +259,7 @@ def build_pending(
 
     if result.verdict in APPROVED and setup is not None:
         direction = setup.direction
-        levels = _levels(instrument, h4, h1, m5)
+        levels = _levels(instrument, h4, h1, m5, d1)
 
         def priced(label, entry, stop, zone=None, kind="") -> Optional[PendingEntry]:
             if not _well_formed(direction, entry, stop):
@@ -333,7 +337,7 @@ def build_pending(
     if result.verdict == Verdict.WATCH and result.h1_zone is not None:
         zone = result.h1_zone
         direction = Direction.LONG if zone.is_demand else Direction.SHORT
-        levels = _levels(instrument, h4, h1)
+        levels = _levels(instrument, h4, h1, d1=d1)
         rungs = []
         if zone.kind == "RANGE" and box is not None:
             entry, stop = _boundary_bracket(box, direction, buffer)

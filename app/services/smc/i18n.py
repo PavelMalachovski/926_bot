@@ -761,3 +761,8 @@ RU.update({
     "🧠 <b>{pair}: AI re-read</b> — {before} → {after} · order: {old} → {new}":
         "🧠 <b>{pair}: AI перечитал</b> — {before} → {after} · ордер: {old} → {new}",
 })
+
+# ---- D29 (owner decision 2026-09-13): the daily candle, label-only ----
+RU.update({
+    " ⚠️ against D1": " ⚠️ против D1",
+})

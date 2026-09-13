@@ -253,6 +253,28 @@ def _direction_source_label(result: AnalysisResult, is_long: bool) -> str:
     return f"H4 {trend_label(result.h4_trend)}"
 
 
+def against_d1(d1_trend: Optional[Trend], direction: Optional[Direction]) -> bool:
+    """D29: the trade runs against a clean daily trend. Label only — the
+    ⭐ does not read it (step 2, the owner decides after the journal has
+    scored a few weeks of it)."""
+    if d1_trend is None or direction is None:
+        return False
+    return (
+        (d1_trend == Trend.DOWN and direction == Direction.LONG)
+        or (d1_trend == Trend.UP and direction == Direction.SHORT)
+    )
+
+
+def _d1_suffix(result: AnalysisResult, direction: Optional[Direction]) -> str:
+    """' · D1 up' plus the ⚠️ marker when the setup trades against it."""
+    if result.d1_trend is None:
+        return ""
+    out = f" · D1 {result.d1_trend.value}"
+    if against_d1(result.d1_trend, direction):
+        out += t(" ⚠️ against D1")
+    return out
+
+
 def _pd_line(result: AnalysisResult) -> Optional[str]:
     """Where the entry sits inside its dealing range, as a number.
 
@@ -636,6 +658,10 @@ def format_setup_analysis(
             f" · H4 {trend_label(result.h4_trend)}"
             f" · H1 {trend_label(result.h1_trend)}"
         )
+        if result.d1_trend is not None:
+            head += f" · D1 {trend_label(result.d1_trend)}"
+            if against_d1(result.d1_trend, analysis.direction):
+                head += t(" ⚠️ against D1")
     lines = [head]
     if result.price:
         suffix = (
@@ -813,6 +839,7 @@ def _format_detector_alert(
         agree = f"H4 {result.h4_trend.value} · H1 {result.h1_trend.value}"
         if trends_disagree(result.h4_trend, result.h1_trend):
             agree += t(" ⚠️ counter-hourly")
+        agree += _d1_suffix(result, setup.direction)
         lines.append(agree)
     pd_line = _pd_line(result)
     if pd_line:

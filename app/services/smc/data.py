@@ -15,6 +15,11 @@ SPOT_BASE = "https://api.binance.com"
 FUTURES_BASE = "https://fapi.binance.com"
 
 
+# D29: daily candles served alongside H4/H1/M5 — ~4 months, enough for the
+# daily swing structure and last week's extremes.
+D1_LIMIT = 120
+
+
 class BinanceDataFetcher:
     """Fetches OHLC candles and funding rate from Binance public endpoints."""
 
@@ -63,11 +68,22 @@ class BinanceDataFetcher:
     ) -> Dict[str, List[Candle]]:
         """Fetch H4 / H1 / M5 candles in one call (Binance is never cached,
         so force_fresh is a no-op — kept for a uniform fetcher interface)."""
-        return {
+        data = {
             "h4": await self.fetch_candles("4h", limit=300),
             "h1": await self.fetch_candles("1h", limit=400),
             "m5": await self.fetch_candles("5m", limit=400),
         }
+        data["d1"] = await self._fetch_d1()
+        return data
+
+    async def _fetch_d1(self) -> List[Candle]:
+        """D29: the daily candles, best-effort — a D1 failure must never
+        cost the cycle its H4/H1/M5 (the engine runs without D1)."""
+        try:
+            return await self.fetch_candles("1d", limit=D1_LIMIT)
+        except DataFetchError as e:
+            logger.warning("Binance D1 fetch failed — continuing without", error=str(e))
+            return []
 
     async def fetch_funding_rate(self) -> Optional[float]:
         """Fetch the current perpetual funding rate (per 8h). None on failure."""

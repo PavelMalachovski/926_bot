@@ -1232,7 +1232,7 @@ class TestChartOffTheEventLoop:
 
         calls = []
 
-        def failing_render(plan, h1):
+        def failing_render(plan, h1, **kwargs):
             calls.append(plan.pair)
             raise RuntimeError("boom")
 

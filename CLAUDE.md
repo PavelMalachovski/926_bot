@@ -145,7 +145,8 @@ app/services/smc/
 ├── sessions.py           trading hours 08:00-18:30 Prague, two blocks split
 │                         at 14:00 (London/NY FVG separation), forex Mon-Fri
 ├── instruments.py        per-pair registry: source, min FVG, SL buffer, pip
-├── data.py / twelvedata.py / oanda.py   candle fetchers (same interface):
+├── data.py / twelvedata.py / oanda.py   candle fetchers (same interface,
+│                         H4/H1/M5 + best-effort D1 since D29):
 │                         crypto=Binance always; forex source per
 │                         SMC_FOREX_SOURCE (auto = TwelveData key > OANDA
 │                         token; a forex key is required, no keyless
@@ -489,6 +490,33 @@ tracking → live-card edits on fill/TP/SL events.
   → none`) goes out ONLY when `_read_changed`: the stance moved, the
   order appeared/disappeared, or moved to another price beyond `min_fvg`
   / side — confidence and wording alone stay silent.
+- **The daily candle is a label, not a rule** (owner decision D29,
+  2026-09-13, step 1 of two). Every fetcher now serves `data["d1"]`
+  alongside H4/H1/M5 (Binance `1d`, Twelve Data `1day` behind a 6-hour
+  `_TF_CACHE_TTL` so the free quota pays one call per pair per 6 h, OANDA
+  `D`; 120 candles) **best-effort**: a D1 failure logs and the cycle runs
+  on H4/H1/M5 exactly as before, and every consumer takes `d1=None`.
+  `engine.evaluate(d1=)` sets `AnalysisResult.d1_trend` with the same
+  `detect_trend` and adds the D1 unswept pools to the **ladder** only
+  (`find_liquidity(d1, "D1")` — TP1-3 and the audit's targets see them);
+  `levels` for Rule 7's `nearest_liquidity` and the ⭐'s room are
+  untouched, so the objective and the tier are byte-identical with or
+  without D1. Rule 1 never reads it. What the owner sees: the card's
+  trend line and the audit head gain `· D1 down`, plus `⚠️ against D1`
+  (`notifier.against_d1`) when a clean daily trend opposes the trade;
+  the AI fact sheet carries `D1 trend`, `Daily levels (D1): PDH/PDL,
+  previous week high/low` (`sniper.daily_levels`, sliced at `as_of` so
+  a replay never sees an unclosed day) and 60 D1 OHLC rows; both charts
+  draw PDH/PDL and PWH/PWL as dotted grey-blue lines
+  (`chart._draw_daily_levels`), only when inside the window — an
+  off-window daily level is skipped, never allowed to flatten the
+  y-axis. The backtest takes `d1=` (`D1_WINDOW` 120, `smc_backtest`
+  loads `d1` history with a 130-day lead) and passes it to the engine
+  only when supplied, so engine stubs and old caches keep working.
+  **Step 2** — whether the daily bias joins the ⭐ conditions like D6's
+  H1 check — is the owner's call after the journal has scored a few
+  weeks of `against D1` setups; until then nothing here suppresses,
+  re-prices or re-tiers a setup.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

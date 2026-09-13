@@ -179,6 +179,12 @@ class AnalysisResult:
     # Rule 1 returned before reaching the trend computation at all (e.g. the
     # off-session/market-closed early returns).
     h1_trend: Optional[Trend] = None
+    # D29 (owner decision 2026-09-13): the DAILY trend, label-only. Read
+    # with the same `detect_trend` as H4/H1 when D1 candles were fetched;
+    # None when they were not (a fetcher that could not serve D1, an old
+    # fixture). Rule 1 never reads it — the card/audit print it and mark
+    # "⚠️ against D1", the AI fact sheet carries it, nothing suppresses.
+    d1_trend: Optional[Trend] = None
     # Where the trade direction came from: "h4" (a real H4 trend, the normal
     # case), "h1" (H4 was flat, H1 has a clean trend — owner decision
     # 2026-08-06, H1 is a trend too, just a lower one, not a counter-trend
@@ -221,6 +227,9 @@ class AnalysisResult:
     in_zone: bool = False
     # last fetched M5 candles (in-memory only, used for chart rendering)
     m5_candles: Optional[List[Candle]] = field(default=None, repr=False)
+    # D29: the daily candles the cycle fetched (optional — best-effort in
+    # every fetcher), for the chart's daily levels and the AI fact sheet.
+    d1_candles: Optional[List[Candle]] = field(default=None, repr=False)
     h4_candles: Optional[List[Candle]] = field(
         default=None, repr=False
     )  # kept for plan recompute

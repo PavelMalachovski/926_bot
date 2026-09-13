@@ -554,6 +554,7 @@ class Watcher:
         counter.m5_candles = result.m5_candles
         counter.h4_candles = result.h4_candles
         counter.h1_candles = result.h1_candles
+        counter.d1_candles = result.d1_candles
         try:
             # `evaluate` is pure and never touches the fetcher, so the engine
             # is built with a placeholder rather than constructing a second
@@ -565,6 +566,7 @@ class Watcher:
                 m5=result.m5_candles,
                 result=counter,
                 force_direction=direction,
+                d1=result.d1_candles,
             )
         except Exception as e:
             logger.warning(
@@ -979,7 +981,8 @@ class Watcher:
             from app.services.smc.chart import render_plan_chart
 
             return await asyncio.to_thread(
-                render_plan_chart, entry.plan, entry.data["h1"]
+                render_plan_chart, entry.plan, entry.data["h1"],
+                d1=entry.data.get("d1"),
             )
         except Exception as e:
             logger.warning("Plan chart for AI read failed", pair=key, error=str(e))
@@ -1002,7 +1005,7 @@ class Watcher:
             # limit rungs the model may rest an order on
             audit = self._audit(key, {
                 "h4": result.h4_candles or [], "h1": result.h1_candles or [],
-                "m5": result.m5_candles or [],
+                "m5": result.m5_candles or [], "d1": result.d1_candles or [],
             }, result) if result.m5_candles else None
             catalog = build_catalog(result, instrument, audit)
             read = await reader.read(
@@ -1471,7 +1474,7 @@ class Watcher:
         try:
             png = await asyncio.to_thread(
                 render_plan_chart, entry.plan, entry.data["h1"], proposal=proposal,
-                setup=entry.result.setup,
+                setup=entry.result.setup, d1=entry.data.get("d1"),
             )
             if png:
                 await self.notifier.send_photo(png)
@@ -1491,6 +1494,7 @@ class Watcher:
         try:
             return build_pending(
                 result, get_instrument(key), data["h4"], data["h1"], data["m5"],
+                d1=data.get("d1") or None,
             )
         except Exception as e:
             logger.warning("Audit failed", pair=key, error=str(e), exc_info=True)
@@ -1674,6 +1678,7 @@ class Watcher:
             "h4": result.h4_candles,
             "h1": result.h1_candles,
             "m5": result.m5_candles,
+            "d1": result.d1_candles or [],
         }
         # D25: refresh the audit from this cycle's own engine result — free
         # by API quota, and it is what the aplan_* button delivers. D26: the
@@ -1937,7 +1942,8 @@ class Watcher:
         )
         try:
             png = await asyncio.to_thread(
-                render_plan_chart, entry.plan, entry.data["h1"]
+                render_plan_chart, entry.plan, entry.data["h1"],
+                d1=entry.data.get("d1"),
             )
             if png:
                 await self.notifier.send_photo(png)
@@ -1963,6 +1969,7 @@ class Watcher:
         res.m5_candles = data["m5"]
         res.h4_candles = data["h4"]
         res.h1_candles = data["h1"]
+        res.d1_candles = data.get("d1") or None
         from app.services.smc.profiles import get_profile
 
         profile = get_profile(
@@ -1973,7 +1980,8 @@ class Watcher:
         # `evaluate` is pure and never touches the fetcher, so a placeholder
         # stands in for the live client (see `_counter_trend_result`).
         return _build_engine(instrument, profile, fetcher=_NO_FETCH).evaluate(
-            h4=data["h4"], h1=data["h1"], m5=data["m5"], result=res
+            h4=data["h4"], h1=data["h1"], m5=data["m5"], result=res,
+            d1=data.get("d1") or None,
         )
 
     def _live_status(self, instrument: Instrument, data: dict, now) -> str:
