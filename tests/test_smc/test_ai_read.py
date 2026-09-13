@@ -211,8 +211,9 @@ class _StubReader:
         self.enabled = True
         self.model = "stub"
 
-    async def read(self, facts, images=(), as_of=""):
+    async def read(self, facts, images=(), as_of="", catalog=None):
         self.facts.append((facts, list(images), as_of))
+        self.catalogs = getattr(self, "catalogs", []) + [catalog]
         if self.error:
             raise self.error
         return self.read_value

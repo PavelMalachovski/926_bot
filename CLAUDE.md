@@ -162,13 +162,17 @@ app/services/smc/
 │                         Rule 1 direction parity with the engine (H1-trend
 │                         fallback on H4 FLAT, ahead of the aggressive-profile
 │                         CHoCH check, before both-way speculative brackets)
-├── ai_read.py            D26: Claude's second opinion (AIReader, Sonnet 5 by
-│                         default): the chart PNGs + describe_for_ai's fact
-│                         sheet of the engine's own numbers in, a bounded
-│                         JSON read out (stance / preferred entry /
-│                         confidence / read / risks). Comment only, never a
-│                         gate; every failure returns None. Appended to the
-│                         🚨 card by editing it, stored with the audit
+├── ai_read.py            D26: Claude's second opinion (AIReader, Opus 5 at
+│                         xhigh since D28): the chart PNGs + describe_for_ai's
+│                         fact sheet of the engine's own numbers (+ OHLC
+│                         rows, PDH/PDL/Asia, next red news, the level
+│                         catalog) in, a bounded JSON read out (stance /
+│                         preferred entry / confidence / read / risks /
+│                         proposal). D28: build_catalog + validate_proposal
+│                         snap the proposed order onto the engine's levels
+│                         and price its RR. Comment only, never a gate;
+│                         every failure returns None. Appended to the 🚨
+│                         card by editing it, stored with the audit
 ├── pending.py            D25: pending (limit) entries — build_pending
 │                         prices the MAIN/DEEP rungs (M5 FVG edge / 50%, M5
 │                         OB, H1 zone, zones further out, range boundary)
@@ -400,6 +404,49 @@ tracking → live-card edits on fill/TP/SL events.
   `🔹 Missed for ⭐: …`) follows the market line. Anything the 🚨 card
   states about a setup, the audit states too — one builder per line, so
   the two screens cannot drift.
+- **The AI setup and limit-first alerts** (owner decision D28,
+  2026-09-13). Three things changed together, none of them touches
+  whether a setup exists. (1) **The 🚨 card goes limit-first once price
+  has run past the rung**: `TradeSetup.stale` / `entry_gap_r` carry Rule
+  5.1's comparison (`gap > SMC_MAX_ENTRY_GAP_R × risk`, 0.75R) as data,
+  and `_market_entry_lines` then prints `⏳ Limit order at M5 FVG <entry>`
+  with the Rule 6 stop, the run price already made and TP1-3 priced from
+  the rung (`_limit_entry_lines`, shared with the audit's `🚨 Setup
+  formed` block so the two screens name one order) instead of `📈 Enter at
+  market` — the 12.09 ETHUSD card offered a market entry paying 1:1.1
+  while the rung itself paid 1:15.9. The journal was tracking that rung
+  all along (`record` stores `setup.entry` as `pending`); a fresh setup
+  (gap ≤ 0.75R) and a true market rung (`entry_is_market`) print exactly
+  as before. Detector mode untouched: the alert fires either way, only
+  the order type changed. (2) **Claude proposes ONE order**
+  (`AIRead.proposal`, `ai_read.AIProposal`): limit by default (market
+  only while price is still at the band), with entry / stop / target /
+  basis / a one-line invalidation. It is bounded twice — the fact sheet
+  ends with the **level catalog** (`ai_read.build_catalog` →
+  `LevelCatalog`: the allowed entry bands (M5 FVG / M5 OB / H1 zone /
+  next zone / range boundary / market), stops and targets, all read off
+  the same objects the card and the audit print) and `validate_proposal`
+  snaps every price back onto it within the instrument's raw `min_fvg`,
+  fixes the direction to the engine's, rejects a limit on the wrong side
+  of price, and computes the RR itself. A proposal that does not fit is
+  dropped on its own (`proposal_note` in the logs), the read survives.
+  `SMC_AI_MIN_RR` (2.0, the owner's floor) never hides a proposal: one
+  under it prints with `⚠️ below the 1:2 floor — wait`. The card carries
+  it as `📐 AI setup: LIMIT SHORT 2520.40 · SL 2525.68 · TP 2436.39 ·
+  1:15.9 (M5 FVG)` + `✖ cancel if: …` (`notifier._proposal_lines`), the
+  primary-plan snapshot stores it (`ai.proposal`) and the alert's fact
+  sheet quotes it back as "Your proposed order then". (3) **The order is
+  drawn**: `chart._draw_proposal` puts a TradingView-style position box
+  (red entry→stop, green entry→target, white entry line with the label)
+  on the H1 plan chart and the M5 setup chart; `/plan` sends the M5 chart
+  too once a setup has formed, and the 🚨 alert's chart is redrawn and
+  swapped in place after the read (`notifier.edit_photo` =
+  editMessageMedia, `Watcher._redraw_chart_with_proposal`, best-effort).
+  The fact sheet also grew what the model kept guessing at: the last
+  36 M5 and 24 H1 candles as OHLC rows, PDH/PDL and today's Asia range
+  (off `sniper._session_candles`), and the next red-news release
+  (`Watcher._next_news_line`). Model: **Opus 5 at xhigh** by default
+  (`ANTHROPIC_MODEL`, `SMC_AI_EFFORT`) — a handful of calls a day.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

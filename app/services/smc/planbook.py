@@ -190,6 +190,9 @@ class PlanMatch:
     ai_confidence: Optional[int] = None
     ai_read: str = ""
     ai_risks: List[str] = field(default_factory=list)
+    # D28: the order Claude proposed with that plan (AIProposal.to_dict),
+    # so the alert's fact sheet can say "your proposed order then".
+    ai_proposal: Optional[dict] = None
 
     @property
     def when(self) -> str:
@@ -225,6 +228,9 @@ def primary_plan_snapshot(entry: PlanEntry, date: str) -> dict:
             "confidence": int(r.confidence), "read": r.read,
             "risks": list(r.risks), "model": r.model,
         }
+        proposal = getattr(r, "proposal", None)
+        if proposal is not None:
+            ai["proposal"] = proposal.to_dict()
     # Zones carry their kind as a 4th element (2026-09-10, plan
     # cancellation): a RANGE boundary survives a pierce that is reclaimed
     # (D15), so only OB/FVG zones can cancel a plan on a body close.
@@ -352,6 +358,7 @@ def match_primary_plan(stored: Optional[dict], result: AnalysisResult) -> Option
             ai_confidence=int(ai["confidence"]) if ai.get("confidence") is not None else None,
             ai_read=str(ai.get("read") or ""),
             ai_risks=[str(r) for r in (ai.get("risks") or [])],
+            ai_proposal=ai.get("proposal") if isinstance(ai.get("proposal"), dict) else None,
         )
     except (TypeError, ValueError, KeyError, AttributeError):
         return None

@@ -581,6 +581,10 @@ class TripleSyncEngine:
             result.warnings.append(
                 t("price has run {r}R past the imbalance", r=f"{gap / risk:.1f}")
             )
+        # D28 (owner decision 2026-09-13): the number and the flag ride on
+        # the setup so the 🚨 card can switch to a limit order at the rung
+        # without re-deriving Rule 5.1 — one comparison, one owner of it.
+        entry_gap_r = max(gap / risk, 0.0)
 
         # Phase 2 sniper redesign (owner decision 2026-08-12): hybrid exit
         # levels — TP1 at tp1_r*risk for half the position, a runner at
@@ -796,6 +800,8 @@ class TripleSyncEngine:
             runner_tp=round(runner_tp, d) if runner_tp is not None else None,
             tier_star=tier.star,
             tier_missed=tier.missed,
+            entry_gap_r=round(entry_gap_r, 2),
+            stale=stale,
         )
         result.verdict = (
             Verdict.APPROVED_MARKET if entry_is_market else Verdict.APPROVED_LIMIT

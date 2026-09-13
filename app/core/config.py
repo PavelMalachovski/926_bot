@@ -27,10 +27,11 @@ class AnthropicSettings(BaseSettings):
         "parsing unavailable",
     )
     model: str = Field(
-        default="claude-sonnet-5",
+        default="claude-opus-5",
         description="Claude model for the AI read and the screenshot parser "
-        "(owner choice 2026-09-06: Sonnet 5; claude-opus-5 for the "
-        "strongest read)",
+        "(owner decision D28, 2026-09-13: Opus 5 — the read now proposes "
+        "an order over the engine's levels, reasoning the stronger model "
+        "earns its price on; claude-sonnet-5 for the cheaper read)",
     )
 
     model_config = SettingsConfigDict(env_prefix="ANTHROPIC_")
@@ -131,8 +132,16 @@ class SMCSettings(BaseSettings):
         "silently off without a key",
     )
     ai_effort: str = Field(
-        default="medium",
-        description="Claude effort for the AI read: low | medium | high",
+        default="xhigh",
+        description="Claude effort for the AI read: low | medium | high | "
+        "xhigh | max (D28: xhigh with Opus 5)",
+    )
+    ai_min_rr: float = Field(
+        default=2.0,
+        description="D28 (owner decision 2026-09-13): the RR floor Claude's "
+        "proposed order is held to, entry to its target. A proposal under "
+        "it is still printed, flagged 'below the floor — wait'. Label "
+        "only: the engine's own alert is untouched",
     )
     ai_timeout_s: float = Field(
         default=90.0, description="Per-call timeout for the AI read, seconds"
