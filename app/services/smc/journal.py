@@ -333,6 +333,8 @@ class SignalJournal:
             "result_r": None,
             "zone_kind": getattr(proposal, "basis", None),
             "origin": "ai",
+            "zone_low": getattr(proposal, "band_low", None),
+            "zone_high": getattr(proposal, "band_high", None),
         }
         self.signals.append(signal)
         self._persist(signal)

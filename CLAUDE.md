@@ -517,6 +517,39 @@ tracking → live-card edits on fill/TP/SL events.
   H1 check — is the owner's call after the journal has scored a few
   weeks of `against D1` setups; until then nothing here suppresses,
   re-prices or re-tiers a setup.
+- **/plan ends in an order or a watched wait** (owner decision D30,
+  2026-09-16). The "no order" answer stopped being prose: `proposal.wait_for`
+  (`ai_read.WaitFor`: kind `close_above` / `close_below` on M5 or H1 (a
+  BODY close), `sweep_above` / `sweep_below` (a wick, always read on M5),
+  `news` (the next red release passes), `session_open` (the next block
+  opens); a level must snap within `min_fvg` onto the catalog's levels —
+  band edges, stops, targets — or the `extra` ones the catalog now carries
+  (PDH/PDL/PWH/PWL, the range box edges), `validate_wait`; anything else
+  reads as no wait with a note in the logs). `_record_ai_order` stores it
+  in `state.ai_waits[pair]` with `set_at`, the session end as `expires_at`
+  (Rule 10's horizon) and the block id; an order answer clears it. Every
+  cycle `_maybe_ai_wait_event` runs the pure `check_wait` over the
+  candles the engine already fetched (closed after `set_at`), the
+  calendar and the clock; when it fires: ONE `⏰ <pair>: the event you
+  waited for happened — …` message, the wait is cleared, and Claude is
+  asked again AT ONCE (`_ai_read_audit(reread=…)`, outside the re-read
+  throttle — the owner asked to hear from it exactly then) with the fresh
+  read sent whatever it says; an expired wait is dropped silently. The 📐
+  line prints `none — waiting for: H1 close below 2515.00 · <note>` +
+  `⏰ the bot watches for it` (`notifier.wait_text`). **The order's zone
+  is announced**: `validate_proposal` now stamps the matched band on the
+  proposal (`band_low`/`band_high`), `record_ai` stores it (`signals.
+  zone_low`/`zone_high`), and `_maybe_ai_zone_reached` sends ONE `📍
+  <pair>: price entered the AI order's zone` per order
+  (`state.ai_zone_notified`) when the latest closed M5 candle overlaps the
+  band WITHOUT touching the entry (a DEEP order inside its zone); a candle
+  that touches the entry is a fill, and the fill is announced by the
+  journal's `filled` event for `origin == "ai"` rows in
+  `_handle_journal_events` (`✅ <pair>: the AI order filled`). Together
+  with D28's approach re-read and target-taken cancellation this closes
+  the loop the owner asked for: /plan → order or wait → the bot remembers
+  → a message when the zone is reached, the order fills, or the event
+  happens. Still nothing here gates the engine's alert.
 - **The AI read is a comment, never a gate** (owner decision D26,
   2026-09-06). `ai_read.AIReader` (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
   Sonnet 5 by the owner's choice; `SMC_AI_READ`, `SMC_AI_EFFORT`,

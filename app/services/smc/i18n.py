@@ -766,3 +766,27 @@ RU.update({
 RU.update({
     " ⚠️ against D1": " ⚠️ против D1",
 })
+
+# ---- D30 (owner decision 2026-09-16): the awaited event, the order's zone ----
+RU.update({
+    "📐 AI setup: none — waiting for: {event}": "📐 Сетап от AI: нет — ждём: {event}",
+    "   ⏰ the bot watches for it and calls Claude again when it happens":
+        "   ⏰ бот следит за этим и позовёт Claude снова, когда случится",
+    "the next red news release": "выхода ближайшей красной новости",
+    "the next session block": "открытия следующего сессионного блока",
+    "nothing": "ничего",
+    "{tf} close above {price}": "закрытия {tf} выше {price}",
+    "{tf} close below {price}": "закрытия {tf} ниже {price}",
+    "a wick above {price}": "снятия {price} фитилём сверху",
+    "a wick below {price}": "снятия {price} фитилём снизу",
+    "⏰ <b>{pair}: the event you waited for happened</b> — {event} ({hhmm} Prague). "
+    "Price {price}. Asking Claude again.":
+        "⏰ <b>{pair}: событие, которого ждали, наступило</b> — {event} ({hhmm} Прага). "
+        "Цена {price}. Спрашиваю Claude снова.",
+    "📍 <b>{pair}: price entered the AI order's zone</b> {lo}–{hi} ({hhmm} Prague) — the "
+    "{side} limit at {entry} is not filled yet; SL {sl} · TP {tp}.":
+        "📍 <b>{pair}: цена вошла в зону ордера AI</b> {lo}–{hi} ({hhmm} Прага) — лимитка "
+        "{side} на {entry} ещё не исполнена; SL {sl} · TP {tp}.",
+    "✅ <b>{pair}: the AI order filled</b> — {side} at {entry} ({hhmm} Prague) · SL {sl} · TP {tp}.":
+        "✅ <b>{pair}: ордер AI исполнен</b> — {side} по {entry} ({hhmm} Прага) · SL {sl} · TP {tp}.",
+})

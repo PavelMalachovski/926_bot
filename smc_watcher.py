@@ -47,6 +47,7 @@ from app.services.smc.notifier import (
     format_plan_summary,
     format_ai_read,
     set_ai_floor,
+    wait_text,
     format_result,
     format_pd_alert,
     format_setup_analysis,
@@ -56,7 +57,9 @@ from app.services.smc.notifier import (
     took_skipped_keyboard,
     zone_alert_keyboard,
 )
-from app.services.smc.ai_read import AIReader, build_catalog, describe_for_ai
+from app.services.smc.ai_read import (
+    AIReader, WaitFor, build_catalog, check_wait, describe_for_ai,
+)
 from app.services.smc.pending import build_pending
 from app.services.smc.planbook import (
     PlanBook, PlanEntry, describe_plan_changes, match_primary_plan,
@@ -66,7 +69,7 @@ from app.services.smc.oanda import OandaDataFetcher
 from app.services.smc.twelvedata import TwelveDataFetcher
 from app.services.smc.sessions import (
     PRAGUE, active_session, block_mute_deadline, prague_hhmm, session_block,
-    to_prague,
+    session_end_utc, to_prague,
 )
 from app.services.smc.state import WatcherState
 from app.services.smc.telegram_bot import TelegramCommandBot
@@ -664,6 +667,8 @@ class Watcher:
                 self._recompute_plan(key, result)
                 await self._maybe_plan_cancelled(key, result)
                 await self._maybe_ai_order_cancelled(key, result)
+                await self._maybe_ai_zone_reached(key, result)
+                await self._maybe_ai_wait_event(key, result)
                 await self._maybe_ai_reread(key, result)
                 # D23 (owner decision 2026-08-31): when H4 and H1 disagree the
                 # H1-side setup is announced ALONGSIDE the primary one, never
@@ -1051,8 +1056,14 @@ class Watcher:
         a market-closed read (weekend candles) is not an order anyone
         could place and is skipped."""
         proposal = getattr(read, "proposal", None)
-        if proposal is None or not proposal.is_trade or not result.session_name:
+        if proposal is None or not result.session_name:
             return
+        if not proposal.is_trade:
+            self._remember_ai_wait(key, result, proposal)
+            return
+        # an order supersedes any wait the previous answer set
+        if self.state.ai_waits.pop(key, None) is not None:
+            self.state.save()
         try:
             self.journal.record_ai(
                 key, proposal, result.checked_at, result.session_name,
@@ -1060,6 +1071,135 @@ class Watcher:
             )
         except Exception as e:
             logger.warning("AI shadow order not recorded", pair=key, error=str(e))
+
+    def _remember_ai_wait(self, key: str, result: AnalysisResult, proposal) -> None:
+        """D30: a "no order, wait for X" answer becomes a watched condition
+        — kept until it fires or the session ends (Rule 10's horizon for
+        anything the owner could act on today)."""
+        wait = getattr(proposal, "wait_for", None)
+        if wait is None or not wait.is_set:
+            if self.state.ai_waits.pop(key, None) is not None:
+                self.state.save()
+            return
+        expires = session_end_utc(result.checked_at)
+        self.state.ai_waits[key] = {
+            **wait.to_dict(),
+            "set_at": result.checked_at.isoformat(),
+            "expires_at": expires.isoformat() if expires else None,
+            "block": session_block(result.checked_at),
+        }
+        self.state.save()
+        logger.info("AI wait set", pair=key, wait=self.state.ai_waits[key])
+
+    async def _maybe_ai_wait_event(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> None:
+        """D30: every cycle, check the pair's awaited event on the candles
+        the engine already fetched (plus the calendar and the clock). When
+        it fires: ONE ⏰ message, the wait is cleared, and Claude is asked
+        again at once — outside the re-read throttle, because the owner
+        asked to hear from it exactly then — with the fresh read attached
+        whatever it says. An expired wait is cleared silently."""
+        wait = self.state.ai_waits.get(key)
+        if not wait or result is None:
+            return
+        now = datetime.now(tz=timezone.utc)
+        expires = wait.get("expires_at")
+        try:
+            if expires and now > datetime.fromisoformat(expires):
+                self.state.ai_waits.pop(key, None)
+                self.state.save()
+                logger.info("AI wait expired", pair=key)
+                return
+        except (TypeError, ValueError):
+            pass
+        try:
+            since = datetime.fromisoformat(wait["set_at"])
+        except (KeyError, TypeError, ValueError):
+            since = None
+        next_news = None
+        if wait.get("kind") == "news" and self.news:
+            try:
+                from app.services.smc.news import relevant_currencies
+
+                events = self.news.upcoming(
+                    relevant_currencies(get_instrument(key)), timedelta(hours=12),
+                    now=since or now,
+                )
+                if events:
+                    next_news = min(e.time for e in events)
+            except Exception as e:
+                logger.warning("AI wait news lookup failed", pair=key, error=str(e))
+        fired = check_wait(
+            wait, result.m5_candles or [], result.h1_candles or [], since, now=now,
+            next_news=next_news, session_block_now=session_block(now),
+            session_block_set=wait.get("block"),
+        )
+        if fired is None:
+            return
+        self.state.ai_waits.pop(key, None)
+        self.state.save()
+        d = result.price_decimals
+        await self.notifier.send(t(
+            "⏰ <b>{pair}: the event you waited for happened</b> — {event} "
+            "({hhmm} Prague). Price {price}. Asking Claude again.",
+            pair=key, event=escape_html(wait_text(WaitFor.from_dict(wait), d)),
+            hhmm=to_prague(now).strftime("%H:%M"), price=f"{float(result.price or 0):.{d}f}",
+        ))
+        logger.info("AI wait fired", pair=key, trigger=fired)
+        entry = self.planbook.get(key)
+        if entry is None or entry.result is None or entry.audit is None:
+            return
+        read = await self._ai_read_audit(
+            key, entry, reread=f"the event you were waiting for happened: {fired}",
+        )
+        self.state.ai_reread_at[key] = now.isoformat()
+        self.state.save()
+        if read is None:
+            await self.notifier.send(self._ai_missing_line())
+            return
+        entry.ai_read = read
+        self._record_ai_order(key, entry.result, read, source="reread")
+        await self.notifier.send(format_ai_read(read))
+
+    async def _maybe_ai_zone_reached(
+        self, key: str, result: Optional[AnalysisResult]
+    ) -> None:
+        """D30: ONE 📍 message per resting AI order when the latest closed
+        M5 candle enters the order's band without touching the entry yet
+        (a DEEP order sits inside its zone — the owner wants to know the
+        zone is live before the fill). The fill itself is announced by the
+        journal's "filled" event (`_handle_journal_events`)."""
+        if result is None or not result.m5_candles:
+            return
+        last = result.m5_candles[-1]
+        d = result.price_decimals
+        for order in self.journal.active_ai_orders(key):
+            if order["status"] != "pending" or order["id"] in self.state.ai_zone_notified:
+                continue
+            lo, hi = order.get("zone_low"), order.get("zone_high")
+            if lo is None or hi is None:
+                continue
+            lo, hi, entry = float(lo), float(hi), float(order["entry"])
+            is_long = order["direction"] == "long"
+            touched = last.low <= entry if is_long else last.high >= entry
+            inside = last.low <= hi and last.high >= lo
+            if touched or not inside:
+                continue
+            side = "LONG" if is_long else "SHORT"
+            sent = await self.notifier.send(t(
+                "📍 <b>{pair}: price entered the AI order's zone</b> {lo}–{hi} "
+                "({hhmm} Prague) — the {side} limit at {entry} is not filled yet; "
+                "SL {sl} · TP {tp}.",
+                pair=key, lo=f"{lo:.{d}f}", hi=f"{hi:.{d}f}",
+                hhmm=to_prague(last.timestamp + timedelta(minutes=5)).strftime("%H:%M"),
+                side=side, entry=f"{entry:.{d}f}",
+                sl=f"{float(order['stop_loss']):.{d}f}",
+                tp=f"{float(order['take_profit']):.{d}f}" if order.get("take_profit") else "—",
+            ))
+            if sent:
+                self.state.ai_zone_notified[order["id"]] = datetime.now(tz=timezone.utc).isoformat()
+                self.state.save()
 
     async def _maybe_ai_order_cancelled(
         self, key: str, result: Optional[AnalysisResult]
@@ -1322,6 +1462,22 @@ class Watcher:
         """Live-update alert cards and enforce the daily stop notification."""
         now = datetime.now(tz=timezone.utc)
         for signal, event in events:
+            if signal.get("origin") == "ai" and event == "filled":
+                # D30: the AI order's fill is the moment the owner asked to
+                # hear about — the shadow row has no card to edit
+                d = get_instrument(signal["pair"]).price_decimals if signal["pair"] in INSTRUMENTS else 2
+                await self.notifier.send(t(
+                    "✅ <b>{pair}: the AI order filled</b> — {side} at {entry} "
+                    "({hhmm} Prague) · SL {sl} · TP {tp}.",
+                    pair=signal["pair"],
+                    side="LONG" if signal["direction"] == "long" else "SHORT",
+                    entry=f"{float(signal['entry']):.{d}f}",
+                    hhmm=to_prague(datetime.fromisoformat(signal["filled_at"])).strftime("%H:%M")
+                    if signal.get("filled_at") else to_prague(now).strftime("%H:%M"),
+                    sl=f"{float(signal['stop_loss']):.{d}f}",
+                    tp=f"{float(signal['take_profit']):.{d}f}" if signal.get("take_profit") else "—",
+                ))
+                continue
             if signal.get("message_id") and signal.get("alert_text"):
                 footer = _card_footer(signal)
                 keep_buttons = signal.get("taken") is None

@@ -62,6 +62,11 @@ SIGNAL_COLUMNS = [
     # 0.4 warning and every discipline count — they have no card, no
     # buttons and no taken mark.
     "origin",
+    # D30 (2026-09-16): the band a shadow AI order rests in (its M5 FVG,
+    # order block, H1 zone or range boundary), so the watcher can say
+    # "price entered the order's zone" before the entry itself is touched.
+    "zone_low",
+    "zone_high",
 ]
 
 # Manual trade journal parsed from MetaTrader screenshots.
@@ -120,7 +125,9 @@ SIGNALS_TABLE_SQL = """
                     zone_kind TEXT,
                     ai_stance TEXT,
                     ai_confidence INTEGER,
-                    origin TEXT
+                    origin TEXT,
+                    zone_low REAL,
+                    zone_high REAL
                 )
 """
 
@@ -214,6 +221,8 @@ class Database:
                     ("ai_stance", "TEXT"),
                     ("ai_confidence", "INTEGER"),
                     ("origin", "TEXT"),
+                    ("zone_low", "REAL"),
+                    ("zone_high", "REAL"),
                 ):
                     if column not in existing:
                         self.conn.execute(

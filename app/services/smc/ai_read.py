@@ -77,6 +77,28 @@ FACT_M5_CANDLES = 36
 FACT_H1_CANDLES = 24
 FACT_D1_CANDLES = 60  # D29: ~three months of daily structure
 
+# D30 (owner decision 2026-09-16): when the answer is "no order", the model
+# may name ONE event to wait for — from a list the bot can check on the
+# candles, the calendar or the clock, so "wait" becomes a watched condition
+# with a message when it fires, never a sentence that evaporates.
+WAIT_KINDS = (
+    "none", "close_above", "close_below", "sweep_above", "sweep_below",
+    "news", "session_open",
+)
+WAIT_TIMEFRAMES = ("M5", "H1", "none")
+
+WAIT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "kind": {"type": "string", "enum": list(WAIT_KINDS)},
+        "level": {"type": ["number", "null"]},
+        "timeframe": {"type": "string", "enum": list(WAIT_TIMEFRAMES)},
+        "note": {"type": "string"},
+    },
+    "required": ["kind", "level", "timeframe", "note"],
+    "additionalProperties": False,
+}
+
 PROPOSAL_SCHEMA = {
     "type": "object",
     "properties": {
@@ -87,8 +109,11 @@ PROPOSAL_SCHEMA = {
         "stop": {"type": ["number", "null"]},
         "target": {"type": ["number", "null"]},
         "invalidation": {"type": "string"},
+        "wait_for": WAIT_SCHEMA,
     },
-    "required": ["order", "direction", "basis", "entry", "stop", "target", "invalidation"],
+    "required": [
+        "order", "direction", "basis", "entry", "stop", "target", "invalidation", "wait_for",
+    ],
     "additionalProperties": False,
 }
 
@@ -153,6 +178,15 @@ short sentence (under 120 characters): the candle event that cancels the \
 order. Every price you give is checked against the allowed lists and \
 snapped or rejected; a rejected proposal is simply dropped.
 
+When you answer order "none", you may name ONE event to wait for in \
+`wait_for` — the bot watches for it and calls you again when it happens: \
+`close_above` / `close_below` a level on M5 or H1 (a candle BODY close), \
+`sweep_above` / `sweep_below` a level (a wick takes it), `news` (the next \
+red release passes), `session_open` (the next session block opens). The \
+level must be one of the ALLOWED levels or the daily levels the fact sheet \
+lists; `note` says in a few words what the event would prove. Use kind \
+"none" when nothing specific is worth waiting for.
+
 When the fact sheet says RE-READ, the picture changed after your previous \
 read (the trigger is named): say plainly whether your previous read and \
 order still stand, and if not, what changed and what you would do now — \
@@ -174,11 +208,44 @@ LANGUAGE_INSTRUCTION = {
 
 
 @dataclass
+class WaitFor:
+    """The one event Claude asked to wait for (D30), validated: the level
+    snapped onto a listed one. `kind == "none"` means nothing to wait for."""
+
+    kind: str = "none"
+    level: Optional[float] = None
+    timeframe: str = "M5"  # for the close kinds; sweeps read M5 wicks
+    note: str = ""
+
+    @property
+    def is_set(self) -> bool:
+        return self.kind != "none"
+
+    def to_dict(self) -> dict:
+        return {"kind": self.kind, "level": self.level, "timeframe": self.timeframe,
+                "note": self.note}
+
+    @classmethod
+    def from_dict(cls, raw: Any) -> "WaitFor":
+        if not isinstance(raw, dict) or raw.get("kind") not in WAIT_KINDS:
+            return cls()
+        try:
+            return cls(
+                kind=str(raw["kind"]),
+                level=float(raw["level"]) if raw.get("level") is not None else None,
+                timeframe=str(raw.get("timeframe") or "M5"),
+                note=str(raw.get("note") or ""),
+            )
+        except (TypeError, ValueError):
+            return cls()
+
+
+@dataclass
 class AIProposal:
     """The one order Claude would place (D28), after validation: every
     price snapped onto the level catalog, RR computed here, never by the
     model. `order == "none"` is a deliberate "no trade" and carries no
-    prices."""
+    prices — but may carry a `wait_for` event (D30)."""
 
     order: str  # limit | market | none
     direction: str  # long | short | none
@@ -189,6 +256,12 @@ class AIProposal:
     invalidation: str = ""
     rr: float = 0.0
     below_floor: bool = False  # rr < min_rr — shown, flagged, never hidden
+    # D30: the band the entry rests in (validate_proposal's matched band),
+    # so the watcher can say "price entered the order's zone" before the
+    # entry itself is touched (a DEEP order sits inside its band).
+    band_low: Optional[float] = None
+    band_high: Optional[float] = None
+    wait_for: WaitFor = field(default_factory=WaitFor)
 
     @property
     def is_trade(self) -> bool:
@@ -200,6 +273,8 @@ class AIProposal:
             "entry": self.entry, "stop": self.stop, "target": self.target,
             "invalidation": self.invalidation, "rr": round(self.rr, 2),
             "below_floor": self.below_floor,
+            "band_low": self.band_low, "band_high": self.band_high,
+            "wait_for": self.wait_for.to_dict(),
         }
 
     @classmethod
@@ -217,6 +292,9 @@ class AIProposal:
                 invalidation=str(raw.get("invalidation") or ""),
                 rr=float(raw.get("rr") or 0.0),
                 below_floor=bool(raw.get("below_floor")),
+                band_low=float(raw["band_low"]) if raw.get("band_low") is not None else None,
+                band_high=float(raw["band_high"]) if raw.get("band_high") is not None else None,
+                wait_for=WaitFor.from_dict(raw.get("wait_for")),
             )
         except (TypeError, ValueError):
             return None
@@ -252,6 +330,19 @@ class LevelCatalog:
     stops: List[float] = field(default_factory=list)
     targets: List[float] = field(default_factory=list)
     decimals: int = 2
+    # D30: levels a WAIT may name besides the order levels — the daily
+    # levels (PDH/PDL/PWH/PWL) and the range box edges, as (name, price)
+    extra: List[Tuple[str, float]] = field(default_factory=list)
+
+    def all_levels(self) -> List[float]:
+        """Every price a wait condition may be pinned to."""
+        out: List[float] = []
+        for _, lo, hi in self.entries:
+            out.extend([lo, hi])
+        out.extend(self.stops)
+        out.extend(self.targets)
+        out.extend(p for _, p in self.extra)
+        return out
 
     def _add_entry(self, basis: str, low: float, high: float) -> None:
         lo, hi = (low, high) if low <= high else (high, low)
@@ -298,6 +389,16 @@ def build_catalog(
             "range_boundary" if zone.kind == "RANGE" else "h1_zone",
             zone.bottom, zone.top,
         )
+    box = result.market_range
+    if box is not None:
+        cat.extra.extend([("range high", float(box.top)), ("range low", float(box.bottom))])
+    if result.d1_candles:
+        from app.services.smc import sniper
+
+        daily = sniper.daily_levels(list(result.d1_candles), result.checked_at)
+        for key in ("pdh", "pdl", "pwh", "pwl"):
+            if daily and daily.get(key) is not None:
+                cat.extra.append((key.upper(), float(daily[key])))
     if audit is not None:
         for e in getattr(audit, "entries", None) or []:
             basis = {
@@ -410,6 +511,15 @@ def describe_catalog(catalog: LevelCatalog, min_rr: float) -> str:
         )
     lines.append("ALLOWED STOPS: " + (", ".join(_fmt(p, d) for p in catalog.stops) or "none"))
     lines.append("ALLOWED TARGETS: " + (", ".join(_fmt(p, d) for p in catalog.targets) or "none"))
+    if catalog.extra:
+        lines.append(
+            "OTHER LEVELS a wait may name: "
+            + ", ".join(f"{name} {_fmt(p, d)}" for name, p in catalog.extra)
+        )
+    lines.append(
+        "WAIT EVENTS (order none only): close_above / close_below <level> on M5 or H1, "
+        "sweep_above / sweep_below <level>, news, session_open."
+    )
     lines.append(
         f"Tolerance: {_fmt(catalog.tolerance, d)}. MINIMUM RR: 1:{min_rr:.1f} to the target "
         "(below it: order none)."
@@ -682,8 +792,9 @@ def validate_proposal(
         return None, f"unknown order {order!r}"
     invalidation = str(raw.get("invalidation") or "").strip()[:160]
     if order == "none":
+        wait, wait_note = validate_wait(raw.get("wait_for"), catalog)
         return AIProposal(order="none", direction="none", basis="none",
-                          invalidation=invalidation), ""
+                          invalidation=invalidation, wait_for=wait), wait_note
     direction = str(raw.get("direction") or "none").lower()
     if catalog.direction is not None:
         wanted = catalog.direction.value
@@ -735,7 +846,81 @@ def validate_proposal(
         order=order, direction=direction, basis=basis,
         entry=round(entry, d), stop=round(stop, d), target=round(target, d),
         invalidation=invalidation, rr=round(rr, 2), below_floor=rr < min_rr,
+        band_low=round(band[1], d), band_high=round(band[2], d),
     ), ""
+
+
+def validate_wait(raw: Any, catalog: LevelCatalog) -> Tuple[WaitFor, str]:
+    """Snap a wait condition onto the catalog (D30). A level kind needs a
+    level within tolerance of one the fact sheet listed; news and
+    session_open need none. Anything else reads as "no wait" with a note
+    for the logs — the read itself is never dropped for it."""
+    if not isinstance(raw, dict):
+        return WaitFor(), ""
+    kind = str(raw.get("kind") or "none").lower()
+    if kind == "none":
+        return WaitFor(), ""
+    if kind not in WAIT_KINDS:
+        return WaitFor(), f"unknown wait kind {kind!r}"
+    note = str(raw.get("note") or "").strip()[:120]
+    timeframe = str(raw.get("timeframe") or "M5").upper()
+    if timeframe not in ("M5", "H1"):
+        timeframe = "M5"
+    if kind in ("news", "session_open"):
+        return WaitFor(kind=kind, level=None, timeframe="none", note=note), ""
+    try:
+        level = float(raw["level"])
+    except (KeyError, TypeError, ValueError):
+        return WaitFor(), f"wait {kind} without a level"
+    snapped = _snap(level, catalog.all_levels(), catalog.tolerance)
+    if snapped is None:
+        return WaitFor(), f"wait level {level} not a listed level"
+    if kind.startswith("sweep"):
+        timeframe = "M5"  # a wick is a wick; the M5 series carries them all
+    return WaitFor(
+        kind=kind, level=round(snapped, catalog.decimals), timeframe=timeframe, note=note,
+    ), ""
+
+
+def check_wait(
+    wait: Any, m5: Sequence[Candle], h1: Sequence[Candle], since: Any,
+    now: Any = None, next_news: Any = None, session_block_now: Optional[str] = None,
+    session_block_set: Optional[str] = None,
+) -> Optional[str]:
+    """Has the awaited event happened (D30)? Pure: candles closed after
+    `since`, the next red-news time and the session block ids in, a short
+    English description of the trigger out — None while still waiting.
+    `wait` is a WaitFor or its dict."""
+    if isinstance(wait, dict):
+        wait = WaitFor.from_dict(wait)
+    if wait is None or not wait.is_set:
+        return None
+    if wait.kind == "news":
+        if next_news is not None and now is not None and now >= next_news:
+            return "the red news release has passed"
+        return None
+    if wait.kind == "session_open":
+        if session_block_now and session_block_now != session_block_set:
+            return f"a new session block opened ({session_block_now.split('/')[-1]})"
+        return None
+    if wait.level is None:
+        return None
+    series = h1 if wait.timeframe == "H1" else m5
+    step = 60 if wait.timeframe == "H1" else 5
+    from datetime import timedelta as _td
+
+    for c in series:
+        if since is not None and c.timestamp + _td(minutes=step) <= since:
+            continue
+        if wait.kind == "close_above" and c.close > wait.level:
+            return f"{wait.timeframe} closed above {wait.level} ({c.close})"
+        if wait.kind == "close_below" and c.close < wait.level:
+            return f"{wait.timeframe} closed below {wait.level} ({c.close})"
+        if wait.kind == "sweep_above" and c.high > wait.level:
+            return f"a wick took {wait.level} from below (high {c.high})"
+        if wait.kind == "sweep_below" and c.low < wait.level:
+            return f"a wick took {wait.level} from above (low {c.low})"
+    return None
 
 
 def parse_ai_read(
