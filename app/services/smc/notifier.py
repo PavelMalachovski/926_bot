@@ -500,6 +500,14 @@ def _proposal_lines(proposal, decimals: Optional[int] = None) -> List[str]:
     if proposal is None:
         return []
     if not proposal.is_trade:
+        wait = getattr(proposal, "wait_for", None)
+        if wait is not None and getattr(wait, "is_set", False):
+            # D30: a named, watched event — the bot will say when it fires
+            line = t("📐 AI setup: none — waiting for: {event}",
+                     event=escape_html(wait_text(wait, decimals)))
+            if wait.note:
+                line += f" · {escape_html(wait.note)}"
+            return [line, t("   ⏰ the bot watches for it and calls Claude again when it happens")]
         return [t("📐 AI setup: none — wait")
                 + (f" · {escape_html(proposal.invalidation)}" if proposal.invalidation else "")]
     d = decimals if decimals is not None else _decimals_of(proposal.entry)
@@ -518,6 +526,32 @@ def _proposal_lines(proposal, decimals: Optional[int] = None) -> List[str]:
     if proposal.invalidation:
         out.append(t("   ✖ cancel if: {text}", text=escape_html(proposal.invalidation)))
     return out
+
+
+def wait_text(wait, decimals: Optional[int] = None) -> str:
+    """'H1 close below 2515.00' / 'a wick above 2527.56' / 'the next red
+    news' / 'the next session block' — the awaited event in the owner's
+    words (D30). Not escaped; callers escape."""
+    kind = getattr(wait, "kind", "none")
+    if kind == "news":
+        return t("the next red news release")
+    if kind == "session_open":
+        return t("the next session block")
+    level = getattr(wait, "level", None)
+    if level is None:
+        return t("nothing")
+    d = decimals if decimals is not None else _decimals_of(level)
+    price = f"{level:.{d}f}"
+    tf = getattr(wait, "timeframe", "M5")
+    if kind == "close_above":
+        return t("{tf} close above {price}", tf=tf, price=price)
+    if kind == "close_below":
+        return t("{tf} close below {price}", tf=tf, price=price)
+    if kind == "sweep_above":
+        return t("a wick above {price}", price=price)
+    if kind == "sweep_below":
+        return t("a wick below {price}", price=price)
+    return t("nothing")
 
 
 # The floor the ⚠️ line names. Set once by the watcher from SMC_AI_MIN_RR

@@ -108,6 +108,13 @@ class WatcherState:
         # five minutes).
         self.ai_reread_at: Dict[str, str] = db.kv_get("ai_reread_at") or {}
         self.ai_reread_orders: Dict[str, str] = db.kv_get("ai_reread_orders") or {}
+        # D30 (2026-09-16): pair -> the wait condition Claude set with its
+        # last "no order" answer ({kind, level, timeframe, note, set_at,
+        # expires_at, block}), watched every cycle; and shadow order id ->
+        # ISO UTC of the "price entered the order's zone" message, one per
+        # order.
+        self.ai_waits: Dict[str, dict] = db.kv_get("ai_waits") or {}
+        self.ai_zone_notified: Dict[str, str] = db.kv_get("ai_zone_notified") or {}
         # kind -> pair -> [prague_date, count]: how many messages of `kind`
         # ("setup") actually reached Telegram today (D25: one, at most two
         # trades per pair per day). Reset implicitly by the date stamp — a
@@ -173,6 +180,8 @@ class WatcherState:
         self.db.kv_set("plan_change_notified", self.plan_change_notified)
         self.db.kv_set("ai_reread_at", self.ai_reread_at)
         self.db.kv_set("ai_reread_orders", self.ai_reread_orders)
+        self.db.kv_set("ai_waits", self.ai_waits)
+        self.db.kv_set("ai_zone_notified", self.ai_zone_notified)
         self.db.kv_set("pair_profile", self.pair_profile)
         self.db.kv_set("paused", self.paused)
         self.db.kv_set("plan_zones", self.plan_zones)
