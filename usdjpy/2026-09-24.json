@@ -1,0 +1,18 @@
+{
+ "date": "2026-09-24",
+ "created_at": "2026-09-24T08:05:00+02:00",
+ "price_at_creation": 158.244,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 157.750, "sl": 157.424, "tp1": 158.376, "tp2": 158.967, "tp3": 159.492,
+           "zone_high": 157.751, "zone_low": 157.678,
+           "basis": "H1 FVG 157.715-157.751 (untouched) + top of H1 OB 09-23 06:00 (157.524-157.678), 79% OTE of H1 leg 157.524->158.420; below Asia EQL 157.809/157.812",
+           "risk_pips": 32.6, "expires": "2026-09-24T18:30:00+02:00"},
+ "invalidation": {"level": 157.524, "rule": "H1 body close below 157.678 (zone low) before fill -> cancel limit; H1 close below 157.524 = bearish CHoCH, plan B (no longs today)"},
+ "levels": {"asia_high": 158.376, "asia_low": 157.809, "pdh": 158.420, "pdl": 157.352, "pwh": 158.024, "pwl": 153.220,
+            "eqh": 160.200, "eql": 157.810, "d1_range_high": 160.405, "d1_range_low": 152.379, "d1_eq": 156.392, "week_open": 156.869},
+ "d1_context": "D1 bullish since CHoCH above 154.659 (09-14): HL 152.379 -> 155.316 -> 156.547, HH 156.413 -> 158.024 -> 158.420. Range 152.379-160.405, price at 73% = premium. Bearish D1 FVG 156.846-158.279 filled 09-23; bullish D1 FVG 155.218-155.316 open. Pools above: 158.967, 159.49-159.78, EQH ~160.20-160.27.",
+ "h4_context": "H4 bullish: BOS above 158.024 on 09-23 15:00, strong low 156.818. Pullback today to 157.809 (Asia). H4 FVGs in the leg filled; H4 OB 09-22 07:00 157.119-157.469.",
+ "news": [{"time": "2026-09-24T14:30:00+02:00", "country": "USD", "title": "Unemployment Claims (medium, not red)"}],
+ "warnings": ["RR to TP1 (Asia high 158.376) = 1:1.92 < 1:2", "Long in D1 premium (73% of 152.379-160.405)", "No red USD/JPY news this week per FF calendar"]
+}
