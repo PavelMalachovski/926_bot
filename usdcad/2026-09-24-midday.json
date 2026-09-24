@@ -1,0 +1,22 @@
+{
+ "date": "2026-09-24",
+ "created_at": "2026-09-24T14:10:00+02:00",
+ "price_at_creation": 1.41164,
+ "morning_order_status": {"status": "NOT_REACHED", "closest_pips": 18.9, "closest_price": 1.40979, "closest_time": "2026-09-24T10:15:00+02:00",
+   "invalidated": false, "action": "cancel", "reason": "TP1 pool EQH 1.4115 swept at 1.41194 without fill; new HL 1.40979 above entry"},
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 1.41056, "sl": 1.40879, "tp1": 1.41292, "tp2": 1.41574, "tp3": 1.42486,
+           "zone_high": 1.41056, "zone_low": 1.41022,
+           "basis": "M5 OB 1.41022-1.41056 (12:00 bear candle before BOS) + OTE 62-79% 1.41061-1.41024 of H1 leg 1.40979->1.41194",
+           "risk_pips": 17.7, "expires": "2026-09-24T18:30:00+02:00"},
+ "invalidation": {"level": 1.41022, "rule": "H1 body close below 1.41022 before fill -> cancel limit"},
+ "levels": {"asia_high": 1.41133, "asia_low": 1.40988, "london_high": 1.41194, "london_low": 1.40979, "pdh": 1.41104, "pdl": 1.40570,
+            "pwh": 1.40146, "pwl": 1.38652, "eqh": 1.41150, "eql": 1.40979, "d1_range_high": 1.42486, "d1_range_low": 1.37329, "d1_eq": 1.39908, "week_open": 1.39873},
+ "swept_since_morning": ["pdh 1.41104", "asia_high 1.41133", "eqh 1.41150"],
+ "d1_context": "Unchanged from morning: D1 uptrend, 72% premium; July D1 EQH 1.4115 now swept, next D1 high 1.41292.",
+ "h4_context": "H4 (H1 resample) HH/HL, new HH 1.41194 above 1.41133. Open H4 bull FVG 1.40475-1.40612.",
+ "news": [{"time": "2026-09-24T14:30:00+02:00", "country": "CAD", "title": "Retail Sales / Core Retail Sales m/m (medium)"},
+          {"time": "2026-09-24T14:30:00+02:00", "country": "USD", "title": "Unemployment Claims (medium)"}],
+ "warnings": ["RR to TP1 1:1.33 < 1:2", "long in D1 premium (72%)", "entry 10.8 pips away may fill on 14:30 NY open + medium USD/CAD data"]
+}
