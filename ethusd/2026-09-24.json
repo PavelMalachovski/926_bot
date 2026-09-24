@@ -1,0 +1,18 @@
+{
+ "date": "2026-09-24",
+ "created_at": "2026-09-24T08:15:00+02:00",
+ "price_at_creation": 2688.40,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 2722.00, "sl": 2749.00, "tp1": 2666.00, "tp2": 2637.00, "tp3": 2610.00,
+           "zone_high": 2730.45, "zone_low": 2712.86,
+           "basis": "H1 supply (base before 23.09 16:00 displacement) 2712.86-2730.45 + H4 bear FVG 2680.62-2717, 56% of H1 leg 2789->2635.39",
+           "risk_usd": 27.00, "expires": "2026-09-24T18:30:00+02:00"},
+ "invalidation": {"level": 2730.45, "rule": "H1 body close above 2730.45 -> cancel limit; H1 close above 2749 -> H1 structure bullish again, plan B long"},
+ "levels": {"asia_high": 2704.08, "asia_low": 2664.32, "pdh": 2789.00, "pdl": 2635.39, "pwh": 2668.00, "pwl": 2358.88,
+            "eqh": 2789.00, "eql": 2664.32, "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2645.21},
+ "d1_context": "D1 bullish: HH 2807.34 (21.09), HL 2358.88 (15.09). Price 2688 = 73% of range (premium). Unswept: D1 FVG 2483.74-2564.33 (partially filled), H1 low 2608.31, PWL 2358.88; PDL 2635.39 swept H4 low 2643.71.",
+ "h4_context": "H4 bearish CHoCH: body close 2656.21 below EQL 2715.91/2716.02 after LH 2789; wick 2635.39 swept H4 low 2643.71 and reclaimed. H4 bear FVG 2680.62-2717 partially filled to 2704.08.",
+ "news": [{"time": "2026-09-24T14:30:00+02:00", "title": "USD Unemployment Claims (Medium, not red)"}],
+ "warnings": ["short against D1 structure (HH/HL); D1 premium 73% supports the short", "no red USD news today; 14:30 Claims medium"]
+}
