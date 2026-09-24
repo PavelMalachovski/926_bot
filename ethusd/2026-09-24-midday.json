@@ -1,0 +1,23 @@
+{
+ "date": "2026-09-24",
+ "created_at": "2026-09-24T14:15:00+02:00",
+ "price_at_creation": 2647.56,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451 from this environment",
+ "morning_order_status": {"status": "НЕ ДОШЛА", "distance_usd": 22.00, "closest": 2700.00, "closest_at": "2026-09-24T09:50:00+02:00",
+   "note": "price reached 2600.15 (11:30) below TP3 2610 without entry fill; morning limit cancelled", "action": "снять"},
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 2676.00, "sl": 2709.10, "tp1": 2633.40, "tp2": 2600.15, "tp3": 2566.00,
+           "zone_high": 2682.26, "zone_low": 2673.75,
+           "basis": "H1 bear FVG 2673.75-2679.70 (10:00 displacement) inside OTE 62-79% of H1 leg 2704.08->2600.15 (70.5% = 2673.42)",
+           "risk_usd": 33.10, "expires": "2026-09-24T18:30:00+02:00"},
+ "invalidation": {"level": 2709.10, "rule": "M5 body close below 2628.37 before fill -> move played out, cancel; H1 body close above 2709.10 -> H1 bullish, plan B long"},
+ "levels": {"asia_high": 2704.08, "asia_low": 2664.32, "london_high": 2700.00, "london_low": 2600.15, "pdh": 2789.00, "pdl": 2635.39,
+            "pwh": 2668.00, "pwl": 2358.88, "eqh": 2704.08, "eql": 2633.40, "d1_range_high": 2807.34, "d1_range_low": 2358.88,
+            "d1_eq": 2583.11, "week_open": 2645.21,
+            "swept_since_morning": ["asia_low 2664.32", "eql 2664.32", "pdl 2635.39 (wick, reclaimed)", "H1 low 2608.31", "H4 bull FVG 2587.39-2608.23 tested"]},
+ "d1_context": "Без изменений по структуре: D1 HH 2807.34 / HL 2358.88; цена 2647.56 = 64% range (premium). Днём снят PDL 2635.39 фитилём до 2600.15 с возвратом.",
+ "h4_context": "H4 bearish: CHoCH 2715.91, LH 2789 -> 2704.08, wick LL 2600.15 (body close 2647.68 above PDL). H4 bear FVG 2680.62-2704.08 remains above.",
+ "news": [{"time": "2026-09-24T14:30:00+02:00", "title": "USD Unemployment Claims (Medium, not red)"}],
+ "warnings": ["RR to TP1 1:1.29 < 1:2", "short against D1 structure (HH/HL)", "PDL sweep with reclaim + M5 higher low 2633.40 — reversal risk toward 2700/2704.08 buy-side", "entry can be hit by 14:30 NY open / Claims volatility"]
+}
