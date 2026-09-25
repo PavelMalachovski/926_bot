@@ -1,0 +1,20 @@
+{
+ "date": "2026-09-25",
+ "created_at": "2026-09-25T08:13:00+02:00",
+ "price_at_creation": 2675.62,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451 from this environment",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 2623.00, "sl": 2595.00, "tp1": 2685.00, "tp2": 2700.00, "tp3": 2788.00,
+           "zone_high": 2633.40, "zone_low": 2622.38,
+           "basis": "OTE 79% of H1 leg 2600.15->2706.00 (2622.38) + sweep of EQL 2633.40/2633.91 and 23.09 PDL 2635.39; H1 CHoCH bull 2673.75, HL 2660.38. Alternative: H4 still bearish",
+           "risk_usd": 28.00, "expires": "2026-09-25T18:30:00+02:00"},
+ "invalidation": {"level": 2600.15, "rule": "H1 body close below 2600.15 before fill -> cancel limit, H4 bear continues; sweep of 2706 into H4 bear FVG 2706-2717 + M5 CHoCH down -> plan B short; H4 close above 2706 -> H4 CHoCH bull, limit stays"},
+ "levels": {"asia_high": 2700.21, "asia_low": 2671.94, "pdh": 2706.00, "pdl": 2600.15, "pwh": 2668.00, "pwl": 2358.88,
+            "eqh": 2706.00, "eql": 2633.40, "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2645.21,
+            "h1_hl": 2660.38, "m5_lh": 2686.05, "h4_bear_fvg": [2706.00, 2717.00], "h4_bull_fvg_rest": [2587.39, 2600.15], "d1_bull_fvg": [2483.74, 2564.33]},
+ "d1_context": "D1 bull: HH 2807.34 (21.09) / HL 2358.88 (15.09). Цена 2675.62 = 70% range (premium), EQ 2583.11. 24.09 снят PDL 23.09 2635.39 фитилём до 2600.15 с возвратом. Незакрытый D1 bull FVG 2483.74-2564.33; PWH 2668 снят.",
+ "h4_context": "H4 bear: LH 2789 -> LL 2600.15; 2706.00 снял 2704.08 фитилём без body close (CHoCH нет). Незакрытый H4 bear FVG 2706-2717 над EQH 2700-2706. H1 bull CHoCH 2673.75, HL 2660.38, range 2660-2706.",
+ "news": [{"time": "2026-09-25T16:00:00+02:00", "title": "USD Revised UoM Consumer Sentiment / Inflation Expectations (Medium, not red)"}],
+ "warnings": ["H4 bearish (LH/LL) against long; H4/H1 disagree", "entry in D1 premium (2623 = 59% of 2358.88-2807.34)", "Friday: thin liquidity into weekend"]
+}
