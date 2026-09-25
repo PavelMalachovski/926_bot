@@ -1,0 +1,18 @@
+{
+ "date": "2026-09-25",
+ "created_at": "2026-09-25T08:05:00+02:00",
+ "price_at_creation": 158.264,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 158.070, "sl": 157.709, "tp1": 158.867, "tp2": 159.029, "tp3": 159.487,
+           "zone_high": 158.170, "zone_low": 158.065,
+           "basis": "H1 FVG 158.070-158.170 (09-24 07:00 impulse, filled only to 158.133) + top of H4 OB 157.809-158.118 (09-24 03:00), 79% OTE 158.065 of H1/H4 leg 157.809->159.029; below Asia EQL 158.133 x3 (sweep)",
+           "risk_pips": 36.1, "expires": "2026-09-25T18:30:00+02:00"},
+ "invalidation": {"level": 157.809, "rule": "H1 body close below 158.065 (zone low) before fill -> cancel limit; H1 close below 157.809 = H4 bearish CHoCH (HL lost), no longs today"},
+ "levels": {"asia_high": 158.867, "asia_low": 158.133, "pdh": 159.029, "pdl": 157.809, "pwh": 158.024, "pwl": 153.220,
+            "eqh": 160.200, "eql": 158.133, "d1_range_high": 160.405, "d1_range_low": 152.379, "d1_eq": 156.392, "week_open": 156.869},
+ "d1_context": "D1 bullish: HL 156.547/157.809, HH 158.420 -> 159.029 (09-24). Range 152.379-160.405, price 158.264 = 73% premium. Bearish D1 FVG 159.029-159.641 overhead (partly filled), bullish D1 FVGs 156.338-156.547 and 155.218-155.316 open. Pools above: PDH 159.029, 159.49-159.64, EQH 160.20-160.27; PWH 158.024 taken.",
+ "h4_context": "H4 bullish: BOS above 158.420 on 09-24, HH 159.029, strong low 157.809. Asia pulled back to 158.133 = 70% of leg; H4 OB 157.809-158.118, H4 FVG 158.118-158.454 nearly filled. H1 internal CHoCH down at 158.619 (pullback), M5 bearish, LH 158.468.",
+ "news": [{"time": "2026-09-25T16:00:00+02:00", "country": "USD", "title": "Revised UoM Consumer Sentiment / Inflation Expectations (medium, not red)"}],
+ "warnings": ["Long in D1 premium (73% of 152.379-160.405)", "No red USD/JPY news today per FF calendar", "H1 internal structure bearish (CHoCH 158.619) - entry relies on H4 OTE/OB holding"]
+}
