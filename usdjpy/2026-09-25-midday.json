@@ -1,0 +1,28 @@
+{
+ "date": "2026-09-25",
+ "created_at": "2026-09-25T14:05:00+02:00",
+ "price_at_creation": 157.573,
+ "morning_order_status": {
+  "status": "ЗАКРЫТ ПО SL",
+  "filled_at": "2026-09-25T08:15:00+02:00",
+  "sl_hit_at": "2026-09-25T11:20:00+02:00",
+  "result_pips": -36.1, "result_r": -1.0, "result_usd_1lot": -229,
+  "max_favorable_pips": 21.4,
+  "note": "H1 close 157.573 < 157.809 at 13:00 = morning invalidation of longs (H4 HL lost)"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 158.060, "sl": 158.384, "tp1": 157.511, "tp2": 157.264, "tp3": 156.818,
+           "zone_high": 158.122, "zone_low": 157.990,
+           "basis": "H1 bear FVG 158.065-158.097 (09-25 10:00/12:00) inside OTE 62-79% (157.990-158.122) of H1 leg 158.284->157.511; M5 LH 158.108 (11:55); SL above London high/LH 158.284 +10p",
+           "risk_pips": 32.4, "expires": "2026-09-25T18:30:00+02:00"},
+ "invalidation": {"level": 158.122, "rule": "H1 body close above 158.122 before fill -> cancel limit; H1 close above 158.284 = bearish leg void"},
+ "levels": {"asia_high": 158.867, "asia_low": 158.133, "london_high": 158.284, "london_low": 157.511,
+            "pdh": 159.029, "pdl": 157.809, "pwh": 158.024, "pwl": 153.220, "eqh": 160.200, "eql": 157.251,
+            "d1_range_high": 160.405, "d1_range_low": 152.379, "d1_eq": 156.392, "week_open": 156.869,
+            "taken_since_morning": ["asia_low 158.133", "eql 158.133", "pdl 157.809"]},
+ "d1_context": "From morning: D1 bullish, 152.379-160.405 range. Change: D1 HL 157.809 (PDL) broken intraday, price 157.573 = 65% premium; D1 close decides.",
+ "h4_context": "H4 (resampled) bullish structure broken: H1 body close 157.573 below strong low 157.809 = CHoCH down, confirmation by H4 close at 16:00. H1 bearish: LH 158.284, LL 157.511, BOS below 157.952 at 11:05.",
+ "news": [{"time": "2026-09-25T16:00:00+02:00", "country": "USD", "title": "Revised UoM Consumer Sentiment / Inflation Expectations (medium, not red)"}],
+ "warnings": ["RR to TP1 1:1.69 < 1:2", "Short against D1 bullish trend (D1 HL broken only intraday)", "Entry 48.7 pips above price, Friday afternoon - low fill probability", "H4 CHoCH unconfirmed until 16:00 H4 close"]
+}
