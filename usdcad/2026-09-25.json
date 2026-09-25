@@ -1,0 +1,18 @@
+{
+ "date": "2026-09-25",
+ "created_at": "2026-09-25T08:10:00+02:00",
+ "price_at_creation": 1.41520,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 1.41180, "sl": 1.40879, "tp1": 1.41720, "tp2": 1.41890, "tp3": 1.42380,
+           "zone_high": 1.41218, "zone_low": 1.41087,
+           "basis": "H4 FVG 1.41087-1.41218 (untouched) + H1 OTE 62% of leg 1.40979->1.41525, under H1 FVG 1.41194-1.41218",
+           "risk_pips": 30.1, "expires": "2026-09-25T18:30:00+02:00"},
+ "invalidation": {"level": 1.41087, "rule": "H1 body close below 1.41087 before fill -> cancel limit; plan B: D1 FVG 1.40843-1.40951 after PDL sweep + M5 CHoCH"},
+ "levels": {"asia_high": 1.41499, "asia_low": 1.41403, "pdh": 1.41492, "pdl": 1.40951, "pwh": 1.40146, "pwl": 1.38652,
+            "eqh": 1.41744, "eql": 1.40979, "d1_range_high": 1.42486, "d1_range_low": 1.37329, "d1_eq": 1.39908, "week_open": 1.39873},
+ "d1_context": "D1 bullish: LL 1.37329 (21.08) -> HL 1.37547 (04.09) -> BOS 1.39584 and 1.41292. Price 81% premium of range 1.37329-1.42486. Pools above: EQH 1.41726/1.41744 (10-13.07), 1.41899, EQH 1.42391/1.42486. Untouched D1 bull FVGs 1.40843-1.40951, 1.40387-1.40570.",
+ "h4_context": "H4 uptrend HH/HL, last BOS above 1.41133 (24.09). Untouched H4 FVG 1.41087-1.41218, HL 1.40244. London open 08:00 swept Asia high + PDH (1.41525).",
+ "news": [{"time": "16:00", "country": "USD", "title": "Revised UoM Consumer Sentiment / Inflation Expectations (medium, not red)"}],
+ "warnings": ["RR to TP1 1:1.79 < 1:2", "Long in D1 premium (81%)", "Friday: close everything before weekend", "No red USD/CAD news today"]
+}
