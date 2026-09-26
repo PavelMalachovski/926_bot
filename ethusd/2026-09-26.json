@@ -1,0 +1,20 @@
+{
+ "date": "2026-09-26",
+ "created_at": "2026-09-26T08:15:00+02:00",
+ "price_at_creation": 2686.61,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451 from this environment",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 2674.00, "sl": 2662.00, "tp1": 2699.00, "tp2": 2742.50, "tp3": 2763.50,
+           "zone_high": 2680.80, "zone_low": 2667.33,
+           "basis": "H1 OB (last bear candle 25.09 09:00 before the 2667.33->2743.00 impulse: body 2672.04-2674.52, wick 2667.33-2680.80) = 90% of the H1 leg (below OTE 2683.22-2696.08); M5 drifts down to Asia Low 2681.00; EQL 2667.33/2668.84 below as the sweep target",
+           "risk_usd": 12.00, "expires": "2026-09-26T23:59:00+02:00"},
+ "invalidation": {"level": 2667.33, "rule": "H1 body close below 2667.33 (H4 HL / Strong Low) -> cancel limit, bias long off, plan B: short from retest 2667-2672 toward 2635.39/2600.15. Break of 2699.50 without pullback -> do not chase, wait for sweep + M5 CHoCH"},
+ "levels": {"asia_high": 2696.44, "asia_low": 2681.00, "pdh": 2743.00, "pdl": 2667.33, "pwh": 2668.00, "pwl": 2358.88,
+            "eqh": 2696.44, "eql": 2667.33, "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2645.21,
+            "h1_lh": 2699.50, "h1_hl": 2677.16, "eqh_upper": 2763.86, "h4_lh": 2789.00},
+ "d1_context": "D1 bull: HL 2358.88 (15.09) -> HH 2807.34 (21.09), с тех пор коррекция 2600.15-2789. Цена 2686.61 = 73% range (premium), вход 2674 = 70%. Пулы: EQH 2763.86/2764, HH 2807.34; снизу PDL 2667.33, PWH 2668 (уже пробит, retest), 2600.15. Незакрытые FVG: D1 bull 2483.74-2602.94 (частично), bull 2649.89-2715.91 (цена внутри).",
+ "h4_context": "H4 bull: 25.09 CHoCH (close 2717.53 > LH 2706.00), HL 2667.33 -> HH 2743.00; откат 98% до 2668.84 и компрессия 2677-2700. H1 внутри — LH 2699.50/2696.44, EQH 2696.41-2696.44 (тройная вершина) над ценой, EQL 2667.33/2668.84 под ценой.",
+ "news": [],
+ "warnings": ["вход в D1 premium (70% range 2358.88-2807.34)", "суббота: тонкая ликвидность, рутина запущена в выходной", "SL всего в 5.3$ под EQL 2667.33 — глубокий sweep выбьет", "H1 краткосрочно вниз (LH), лонг — от H4 структуры"]
+}
