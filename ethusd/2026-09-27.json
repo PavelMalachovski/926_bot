@@ -1,0 +1,21 @@
+{
+ "date": "2026-09-27",
+ "created_at": "2026-09-27T08:15:00+02:00",
+ "price_at_creation": 2709.68,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451 from this environment)",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 2679.00, "sl": 2659.50, "tp1": 2711.60, "tp2": 2742.50, "tp3": 2763.50,
+           "zone_high": 2682.78, "zone_low": 2676.87,
+           "basis": "H1 OB (last bear candle 26.09 22:00 before the 2664.79->2712.13 impulse: body 2676.87-2684.63, wick 2664.79-2685.47) ∩ OTE 62-79% of the H1 leg (2682.78-2674.73); entry ~70.5% OTE; path sweeps Asia Low 2688.84",
+           "risk_usd": 19.50, "expires": "2026-09-27T23:59:00+02:00"},
+ "invalidation": {"level": 2664.79, "rule": "H1 body close below 2664.79 (H1/H4 HL after the EQL sweep) -> cancel limit, bias long off. Break above 2743.00 without a pullback -> cancel, do not chase, wait for sweep + M5 CHoCH"},
+ "levels": {"asia_high": 2712.13, "asia_low": 2688.84, "pdh": 2697.79, "pdl": 2664.79, "pwh": 2668.00, "pwl": 2358.88,
+            "eqh": 2763.86, "eql": 2667.33, "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2645.21,
+            "h4_lh": 2743.00, "h1_hl": 2664.79, "h1_bos": 2706.09, "inner_range_low": 2600.15, "inner_eq": 2703.75},
+ "d1_context": "D1 bull: HL 2358.88 (15.09) -> HH 2807.34 (21.09) -> HL 2600.15 (24.09). Цена 2709.68 = 78% большого range (premium), вход 2679 = 71%; во внутреннем range 2600.15-2807.34 вход на 38% (discount). Пулы: EQH 2763.86/2764, HH 2807.34; снизу EQL 2667.33 уже снят (2664.79), PWL 2358.88. Незакрытые FVG: D1 bull 2483.74-2602.94 (32%), H4 bull 2587.39-2606.69.",
+ "h4_context": "H4 bull: HL 2600.15 -> HH 2743.00 (CHoCH через 2706.00), sweep EQL 2667.33 до 2664.79 (26.09 22:45) и возврат; сегодня пробит H4/H1 high 2697.79 и H1 LH 2706.09 (BOS up). Цель над ценой — 2743.00, затем EQH 2763.86 и H1 bear FVG 2762.07-2767.80.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "title": "USD Core PCE m/m, Final GDP q/q"}, {"time": "2026-10-02T14:30:00+02:00", "title": "USD NFP, Unemployment, AHE"}],
+ "prev_order_note": "ордер 26.09 BUY LIMIT 2674 исполнен 26.09 22:40 (low 2667.79), SL 2662 не задет (low 2664.79), TP1 2699 взят 27.09 04:10 = +25$ / +2.08R; TP2 2742.50 ещё не взят",
+ "warnings": ["RR к TP1 (2711.60, Asia High/leg high) = 1:1.67 < 1:2", "вход в premium большого D1 range (71%)", "воскресенье: тонкая ликвидность, рутина запущена в выходной", "до входа 30.68$ — возможно не дойдёт"]
+}
