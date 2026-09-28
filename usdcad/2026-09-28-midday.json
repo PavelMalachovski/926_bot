@@ -1,0 +1,21 @@
+{
+ "date": "2026-09-28",
+ "created_at": "2026-09-28T14:15:00+02:00",
+ "price_at_creation": 1.41695,
+ "morning_order_status": "NOT_REACHED",
+ "morning_order_detail": "BUY LIMIT 1.41440 not filled; closest low 1.41500 at 10:00 (6.0 pips). TP1 1.41640 and TP2 1.41725 traded without entry. Action: cancel.",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 1.41565, "sl": 1.41400, "tp1": 1.41895, "tp2": 1.41930, "tp3": 1.42455,
+           "zone_high": 1.41571, "zone_low": 1.41543,
+           "basis": "M5 OB 11:20-11:25 (1.41543-1.41571) + OTE 73% of H1 leg 1.41500->1.41743 (OTE 1.41592-1.41551)",
+           "risk_pips": 16.5, "expires": "2026-09-28T18:30:00+02:00"},
+ "invalidation": {"level": 1.41543, "rule": "H1 body close below 1.41543 before fill -> cancel limit; short scenario only after M5 CHoCH below 1.41660 following EQH sweep"},
+ "levels": {"asia_high": 1.41643, "asia_low": 1.41480, "london_high": 1.41743, "london_low": 1.41500, "pdh": 1.41549, "pdl": 1.41333,
+            "pwh": 1.41549, "pwl": 1.39828, "eqh": 1.41744, "eql": 1.41341, "d1_range_high": 1.41743, "d1_range_low": 1.37547,
+            "d1_eq": 1.39645, "week_open": 1.41414, "bsl_next": 1.41899},
+ "d1_context": "Since morning: D1 range high 1.41643 broken to 1.41743, EQH 1.4173x swept. Price above the old range = extreme premium, inside July supply 1.4155-1.4210.",
+ "h4_context": "H4 (resampled from H1) uptrend, BOS 1.41549 -> 1.41743; protected HL 1.41333; open H4 FVG 1.41087-1.41218.",
+ "news": [],
+ "warnings": ["Long in D1 premium above range 1.37547-1.41643, inside July supply 1.4155-1.4210", "Entry window around NY open 14:30 (no red news today)", "Asia high and EQH 1.4173x swept at London close — reversal risk"]
+}
