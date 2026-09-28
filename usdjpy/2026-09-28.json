@@ -1,0 +1,19 @@
+{
+ "date": "2026-09-28",
+ "created_at": "2026-09-28T08:05:00+02:00",
+ "price_at_creation": 157.676,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 158.065, "sl": 158.384, "tp1": 157.405, "tp2": 157.230, "tp3": 157.000,
+           "zone_high": 158.110, "zone_low": 157.977,
+           "basis": "H1 bear FVG 158.065-158.097 (09-25 10:00/12:00, untouched) + H1 OB 09-25 10:00 (body 158.097-158.110, wick 158.284), top of OTE 62-79% (157.795-158.014) of H1 leg 158.284->156.996; M5 EQH 157.85 above price as sweep fuel",
+           "risk_pips": 31.9, "expires": "2026-09-28T18:30:00+02:00"},
+ "invalidation": {"level": 158.110, "rule": "H1 body close above 158.110 before fill -> cancel limit; H1 close above 158.284 = bearish leg void (plan B: long bias resumes)"},
+ "levels": {"asia_high": 157.852, "asia_low": 157.405, "pdh": 158.957, "pdl": 156.996, "pwh": 159.029, "pwl": 156.547,
+            "eqh": 157.850, "eql": 157.668, "d1_range_high": 159.029, "d1_range_low": 152.379, "d1_eq": 155.704, "week_open": 157.230},
+ "d1_context": "D1 bullish HH/HL (152.379 -> 158.024 -> 159.029); Fri 25.09 bearish 158.957->156.996 close 157.295. Price ~80% of range 152.379-159.029 = premium. Pools: PWH/PDH 159.03/158.96 above, PDL 156.996, PWL 156.547, H4 HL 156.818 below. No unfilled D1 FVG nearby.",
+ "h4_context": "H4 uptrend broken internally: CHoCH down Fri 13:00 (HL 157.809 lost), low 156.996; swing HL 156.818 intact. Bear H4 FVG 157.553-157.952 filled to 157.852 (Mon Asia). Bull H4 FVG 158.491-158.619 above.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Core PCE Price Index m/m / Final GDP q/q"},
+          {"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment Rate / Avg Hourly Earnings"}],
+ "warnings": ["Short is against D1 structure (HH/HL) though from D1 premium ~80%", "H4 swing HL 156.818 still intact - bearish is internal CHoCH only", "Entry 38.9 pips above price - may not fill"]
+}
