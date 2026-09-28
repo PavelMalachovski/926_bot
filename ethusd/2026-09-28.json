@@ -1,0 +1,19 @@
+{
+ "date": "2026-09-28",
+ "created_at": "2026-09-28T08:25:00+02:00",
+ "price_at_creation": 2654.35,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (Binance REST 451 from environment)",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 2685.00, "sl": 2708.50, "tp1": 2636.00, "tp2": 2601.00, "tp3": 2565.00,
+           "zone_high": 2691.31, "zone_low": 2675.70,
+           "basis": "H1 OB (bull candle 01:00, body 2675.70-2688.65, wick 2691.31) + OTE 62-79% of leg 2703.51->2635.69 (2677.74-2689.27)",
+           "risk_usd": 23.50, "expires": "2026-09-28T18:30:00+02:00"},
+ "invalidation": {"level": 2691.31, "rule": "H1 body close above 2691.31 before fill -> cancel limit; also cancel if EQL 2635.4 is taken before fill"},
+ "levels": {"asia_high": 2703.51, "asia_low": 2635.69, "pdh": 2724.12, "pdl": 2669.78, "pwh": 2807.34, "pwl": 2600.15,
+            "eqh": 2697.79, "eql": 2635.39, "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2688.65},
+ "d1_context": "D1 bullish structure: leg 2358.88 (09-15) -> 2807.34 (09-21), HL 2600.15 (09-24). Price 2654 = 65.8% of the leg (premium), EQ 2583.11. Unfilled D1 FVG 2483.74-2602.94 (tapped to 2564.33). Pools below: EQL 2635.39/2635.69, PWL 2600.15; above: PDH 2724.12, PWH 2807.34.",
+ "h4_context": "H4 bearish since CHoCH 09-23 (close below HL 2715.91); LH 2743 -> 2724.12; 00:00 UTC bar closed 2652.08 below 2664.79 = BOS down. Bear FVG 2699.67-2705.93 tapped by Asia high 2703.51. Bull FVG 2587.39-2606.69 below.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "title": "USD Core PCE m/m, Final GDP q/q"}, {"time": "2026-10-02T14:30:00+02:00", "title": "USD NFP, Unemployment Rate, AHE"}],
+ "warnings": ["Short against D1 uptrend (HH 2807.34) - counter-D1 pullback into D1 discount (EQ 2583)", "No red USD news today; nothing blacks out the entry"]
+}
