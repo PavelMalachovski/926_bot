@@ -1,0 +1,21 @@
+{
+ "date": "2026-09-28",
+ "created_at": "2026-09-28T14:05:00+02:00",
+ "price_at_creation": 156.973,
+ "morning_order_status": "NOT_REACHED",
+ "morning_order_detail": "SELL LIMIT 158.065 not filled: max high since 08:05 = 157.778 (08:05 M5), 28.7 pips short. Targets 157.405/157.230/157.000 all traded without entry, low 156.479. Action: cancel.",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 157.330, "sl": 157.725, "tp1": 156.865, "tp2": 156.479, "tp3": 156.108,
+           "zone_high": 157.503, "zone_low": 157.322,
+           "basis": "H1 bear FVG 157.322-157.370 (08:00/10:00, untouched) inside M5 bear FVG 157.322-157.503, OTE 62-79% (157.330-157.564) of H1 leg 157.852->156.479; SL above M5 Strong High 157.622 + 10 pips",
+           "risk_pips": 39.5, "expires": "2026-09-28T18:30:00+02:00"},
+ "invalidation": {"level": 157.622, "rule": "H1 body close above 157.622 -> cancel, plan B long (D1 HH/HL); also cancel if 156.479 is taken before fill"},
+ "levels": {"asia_high": 157.852, "asia_low": 157.405, "london_high": 157.778, "london_low": 156.479, "pdh": 158.957, "pdl": 156.996, "pwh": 159.029, "pwl": 156.547,
+            "eqh": null, "eql": 156.861, "d1_range_high": 159.029, "d1_range_low": 152.379, "d1_eq": 155.704, "week_open": 157.230},
+ "d1_context": "Unchanged from morning: D1 HH/HL (152.379 -> 159.029); London dumped to 156.479, price ~69% of D1 range = still premium. PDL 156.996 broken by H1 close, PWL 156.547 swept by wick.",
+ "h4_context": "H4 (resampled): LH 157.852 under 159.029, wick sweep of swing HL 156.818 to 156.479, H4 close 157.043 back above -> bearish internally, swing HL not broken by close.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Core PCE Price Index m/m / Final GDP q/q"},
+          {"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment Rate / Avg Hourly Earnings"}],
+ "warnings": ["RR to TP1 1:1.2 < 1:2", "Short against D1 HH/HL (in D1 premium 69%)", "156.479 swept PWL + H4 HL with close back above -> reversal risk", "No red news today; NY open 14:30 volatility only"]
+}
