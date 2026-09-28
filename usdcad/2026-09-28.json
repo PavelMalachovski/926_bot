@@ -1,0 +1,21 @@
+{
+ "date": "2026-09-28",
+ "created_at": "2026-09-28T08:17:00+02:00",
+ "price_at_creation": 1.41527,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 1.41440, "sl": 1.41233, "tp1": 1.41640, "tp2": 1.41725, "tp3": 1.41895,
+           "zone_high": 1.41464, "zone_low": 1.41410,
+           "basis": "H1 OB (Fri 22:00, 1.41410-1.41464) + OTE overlap: 79% of Mon leg 1.41387->1.41643 and 62-70% of leg 1.41333->1.41643; under Asia low 1.41480",
+           "risk_pips": 20.7, "expires": "2026-09-28T18:30:00+02:00"},
+ "invalidation": {"level": 1.41333, "rule": "H1 body close below 1.41333 (Strong Low / PDL / EQL) before fill -> cancel limit, plan B"},
+ "levels": {"asia_high": 1.41643, "asia_low": 1.41480, "pdh": 1.41549, "pdl": 1.41333, "pwh": 1.41549, "pwl": 1.39828,
+            "eqh": 1.41735, "eql": 1.41341, "d1_range_high": 1.41643, "d1_range_low": 1.37547, "d1_eq": 1.39595, "week_open": 1.41414},
+ "d1_context": "D1 bullish HH/HL: 1.37547 (04.09) -> 1.41643 (Asia today), BOS above July high 1.41292. Price ~97% of range = deep premium, inside July distribution 1.4155-1.4210. Buy-side pools: EQH 1.41726/1.41744 (10/13.07), 1.41899/1.41934, EQH 1.4246-1.4249 (June). Open D1 FVG 1.41104-1.41333, 1.40387-1.40570, 1.39283-1.39719.",
+ "h4_context": "H4 uptrend, last BOS above 1.41549 (PDH) to 1.41643 in Asia; protected HL 1.41333 (25.09 11:00). Open H4 FVG 1.41087-1.41218; partial 1.40702-1.40786, 1.40475-1.40612.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Core PCE Price Index m/m"},
+          {"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Final GDP q/q"},
+          {"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment Rate / Avg Hourly Earnings"}],
+ "warnings": ["RR to TP1 (Asia high 1.41640) = 1:0.97 < 1:2", "Long in D1 premium (~97% of 1.37547-1.41643) inside July supply 1.4155-1.4210"],
+ "plan_b": "H1 body close < 1.41333: no long; wait for H4/D1 FVG 1.41104-1.41333 (buy limit 1.41220, SL 1.40970 below 24.09 lows) or sweep of EQH 1.4173 + M5 CHoCH down for a counter short"
+}
