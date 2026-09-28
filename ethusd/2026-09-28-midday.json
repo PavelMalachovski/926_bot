@@ -1,0 +1,32 @@
+{
+ "date": "2026-09-28",
+ "created_at": "2026-09-28T14:20:00+02:00",
+ "price_at_creation": 2682.93,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (Binance REST 451 from environment)",
+ "morning_order_status": "FILLED_RUNNING",
+ "morning_order_check": {
+   "filled_at": "2026-09-28T14:05:00+02:00", "fill_price": 2685.00,
+   "sl_hit": false, "tp_hit": [], "invalidated_before_fill": false,
+   "eql_2635_taken_before_fill": false, "min_low_after_plan": 2637.38,
+   "max_high_after_fill": 2692.67,
+   "floating_usd": 2.07, "floating_r": 0.09,
+   "note": "fill in the 14:05 M5 impulse 2673.45->2691.14; 14:10 bar wick 2692.67 (open); last closed M5 close 2690.99 = -5.99$ / -0.25R"
+ },
+ "adjustment": {"action": "keep", "sl": 2708.50, "tp1": 2636.00, "tp2": 2601.00, "tp3": 2565.00,
+   "be_rule": "SL -> 2685 (BE) after M5 BOS down below 2663.07 (14:00 impulse base) with a new protected M5 high, or on TP1",
+   "reason": "H4 bearish (LH 2724.12, BOS 2664.79) and H1 LH 2703.51 intact; morning rally = pullback into H1 OB, no CHoCH above 2703.51; EQL 2635.39 / PWL 2600.15 untaken; no red USD news today"},
+ "setup_valid": true, "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 2685.00, "sl": 2708.50, "tp1": 2636.00, "tp2": 2601.00, "tp3": 2565.00,
+           "zone_high": 2691.31, "zone_low": 2675.70,
+           "basis": "morning order, filled 14:05; no new order (position already running)",
+           "risk_usd": 23.50, "expires": "filled"},
+ "invalidation": {"level": 2708.50, "rule": "SL; structure broken on H1 body close above 2703.51 (Asia high / H1 LH)"},
+ "levels": {"asia_high": 2703.51, "asia_low": 2635.69, "london_high": 2669.53, "london_low": 2637.38,
+            "pdh": 2724.12, "pdl": 2669.78, "pwh": 2807.34, "pwl": 2600.15,
+            "eqh": 2697.79, "eql": 2635.39, "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2688.65,
+            "taken_since_morning": ["London high 2669.53 (14:05)", "PDL 2669.78 reclaimed"]},
+ "d1_context": "unchanged since morning: D1 bullish HH 2807.34 / HL 2600.15, price in premium above EQ 2583.11",
+ "h4_context": "H4 bearish: LH 2724.12, BOS 2664.79; current 12:00 bar pushes into H1 OB 2675.70-2691.31 below H4 bear FVG 2699.67-2705.93",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "title": "USD Core PCE m/m, Final GDP q/q"}],
+ "warnings": ["Short against D1 uptrend (as in the morning)", "Fill came on a fast 14:05 impulse; 14:10 wick already 2692.67 above the zone top 2691.31"]
+}
