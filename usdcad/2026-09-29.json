@@ -1,0 +1,20 @@
+{
+ "date": "2026-09-29",
+ "created_at": "2026-09-29T08:10:00+02:00",
+ "price_at_creation": 1.41853,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 1.41800, "sl": 1.41633, "tp1": 1.41935, "tp2": 1.42090, "tp3": 1.42250,
+           "zone_high": 1.41829, "zone_low": 1.41733,
+           "basis": "H1 FVG 1.41784-1.41829 (05:00, 0% fill) + M5 FVG 1.41789-1.41806 + OTE 70% of H1 leg 1.41733->1.41935 (OTE 1.41810-1.41775); H1 OB 04:00 1.41733-1.41784 below",
+           "risk_pips": 16.7, "expires": "2026-09-29T18:30:00+02:00"},
+ "invalidation": {"level": 1.41733, "rule": "H1 body close below 1.41733 (H1 HL / OB low) before fill -> cancel limit; plan B: long only from H4 OB 1.41480-1.41583 after M5 CHoCH up"},
+ "levels": {"asia_high": 1.41935, "asia_low": 1.41733, "pdh": 1.41781, "pdl": 1.41387,
+            "pwh": 1.41549, "pwl": 1.39828, "eqh": 1.42090, "eql": 1.41340, "d1_range_high": 1.41935, "d1_range_low": 1.37547,
+            "d1_eq": 1.39741, "week_open": 1.41414, "d1_eqh_major": 1.42475},
+ "d1_context": "D1 uptrend HH/HL from 1.37547 (04.09); price 1.4185 = ~98% of 1.37547-1.41935, ~88% of big range to June high 1.42486 -> deep premium, inside June-July supply 1.4155-1.4249. BSL above: 1.4208-1.4210 (EQH 26.06/03.07/05.07), 1.4225, EQH 1.4246-1.4249. Open D1 FVGs below: 1.41104-1.41333, 1.40843-1.40951, 1.40387-1.40570.",
+ "h4_context": "H4 uptrend: HL 1.41340 -> BOS of 1.41643 and PWH 1.41549, high 1.41935. H4 OB 28.09 03:00 1.41480-1.41583; open H4 FVG 1.41243-1.41315 and 1.41087-1.41218.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Core PCE Price Index m/m + Final GDP q/q"},
+          {"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment / AHE"}],
+ "warnings": ["RR to TP1 (Asia high 1.41935) = 1:0.8 < 1:2", "Long in D1 premium (~98% of Sept range) inside June-July supply", "M5 CHoCH down at London open 08:00 after Asia-high sweep 1.41935 - judas could run through PDH 1.41781 to Asia low 1.41733"]
+}
