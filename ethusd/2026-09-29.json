@@ -1,0 +1,19 @@
+{
+ "date": "2026-09-29",
+ "created_at": "2026-09-29T08:15:00+02:00",
+ "price_at_creation": 2693.74,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (Binance REST 451 from environment)",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 2704.50, "sl": 2729.50, "tp1": 2653.00, "tp2": 2636.50, "tp3": 2601.00,
+           "zone_high": 2706.88, "zone_low": 2695.12,
+           "basis": "H1 OTE 62-79% of leg 2721.42->2652.20 (74%), H1 LH 2703.51, D1 inner EQ 2703.75; above Asia high 2695.38 (BSL)",
+           "risk_usd": 25.00, "expires": "2026-09-29T23:59:00+02:00"},
+ "invalidation": {"level": 2724.12, "rule": "H1 body close above EQH 2724.12 -> H4 LH broken, cancel/plan B; also cancel if TP1 pool 2652.20 is taken before fill"},
+ "levels": {"asia_high": 2695.38, "asia_low": 2652.20, "pdh": 2721.42, "pdl": 2635.69, "pwh": 2807.34, "pwl": 2600.15,
+            "eqh": 2724.12, "eql": 2635.39, "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2688.65},
+ "d1_context": "D1 bullish HH 2807.34 / HL 2600.15; range 2358.88-2807.34, price 74% premium (inner leg 2600.15-2807.34: 45%, EQ 2703.75). Pools: PWH 2807.34, EQH 2721.42/2724.12, EQL 2635.39/2635.69, PWL 2600.15. D1 FVG 2430.64-2436.89 open, 2483.74-2602.94 filled to 2564.33.",
+ "h4_context": "H4 bearish-leaning inside 5-day range 2635-2724: LH 2743.00 -> 2724.12 -> 2721.42, LL 2635.69 broke HL 2664.79 (BOS down). H4 bull FVG 2587.39-2606.69 partially filled. H1 CHoCH down 04:00 (2652.20 < 2665.00); M5 HL 2656.00 + BOS up 2673.90 at 07:50 = London pullback into supply.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "title": "USD Core PCE m/m, Final GDP q/q"}, {"time": "2026-10-02T14:30:00+02:00", "title": "USD NFP, Unemployment, AHE"}],
+ "warnings": ["Short against D1 uptrend (D1 in 74% premium though)", "SL only ~5$ above EQH 2724.12 - an EQH sweep can stop it", "Yesterday's short (2685/2708.50) was stopped by the 19:10 spike to 2721.42"]
+}
