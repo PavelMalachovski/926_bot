@@ -1,0 +1,19 @@
+{
+ "date": "2026-09-29",
+ "created_at": "2026-09-29T08:05:00+02:00",
+ "price_at_creation": 157.31,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 157.625, "sl": 157.952, "tp1": 157.213, "tp2": 156.857, "tp3": 156.479,
+           "zone_high": 157.671, "zone_low": 157.622,
+           "basis": "H1 bear FVG 157.622-157.671 (28.09 07:00/09:00, untouched) above EQH/Asia high 157.579/157.585 (sweep-in); H4 LH 157.852 / LL 156.479; SL above PDH/H4 LH 157.852 + 10 pips",
+           "risk_pips": 32.7, "expires": "2026-09-29T18:30:00+02:00"},
+ "invalidation": {"level": 157.671, "rule": "H1 body close above 157.671 -> cancel; plan B long only after H1 close above 157.852 (H4 BOS up). Also cancel if 156.857 is taken before fill"},
+ "levels": {"asia_high": 157.585, "asia_low": 157.213, "pdh": 157.852, "pdl": 156.479, "pwh": 159.029, "pwl": 156.547,
+            "eqh": 157.582, "eql": 156.857, "d1_range_high": 159.029, "d1_range_low": 152.379, "d1_eq": 155.704, "week_open": 157.230},
+ "d1_context": "D1 HH/HL (152.379 -> 158.024 -> HL 156.547 -> HH 159.029). 28.09 wick swept PWL 156.547 to 156.479 and closed 157.381 back above. Price ~74% of 152.379-159.029 = premium. D1 bull FVG 156.338-156.798 69% filled, bear FVG 158.967-159.641 above.",
+ "h4_context": "H4 LH 157.852 / LL 156.479 (sweep of PWL + HL 156.818) -> bearish until close above 157.852. H4 bear FVG 157.239-157.665 81% filled; H1 bear FVG 157.622-157.671 untouched. H1 internal HLs 156.857 -> 157.009 -> 157.213, EQH 157.579/157.585 not taken.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Core PCE Price Index m/m / Final GDP q/q"},
+          {"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment Rate / Avg Hourly Earnings"}],
+ "warnings": ["RR to TP1 1:1.26 < 1:2", "Short against D1 HH/HL structure (PWL swept + close back above)", "H4/H1 diverge: H1 internal HL series", "M5 CHoCH down 07:40 heads to Asia low, not to entry", "No red USD/JPY news today"]
+}
