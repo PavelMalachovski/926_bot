@@ -1,0 +1,31 @@
+{
+ "date": "2026-09-29",
+ "created_at": "2026-09-29T14:13:00+02:00",
+ "price_at_creation": 2732.38,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (Binance REST 451 from environment)",
+ "morning_order_status": {
+   "status": "ЗАКРЫТ ПО SL",
+   "side": "SELL LIMIT", "entry": 2704.50, "sl": 2729.50,
+   "filled_at": "2026-09-29T08:50:00+02:00", "closed_at": "2026-09-29T10:20:00+02:00",
+   "best_price_after_fill": 2698.41,
+   "result_usd": -25.00, "result_r": -1.0, "ambiguous": false,
+   "note": "London rally took Asia H 2695.38, PDH 2721.42, EQH 2724.12; H1 13:00 body close 2732.47 > 2724.12 also invalidated the short; H4 CHoCH up"
+ },
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 2685.00, "sl": 2647.20, "tp1": 2743.00, "tp2": 2764.00, "tp3": 2807.34,
+           "zone_high": 2700.40, "zone_low": 2670.33,
+           "basis": "H1 OTE 62% of leg 2652.20->2738.51 inside H1 bull FVG 2677.87-2700.40 (below H4 FVG 2695.38-2702.78, EQ 2695.36); SL below Strong Low 2652.20 (Asia low) -5$",
+           "risk_usd": 37.80, "expires": "2026-09-29T23:59:00+02:00"},
+ "invalidation": {"level": 2670.33, "rule": "H1 body close below 2670.33 (OTE 79%) -> cancel; also cancel if BSL 2743.00 is swept before fill (re-anchor the leg)"},
+ "levels": {"asia_high": 2695.38, "asia_low": 2652.20, "london_high": 2738.51, "london_low": 2676.27,
+            "pdh": 2721.42, "pdl": 2635.69, "pwh": 2807.34, "pwl": 2600.15,
+            "eqh": 2764.00, "eql": 2635.39, "bsl_h4_lh": 2743.00,
+            "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2688.65,
+            "swept_today": ["asia_high 2695.38", "pdh 2721.42", "eqh 2724.12"]},
+ "d1_context": "D1 bullish HH 2807.34 / HL 2600.15; price 2732 = 83% premium of 2358.88-2807.34 (63% of inner leg 2600.15-2807.34). Pools above: BSL 2743.00, EQH ~2764, PWH 2807.34; below: Asia L 2652.20, EQL 2635.39/2635.69, PWL 2600.15.",
+ "h4_context": "H4 CHoCH up: 10:00 H4 closed 2732.47 above LH 2724.12 (morning bearish read cancelled). Fresh H4 bull FVG 2695.38-2702.78; next BSL H4 LH 2743.00.",
+ "changed_since_morning": "Bias short -> long: London swept Asia H/PDH/EQH and closed H1/H4 above 2724.12",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "title": "USD Core PCE m/m, Final GDP q/q"}, {"time": "2026-10-02T14:30:00+02:00", "title": "USD NFP, Unemployment, AHE"}],
+ "warnings": ["RR to TP1 2743.00 = 1:1.53 < 1:2 (TP2 1:2.09)", "Long in D1 premium 83%", "Entry 47.38$ below price - needs a deep NY pullback"]
+}
