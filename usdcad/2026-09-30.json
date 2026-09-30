@@ -1,0 +1,19 @@
+{
+ "date": "2026-09-30",
+ "created_at": "2026-09-30T08:10:00+02:00",
+ "price_at_creation": 1.41814,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 1.41755, "sl": 1.41633, "tp1": 1.42000, "tp2": 1.42150, "tp3": 1.42300,
+           "zone_high": 1.41784, "zone_low": 1.41733, "basis": "H1 OB 29.09 04:00 (1.41733-1.41784) + H1 EQL 1.41763/1.41767 sweep, OTE 62-79% of leg 1.41733->1.42020",
+           "risk_pips": 12.2, "expires": "2026-09-30T13:30:00+02:00"},
+ "invalidation": {"level": 1.41733, "rule": "H1 body close below 1.41733 (OB low) before fill -> cancel limit, plan B"},
+ "levels": {"asia_high": 1.42003, "asia_low": 1.41878, "pdh": 1.42020, "pdl": 1.41697, "pwh": 1.41549, "pwl": 1.39828,
+            "eqh": 1.42006, "eql": 1.41765, "d1_range_high": 1.42020, "d1_range_low": 1.37547, "d1_eq": 1.39784, "week_open": 1.41414},
+ "d1_context": "D1 uptrend HH/HL since 13.09 low 1.38229 (BOS 1.39418/1.40146). Range 1.37547-1.42020, price 1.41814 = 95% premium. Buy-side pool EQH/PDH 1.42003-1.42020 unswept above; sell-side PDL 1.41697. Unfilled D1 FVGs 1.41580-1.41697, 1.41104-1.41333, 1.39283-1.39719.",
+ "h4_context": "H4 uptrend, last BOS above 1.41643 (28.09), HL 1.41763 (29.09 19:00). Price chops 1.41763-1.42020 for 20h (EQH/EQL box). H4 FVG 1.41243-1.41315 unfilled, D1 FVG 1.41580-1.41697 below the OB.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Core PCE Price Index m/m"},
+          {"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Final GDP q/q"},
+          {"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment / AHE"}],
+ "warnings": ["long in D1 premium 95%", "blackout 13:30-14:45 (Core PCE + GDP) -> limit expires 13:30", "RR to TP1 = 1:2.0, exactly at the floor", "TP2/TP3 are extensions above the 1.42020 high, no pool in data"]
+}
