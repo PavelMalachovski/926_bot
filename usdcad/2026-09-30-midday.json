@@ -1,0 +1,22 @@
+{
+ "date": "2026-09-30",
+ "created_at": "2026-09-30T14:08:00+02:00",
+ "price_at_creation": 1.41856,
+ "morning_order_status": "FILLED_OPEN",
+ "morning_order_detail": {"filled_at": "2026-09-30T08:25:00+02:00", "fill_price": 1.41755, "max_adverse": 1.41752, "max_favorable": 1.41903,
+   "floating_pips": 10.1, "floating_r": 0.83,
+   "note": "Fill on London open drop that swept H1 EQL 1.41763/1.41767 (low 1.41752), OB 1.41733 held. M5 higher lows 1.41752/1.41761/1.41762, M5 BOS up 13:55 close 1.41847 above LH 1.41826."},
+ "adjustments": {"partial": "close 50% before 14:30 Core PCE/GDP at ~1.41856 (+10.1 pips)", "sl": 1.41755, "sl_old": 1.41633, "sl_action": "move to BE",
+   "sl_basis": "M5 BOS up 13:55, protected low 1.41762 sits 0.7 pip above entry", "tp1": 1.42000, "tp2": 1.42150, "tp3": 1.42300, "tp_action": "keep"},
+ "setup_valid": true, "bias": "long",
+ "order": {"side": "BUY (filled, 50% left)", "entry": 1.41755, "sl": 1.41755, "tp1": 1.42000, "tp2": 1.42150, "tp3": 1.42300,
+           "zone_high": 1.41784, "zone_low": 1.41733, "basis": "H1 OB 1.41733-1.41784 + EQL sweep", "risk_pips": 0.0, "expires": "2026-09-30T18:30:00+02:00"},
+ "new_order": null,
+ "invalidation": {"level": 1.41752, "rule": "M5 body close below 1.41752 (London low) = BE stop hit anyway; no re-entry before 14:45 (blackout)"},
+ "levels": {"asia_high": 1.42003, "asia_low": 1.41878, "london_high": 1.41903, "london_low": 1.41752, "pdh": 1.42020, "pdl": 1.41697,
+            "eqh": 1.42006, "eql": 1.41765, "swept_today": ["asia_low 1.41878", "eql 1.41765"]},
+ "h4_context": "H4 (resampled) uptrend intact: HL 1.41752 (wick sweep of 1.41763, body close 1.41792), HH 1.42020. Buy-side EQH/PDH 1.42003-1.42020 unswept.",
+ "news": [{"time": "2026-09-30T14:30:00+02:00", "country": "USD", "title": "Core PCE Price Index m/m + Final GDP q/q"},
+          {"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment / AHE"}],
+ "warnings": ["Core PCE + GDP at 14:30 while position open: partial + BE before release", "BE 1.41755 only 0.7 pip under protected low 1.41762 - a news wick can take it", "Long in D1 premium ~95%"]
+}
