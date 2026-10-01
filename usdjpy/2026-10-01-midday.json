@@ -1,0 +1,22 @@
+{
+ "date": "2026-10-01",
+ "created_at": "2026-10-01T14:05:00+02:00",
+ "price_at_creation": 157.905,
+ "morning_status": "НЕ ДОШЛА",
+ "morning_detail": "min после 08:10 = 157.864 (M5 13:55), 9.4 пипса до entry 157.770; H1 body close ниже 157.587 не было; TP1 158.957 до касания не взят",
+ "morning_action": "оставить BUY LIMIT 157.770 / SL 157.282; TP1 перенесён на London high 158.467 (ближайший незанятый пул), TP2 158.957, TP3 159.029; снять в 18:30",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 157.770, "sl": 157.282, "tp1": 158.467, "tp2": 158.957, "tp3": 159.029,
+  "zone_high": 157.828, "zone_low": 157.587,
+  "basis": "утренний ордер: H1/H4 bull FVG 157.587-157.828 ∩ OTE 62-79% плеча 157.382→158.467 (157.794-157.610); M5 откат после judas-sweep Asia high и BOS вниз под 158.089",
+  "risk_pips": 48.8, "expires": "2026-10-01T18:30:00+02:00"},
+ "invalidation": {"level": 157.587, "rule": "H1 body close ниже 157.587 → снять; 158.467 снят до касания entry → снять, не гнаться"},
+ "levels": {"asia_high": 158.397, "asia_low": 157.382, "london_high": 158.467, "london_low": 157.864, "pdh": 157.531, "pdl": 156.383, "pwh": 159.029, "pwl": 156.547,
+  "eqh": 159.025, "eql": 158.089, "swept_today": ["asia_high 158.397 (09:25)", "eql/m5_strong_low 158.089 (13:05)"],
+  "d1_range_high": 159.029, "d1_range_low": 152.379, "d1_eq": 155.704, "week_open": 157.230},
+ "d1_context": "без изменений с утра: D1 бычий, цена 157.9 ≈ 83% плеча 152.379-159.029 (premium).",
+ "h4_context": "H4 (ресемпл) CHoCH вверх сохраняется, H4 FVG 157.531-157.828 не тронут. H1 плечо 157.382→158.467, H1 FVG 157.936-158.077 заполнен, цена в дисконте плеча (50% = 157.925).",
+ "news": [{"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment Rate / AHE"}],
+ "warnings": ["RR к TP1 (London high 158.467) 1:1.43 < 1:2", "Покупка в premium D1", "medium: 14:30 Unemployment Claims, 16:00 ISM Mfg + Waller — не красные, блэкаута нет"]
+}
