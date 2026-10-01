@@ -1,0 +1,21 @@
+{
+ "date": "2026-10-01",
+ "created_at": "2026-10-01T14:08:00+02:00",
+ "price_at_creation": 1.42390,
+ "morning_status": {"status": "NOT_REACHED", "closest": 1.42315, "closest_at": "2026-10-01T09:20:00+02:00", "pips_to_entry": 30.5,
+   "invalidated": false, "note": "morning TP1 1.42480 (Asia H/EQH) swept 08:40 and 12:00 before any fill", "action": "keep entry/SL, move TP1/TP2/TP3"},
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY", "entry": 1.42010, "sl": 1.41880, "tp1": 1.42543, "tp2": 1.42584, "tp3": 1.42740,
+           "zone_high": 1.42113, "zone_low": 1.41980, "basis": "untouched H1 FVG 1.41980-1.42113 inside H4 FVG 1.41887-1.42131, ~55% of H1 leg 1.41549->1.42584",
+           "risk_pips": 13.0, "expires": "2026-10-01T18:30:00+02:00"},
+ "invalidation": {"level": 1.41980, "rule": "H1 body close below 1.41980 -> cancel; plan B H1 OB/OTE 1.41746-1.41906, SL under 1.41549"},
+ "levels": {"asia_high": 1.42488, "asia_low": 1.42308, "london_high": 1.42584, "london_low": 1.42315, "pdh": 1.42375, "pdl": 1.41549,
+            "pwh": 1.41549, "pwl": 1.39828, "eqh": 1.42486, "eql": 1.42300, "d1_range_high": 1.42584, "d1_range_low": 1.37329, "d1_eq": 1.39957, "week_open": 1.41414,
+            "m5_lh": 1.42543, "m5_choch": 1.42402},
+ "swept_since_morning": ["asia_high", "eqh", "pdh", "old 120d high 1.42486"],
+ "h4_context": "H4 (resampled) up: HL 1.41549, HH 1.42584 (new 120d high). H4 FVG 1.41887-1.42131 and H4 OB 1.41727-1.41794 unfilled.",
+ "m5_context": "Judas 08:40 swept Asia H to 1.42512, dropped to 1.42315 (Asia L 1.42308 intact), rallied to 1.42584 sweeping the 120d high, LH 1.42543, M5 CHoCH down below 1.42402 at 13:55.",
+ "news": [{"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment Rate / Average Hourly Earnings"}],
+ "warnings": ["Entry 1.42010 sits at ~89% of D1 120d range (premium) - long in D1 premium", "SL zone-based, not behind Strong Low 1.41549", "38 pips to entry with 4.5h left - fill unlikely without a real pullback"]
+}
