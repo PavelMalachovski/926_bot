@@ -1,0 +1,17 @@
+{
+ "date": "2026-10-01",
+ "created_at": "2026-10-01T08:06:00+02:00",
+ "price_at_creation": 1.42439,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY", "entry": 1.42010, "sl": 1.41880, "tp1": 1.42480, "tp2": 1.42740, "tp3": 1.43070,
+           "zone_high": 1.42113, "zone_low": 1.41980, "basis": "H1 FVG 1.41980-1.42113 inside H4 FVG 1.41887-1.42131 + old EQH/PDH flip 1.42003-1.42020 + 50% of H1 leg 1.42019",
+           "risk_pips": 13.0, "expires": "2026-10-01T18:30:00+02:00"},
+ "invalidation": {"level": 1.41980, "rule": "H1 body close below 1.41980 (FVG low) -> cancel limit; plan B = OTE/H1 OB 1.41746-1.41906 with SL under Strong Low 1.41549"},
+ "levels": {"asia_high": 1.42488, "asia_low": 1.42308, "pdh": 1.42375, "pdl": 1.41549, "pwh": 1.41549, "pwl": 1.39828,
+            "eqh": 1.42486, "eql": 1.42300, "d1_range_high": 1.42486, "d1_range_low": 1.37329, "d1_eq": 1.39908, "week_open": 1.41414},
+ "d1_context": "D1 HH/HL rally from 1.37329 (21.08); price 1.4244 at ~98% of 120d range, testing 120d high 1.42486 (EQH with today's Asia high 1.42488). PWH 1.41549 retested by 30.09 low (PCE sweep). Nearest unfilled D1 FVG 1.41104-1.41333.",
+ "h4_context": "H4 up: 30.09 sweep of PDL 1.41697 to 1.41549, then BOS above 1.42020 and PDH 1.42375. Unfilled H4 FVG 1.41887-1.42131, H4 OB 1.41727-1.41794. H1 leg 1.41549->1.42488, OTE 1.41746-1.41906.",
+ "news": [{"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "NFP / Unemployment Rate / Average Hourly Earnings"}],
+ "warnings": ["Long in D1 premium ~98% right under the 120d high 1.42486", "SL is zone-based (under FVG/62% OTE), not behind Strong Low 1.41549 (46 pips)", "TP2/TP3 are fib extensions: no liquidity data above 120d high"]
+}
