@@ -1,0 +1,19 @@
+{
+ "date": "2026-10-02",
+ "created_at": "2026-10-02T08:06:00+02:00",
+ "price_at_creation": 1.42130,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY", "entry": 1.41955, "sl": 1.41449, "tp1": 1.42355, "tp2": 1.42636, "tp3": 1.43000,
+           "zone_high": 1.41962, "zone_low": 1.41858,
+           "basis": "OTE 62% (1.41962) of H1 leg 1.41549->1.42636 + untouched H1 FVG 1.41858-1.41953 inside H4 FVG 1.41887-1.42131; EQL 1.42112 and H1 FVG 1.41980-1.42113 swept en route",
+           "risk_pips": 50.6, "expires": "2026-10-02T13:30:00+02:00"},
+ "invalidation": {"level": 1.41858, "rule": "H1 body close below 1.41858 before fill -> cancel; Asia H 1.42355 taken before fill -> cancel, do not chase (wait sweep + M5 CHoCH); not filled by 13:30 -> cancel before NFP. Plan B: H1 close below 1.41549 -> H4 structure broken, bias none"},
+ "levels": {"asia_high": 1.42355, "asia_low": 1.42112, "pdh": 1.42636, "pdl": 1.42212, "pwh": 1.41549, "pwl": 1.39828,
+            "eqh": 1.42636, "eql": 1.42112, "d1_range_high": 1.42636, "d1_range_low": 1.37329, "d1_eq": 1.39983, "week_open": 1.41414,
+            "h1_eq": 1.42093, "ote_62": 1.41962, "ote_79": 1.41777, "h1_ob_low": 1.41549, "h1_ob_high": 1.41887},
+ "d1_context": "D1 up HH/HL, 120d range 1.37329-1.42636, new high 1.42636 yesterday; price 1.42130 at 90% = premium. D1 FVG 1.42020-1.42212 being filled today; unfilled D1 FVG 1.41104-1.41333 below. Buy-side above 1.42636 (no older pool), sell-side PWH 1.41549 / PWL 1.39828.",
+ "h4_context": "H4 up: HL 1.41549 (strong low), HH 1.42636. Pullback into H4 FVG 1.41887-1.42131 (8% filled). H4 OB 1.41727-1.41794 (wick 1.41549). H1 internal CHoCH down (close below 1.42322), M5 LH 1.42355 / BOS down 1.42246, Asia 1.42112-1.42355, EQL 1.42112 resting.",
+ "news": [{"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "Non-Farm Employment Change / Unemployment Rate / Average Hourly Earnings"}],
+ "warnings": ["RR to TP1 (Asia H 1.42355) 1:0.79 < 1:2; TP3 1.43000 = 1:2.07", "Long in D1 premium (entry at 87% of 120d range)", "NFP 14:30: blackout 13:30-14:45, cancel unfilled limit at 13:30", "Friday: no position over the weekend"]
+}
