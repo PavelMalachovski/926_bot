@@ -1,0 +1,57 @@
+{
+ "date": "2026-10-02",
+ "created_at": "2026-10-02T14:13:00+02:00",
+ "price_at_creation": 2747.56,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451)",
+ "morning_order_status": {
+  "status": "НЕ ДОШЛА",
+  "closest_low": 2723.69,
+  "closest_time": "2026-10-02T09:30:00+02:00",
+  "distance_to_entry_usd": 16.19,
+  "invalidated": false,
+  "note": "TP1 2747.50 and TP2 2776.00 levels traded at 10:15 without a fill; limit expired 13:30",
+  "action": "снят (истёк 13:30), не переносить"
+ },
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 2726.5,
+  "sl": 2707.5,
+  "tp1": 2776.5,
+  "tp2": 2788.5,
+  "tp3": 2806.5,
+  "zone_high": 2727.27,
+  "zone_low": 2723.69,
+  "basis": "M5 OB 09:25-09:30 (2723.69-2727.27, origin of BOS to 2777.33) + OTE 79% 2726.17 of H1 leg 2712.57->2777.33",
+  "risk_usd": 19.0,
+  "rr_tp1": 2.63,
+  "rr_tp2": 3.26,
+  "rr_tp3": 4.21,
+  "place_after": "2026-10-02T14:45:00+02:00",
+  "expires": "2026-10-02T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2712.57,
+  "rule": "H1 body close below 2712.57 (Strong Low) before fill -> cancel; also cancel if 2777.33 is taken before fill. Plan B: sweep of 2696.56/2673.13 + M5 CHoCH up"
+ },
+ "levels": {
+  "asia_high": 2748.0, "asia_low": 2696.56,
+  "london_high": 2777.33, "london_low": 2720.0,
+  "pdh": 2722.0, "pdl": 2673.13, "pwh": 2807.34, "pwl": 2600.15,
+  "eqh": 2748.6, "eql": 2673.13,
+  "d1_range_high": 2807.34, "d1_range_low": 2600.15, "d1_eq": 2703.75, "week_open": 2688.65,
+  "h1_strong_low": 2712.57, "h1_old_high": 2789.0,
+  "swept_since_morning": ["Asia high 2748.00 (10:15)", "EQH 2748.60 (10:15)", "M5 LH 2735.89"]
+ },
+ "d1_context": "Unchanged from morning: D1 range 2600.15-2807.34; price 2747 = 70% premium. EQH 2748.60 now swept, PWH 2807.34 the next D1 pool.",
+ "h4_context": "H4 HLs rising to 2712.57; 10:00-14:00 H4 wicked to 2777.33 over EQH 2748.60 but closed 2746.63 back below - sweep, not acceptance.",
+ "h1_context": "H1 bullish: BOS over 2748.60 (close 2753.74), HH 2777.33, Strong Low 2712.57. Leg EQ 2744.95, OTE 2737.18-2726.17; pullback reached 2736.25 (63%).",
+ "m5_context": "London: judas dip to 2720.00 at 08:00, HL 2723.69 09:30, impulse to 2777.33 at 10:15, M5 FVG 2743.34-2758.90 fully filled, range 2736-2753 into NFP.",
+ "news": [{"time": "2026-10-02T14:30:00+02:00", "title": "USD NFP / Average Hourly Earnings / Unemployment Rate (blackout 13:30-14:45)"}],
+ "warnings": [
+  "NFP 14:30 - do not place the limit before 14:45",
+  "Entry at 61% of D1 range (premium), long against D1 discount rule",
+  "H4 swept EQH 2748.60 by wick and closed back inside"
+ ]
+}
