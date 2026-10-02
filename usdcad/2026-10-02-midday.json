@@ -1,0 +1,23 @@
+{
+ "date": "2026-10-02",
+ "created_at": "2026-10-02T14:07:00+02:00",
+ "price_at_creation": 1.42349,
+ "morning_order_status": "NOT_REACHED",
+ "morning_order_detail": "BUY LIMIT 1.41955 not filled; closest low 1.42101 at 08:05 (14.6 pips short). Cancel rule triggered: Asia H 1.42355 taken at 10:45 before fill; also expired 13:30. No H1 close below 1.41858.",
+ "morning_order_action": "cancel (already cancelled by rule)",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY", "entry": 1.42238, "sl": 1.42001, "tp1": 1.42461, "tp2": 1.42636, "tp3": 1.43000,
+           "zone_high": 1.42250, "zone_low": 1.42189,
+           "basis": "OTE 62% (1.42238) of H1 leg 1.42101->1.42461 after H1 CHoCH up (close > 1.42355); M5 OB 1.42189-1.42250 (09:55, judas origin) inside H1 OB 1.42188-1.42278",
+           "risk_pips": 23.7, "expires": "2026-10-02T18:30:00+02:00"},
+ "invalidation": {"level": 1.42189, "rule": "Place only after 14:45 (NFP blackout). H1 body close below 1.42189 before fill -> cancel; 1.42461 taken before fill -> cancel, do not chase (wait sweep + M5 CHoCH); unfilled 18:30 -> cancel, no weekend hold. Plan B: H1 close below 1.42101 -> bias none, sell-side H4 FVG 1.41887-1.42131 / PWH 1.41549"},
+ "levels": {"asia_high": 1.42355, "asia_low": 1.42112, "london_high": 1.42461, "london_low": 1.42101, "pdh": 1.42636, "pdl": 1.42212, "pwh": 1.41549, "pwl": 1.39828,
+            "eqh": 1.42636, "eql": 1.42112, "d1_range_high": 1.42636, "d1_range_low": 1.37329, "d1_eq": 1.39983, "week_open": 1.41414,
+            "h1_eq": 1.42281, "ote_62": 1.42238, "ote_79": 1.42177, "m5_protected_low": 1.42332},
+ "taken_since_morning": ["Asia L 1.42112 (08:05 sweep, low 1.42101)", "EQL 1.42112", "PDL 1.42212", "Asia H 1.42355 (10:45)"],
+ "d1_context": "Unchanged from morning: D1 up, price 1.42349 at 94% of 1.37329-1.42636 = premium; D1 FVG 1.42020-1.42212 partly filled (low 1.42101). Buy-side above 1.42636.",
+ "h4_context": "H4 (resampled) up: HL 1.41549, HH 1.42636; pullback held above H4 FVG 1.41887-1.42131 top. H1 CHoCH up at 11:00 (close 1.42361 > 1.42355), M5 BOS 1.42396, now retracing toward protected low 1.42332.",
+ "news": [{"time": "2026-10-02T14:30:00+02:00", "country": "USD", "title": "Non-Farm Employment Change / Unemployment Rate / Average Hourly Earnings"}],
+ "warnings": ["RR to TP1 (London H 1.42461) 1:0.94 < 1:2; TP2 1:1.68, TP3 1:3.22", "Long in D1 premium (94% of range)", "NFP 14:30: blackout 13:30-14:45, entry zone can be hit by the release spike - place after 14:45", "Friday: no position over the weekend"]
+}
