@@ -1,0 +1,55 @@
+{
+ "date": "2026-10-03",
+ "created_at": "2026-10-03T14:14:00+02:00",
+ "price_at_creation": 2683.64,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451)",
+ "morning_order_status": {
+  "status": "НЕ ДОШЛА",
+  "max_approach": 2686.88,
+  "max_approach_time": "2026-10-03T11:15:00+02:00",
+  "distance_left_usd": 43.12,
+  "invalidated": false,
+  "pdl_taken_before_fill": false,
+  "decision": "оставить SELL LIMIT 2730 до 23:59 Праги без изменений"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2730.0,
+  "sl": 2756.2,
+  "tp1": 2651.0,
+  "tp2": 2636.0,
+  "tp3": 2601.0,
+  "zone_high": 2742.0,
+  "zone_low": 2729.28,
+  "basis": "morning order reconfirmed: H1 bear FVG 2712.43-2742.00 + H4 bear FVG 2704.07-2736.25 + OTE 62% of H1 leg 2777.33->2650.88; SL above LH 2751.15 + 5",
+  "risk_usd": 26.2,
+  "rr_tp1": 3.02,
+  "rr_tp2": 3.59,
+  "rr_tp3": 4.93,
+  "distance_to_entry_usd": 46.36,
+  "expires": "2026-10-03T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2751.15,
+  "rule": "H1 body close above 2751.15 before fill -> cancel; cancel if PDL 2650.88 taken before fill"
+ },
+ "levels": {
+  "asia_high": 2684.61, "asia_low": 2665.67,
+  "london_high": 2686.88, "london_low": 2675.8,
+  "pdh": 2777.33, "pdl": 2650.88, "pwh": 2807.34, "pwl": 2600.15,
+  "eqh": 2721.42, "eql": 2657.2,
+  "d1_range_high": 2807.34, "d1_range_low": 2600.15, "d1_eq": 2703.75, "week_open": 2688.65,
+  "levels_taken_since_morning": ["asia_high 2684.61 (wick 2686.88 at 11:15)"]
+ },
+ "d1_context": "Unchanged from morning: D1 HH/HL inside 2600.15-2807.34, price 2683.64 = 40% (discount). Since morning: 11$ London compression, Asia high wicked.",
+ "h4_context": "H4 CHoCH down (02.10 18:00 close 2668.04 < 2673.13) holds; bear FVG 2704.07-2736.25 untouched; remnant 2686.88-2692.00 being tested.",
+ "h1_context": "Leg 2777.33->2650.88 intact, price at 26% retracement; inside bars since 03.10 00:00, no new BOS/CHoCH.",
+ "news": [],
+ "warnings": [
+  "Short against D1 swing structure (HH/HL)",
+  "Saturday thin liquidity: 11$ London range, 46$ to entry",
+  "FF calendar not read this run (Saturday, no USD releases expected)"
+ ]
+}
