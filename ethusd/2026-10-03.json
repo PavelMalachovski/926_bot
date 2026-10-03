@@ -1,0 +1,46 @@
+{
+ "date": "2026-10-03",
+ "created_at": "2026-10-03T08:13:00+02:00",
+ "price_at_creation": 2675.88,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451)",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2730.0,
+  "sl": 2756.2,
+  "tp1": 2651.0,
+  "tp2": 2636.0,
+  "tp3": 2601.0,
+  "zone_high": 2742.0,
+  "zone_low": 2729.28,
+  "basis": "H1 bear FVG 2712.43-2742.00 + H4 bear FVG 2704.07-2736.25 + OTE 62% 2729.28 of H1 leg 2777.33->2650.88; SL above M5/H1 LH 2751.15 + 5",
+  "risk_usd": 26.2,
+  "rr_tp1": 3.02,
+  "rr_tp2": 3.59,
+  "rr_tp3": 4.93,
+  "distance_to_entry_usd": 54.12,
+  "expires": "2026-10-03T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2751.15,
+  "rule": "H1 body close above 2751.15 before fill -> cancel, plan B; also cancel if PDL 2650.88 is taken before fill. No pullback -> don't chase, wait for sweep + M5 CHoCH down"
+ },
+ "levels": {
+  "asia_high": 2684.61, "asia_low": 2665.67,
+  "pdh": 2777.33, "pdl": 2650.88, "pwh": 2807.34, "pwl": 2600.15,
+  "eqh": 2721.42, "eql": 2657.2,
+  "d1_range_high": 2807.34, "d1_range_low": 2600.15, "d1_eq": 2703.75, "week_open": 2688.65,
+  "h1_strong_high": 2769.68, "h1_lh": 2751.15, "h1_leg_eq": 2714.1, "d1_hl": 2635.69
+ },
+ "d1_context": "D1 bullish HH/HL (2358.88 -> 2600.15 -> 2635.69, HH 2807.34) inside range 2600.15-2807.34; price 2675.88 = 36% (discount). 02.10: wick sweep of EQH 2748.60 to 2777.33, close 2668.59 - rejection. Partial D1 FVG 2564.33-2602.94 under PWL.",
+ "h4_context": "H4 CHoCH down: 02.10 18:00 close 2668.04 < HL 2673.13 after sweep of 2748.60. Untouched bear FVG 2704.07-2736.25, remnant 2684.61-2692.00. Next H4 liquidity: PDL 2650.88, HL 2635.69.",
+ "h1_context": "H1 bearish leg 2777.33 -> 2650.88, EQ 2714.10, OTE 2729.28-2750.78; bear FVG 2712.43-2742.00 untouched, OB 2738.03-2766.66; EQH 2721.42/2722.00 inducement below entry.",
+ "m5_context": "Sweep of 2652.2/2656.9 into PDL 2650.88 at 20:35, EQL 2657.20, M5 CHoCH up 02:25 (>2671.73), HH 2684.61 03:15, then CHoCH down 06:40 (2672.34). Asia 2665.67-2684.61. M5 not yet delivering price to the zone.",
+ "news": [],
+ "warnings": [
+  "Short against D1 swing structure (HH/HL, HL 2635.69 intact); entry itself is in D1 premium (63%)",
+  "Saturday, thin liquidity - entry 54$ away may not be reached",
+  "Next week's FF calendar not yet available"
+ ]
+}
