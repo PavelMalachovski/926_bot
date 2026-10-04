@@ -1,0 +1,70 @@
+{
+ "date": "2026-10-04",
+ "created_at": "2026-10-04T14:13:00+02:00",
+ "price_at_creation": 2701.37,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451",
+ "morning_order_status": {
+  "status": "НЕ ДОШЛА",
+  "max_approach": 2707.99,
+  "max_approach_time": "2026-10-04T10:00:00+02:00",
+  "distance_left_usd": 22.01,
+  "invalidated": false,
+  "tp_pool_taken_before_fill": false,
+  "decision": "оставить SELL LIMIT 2730 до 23:59 Праги без изменений"
+ },
+ "changes_since_morning": "London swept Asia H 2697.90 / PDH 2690.00 (judas up), tapped H4 bear FVG low edge 2704.07 at 2707.99, back to 2700; no M5 CHoCH down (needs close < 2697.87).",
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "no_order_reason": "price 2701 = 40% of H1 leg 2777.33->2650.88 (discount for a short); only premium short zone is the resting morning limit, duplicate would double risk; long is counter-H4 into H4 bear FVG, RR<1",
+ "invalidation": {
+  "level": 2751.15,
+  "rule": "H1 body close above 2751.15 before fill -> cancel, plan B (long only after retest + M5 CHoCH up). Cancel too if 2650.88 is taken before fill (target hit without entry). No pullback -> don't chase."
+ },
+ "levels": {
+  "asia_high": 2697.9,
+  "asia_low": 2685.09,
+  "pdh": 2690.0,
+  "pdl": 2665.67,
+  "pwh": 2807.34,
+  "pwl": 2600.15,
+  "eqh": 2697.0,
+  "eql": 2680.9,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2600.15,
+  "d1_eq": 2703.75,
+  "week_open": 2688.65,
+  "h1_strong_high": 2777.33,
+  "h1_lh": 2751.15,
+  "h1_leg_low": 2650.88,
+  "h1_leg_eq": 2714.1,
+  "h4_bear_fvg": [
+   2704.07,
+   2736.25
+  ],
+  "h1_bear_fvg": [
+   2712.43,
+   2742.0
+  ],
+  "h1_bull_fvg": [
+   2670.13,
+   2674.65
+  ],
+  "london_high": 2707.99,
+  "london_low": 2691.23,
+  "m5_choch_trigger": 2697.87,
+  "eqh_london": 2708.0
+ },
+ "h4_context": "H4 bearish since CHoCH 02.10; price inside H4 bear FVG 2704.07-2736.25 from below. H1 internal bullish HL 2685.09->2691.23, HH 2707.99.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00+02:00",
+   "title": "USD FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "H4/H1 diverge: H1 internal bullish (HH/HL from 2650.88) — short is against H1",
+  "RR to TP1 (EQL 2680.90) 1.85 < 1:2",
+  "Sunday: thin weekend liquidity, weekend range = separate pool for Monday"
+ ]
+}

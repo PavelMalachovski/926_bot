@@ -1,0 +1,32 @@
+{
+ "updated_at": "2026-10-04T14:13:00+02:00",
+ "orders": 1,
+ "filled": 0,
+ "tp": 0,
+ "sl": 0,
+ "be": 0,
+ "open": 0,
+ "pending": 1,
+ "expired": 0,
+ "invalidated": 0,
+ "unknown": 0,
+ "winrate": null,
+ "total_r": 0.0,
+ "avg_r": null,
+ "total_usd": 0.0,
+ "am": {
+  "orders": 1,
+  "filled": 0,
+  "tp": 0,
+  "sl": 0,
+  "total_r": 0.0
+ },
+ "pm": {
+  "orders": 0,
+  "filled": 0,
+  "tp": 0,
+  "sl": 0,
+  "total_r": 0.0
+ },
+ "last10": ""
+}
