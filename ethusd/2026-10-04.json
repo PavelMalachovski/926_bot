@@ -1,0 +1,72 @@
+{
+ "date": "2026-10-04",
+ "created_at": "2026-10-04T08:16:00+02:00",
+ "price_at_creation": 2694.7,
+ "data_source": "Twelve Data ETH/USD (exchange Binance, matches BINANCE:ETHUSDT on TradingView); api.binance.com returned 451",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2730.0,
+  "sl": 2756.15,
+  "tp1": 2681.5,
+  "tp2": 2651.5,
+  "tp3": 2601.0,
+  "zone_high": 2742.0,
+  "zone_low": 2729.28,
+  "basis": "H1 bear FVG 2712.43-2742.00 ∩ H4 bear FVG 2704.07-2736.25 ∩ OTE 62-79% (2729.28-2750.78) of H1 leg 2777.33->2650.88; SL above H1 LH 2751.15 + 5",
+  "risk_usd": 26.15,
+  "rr_tp1": 1.85,
+  "rr_tp2": 3.0,
+  "rr_tp3": 4.93,
+  "distance_to_entry_usd": 35.3,
+  "expires": "2026-10-04T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2751.15,
+  "rule": "H1 body close above 2751.15 before fill -> cancel, plan B (long only after retest + M5 CHoCH up). Cancel too if 2650.88 is taken before fill (target hit without entry). No pullback -> don't chase."
+ },
+ "levels": {
+  "asia_high": 2697.9,
+  "asia_low": 2685.09,
+  "pdh": 2690.0,
+  "pdl": 2665.67,
+  "pwh": 2807.34,
+  "pwl": 2600.15,
+  "eqh": 2697.0,
+  "eql": 2680.9,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2600.15,
+  "d1_eq": 2703.75,
+  "week_open": 2688.65,
+  "h1_strong_high": 2777.33,
+  "h1_lh": 2751.15,
+  "h1_leg_low": 2650.88,
+  "h1_leg_eq": 2714.1,
+  "h4_bear_fvg": [
+   2704.07,
+   2736.25
+  ],
+  "h1_bear_fvg": [
+   2712.43,
+   2742.0
+  ],
+  "h1_bull_fvg": [
+   2670.13,
+   2674.65
+  ]
+ },
+ "d1_context": "D1 bullish since Aug (HL 2600.15/2635.69, HH 2807.34) but compressing: LH 2777.33 (02.10 wick sweep of 2748.60, close 2668.59). Range 2600.15-2807.34, EQ 2703.75; price 2694.70 = 46% (just under EQ). D1 bull FVG 2483.74-2602.94 32% filled under PWL.",
+ "h4_context": "H4 CHoCH down on 02.10 (close below HL 2673.13 / 2656.92, low 2650.88). Since then H1 grinds up with HL 2672.34->2677.41->2680.90->2685.09 into untouched H4 bear FVG 2704.07-2736.25. H4 bearish vs H1 bullish internal.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00+02:00",
+   "title": "USD FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "H4/H1 diverge: H1 internal bullish (HH/HL from 2650.88) — short is against H1",
+  "RR to TP1 (EQL 2680.90) 1.85 < 1:2",
+  "Sunday: thin weekend liquidity, weekend range = separate pool for Monday"
+ ]
+}
