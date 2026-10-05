@@ -10,13 +10,44 @@
   "zone_low": 2729.28,
   "created_at": "2026-10-04T08:16:00+02:00",
   "expires": "2026-10-04T23:59:00+02:00",
-  "status": "PENDING",
+  "status": "EXPIRED",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
   "ambiguous": false,
   "adjusted": false,
-  "last_checked": "2026-10-04T14:10:00+02:00"
+  "last_checked": "2026-10-05T08:10:00+02:00",
+  "basis": "FVG",
+  "price_at_creation": 2694.7,
+  "closest_approach": 19.77,
+  "review": {
+   "cause": "UNCLEAR",
+   "note": "Not DEEP_ENTRY/NO_PULLBACK: until 23:59 the pullback stalled at 2710.23 (23:10, 44% of the 2694.70->2730 path), then the 00:00 pump filled 2730 at 00:20 on 05.10 — 21 min after expiry — topped 2739.50 (< SL 2756.15) and fell to 2694.88. The zone was right, the 23:59 Prague expiry cut it right before the crypto daily-candle move (00:00 Prague)."
+  }
+ },
+ {
+  "id": "2026-10-05-am",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "entry": 2727.0,
+  "sl": 2745.0,
+  "tp1": 2695.5,
+  "rr_tp1": 1.75,
+  "zone_high": 2731.12,
+  "zone_low": 2718.07,
+  "price_at_creation": 2710.84,
+  "created_at": "2026-10-05T08:16:00+02:00",
+  "expires": "2026-10-05T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 16.16,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-10-05T08:10:00+02:00"
  }
 ]

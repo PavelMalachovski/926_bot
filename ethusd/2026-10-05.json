@@ -1,0 +1,79 @@
+{
+ "date": "2026-10-05",
+ "created_at": "2026-10-05T08:16:00+02:00",
+ "price_at_creation": 2710.84,
+ "data_source": "Twelve Data ETH/USD (exchange Binance, matches BINANCE:ETHUSDT on TradingView); api.binance.com returned 451",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2727.0,
+  "sl": 2745.0,
+  "tp1": 2695.5,
+  "tp2": 2687.0,
+  "tp3": 2651.5,
+  "zone_high": 2731.12,
+  "zone_low": 2718.07,
+  "basis": "OB: H1 bear OB 2724.69-2731.12 (04:00 up candle before the 05:00-07:00 impulse) over H1 bear FVG 2718.07-2724.69, OTE 72% of H1 leg 2739.50->2694.88 (OTE 2722.54-2730.13), at week open 2726.93; SL above Strong High/EQH 2739.50 + 5.5",
+  "risk_usd": 18.0,
+  "rr_tp1": 1.75,
+  "rr_tp2": 2.22,
+  "rr_tp3": 4.19,
+  "distance_to_entry_usd": 16.16,
+  "expires": "2026-10-05T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2738.0,
+  "rule": "H1 body close above 2738.00 (OB wick top / EQH) before fill -> cancel. Asia low 2694.88 taken before fill -> cancel (target hit without entry). No pullback -> don't chase: short only after retest of H1 bear FVG 2707.60-2713.73 + M5 CHoCH down."
+ },
+ "levels": {
+  "asia_high": 2739.5,
+  "asia_low": 2694.88,
+  "pdh": 2739.5,
+  "pdl": 2686.54,
+  "pwh": 2777.33,
+  "pwl": 2635.69,
+  "eqh": 2739.5,
+  "eql": 2680.9,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2600.15,
+  "d1_eq": 2703.75,
+  "week_open": 2726.93,
+  "weekend_high": 2710.23,
+  "weekend_low": 2661.25,
+  "h1_strong_high": 2739.5,
+  "h1_leg_low": 2694.88,
+  "h1_leg_eq": 2717.19,
+  "h1_choch_level": 2717.68,
+  "h1_bear_ob": [
+   2724.69,
+   2731.12
+  ],
+  "h1_bear_fvg": [
+   2718.07,
+   2724.69
+  ],
+  "h1_bear_fvg_2": [
+   2707.6,
+   2713.73
+  ],
+  "h4_swing_low": 2650.88,
+  "d1_bull_fvg": [
+   2483.74,
+   2600.15
+  ]
+ },
+ "d1_context": "D1 range 2600.15-2807.34, EQ 2703.75; price 2710.84 = 53% (just above EQ, entry 2727 = 61% premium). HLs 2600.15->2635.69->2650.88 vs LHs 2807.34->2777.33: compression. D1 bull FVG 2483.74-2600.15 unfilled below range. PWH 2777.33 / PWL 2635.69 untouched.",
+ "h4_context": "H4 bearish since CHoCH 02.10; Sunday-night pump filled H4 bear FVG 2704.07-2736.25 to 2739.50 (LH < 2777.33) and rejected. H1 CHoCH down 06:00 (close 2702.87 < 2717.68), Asia low 2694.88 swept/printed at 07:30, M5 internal CHoCH up 2706.82 now pulling back toward the H1 FVG/OB.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00+02:00",
+   "title": "USD FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 (Asia low 2694.88) 1.75 < 1:2",
+  "D1 internal structure still bullish (HL 2600->2635->2650) — short is a range-premium sell, not a D1 trend trade",
+  "Monday: weekend high 2710.23 already swept by the 00:00 pump; weekend low 2661.25 untouched"
+ ]
+}
