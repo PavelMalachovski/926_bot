@@ -1,0 +1,86 @@
+{
+ "date": "2026-10-05",
+ "created_at": "2026-10-05T14:05:00+02:00",
+ "price_at_creation": 158.248,
+ "morning_order_status": {
+  "status": "ЗАКРЫТ ПО TP1",
+  "filled_at": "2026-10-05T08:35:00+02:00",
+  "closed_at": "2026-10-05T13:15:00+02:00",
+  "result_pips": 45.8,
+  "result_r": 1.21,
+  "result_usd_per_lot": 289,
+  "ambiguous": false,
+  "invalidated": false,
+  "note": "fill M5 08:35 (low 157.656), min 157.574 в 10:00, SL 157.334 не задет; TP1 158.172 взят M5 13:15 (high 158.208). TP2 158.467 не дошла (max 158.298)"
+ },
+ "adjustments": null,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 157.849,
+  "sl": 157.474,
+  "tp1": 158.298,
+  "tp2": 158.467,
+  "tp3": 159.029,
+  "zone_high": 157.849,
+  "zone_low": 157.726,
+  "basis": "OTE: OTE 62–79% H1-плеча 157.574→158.298 (62%=157.849 = sweep-low M5 13:15 157.853); SL за Strong Low 157.574 −10 п",
+  "risk_pips": 37.5,
+  "expires": "2026-10-05T18:30:00+02:00"
+ },
+ "invalidation": {
+  "level": 157.726,
+  "rule": "H1 body close ниже 157.726 до исполнения → снять; PWH 158.467 снят до касания entry → снять, не гнаться; H1 close < 157.574 = слом структуры; не исполнен до 18:30 → снять"
+ },
+ "levels": {
+  "asia_high": 158.172,
+  "asia_low": 157.434,
+  "london_high": 158.298,
+  "london_low": 157.574,
+  "pdh": 158.22,
+  "pdl": 156.958,
+  "pwh": 158.467,
+  "pwl": 156.383,
+  "eqh": 158.171,
+  "eql": null,
+  "d1_range_high": 159.029,
+  "d1_range_low": 152.908,
+  "d1_eq": 155.969,
+  "week_open": 157.751,
+  "h1_leg_low": 157.574,
+  "h1_leg_high": 158.298,
+  "h1_eq": 157.936,
+  "ote62": 157.849,
+  "ote79": 157.726,
+  "m5_fvg": [
+   157.96,
+   158.073
+  ],
+  "swept_today": [
+   "asia_high 158.172",
+   "eqh 158.171",
+   "pdh 158.220"
+  ]
+ },
+ "d1_context": "Из утра без изменений; цена 158.25 = 87% D1 range 152.908–159.029 (глубже в premium). Над ценой PWH 158.467, D1 bear FVG 158.967–159.641, HH 159.029.",
+ "h4_context": "H4 (ресемпл): range 156.958–158.467; бар 12:00 тянется закрыться выше LH 158.220 — будет H4 CHoCH вверх. H1: HL 157.574 (10:00, sweep под зоной утреннего OB), BOS через 158.172 в 13:15 → HH 158.298. M5: CHoCH ↑ 157.811 в 10:45, BOS 158.172, FVG 157.960–158.073.",
+ "news": [
+  {
+   "time": "2026-10-06T08:35:00+02:00",
+   "country": "JPY",
+   "title": "BOJ Gov Ueda Speaks"
+  },
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR к TP1 (London H 158.298) = 1:1.20 < 1:2; 1:2 только у TP3 159.029 (1:3.15), TP2 PWH 1:1.65",
+  "LONG в D1 premium: цена 87%, вход 157.849 = 80.9% range 152.908–159.029",
+  "H4 ещё range 156.958–158.467, CHoCH вверх не подтверждён закрытием",
+  "Вход в 14:30 NY open без красных новостей — блэкаута нет"
+ ]
+}

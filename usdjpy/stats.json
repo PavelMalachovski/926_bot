@@ -1,8 +1,8 @@
 {
- "updated_at": "2026-10-05T08:10:00+02:00",
- "orders": 1,
- "filled": 0,
- "tp": 0,
+ "updated_at": "2026-10-05T14:05:00+02:00",
+ "orders": 2,
+ "filled": 1,
+ "tp": 1,
  "sl": 0,
  "be": 0,
  "open": 0,
@@ -10,25 +10,25 @@
  "expired": 0,
  "invalidated": 0,
  "unknown": 0,
- "winrate": null,
- "fill_rate": null,
- "total_r": 0.0,
- "avg_r": null,
- "total_pips": 0.0,
+ "winrate": 100.0,
+ "fill_rate": 100.0,
+ "total_r": 1.21,
+ "avg_r": 1.21,
+ "total_pips": 45.8,
  "am": {
+  "orders": 1,
+  "filled": 1,
+  "tp": 1,
+  "sl": 0,
+  "total_r": 1.21
+ },
+ "pm": {
   "orders": 1,
   "filled": 0,
   "tp": 0,
   "sl": 0,
-  "total_r": 0.0
+  "total_r": 0
  },
- "pm": {
-  "orders": 0,
-  "filled": 0,
-  "tp": 0,
-  "sl": 0,
-  "total_r": 0.0
- },
- "last10": "",
+ "last10": "T",
  "review": null
 }
