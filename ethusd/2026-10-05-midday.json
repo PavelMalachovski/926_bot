@@ -1,0 +1,85 @@
+{
+ "date": "2026-10-05",
+ "created_at": "2026-10-05T14:13:00+02:00",
+ "price_at_creation": 2716.01,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451",
+ "morning_order_status": {
+  "status": "ИСПОЛНЕН, В РАБОТЕ",
+  "filled_at": "2026-10-05T08:50:00+02:00",
+  "fill_price": 2727.0,
+  "floating_usd": 10.99,
+  "floating_r": 0.61,
+  "mfe": {
+   "price": 2711.22,
+   "time": "2026-10-05T13:10:00+02:00",
+   "r": 0.88
+  },
+  "mae": {
+   "price": 2734.55,
+   "time": "2026-10-05T10:05:00+02:00",
+   "r": -0.42
+  },
+  "sl_hit": false,
+  "tp_hit": [],
+  "ambiguous": false,
+  "invalidated_before_fill": false,
+  "decision": "оставить как есть: SL 2745.00, TP1 2695.50, TP2 2687.00, TP3 2651.50; SL->BE 2727.00 при M5 close < 2711.22 (BOS ниже London/M5 range low, protected high 2723.99)"
+ },
+ "adjustments": null,
+ "changes_since_morning": "London judas up: 08:45 rally filled 2727 at 08:50, swept H1 OB top 2731.12 to 2734.55 (10:05, LH < 2739.50), rejected; M5 BOS down 13:00 (close 2712.53 < 2713.10), now range 2711.22-2723.99 inside H1 bull FVG 2707.60-2720.64. TP pools (Asia L 2694.88, PDL 2686.54, H4 low 2650.88) untouched.",
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "no_order_reason": "morning short is open; a second short in the same direction would double risk; long is counter-H4/H1 (LH 2734.55) with SL inside the open position's zone",
+ "invalidation": {
+  "level": 2734.55,
+  "rule": "H1 body close above 2734.55 = H1 CHoCH up, short idea dead; position is closed by SL 2745.00 itself, no manual close"
+ },
+ "levels": {
+  "asia_high": 2739.5,
+  "asia_low": 2694.88,
+  "london_high": 2734.55,
+  "london_low": 2706.47,
+  "pdh": 2739.5,
+  "pdl": 2686.54,
+  "pwh": 2777.33,
+  "pwl": 2635.69,
+  "eqh": 2739.5,
+  "eql": 2680.9,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2600.15,
+  "d1_eq": 2703.75,
+  "week_open": 2726.93,
+  "h1_lh": 2734.55,
+  "m5_range": [
+   2711.22,
+   2723.99
+  ],
+  "h1_bull_fvg": [
+   2707.6,
+   2720.64
+  ],
+  "h1_bear_ob": [
+   2724.69,
+   2731.12
+  ],
+  "h4_swing_low": 2650.88,
+  "taken_since_morning": [
+   "week_open 2726.93",
+   "H1 bear OB 2724.69-2731.12 (wick to 2734.55)",
+   "H1 bear FVG 2718.07-2724.69"
+  ]
+ },
+ "h4_context": "H4 bear: LH 2739.50 < 2777.33; 10:00 H4 closed 2718.39 with upper wick to 2734.55 (rejection). 2694.88 / 2650.88 intact.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00+02:00",
+   "title": "USD FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:1.75 < 1:2",
+  "D1 internal structure still bullish (HL 2600->2635->2650)",
+  "M5 range 2711.22-2723.99 sits on H1 bull FVG 2707.60-2720.64 — support before TP1"
+ ]
+}
