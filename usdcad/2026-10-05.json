@@ -1,0 +1,64 @@
+{
+ "date": "2026-10-05",
+ "created_at": "2026-10-05T08:07:00+02:00",
+ "price_at_creation": 1.42798,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.4264,
+  "sl": 1.42371,
+  "tp1": 1.42941,
+  "tp2": 1.43068,
+  "tp3": 1.43232,
+  "zone_high": 1.42647,
+  "zone_low": 1.42559,
+  "basis": "FVG+OTE: H1 FVG 1.42611-1.42640 (retest of PDH 1.42613 / PWH 1.42636, broken 04:00) inside OTE 62-79% 1.42650-1.42570 of H1 leg 1.42471->1.42941; second H1 FVG 1.42559-1.42578 below",
+  "risk_pips": 26.9,
+  "expires": "2026-10-05T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.42559,
+  "rule": "H1 body close below 1.42559 before fill -> cancel limit; Asia H 1.42941 taken before fill -> cancel, do not chase (wait sweep + M5 CHoCH up); unfilled 23:59 -> cancel. Plan B: H1 close below Strong Low 1.42471 -> bias none, look for shorts from premium toward D1 FVG 1.42020-1.42212 / H4 HL 1.42101 only after M5 CHoCH down."
+ },
+ "levels": {
+  "asia_high": 1.42941,
+  "asia_low": 1.42489,
+  "pdh": 1.42613,
+  "pdl": 1.42101,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": null,
+  "eql": 1.42791,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "h1_ob_low": 1.42483,
+  "h1_ob_high": 1.42547,
+  "ote_62": 1.4265,
+  "ote_79": 1.4257,
+  "strong_low": 1.42471,
+  "h4_hl": 1.42101,
+  "m5_choch": 1.42809
+ },
+ "d1_context": "D1 up HH/HL; Asia printed new 120d high 1.42941, taking PDH 1.42613 and PWH 1.42636 buy-side. Price 1.42798 = 97% of range 1.37329-1.42941 -> deep premium. Unfilled D1 FVG 1.42020-1.42212 (partly, low 1.42101) and 1.41104-1.41333 below.",
+ "h4_context": "H4 up: HL 1.42101 (02.10), BOS above 1.42636 at 04:00, HH 1.42941. H1 leg 1.42471->1.42941 with stacked H1 FVGs 1.42559-1.42578 / 1.42611-1.42640 / 1.42647-1.42809. M5 CHoCH down under 1.42809 at 07:20 = pullback underway, M5 EQL 1.42791 next.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  },
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Employment Change / Unemployment Rate"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 (Asia H 1.42941) 1:1.12 < 1:2; TP2 1:1.59, TP3 1:2.20",
+  "Long in D1 premium (97% of 120d range) after buy-side sweep of PDH/PWH - risk of Asia-high Judas top",
+  "M5 data: Twelve Data weekend ticks (Sat/Sun spikes to 1.41533/1.42088) filtered out as non-market"
+ ]
+}

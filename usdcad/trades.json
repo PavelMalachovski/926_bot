@@ -1,0 +1,26 @@
+[
+ {
+  "id": "2026-10-05-am",
+  "side": "BUY",
+  "basis": "FVG",
+  "entry": 1.4264,
+  "sl": 1.42371,
+  "tp1": 1.42941,
+  "rr_tp1": 1.12,
+  "zone_high": 1.42647,
+  "zone_low": 1.42559,
+  "price_at_creation": 1.42798,
+  "created_at": "2026-10-05T08:07:00+02:00",
+  "expires": "2026-10-05T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 15.8,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-10-05T08:05:00+02:00"
+ }
+]
