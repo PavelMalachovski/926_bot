@@ -1,0 +1,67 @@
+{
+ "date": "2026-10-06",
+ "created_at": "2026-10-06T14:10:00+02:00",
+ "price_at_creation": 1.42497,
+ "morning_order_status": "FILLED_OPEN",
+ "morning_order_detail": "BUY LIMIT 1.42558 filled 13:30 (M5 low 1.42549). MAE 1.42448 at 13:45 (-11.0 pips, SL 1.42414 missed by 3.4 pips). Floating -6.1 pips / -0.42R / -$43 per 1.00 lot at 1.42497. No pre-fill invalidation (H1 13:00 close 1.42518 > zone low 1.42514).",
+ "morning_order_action": "keep as is: SL 1.42414, TP1 1.42941, TP2 1.43000, TP3 1.43095; no BE (TP1 not taken, price below entry). BE after TP1 or M5 CHoCH up over 1.42587 with new protected low. Manual exit on H1 body close below 1.42448.",
+ "previous_open": {
+  "id": "2026-10-05-am",
+  "status": "OPEN",
+  "action": "keep as is: SL 1.42371, TP1 1.42941; floating -14.3 pips / -0.53R"
+ },
+ "adjustments": null,
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "invalidation": {
+  "level": 1.42448,
+  "rule": "H1 body close below 1.42448 (London L / sweep low) -> close longs manually; else SL does it."
+ },
+ "levels": {
+  "asia_high": 1.42701,
+  "asia_low": 1.42568,
+  "pdh": 1.42941,
+  "pdl": 1.42372,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": null,
+  "eql": 1.42372,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "london_high": 1.42857,
+  "london_low": 1.42448,
+  "strong_low": 1.42514,
+  "m5_choch_down": 1.42667,
+  "m5_lh": 1.42587,
+  "h4_hl": 1.42372
+ },
+ "taken_since_morning": [
+  "Asia H 1.42701 (08:05)",
+  "Asia L 1.42568 (13:25)",
+  "H1 OB 1.42514-1.42603 traded through",
+  "Strong Low 1.42514 swept by wick (H1 13:00 low 1.42448, close 1.42518)"
+ ],
+ "d1_context": "Unchanged: D1 up, deep premium (~93% of 1.37329-1.42941), PDH 1.42941 unswept, D1 FVG 1.42020-1.42212 below.",
+ "h4_context": "H4 (resampled) up HH 1.42941 / HL 1.42372. London made H 1.42857 then dumped: M5 CHoCH down at 13:10 under 1.42667, swept Strong Low 1.42514 to 1.42448; H1 body held above 1.42514.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  },
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Employment Change / Unemployment Rate"
+  }
+ ],
+ "warnings": [
+  "Two longs open (05.10-am, 06.10-am) - combined -0.95R floating",
+  "SL 1.42414 above EQL/PDL 1.42372 sell-side pool",
+  "Long in D1 premium",
+  "No new PM order: already 2 longs, M5 bias down until CHoCH up over 1.42587"
+ ]
+}
