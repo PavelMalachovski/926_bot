@@ -1,0 +1,22 @@
+{
+ "date": "2026-10-06",
+ "created_at": "2026-10-06T08:20:00+02:00",
+ "price_at_creation": 2694.88,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 2714.25, "sl": 2728.60, "tp1": 2681.00, "tp2": 2672.50, "tp3": 2652.00,
+  "zone_high": 2718.45, "zone_low": 2709.99,
+  "basis": "OB: H1 bear OB 02:00 (2709.99-2718.45), 50% = 2714.22, inside H1 OTE 62-79% of 2723.56->2692.51 (2711.76-2717.04)",
+  "risk_usd": 14.35, "expires": "2026-10-06T23:59:00+02:00"},
+ "invalidation": {"level": 2718.45, "rule": "H1 body close above 2718.45 before fill -> cancel limit; H1 body close above 2723.56 (Asia high) = H1 BOS up -> short idea dead, plan B: long from 2693-2700 after M5 CHoCH up"},
+ "levels": {"asia_high": 2723.56, "asia_low": 2693.00, "pdh": 2738.00, "pdl": 2679.63, "pwh": 2777.33, "pwl": 2635.69,
+  "eqh": 2738.75, "eql": 2680.27, "d1_range_high": 2807.34, "d1_range_low": 2600.15, "d1_eq": 2703.75, "week_open": 2726.93,
+  "h1_lh": 2730.28, "h4_swing_low": 2650.88, "h4_bull_fvg": [2671.35, 2672.34], "h1_bull_fvg": [2670.13, 2674.65],
+  "h1_bear_fvg": [2703.79, 2706.78], "m5_supply": [2701.23, 2706.28]},
+ "d1_context": "D1 range 2600.15-2807.34 since 21.09: LH 2807.34->2777.33, HL 2600.15->2635.69->2650.88 (compression). Price 2694.88 = 45.7% (just below EQ 2703.75); entry 2714.25 = 55% premium. Pools: EQH 2738-2739.5/PDH 2738, PWH 2777.33 above; EQL 2679.63/2680.90 (PDL), 2650.88, PWL 2635.69 below. D1 bull FVG 2483.74-2602.94 (32% filled) far below.",
+ "h4_context": "H4 bear: LH 2777.33 -> 2739.50 -> 2734.55 -> 2730.28; BOS down 05.10 ~17:30 through 2694.88 to 2679.63. Correction 2679.63 -> 2723.56 (87% of the 2730.28->2679.63 leg) rejected; H4 02:00 closed 2699.32. H4 bull FVG 2671.35-2672.34 open.",
+ "news": [{"time": "2026-10-07T20:00+02:00", "title": "USD FOMC Meeting Minutes"}],
+ "warnings": ["H1 internal structure since 2679.63 still HL (2693.00); London 08:05 only wicked to 2692.51 - H1 CHoCH down needs an H1 body close < 2693.00. Until then H4 bear / H1 internal bull diverge.",
+  "SL 2728.60 sits under H1 LH 2730.28 - a sweep of yesterday's 16:05 high would stop it (same spike as the 05.10 BE)"]
+}
