@@ -1,0 +1,72 @@
+{
+ "date": "2026-10-06",
+ "created_at": "2026-10-06T08:06:00+02:00",
+ "price_at_creation": 1.42693,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.42558,
+  "sl": 1.42414,
+  "tp1": 1.42941,
+  "tp2": 1.43,
+  "tp3": 1.43095,
+  "zone_high": 1.42603,
+  "zone_low": 1.42514,
+  "basis": "OB",
+  "risk_pips": 14.4,
+  "expires": "2026-10-06T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.42514,
+  "rule": "H1 body close below 1.42514 (H1 OB low / Strong Low) before fill -> cancel limit; plan B: sweep EQL 1.42372 + M5 CHoCH up -> buy"
+ },
+ "levels": {
+  "asia_high": 1.42701,
+  "asia_low": 1.42568,
+  "pdh": 1.42941,
+  "pdl": 1.42372,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": null,
+  "eql": 1.42372,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "h1_ob_low": 1.42514,
+  "h1_ob_high": 1.42603,
+  "h1_leg_low": 1.42372,
+  "h1_leg_high": 1.42715,
+  "h1_eq": 1.42544,
+  "ote_62": 1.42502,
+  "ote_79": 1.42444,
+  "strong_low": 1.42514,
+  "h1_bos": 1.4264,
+  "h4_hl": 1.42372
+ },
+ "d1_context": "D1 up HH 1.42941 (05.10) / HL 1.42101. Price 1.42693 = 96% of range 1.37329-1.42941 -> deep premium. Buy-side PDH 1.42941 unswept; PWH 1.42636 already taken. Unfilled D1 FVG 1.42020-1.42212 and 1.41104-1.41333 below.",
+ "h4_context": "H4 up: HH 1.42941, pullback to EQL 1.42385/1.42372 (Mon London/NY) held. H1 BOS up at 02:00 over 1.42640; new leg 1.42372->1.42715, Strong Low 1.42514. London open 08:00 took Asia H 1.42701 by 1.4p.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  },
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Employment Change / Unemployment Rate"
+  }
+ ],
+ "warnings": [
+  "Long in D1 premium (96% of range)",
+  "SL 1.42414 sits above EQL 1.42372/1.42385 sell-side pool",
+  "BUY 2026-10-05-am @1.42640 still OPEN (+5.3p) - stacked long exposure"
+ ],
+ "open_from_previous": {
+  "id": "2026-10-05-am",
+  "status": "OPEN",
+  "action": "keep as is: SL 1.42371, TP1 1.42941; no BE (protected low 1.42514 below entry). Low after 14:15 = 1.42372, SL missed by 0.1 pip."
+ }
+}

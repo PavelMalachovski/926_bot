@@ -21,6 +21,30 @@
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-05T14:15:00+02:00"
+  "last_checked": "2026-10-06T08:05:00+02:00"
+ },
+ {
+  "id": "2026-10-06-am",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 1.42558,
+  "sl": 1.42414,
+  "tp1": 1.42941,
+  "rr_tp1": 2.66,
+  "zone_high": 1.42603,
+  "zone_low": 1.42514,
+  "price_at_creation": 1.42693,
+  "created_at": "2026-10-06T08:06:00+02:00",
+  "expires": "2026-10-06T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 13.5,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-10-06T08:05:00+02:00"
  }
 ]
