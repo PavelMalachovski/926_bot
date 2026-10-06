@@ -1,0 +1,71 @@
+{
+ "date": "2026-10-06",
+ "created_at": "2026-10-06T14:05:00+02:00",
+ "price_at_creation": 158.014,
+ "morning_order_status": "ИСПОЛНЕН, В РАБОТЕ",
+ "morning_fill": {
+  "filled_at": "2026-10-06T13:45:00+02:00",
+  "bar_low": 157.925,
+  "floating_pips": 6.6,
+  "floating_r": 0.25
+ },
+ "adjustments": {
+  "decision": "TP1 158.217 → 158.240, SL без изменений, после TP1 SL в BE",
+  "sl": 157.683,
+  "tp1": 158.24,
+  "tp2": 158.298,
+  "tp3": 158.467,
+  "be_after": "TP1",
+  "basis": "Asia high 158.217 снят в 08:35 (high 158.243) до исполнения; следующий незанятый пул — EQH Лондона 158.243/158.245/158.248; Strong Low 157.783 и H1 HL целы, H1 13:00 close 158.014 внутри зоны"
+ },
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY (исполнен)",
+  "entry": 157.948,
+  "sl": 157.683,
+  "tp1": 158.24,
+  "tp2": 158.298,
+  "tp3": 158.467,
+  "zone_high": 158.005,
+  "zone_low": 157.915,
+  "basis": "утренний OB+OTE, скорректирован TP1",
+  "risk_pips": 26.5,
+  "expires": "2026-10-06T23:59:00+02:00"
+ },
+ "new_order": null,
+ "invalidation": {
+  "level": 157.915,
+  "rule": "H1 body close < 157.915 → закрыть позицию руками, не ждать SL; H1 close < 157.783 = слом структуры"
+ },
+ "levels": {
+  "asia_high": 158.217,
+  "asia_low": 157.783,
+  "london_high": 158.248,
+  "london_low": 157.925,
+  "pdh": 158.298,
+  "pdl": 157.434,
+  "pwh": 158.467,
+  "pwl": 156.383,
+  "eqh": 158.248,
+  "m5_choch_down": 158.057,
+  "swept_today": [
+   "EQL 157.83 (03:00)",
+   "Asia high 158.217 (08:35, 158.243)",
+   "London EQH не снят (158.248)"
+  ]
+ },
+ "h4_context": "H4 (ресемпл): треугольник 157.434–158.467 без изменений, свеча 12:00 красная, тело внутри demand OB. H1: диапазон 157.783–158.248, HL цел; M5: CHoCH вниз 13:40 через 158.057, реакция от 157.925 (London low) в зоне.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR к TP1 1:1.10 < 1:2",
+  "Лонг в premium 84% D1 range",
+  "M5 CHoCH вниз 13:40 против позиции"
+ ]
+}
