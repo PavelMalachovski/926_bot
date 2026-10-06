@@ -36,15 +36,42 @@
   "price_at_creation": 158.248,
   "created_at": "2026-10-05T14:05:00+02:00",
   "expires": "2026-10-05T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 1.7,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Откат дошёл до 157.866 (23:35) — 1.7 п до entry 157.849, 95.7% пути от 158.248. Удержал старый H1 low 157.864 (01.10) ≈ 59.7% плеча 157.574→158.298 — OTE 62% оказался на 1.7 п глубже. Касание 157.835 в 00:05 уже после срока; max после 158.217 — TP1 158.298 всё равно не взят."
+  },
+  "last_checked": "2026-10-06T08:00:00+02:00"
+ },
+ {
+  "id": "2026-10-06-am",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 157.948,
+  "sl": 157.683,
+  "tp1": 158.217,
+  "rr_tp1": 1.02,
+  "zone_high": 158.005,
+  "zone_low": 157.915,
+  "price_at_creation": 158.05,
+  "created_at": "2026-10-06T08:05:00+02:00",
+  "expires": "2026-10-06T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 39.9,
+  "closest_approach": 11.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-05T14:00:00+02:00"
+  "last_checked": "2026-10-06T08:00:00+02:00"
  }
 ]
