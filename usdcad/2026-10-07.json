@@ -1,0 +1,67 @@
+{
+ "date": "2026-10-07",
+ "created_at": "2026-10-07T08:10:00+02:00",
+ "price_at_creation": 1.42241,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.4244,
+  "sl": 1.42607,
+  "tp1": 1.4207,
+  "tp2": 1.41763,
+  "tp3": 1.41545,
+  "zone_high": 1.42507,
+  "zone_low": 1.42437,
+  "basis": "H1 OB (15:00 06.10 last up-candle before 16:00 drop, 1.42437-1.42507) + 50% of H1 leg 1.42782->1.42059 (1.42421) + flipped London low 1.42448",
+  "risk_pips": 16.7,
+  "expires": "2026-10-07T23:59:00+02:00 (practically cancel at 19:00 before FOMC Minutes blackout)"
+ },
+ "invalidation": {
+  "level": 1.42507,
+  "rule": "H1 body close above 1.42507 before fill -> cancel limit; plan B: wait for 1.42549-1.42667 H1 FVG + M5 CHoCH down"
+ },
+ "levels": {
+  "asia_high": 1.42283,
+  "asia_low": 1.42097,
+  "pdh": 1.42857,
+  "pdl": 1.42064,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": null,
+  "eql": null,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "h1_swing_low": 1.42059,
+  "h1_lh": 1.42782,
+  "h4_hl_broken": 1.42372,
+  "h4_strong_low": 1.41533
+ },
+ "d1_context": "D1 up (HH 1.42941 05.10, HL 1.41533), but 06.10 closed bearish 1.42107 after rejecting PDH. Price ~87% of 1.37329-1.42941 = deep premium. D1 FVG 1.42020-1.42212 being filled; sell-side pools PWL 1.41387, HL 1.41533.",
+ "h4_context": "H4 CHoCH down: HL 1.42372 broken 06.10 15:00, LH 1.42857, low 1.42059. H1 LH 1.42782 -> LL 1.42059, Asia retrace to 1.42283 (M5 HH/HL inside Asia). H1 bear FVG 1.42549-1.42667 above OB.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  },
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Unemployment Rate / Employment Change"
+  },
+  {
+   "time": "2026-10-09T16:00:00+02:00",
+   "country": "USD",
+   "title": "Michigan Consumer Sentiment Prel"
+  }
+ ],
+ "warnings": [
+  "Short against D1 trend structure (D1 HH/HL intact) - but from D1 premium 87% with H4 CHoCH down",
+  "FOMC Minutes 20:00: blackout 19:00-20:15 - cancel unfilled limit at 19:00, open position -> SL to BE before 19:00",
+  "Both longs 05.10/06.10 closed by SL 06.10 (-2R)",
+  "FF calendar 429 - news from TradingView calendar"
+ ]
+}
