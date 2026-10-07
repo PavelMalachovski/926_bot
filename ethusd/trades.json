@@ -66,15 +66,42 @@
   "price_at_creation": 2694.88,
   "created_at": "2026-10-06T08:20:00+02:00",
   "expires": "2026-10-06T23:59:00+02:00",
-  "status": "OPEN",
+  "status": "TP",
   "filled_at": "2026-10-06T10:05:00+02:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_usd": null,
+  "closed_at": "2026-10-07T03:50:00+02:00",
+  "result_r": 2.32,
+  "result_usd": 33.25,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
+  "review": {
+   "cause": "TP1",
+   "note": "Filled 06.10 10:05 at 2714.25; max high after fill 2725.13 (17:xx) < SL 2728.60; 07.10 03:50 M5 low 2680.20 hit TP1 2681.00 (+33.25$). Same dump took TP2 2672.50 and TP3 2652.00 at 03:55 (low 2591.71 at 04:05)."
+  },
+  "last_checked": "2026-10-07T08:10:00+02:00"
+ },
+ {
+  "id": "2026-10-07-am",
+  "side": "SELL LIMIT",
+  "basis": "OTE",
+  "entry": 2668.5,
+  "sl": 2705.5,
+  "tp1": 2594.5,
+  "rr_tp1": 2.0,
+  "zone_high": 2693.78,
+  "zone_low": 2657.27,
+  "price_at_creation": 2620.44,
+  "created_at": "2026-10-07T08:15:00+02:00",
+  "expires": "2026-10-07T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 46.5,
+  "ambiguous": false,
+  "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-06T14:10:00+02:00"
+  "last_checked": "2026-10-07T08:10:00+02:00"
  }
 ]

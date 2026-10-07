@@ -1,0 +1,67 @@
+{
+ "date": "2026-10-07",
+ "created_at": "2026-10-07T08:15:00+02:00",
+ "price_at_creation": 2620.44,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) = TradingView BINANCE:ETHUSDT (cross-checked); api.binance.com returned 451",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2668.5,
+  "sl": 2705.5,
+  "tp1": 2594.5,
+  "tp2": 2562.0,
+  "tp3": 2545.0,
+  "zone_high": 2693.78,
+  "zone_low": 2657.27,
+  "basis": "OTE: 70.5% of H1 leg 2700.54->2591.71 (2668.43), inside H1 bear FVG 2622.00-2693.78 (03:00-04:00 displacement); OTE band 2659.18-2677.69",
+  "risk_usd": 37.0,
+  "expires": "2026-10-07T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2693.78,
+  "rule": "H1 body close above 2693.78 before fill -> cancel limit; H1 body close above 2700.54 (Strong High) = bear leg dead, plan B: long after sweep of 2591.71 + M5 CHoCH up (D1 range low / D1 FVG)"
+ },
+ "levels": {
+  "asia_high": 2700.54,
+  "asia_low": 2591.71,
+  "pdh": 2725.13,
+  "pdl": 2683.73,
+  "pwh": 2777.33,
+  "pwl": 2635.69,
+  "eqh": 2739.5,
+  "eql": 2603.79,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2600.15,
+  "d1_eq": 2703.75,
+  "week_open": 2726.93,
+  "h1_strong_high": 2700.54,
+  "h1_bear_fvg": [
+   2622.0,
+   2693.78
+  ],
+  "ote_62_79": [
+   2659.18,
+   2677.69
+  ],
+  "d1_bull_fvg": [
+   2483.74,
+   2602.94
+  ],
+  "m5_bos_up": 2622.0
+ },
+ "d1_context": "D1 range 2600.15-2807.34 since 21.09 (LH 2807.34->2777.33, lows 2600.15/2635.69/2650.88). Today 04:00 a 100$ dump swept PWL 2635.69, 2650.88 and the range low 2600.15 down to 2591.71 and tapped the D1 bull FVG 2483.74-2602.94; price 2620.44 = 10% of the range (deep discount). Pools: EQH 2738-2739.5, PWH 2777.33 above; below the 2591.71 low, D1 FVG 50% 2543.",
+ "h4_context": "H4 bear: LH 2777.33->2739.50->2725.13, BOS down through 2650.88/2635.69/2600.15 on the 02:00 H4 (2697.49->2611.14, low 2591.71). H1: leg 2700.54->2591.71, bear FVG 2622.00-2693.78 untouched above 2622; M5 since 04:05 range 2603.79-2622.00, BOS up 2622 = pullback in progress.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00+02:00",
+   "title": "USD FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "Short against D1 premium/discount: entry 2668.50 = 33% of the D1 range (discount) right after a sweep of the D1 range low and a tap of the D1 bull FVG - a D1 reversal is plausible; alternative = plan B long after a re-sweep of 2591.71 + M5 CHoCH up",
+  "RR to TP1 exactly 1:2.00 - at the floor",
+  "Entry 48.06$ from price (70.5% retracement) - may not fill",
+  "FOMC Minutes 20:00: blackout 19:00-20:15 - pull the limit at 19:00 if not filled"
+ ]
+}
