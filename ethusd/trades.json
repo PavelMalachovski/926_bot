@@ -93,15 +93,42 @@
   "price_at_creation": 2620.44,
   "created_at": "2026-10-07T08:15:00+02:00",
   "expires": "2026-10-07T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 44.67,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "max 2623.83 (08:40) = 13% пути 2620.44->2668.50; тренд продолжился, TP1 2594.50 взят в 12:05 без входа (low 2565.01). Снят в 14:15."
+  },
+  "last_checked": "2026-10-07T14:10:00+02:00"
+ },
+ {
+  "id": "2026-10-07-pm",
+  "side": "SELL LIMIT",
+  "basis": "FVG",
+  "entry": 2603.0,
+  "sl": 2617.0,
+  "tp1": 2573.0,
+  "rr_tp1": 2.14,
+  "zone_high": 2609.27,
+  "zone_low": 2598.0,
+  "price_at_creation": 2579.64,
+  "created_at": "2026-10-07T14:15:00+02:00",
+  "expires": "2026-10-07T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 46.5,
+  "closest_approach": 23.36,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-07T08:10:00+02:00"
+  "last_checked": "2026-10-07T14:10:00+02:00"
  }
 ]
