@@ -1,0 +1,57 @@
+{
+ "date": "2026-10-07",
+ "created_at": "2026-10-07T14:10:00+02:00",
+ "price_at_creation": 1.4248,
+ "morning_order_status": "FILLED_OPEN",
+ "morning_order_detail": "SELL LIMIT 1.42440 filled 13:50 (M5 high 1.42492). MAE 1.42513 at 13:55 (-7.3 pips / -0.44R, SL 1.42607 untouched). Floating -4.0 pips / -0.24R / ~-$28 per 1.00 lot at 1.42480. No pre-fill invalidation (H1 13:00 close 1.42471 < zone high 1.42507). Closest pre-fill approach was 19.9 pips at 08:10; London low 1.42170 at 08:35.",
+ "morning_order_action": "keep as is: SL 1.42607, TP1 1.42070, TP2 1.41763, TP3 1.41545. SL -> BE 1.42440 after M5 close below 1.42391 (M5 HL, CHoCH down). At 19:00 (FOMC Minutes blackout): price below 1.42440 -> SL to BE; above -> close manually. Manual exit on H1 body close above 1.42507.",
+ "adjustments": null,
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "invalidation": {
+  "level": 1.42507,
+  "rule": "H1 body close above 1.42507 -> close short manually; else SL 1.42607 does it."
+ },
+ "levels": {
+  "asia_high": 1.42283,
+  "asia_low": 1.42097,
+  "london_high": 1.42513,
+  "london_low": 1.4217,
+  "london_high_pre_sweep": 1.42327,
+  "pdh": 1.42857,
+  "pdl": 1.42059,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": null,
+  "eql": null,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "h1_lh": 1.42782,
+  "h1_ll": 1.42059,
+  "m5_hl": 1.42391,
+  "h4_hl_broken": 1.42372
+ },
+ "taken_since_morning": [
+  "Asia H 1.42283 (13:15-13:25)",
+  "London H 1.42327 (13:30)",
+  "H1 OB 1.42437-1.42507 tagged, wick 1.42513 (0.6 pip above), H1 body held inside"
+ ],
+ "d1_context": "Unchanged since morning: D1 up, deep premium ~87%, D1 FVG 1.42020-1.42212 partially filled, sell-side PWL 1.41387 / HL 1.41533.",
+ "h4_context": "H4 (resampled) CHoCH down intact (HL 1.42372 broken, LH 1.42857). H1 retrace reached 62.8% of 1.42782->1.42059 leg into H1 OB after sweeping Asia/London highs; M5 still HH/HL from 1.42181, no M5 CHoCH down yet.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "Short against D1 HH/HL structure (from D1 premium)",
+  "FOMC Minutes 20:00 - blackout 19:00-20:15: secure position by 19:00",
+  "No new PM order: morning short is live",
+  "FF calendar rate-limited - news from TradingView calendar"
+ ]
+}
