@@ -1,0 +1,90 @@
+{
+ "date": "2026-10-07",
+ "created_at": "2026-10-07T14:05:00+02:00",
+ "price_at_creation": 158.212,
+ "morning_order_status": "ЗАКРЫТ ПО SL",
+ "morning_fill": {
+  "filled_at": "2026-10-07T09:50:00+02:00",
+  "bar_low": 158.184,
+  "sl_hit_at": "2026-10-07T10:05:00+02:00",
+  "bar_low_sl": 157.953,
+  "result_pips": -22.6,
+  "result_r": -1.0,
+  "result_usd_1lot": -143,
+  "ambiguous": false
+ },
+ "morning_decision": "закрыт по SL — действий нет",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 158.02,
+  "sl": 157.74,
+  "tp1": 158.39,
+  "tp2": 158.5,
+  "tp3": 159.02,
+  "zone_high": 158.066,
+  "zone_low": 157.976,
+  "basis": "OTE 70.5% H1/M5 плеча 157.865→158.394 (зона OTE 62–79% 157.976–158.066), над EQL 157.865/157.866",
+  "risk_pips": 28.0,
+  "expires": "2026-10-07T19:00:00+02:00"
+ },
+ "invalidation": {
+  "level": 157.976,
+  "rule": "H1 body close < 157.976 до исполнения → снять; H1 close < 157.865 (EQL/London low) → лонг-структура сломана, план Б (short к PDL 157.783)"
+ },
+ "levels": {
+  "london_high": 158.407,
+  "london_low": 157.865,
+  "asia_high": 158.503,
+  "asia_low": 158.168,
+  "pdh": 158.248,
+  "pdl": 157.783,
+  "pwh": 158.467,
+  "pwl": 156.383,
+  "eqh": 158.503,
+  "eql": 157.865,
+  "h1_leg_low": 157.865,
+  "h1_leg_high": 158.394,
+  "ote62": 158.066,
+  "ote705": 158.021,
+  "ote79": 157.976,
+  "m5_bull_fvg": [
+   158.126,
+   158.164
+  ],
+  "h4_bear_fvg": [
+   158.431,
+   158.653
+  ],
+  "d1_range_high": 159.029,
+  "d1_range_low": 152.908,
+  "d1_eq": 155.969,
+  "week_open": 157.751,
+  "swept_since_morning": [
+   "Asia low 158.168 (09:50)",
+   "Strong Low 158.079 (09:55)",
+   "H1 lows 06.10 157.925/157.932 (10:05)"
+  ],
+  "held": [
+   "EQL 157.865/157.866 (10:15)",
+   "PDL 157.783"
+  ]
+ },
+ "d1_context": "Без изменений с утра: цена 158.21 = 87% range 152.908–159.029 (premium), сверху HH 159.029 и D1 bear FVG 158.967–159.641.",
+ "h4_context": "H4 (ресемпл): бычья, новый HL 157.865 выше 157.783; HH 158.503 не обновлён, bear FVG 158.431–158.653 сверху. Лондон — judas swing вниз (sweep Asia low + Strong Low) и возврат; M5 CHoCH вниз в 13:50 (HL 158.282) — откат в дисконт плеча.",
+ "news": [
+  {
+   "time": "2026-10-07T20:00:00+02:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR к TP1 1:1.32 < 1:2",
+  "Лонг в D1 premium 87%",
+  "H4 bear FVG 158.431–158.653 над TP2",
+  "FOMC Minutes 20:00 — блэкаут 19:00–20:15, лимит снять в 19:00",
+  "На 14:30 красных новостей нет"
+ ]
+}

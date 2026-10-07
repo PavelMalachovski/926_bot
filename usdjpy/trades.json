@@ -87,15 +87,42 @@
   "price_at_creation": 158.371,
   "created_at": "2026-10-07T08:10:00+02:00",
   "expires": "2026-10-07T23:59:00+02:00",
+  "status": "SL",
+  "filled_at": "2026-10-07T09:50:00+02:00",
+  "closed_at": "2026-10-07T10:05:00+02:00",
+  "result_r": -1.0,
+  "result_pips": -22.6,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Исполнен 09:50 (low 158.184). H1 09:00 закрылся 158.110 — телом под зоной 158.168–158.305; M5 10:05 low 157.953 снял SL 157.979. Low 157.865 = EQL с 05.10 157.866: стоп стоял НАД очевидным пулом. После SL отскок до 158.394 (13:25), TP1 158.503 не взят (−10.9 п) — поэтому не STOP_HUNT. Вход был в D1 premium 89%."
+  },
+  "last_checked": "2026-10-07T14:00:00+02:00"
+ },
+ {
+  "id": "2026-10-07-pm",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 158.02,
+  "sl": 157.74,
+  "tp1": 158.39,
+  "rr_tp1": 1.32,
+  "zone_high": 158.066,
+  "zone_low": 157.976,
+  "price_at_creation": 158.212,
+  "created_at": "2026-10-07T14:05:00+02:00",
+  "expires": "2026-10-07T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 15.1,
+  "closest_approach": 19.2,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-07T08:00:00+02:00"
+  "last_checked": "2026-10-07T14:00:00+02:00"
  }
 ]
