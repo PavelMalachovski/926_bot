@@ -134,8 +134,8 @@
   "basis": "OB",
   "entry": 157.88,
   "sl": 157.53,
-  "tp1": 158.291,
-  "rr_tp1": 1.17,
+  "tp1": 158.399,
+  "rr_tp1": 1.48,
   "zone_high": 157.885,
   "zone_low": 157.733,
   "price_at_creation": 158.208,
@@ -146,10 +146,10 @@
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 32.8,
+  "closest_approach": 22.5,
   "ambiguous": false,
-  "adjusted": false,
+  "adjusted": true,
   "review": null,
-  "last_checked": "2026-10-08T08:00:00+02:00"
+  "last_checked": "2026-10-08T14:00:00+02:00"
  }
 ]
