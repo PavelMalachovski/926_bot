@@ -1,0 +1,48 @@
+{
+ "date": "2026-10-08",
+ "created_at": "2026-10-08T14:15:00+02:00",
+ "price_at_creation": 2536.86,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451",
+ "morning_order_status": {
+  "id": "2026-10-08-am",
+  "status": "INVALIDATED",
+  "detail": "SELL LIMIT 2600.00 не исполнен: max 2577.39 (09:20), $22.61 до entry. H1 13:00 close 2537.43 < PDL 2538.06 = правило 'нет отката' -> лимит снять.",
+  "action": "снять"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2552.0,
+  "sl": 2564.0,
+  "tp1": 2527.8,
+  "tp2": 2516.0,
+  "tp3": 2488.5,
+  "zone_high": 2556.06,
+  "zone_low": 2551.76,
+  "basis": "FVG: H1 bear FVG 2551.76-2556.06 (12:00 impulse) + 50% H1 leg 2577.39->2527.57 (2552.48); retest of broken PDL 2538.06/Asia low 2545.19 from below; SL above M5 LH 2558.98 +5",
+  "risk_usd": 12.0,
+  "expires": "2026-10-08T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2556.06,
+  "rule": "H1 body close above 2556.06 before fill -> cancel; H1 body close above 2570.00 (H1 OB top) -> bullish CHoCH, short plan dead"
+ },
+ "levels": {
+  "asia_high": 2587.28, "asia_low": 2545.19, "london_high": 2577.39, "london_low": 2527.57,
+  "pdh": 2699.8, "pdl": 2538.06, "pwh": 2777.33, "pwl": 2635.69, "eqh": 2575.93, "eql": null,
+  "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2726.93,
+  "h1_leg": [2577.39, 2527.57], "h1_ote": [2558.46, 2566.93], "h1_bear_fvg": [2551.76, 2556.06],
+  "h1_ob": [2560.08, 2570.0], "m5_lh": 2558.98, "h4_bull_fvg": [2521.65, 2578.93],
+  "h4_swing_low_0912": 2515.16, "h4_swing_low_0914": 2487.84,
+  "swept_today": ["asia_low 2545.19 (06:xx, 13:00)", "pdl 2538.06 (13:05)"]
+ },
+ "d1_context": "Из утреннего JSON: D1 CHoCH вниз (close < 2600.15), leg 2358.88->2807.34, EQ 2583.11. С утра: PDL 2538.06 снят и закрыт под ним H1 телом, цена 2537 = 40% (discount), внутри D1 bull FVG 2483.74-2602.94.",
+ "h4_context": "H4 bearish: LH 2587.28/2577.39 -> BOS ниже 2538.06, low 2527.57. Цена внутри H4 bull FVG 2521.65-2578.93 (заполнен на 90%); ниже 2515.16 (09-12) - незанятый swing low.",
+ "news": [],
+ "warnings": [
+  "Short в D1 discount (entry 2552 = 43% D1 leg) и внутри H4/D1 bull FVG - вход против D1 PD",
+  "Sell-side (Asia low, PDL, London low 2527.57) уже снята - возможен разворот вверх в NY",
+  "SL узкий $12 за M5 LH 2558.98; вход вероятен на открытии NY 14:30 (красных USD новостей сегодня нет)"
+ ]
+}

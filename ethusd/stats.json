@@ -1,6 +1,6 @@
 {
- "updated_at": "2026-10-08T08:25:00+02:00",
- "orders": 5,
+ "updated_at": "2026-10-08T14:15:00+02:00",
+ "orders": 6,
  "filled": 2,
  "tp": 1,
  "sl": 0,
@@ -8,10 +8,10 @@
  "open": 0,
  "pending": 1,
  "expired": 2,
- "invalidated": 0,
+ "invalidated": 1,
  "unknown": 0,
  "winrate": 100.0,
- "fill_rate": 50.0,
+ "fill_rate": 40.0,
  "total_r": 2.32,
  "avg_r": 1.16,
  "total_usd": 33.25,
@@ -23,7 +23,7 @@
   "total_r": 2.32
  },
  "pm": {
-  "orders": 1,
+  "orders": 2,
   "filled": 0,
   "tp": 0,
   "sl": 0,
