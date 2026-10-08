@@ -1,0 +1,61 @@
+{
+ "date": "2026-10-08",
+ "created_at": "2026-10-08T14:08:00+02:00",
+ "price_at_creation": 1.42708,
+ "morning_order_status": "FILLED_OPEN",
+ "morning_order_detail": "BUY LIMIT 1.42440 filled 10:05 (M5 low 1.42438, 0.2 pip through - marginal, broker spread may have prevented fill). MAE 1.42438 (-0.2 pip). SL 1.42290 and TP1 1.42820 untouched; high 1.42769 at 13:20 (5.1 pips short of TP1). Floating +26.8 pips / +1.79R / ~+$188 per 1.00 lot at 1.42708. No pre-fill invalidation (no H1 body close below 1.42392).",
+ "morning_order_action": "adjust: SL 1.42290 -> 1.42440 (BE) after M5 BOS up over 1.42674 (13:15) with protected low 1.42541 (12:50); TP1 1.42820 / TP2 1.42857 / TP3 1.42941 unchanged (pools untouched). Close manually on H1 body close below 1.42541; if still open at 13:30 09.10 close before CAD Employment 14:30.",
+ "adjustments": {
+  "sl": 1.4244,
+  "tp1": 1.4282,
+  "tp2": 1.42857,
+  "tp3": 1.42941,
+  "basis": "M5 BOS up 1.42674 + protected low 1.42541; SL to BE"
+ },
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "invalidation": {
+  "level": 1.42541,
+  "rule": "H1 body close below protected low 1.42541 -> close long manually; otherwise BE stop 1.42440"
+ },
+ "levels": {
+  "asia_high": 1.42698,
+  "asia_low": 1.42517,
+  "london_high": 1.42769,
+  "london_low": 1.42438,
+  "pdh": 1.4282,
+  "pdl": 1.42063,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": 1.42857,
+  "eql": 1.42508,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "m5_protected_low": 1.42541,
+  "m5_bos": 1.42674,
+  "m5_choch": 1.42535
+ },
+ "taken_since_morning": [
+  "Asia L 1.42517, EQL 1.42508, week open 1.42528 (09:15-09:30, London judas swing)",
+  "H1 FVG/OB 1.42392-1.42486 tapped to 1.42438 (10:05)",
+  "Asia H 1.42698 (13:15)"
+ ],
+ "d1_context": "Unchanged since morning: D1 up, deep premium (~96% of 1.37329-1.42941), buy-side above 1.42941 untouched.",
+ "h4_context": "H4 (resampled) still inside box 1.42059-1.42941, LH 1.42857 overhead = TP2. H1 HL 1.42438 held, H1 up from CHoCH 07.10; M5 CHoCH up 1.42535 + BOS 1.42674.",
+ "news": [
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Employment Change / Unemployment Rate"
+  }
+ ],
+ "warnings": [
+  "Fill marginal: M5 low 1.42438 only 0.2 pip under entry - verify in MT4",
+  "H4 LH 1.42857 / EQH just above TP1 - resistance",
+  "No new PM order: morning long is live",
+  "CAD Employment 09.10 14:30 - flat before 13:30"
+ ]
+}

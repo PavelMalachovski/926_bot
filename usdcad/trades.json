@@ -85,7 +85,7 @@
   "side": "BUY",
   "basis": "FVG",
   "entry": 1.4244,
-  "sl": 1.4229,
+  "sl": 1.4244,
   "tp1": 1.4282,
   "rr_tp1": 2.53,
   "zone_high": 1.42486,
@@ -93,15 +93,16 @@
   "price_at_creation": 1.42674,
   "created_at": "2026-10-08T08:09:00+02:00",
   "expires": "2026-10-08T23:59:00+02:00",
-  "status": "PENDING",
-  "filled_at": null,
+  "status": "OPEN",
+  "filled_at": "2026-10-08T10:05:00+02:00",
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 23.4,
+  "closest_approach": 0.0,
   "ambiguous": false,
-  "adjusted": false,
+  "adjusted": true,
   "review": null,
-  "last_checked": "2026-10-08T08:05:00+02:00"
+  "last_checked": "2026-10-08T14:05:00+02:00",
+  "sl_initial": 1.4229
  }
 ]
