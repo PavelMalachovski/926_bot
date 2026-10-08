@@ -1,0 +1,58 @@
+{
+ "date": "2026-10-08",
+ "created_at": "2026-10-08T08:09:00+02:00",
+ "price_at_creation": 1.42674,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.4244,
+  "sl": 1.4229,
+  "tp1": 1.4282,
+  "tp2": 1.42857,
+  "tp3": 1.42941,
+  "zone_high": 1.42486,
+  "zone_low": 1.42392,
+  "basis": "H1 FVG 1.42392-1.42438 (13:00 07.10, part-filled) + H1 OB wick 1.42392-1.42486 (16:00 07.10, last down-candle before up leg) + 50% of H1 leg 1.42059->1.42820 (1.42440); fill requires sweep of EQL 1.42508/1.42517 + week open 1.42528",
+  "risk_pips": 15.0,
+  "expires": "2026-10-08T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.42392,
+  "rule": "H1 body close below 1.42392 (H1 HL / FVG floor) before fill -> cancel limit; plan B: H4 short after sweep of 1.42857-1.42941 + M5 CHoCH down, target EQL 1.42508"
+ },
+ "levels": {
+  "asia_high": 1.42698,
+  "asia_low": 1.42517,
+  "pdh": 1.4282,
+  "pdl": 1.42063,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": 1.42857,
+  "eql": 1.42508,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "week_high": 1.42941,
+  "h1_hl": 1.42392,
+  "h1_choch": 1.42782,
+  "h4_lh": 1.42857,
+  "h4_ll": 1.42059
+ },
+ "d1_context": "D1 up: HH 1.42941 (05.10) over 1.42636, HL 1.41533. Price 1.42674 = 95% of D1 range 1.37329-1.42941 (deep premium). 4-day box 1.42059-1.42941; unfilled D1 bull FVG 1.41104-1.41333 below; buy-side above 1.42941 untouched.",
+ "h4_context": "H4 LH/LL inside the box: highs 1.42941 -> 1.42857 -> 1.42820, low 1.42059 (CHoCH down 06.10 at 1.42372). H1 flipped up: 07.10 14:00 broke LH 1.42782 (CHoCH up), HL 1.42392, EQL 1.42508/1.42517. H4 bull FVG 1.42297-1.42392 unfilled under the H1 FVG.",
+ "news": [
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Employment Change / Unemployment Rate"
+  }
+ ],
+ "warnings": [
+  "H4/H1 diverge: H4 LH/LL (1.42941->1.42857->1.42820), H1 CHoCH up - long follows D1+H1, against H4 structure",
+  "Long from D1 premium 95% (but entry at 45% of H4 box = discount)",
+  "3 SL in a row in the 1.42059-1.42941 box - chop regime",
+  "No red USD/CAD news today; CAD jobs tomorrow 14:30"
+ ]
+}

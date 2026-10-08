@@ -66,15 +66,42 @@
   "price_at_creation": 1.42241,
   "created_at": "2026-10-07T08:10:00+02:00",
   "expires": "2026-10-07T23:59:00+02:00",
-  "status": "OPEN",
+  "status": "SL",
   "filled_at": "2026-10-07T13:50:00+02:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
+  "closed_at": "2026-10-07T14:20:00+02:00",
+  "result_r": -1.0,
+  "result_pips": -16.7,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
+  "review": {
+   "cause": "AGAINST_HTF",
+   "note": "Short vs D1 HH/HL (warned at creation). M5 14:20 high 1.42626 hit SL 1.42607 (NY open, no news); H1 14:00 body closed 1.42701 = H1 CHoCH up over LH 1.42782 wick to 1.42820. Not a stop hunt: low after SL 1.42392, TP1 1.42070 never reached."
+  },
+  "last_checked": "2026-10-08T08:05:00+02:00"
+ },
+ {
+  "id": "2026-10-08-am",
+  "side": "BUY",
+  "basis": "FVG",
+  "entry": 1.4244,
+  "sl": 1.4229,
+  "tp1": 1.4282,
+  "rr_tp1": 2.53,
+  "zone_high": 1.42486,
+  "zone_low": 1.42392,
+  "price_at_creation": 1.42674,
+  "created_at": "2026-10-08T08:09:00+02:00",
+  "expires": "2026-10-08T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 23.4,
+  "ambiguous": false,
+  "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-07T14:05:00+02:00"
+  "last_checked": "2026-10-08T08:05:00+02:00"
  }
 ]
