@@ -114,15 +114,42 @@
   "price_at_creation": 158.212,
   "created_at": "2026-10-07T14:05:00+02:00",
   "expires": "2026-10-07T23:59:00+02:00",
+  "status": "SL",
+  "filled_at": "2026-10-07T18:15:00+02:00",
+  "closed_at": "2026-10-08T02:40:00+02:00",
+  "result_r": -1.0,
+  "result_pips": -28.0,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Исполнен 18:15 (low 157.999). H1 19:00/20:00 закрылись 157.964/157.952 — телом под зоной 157.976. Азия 02:40: фитиль до 157.630 снял EQL/PDL 157.865 и 157.783, SL 157.740 стоял в 4 п под очевидным пулом 157.783. После SL отскок до 158.291 (07:30), TP1 158.390 не взят (−9.9 п) — не STOP_HUNT. Лонг в D1 premium 87%."
+  },
+  "last_checked": "2026-10-08T08:00:00+02:00"
+ },
+ {
+  "id": "2026-10-08-am",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 157.88,
+  "sl": 157.53,
+  "tp1": 158.291,
+  "rr_tp1": 1.17,
+  "zone_high": 157.885,
+  "zone_low": 157.733,
+  "price_at_creation": 158.208,
+  "created_at": "2026-10-08T08:10:00+02:00",
+  "expires": "2026-10-08T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 19.2,
+  "closest_approach": 32.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-07T14:00:00+02:00"
+  "last_checked": "2026-10-08T08:00:00+02:00"
  }
 ]
