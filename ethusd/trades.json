@@ -120,15 +120,42 @@
   "price_at_creation": 2579.64,
   "created_at": "2026-10-07T14:15:00+02:00",
   "expires": "2026-10-07T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 18.26,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "max 2584.74 (14:15) = 22% пути 2579.64->2603.00, H1 FVG 2598 не тестирован; тренд продолжился: TP1 2573 пройден, low 2538.06 в 19:40 без входа."
+  },
+  "last_checked": "2026-10-08T08:10:00+02:00"
+ },
+ {
+  "id": "2026-10-08-am",
+  "side": "SELL LIMIT",
+  "basis": "FVG",
+  "entry": 2600.0,
+  "sl": 2617.0,
+  "tp1": 2546.0,
+  "rr_tp1": 3.18,
+  "zone_high": 2609.27,
+  "zone_low": 2598.0,
+  "price_at_creation": 2569.73,
+  "created_at": "2026-10-08T08:25:00+02:00",
+  "expires": "2026-10-08T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 23.36,
+  "closest_approach": 30.27,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-07T14:10:00+02:00"
+  "last_checked": "2026-10-08T08:10:00+02:00"
  }
 ]

@@ -1,0 +1,80 @@
+{
+ "date": "2026-10-08",
+ "created_at": "2026-10-08T08:25:00+02:00",
+ "price_at_creation": 2569.73,
+ "data_source": "Twelve Data ETH/USD (exchange Binance); api.binance.com returned 451; cross-checked with TradingView BINANCE:ETHUSDT",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2600.0,
+  "sl": 2617.0,
+  "tp1": 2546.0,
+  "tp2": 2539.0,
+  "tp3": 2522.0,
+  "zone_high": 2609.27,
+  "zone_low": 2598.0,
+  "basis": "FVG: H1 bear FVG 2598.00-2609.27 (10-07 11:00) inside H4 bear FVG 2584.74-2605.24 and OTE 62-79% of H1 leg 2623.83->2538.06 (2591.24-2605.82); retest of broken D1 range low 2600.15",
+  "risk_usd": 17.0,
+  "expires": "2026-10-08T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2609.27,
+  "rule": "H1 body close above 2609.27 before fill -> cancel limit; H1 body close below 2538.06 (PDL) before fill -> no pullback, cancel, wait retest 2545-2552 for a sell"
+ },
+ "levels": {
+  "asia_high": 2587.28,
+  "asia_low": 2545.19,
+  "pdh": 2699.8,
+  "pdl": 2538.06,
+  "pwh": 2777.33,
+  "pwl": 2635.69,
+  "eqh": 2575.93,
+  "eql": null,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2358.88,
+  "d1_eq": 2583.11,
+  "week_open": 2726.93,
+  "h1_strong_high": 2623.83,
+  "h1_lh_origin": 2611.85,
+  "m5_strong_low": 2545.19,
+  "h1_bear_fvg": [
+   2598.0,
+   2609.27
+  ],
+  "h4_bear_fvg": [
+   2584.74,
+   2605.24
+  ],
+  "h1_bear_fvg_partial": [
+   2583.46,
+   2592.98
+  ],
+  "m5_bear_fvg": [
+   [
+    2575.2,
+    2580.11
+   ],
+   [
+    2581.16,
+    2583.73
+   ]
+  ],
+  "h4_bull_fvg": [
+   2521.65,
+   2578.93
+  ],
+  "d1_bull_fvg": [
+   2483.74,
+   2602.94
+  ]
+ },
+ "d1_context": "D1: 07.10 close 2574.14 below HL 2600.15 (24.09) = D1 CHoCH down after LH 2777.33 (02.10) < 2807.34. Dealing leg 2358.88->2807.34, EQ 2583.11: price 2570 = 47% (discount), entry 2600 = 54% (premium). Price sits inside D1 bull FVG 2483.74-2602.94 (support); PWL 2635.69 and range low 2600.15 taken, PDL 2538.06 unswept below.",
+ "h4_context": "H4 bearish: LH 2725.13 (06.10) -> BOS below 2650.88 and 2600.15, low 2538.06. Bear FVGs above: 2584.74-2605.24 (partially filled to 2587.28), 2623.83-2690.78. Bull FVG 09-18 2521.65-2578.93 below being tested.",
+ "news": [],
+ "warnings": [
+  "Цена внутри D1 bull FVG 2483.74-2602.94: возможен разворот вверх с D1-поддержки",
+  "H1 внутри range 2538.06-2587.28 после слабого CHoCH (close 2580.32 vs LH 2579.59)",
+  "Вход 2600 в $30 от цены: нужен judas вверх через Asia high 2587.28"
+ ]
+}
