@@ -201,15 +201,42 @@
   "price_at_creation": 2494.47,
   "created_at": "2026-10-09T08:17:00+02:00",
   "expires": "2026-10-09T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-09T14:15:00+02:00",
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 6.46,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "REPLACED",
+   "note": "Не дошла: max 2520.54 (13:45) = $6.46 до 2527 (80% пути). Sweep London high 2509 вошёл в H1 OB и дал отказ $14 — реакция OB уже была; снят и заменён дневным SELL LIMIT 2514.50 (одна идея — одна экспозиция)."
+  },
+  "last_checked": "2026-10-09T14:10:00+02:00"
+ },
+ {
+  "id": "2026-10-09-pm",
+  "side": "SELL LIMIT",
+  "basis": "OTE",
+  "entry": 2514.5,
+  "sl": 2526.0,
+  "tp1": 2488.0,
+  "rr_tp1": 2.3,
+  "zone_high": 2520.54,
+  "zone_low": 2512.29,
+  "price_at_creation": 2507.51,
+  "created_at": "2026-10-09T14:15:00+02:00",
+  "expires": "2026-10-09T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 32.53,
+  "closest_approach": 6.99,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-09T08:10:00+02:00"
+  "last_checked": "2026-10-09T14:10:00+02:00"
  }
 ]

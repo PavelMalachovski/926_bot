@@ -1,0 +1,50 @@
+{
+ "date": "2026-10-09",
+ "created_at": "2026-10-09T14:15:00+02:00",
+ "price_at_creation": 2507.51,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451)",
+ "morning_order_status": {
+  "id": "2026-10-09-am",
+  "status": "НЕ ДОШЛА",
+  "detail": "SELL LIMIT 2527.00 не исполнен: max 2520.54 (13:45 M5), $6.46 до entry; инвалидации не было (max H1 close 2506.61 < 2536.56).",
+  "action": "снять",
+  "reason": "13:45 sweep London high 2509 зашёл в H1 OB (2517.74) и дал отказ $14 — реакция зоны уже случилась; заменён дневным SELL LIMIT 2514.50 (одна идея — одна экспозиция; SL дневного 2526 ниже утреннего entry)."
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2514.5,
+  "sl": 2526.0,
+  "tp1": 2488.0,
+  "tp2": 2472.0,
+  "tp3": 2444.0,
+  "zone_high": 2520.54,
+  "zone_low": 2512.29,
+  "basis": "OTE: 62% OTE H1 leg 2577.39->2406.11 (2512.29) + 50% of 13:45 sweep wick (2508.53-2520.54 = 2514.5) / M5 LH 2513.44; inside H4 bear FVG 2465.96-2527.57 under H1 OB 2517.74; SL above sweep high 2520.54 +5.5",
+  "risk_usd": 11.5,
+  "rr_tp1": 2.3,
+  "expires": "2026-10-09T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2520.54,
+  "rule": "H1 body close above 2520.54 before fill -> cancel; H1 close above 2542.39 = bullish H1 CHoCH, short dead, plan B long from M5 demand toward EQH 2578.5. Drop without retest -> do not chase, wait M5 BOS below 2497."
+ },
+ "levels": {
+  "asia_high": 2500.0, "asia_low": 2471.05, "london_high": 2520.54, "london_low": 2487.57,
+  "pdh": 2587.28, "pdl": 2406.11, "pwh": 2777.33, "pwl": 2635.69, "eqh": 2578.5, "eql": 2406.0,
+  "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2726.93,
+  "swept_today": ["asia_high 2500.00 (08:25)", "London intraday high 2509.00 (13:45 sweep to 2520.54)", "SSL 2489.0 (12:50 to 2487.57)"],
+  "m5_hl": 2497.0,
+  "h1_ote": [2512.29, 2541.42], "h1_ob": [2517.74, 2536.56], "h1_lh": 2542.39, "h4_bear_fvg": [2465.96, 2527.57], "h1_bull_fvg": [2443.52, 2449.65]
+ },
+ "d1_context": "Без изменений с утра: D1 bearish (LH 2777.33 -> LL 2406.11), цена 2507 = 33% D1 range (discount), D1 bear FVG 2587-2684 сверху, EQL 2356-2359 снизу.",
+ "h4_context": "H4 bearish, коррекция внутри H4 bear FVG 2465.96-2527.57 заполнена до 2520.54 (~89%). H1 внутренняя структура бычья (HL 2471.05 -> 2487.57), M5 после sweep 2520.54 держит HL 2497 — CHoCH вниз ещё нет.",
+ "news": [{"time": "16:00", "title": "Prelim UoM Consumer Sentiment / Inflation Expectations (USD, medium)"}],
+ "warnings": [
+  "Вход 2514.50 в 7$ от цены — вероятное исполнение на открытии NY 14:30",
+  "H1 внутренняя структура бычья против H4 медвежьей; M5 CHoCH вниз не подтверждён",
+  "Short в D1 discount (entry = 35% D1 range)",
+  "Красных USD-новостей сегодня нет; UoM 16:00 medium"
+ ]
+}
