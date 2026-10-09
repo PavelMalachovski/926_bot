@@ -1,0 +1,90 @@
+{
+ "date": "2026-10-09",
+ "created_at": "2026-10-09T08:17:00+02:00",
+ "price_at_creation": 2494.47,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451)",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2527.0,
+  "sl": 2549.0,
+  "tp1": 2472.0,
+  "tp2": 2410.0,
+  "tp3": 2362.0,
+  "zone_high": 2536.56,
+  "zone_low": 2517.74,
+  "basis": "OB: H1 OB 2517.74-2536.56 (08.10 16:00, last up-candle before 17:00 impulse), entry = 50% OB 2527.15 = OTE 70.5% of H1 leg 2577.39->2406.11; inside H4 bear FVG 2465.96-2527.57; SL above H1 LH 2542.39 and H1 bear FVG top 2548.38",
+  "risk_usd": 22.0,
+  "expires": "2026-10-09T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2536.56,
+  "rule": "H1 body close above 2536.56 (OB top) before fill -> cancel limit; H1 body close above 2542.39 = bullish H1 CHoCH -> short plan dead, plan B: long from M5 demand toward EQH 2578.5"
+ },
+ "levels": {
+  "asia_high": 2500.0,
+  "asia_low": 2471.05,
+  "pdh": 2587.28,
+  "pdl": 2406.11,
+  "pwh": 2777.33,
+  "pwl": 2635.69,
+  "eqh": 2578.5,
+  "eql": 2406.0,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2358.88,
+  "d1_eq": 2583.11,
+  "week_open": 2726.93,
+  "h1_leg": [
+   2577.39,
+   2406.11
+  ],
+  "h1_ote": [
+   2512.29,
+   2541.42
+  ],
+  "h1_ob": [
+   2517.74,
+   2536.56
+  ],
+  "h1_lh": 2542.39,
+  "h1_bear_fvg": [
+   2539.02,
+   2548.38
+  ],
+  "h4_bear_fvg": [
+   2465.96,
+   2527.57
+  ],
+  "h1_bull_fvg": [
+   [
+    2449.65,
+    2464.6
+   ],
+   [
+    2427.0,
+    2443.52
+   ]
+  ],
+  "h4_bull_fvg": [
+   2465.96,
+   2471.05
+  ],
+  "d1_bear_fvg": [
+   2587.28,
+   2683.73
+  ],
+  "d1_eql_deep": [
+   2356.41,
+   2358.88
+  ]
+ },
+ "d1_context": "D1 bearish после CHoCH (close < 2600.15 07.10): LH 2777.33 -> LL 2406.11 (08.10, EQL с 2405.85 от 10.09 почти снят). Цена 2494 = 30% D1 range 2358.88-2807.34 (discount), над ней незакрытый D1 bear FVG 2587.28-2683.73; ниже — EQL 2356-2359.",
+ "h4_context": "H4 bearish: BOS 2538.06 -> 2406.11, отскок 2406->2500 внутри H4 bear FVG 2465.96-2527.57 (55% заполнен). LH 2587.28 / EQH 2578.5 — buy-side над структурой.",
+ "news": [],
+ "warnings": [
+  "Short в D1 discount (entry 2527 = 37% D1 range) — против D1 PD, хотя D1 структура медвежья",
+  "Entry 32.5$ от цены — в серии из 3 NO_PULLBACK; если не дойдёт до OB, не гнаться",
+  "Сегодня нет красных USD-новостей (FF thisweek)"
+ ]
+}

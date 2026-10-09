@@ -174,15 +174,42 @@
   "price_at_creation": 2536.86,
   "created_at": "2026-10-08T14:15:00+02:00",
   "expires": "2026-10-08T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 9.61,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "max 2542.39 (08.10 15:20) = 37% пути 2536.86->2552.00, H1 FVG 2551.76 не тестирован; тренд продолжился: TP1 2527.80 пройден в 15:xx (low 2504.00), затем 17:00 H1 обвал до 2429.95 и low 2406.11 (19:xx) без входа. Удержал уровень H1 bear FVG 2539.02-2548.38 (13:00), а не 2552."
+  },
+  "last_checked": "2026-10-09T08:10:00+02:00"
+ },
+ {
+  "id": "2026-10-09-am",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "entry": 2527.0,
+  "sl": 2549.0,
+  "tp1": 2472.0,
+  "rr_tp1": 2.5,
+  "zone_high": 2536.56,
+  "zone_low": 2517.74,
+  "price_at_creation": 2494.47,
+  "created_at": "2026-10-09T08:17:00+02:00",
+  "expires": "2026-10-09T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 15.14,
+  "closest_approach": 32.53,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-08T14:10:00+02:00"
+  "last_checked": "2026-10-09T08:10:00+02:00"
  }
 ]

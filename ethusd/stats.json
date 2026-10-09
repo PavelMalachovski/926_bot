@@ -1,22 +1,22 @@
 {
- "updated_at": "2026-10-08T14:15:00+02:00",
- "orders": 6,
+ "updated_at": "2026-10-09T08:17:00+02:00",
+ "orders": 7,
  "filled": 2,
  "tp": 1,
  "sl": 0,
  "be": 1,
  "open": 0,
  "pending": 1,
- "expired": 2,
+ "expired": 3,
  "invalidated": 1,
  "unknown": 0,
  "winrate": 100.0,
- "fill_rate": 40.0,
+ "fill_rate": 33.3,
  "total_r": 2.32,
  "avg_r": 1.16,
  "total_usd": 33.25,
  "am": {
-  "orders": 4,
+  "orders": 5,
   "filled": 2,
   "tp": 1,
   "sl": 0,
@@ -30,5 +30,17 @@
   "total_r": 0
  },
  "last10": "BT",
- "review": null
+ "review": {
+  "type": "fill_rate",
+  "fill_rate": 33.3,
+  "expired_invalidated_causes": {
+   "NO_PULLBACK": 3,
+   "UNCLEAR": 1
+  },
+  "avg_closest_approach_usd": 17.56,
+  "avg_path_reached_pct": 44,
+  "finding": "4 незаполненных ордера (04-am, 07-pm, 08-am, 08-pm): откат доходил в среднем до 44% пути (≈8.6$ из ≈26$), entry ставился на дальний край/середину H1 FVG/OTE 70%; все шорты в импульсном H4-тренде (3+ BOS подряд). Исполнились только ордера, где entry был ≤20$ от цены при создании (05-am 16.2$, 06-am 19.4$).",
+  "proposal": "В импульсном тренде (3+ H1 BOS без коррекции) entry не дальше 20$ от цены при создании (ближний край первой H1 зоны или 50% плеча), SL за M5 swing вместо H1 swing, чтобы сохранить RR ≥ 2; глубокий OB/OTE — только вторым ордером.",
+  "note": "avg_r +1.16 при 2 исполнениях — проблема в недоходе, не в качестве входов."
+ }
 }
