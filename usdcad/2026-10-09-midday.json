@@ -1,0 +1,19 @@
+{
+ "date": "2026-10-09",
+ "created_at": "2026-10-09T14:12:00+02:00",
+ "price_at_creation": 1.42287,
+ "morning_order_status": "NO_SETUP",
+ "morning_order_detail": "Morning setup_valid=false. Plan B-A (sweep EQL 1.42059 + M5 CHoCH up) not triggered: low after 08:15 = 1.42133. Plan B-B (short from 1.42176-1.42262) dead: H1 body close 1.42276 (10:00) above the zone, then H1 LH 1.42313 broken 12:15 -> H1 CHoCH up.",
+ "morning_order_action": "none (no order)",
+ "setup_valid": false,
+ "bias": "none",
+ "order": null,
+ "candidate_not_issued": {"side": "BUY LIMIT", "entry": 1.4215, "sl": 1.41972, "tp1": 1.42401, "tp2": 1.42517, "tp3": 1.42636, "rr_tp1": 1.41, "risk_pips": 17.8, "basis": "H1 OB 1.42114-1.42154 / OTE 79%", "why_not": "RR to TP1 1:1.41 < 1:2, D1 premium, H4 range without trend, stop 8.7 pips under EQL ahead of CAD jobs"},
+ "invalidation": {"level": null, "rule": "No order. After 14:45: A) sweep EQL 1.42059 + M5 CHoCH up -> long to 1.42401/1.42517; B) spike into H1 supply 1.42411-1.42517 + M5 CHoCH down -> short to 1.42209/1.42072. Flat before Friday close."},
+ "levels": {"asia_high": 1.42269, "asia_low": 1.42072, "london_high": 1.42401, "london_low": 1.42127, "pdh": 1.42769, "pdl": 1.42167, "pwh": 1.42636, "pwl": 1.41387, "eqh": 1.42857, "eql": 1.42059, "d1_range_high": 1.42941, "d1_range_low": 1.37329, "d1_eq": 1.40135, "week_open": 1.42528, "h1_ob_low": 1.42114, "h1_ob_high": 1.42154, "ote_62": 1.42197, "ote_79": 1.42141, "h1_supply_low": 1.42411, "h1_supply_high": 1.42517, "m5_hl": 1.42209},
+ "taken_since_morning": ["Asia H 1.42269 (09:40)", "H1 LH 1.42313 (12:15) -> H1 CHoCH up", "morning H1 supply 1.42176-1.42262 broken"],
+ "d1_context": "Unchanged since morning: D1 up, premium ~86% of 1.37329-1.42941.",
+ "h4_context": "H4 (resampled) box 1.42059-1.42941, price ~26% (discount of box), LH series 1.42857/1.42820/1.42769. H1 CHoCH up 12:00, leg 1.42072->1.42401, pullback to 1.42209 (58%) into CAD jobs.",
+ "news": [{"time": "2026-10-09T14:30:00+02:00", "country": "CAD", "title": "Employment Change / Unemployment Rate"}],
+ "warnings": ["Best long candidate RR to TP1 1:1.41 < 1:2", "Long in D1 premium", "H4 range, no trend", "CAD jobs 14:30 - blackout 13:30-14:45, Friday close"]
+}
