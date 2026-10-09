@@ -141,16 +141,16 @@
   "price_at_creation": 158.208,
   "created_at": "2026-10-08T08:10:00+02:00",
   "expires": "2026-10-08T23:59:00+02:00",
-  "status": "OPEN",
+  "status": "TP",
   "filled_at": "2026-10-08T19:05:00+02:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
+  "closed_at": "2026-10-09T10:05:00+02:00",
+  "result_r": 1.48,
+  "result_pips": 51.9,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": true,
   "review": null,
-  "last_checked": "2026-10-09T08:00:00+02:00"
+  "last_checked": "2026-10-09T14:00:00+02:00"
  },
  {
   "id": "2026-10-09-am",
@@ -165,15 +165,42 @@
   "price_at_creation": 158.148,
   "created_at": "2026-10-09T08:10:00+02:00",
   "expires": "2026-10-09T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 31.8,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "CANCELLED",
+   "note": "Не дошла: min 158.058 (11:00), 31.8 п до 157.740 = 78% пути. Цели TP1 158.194 (Asia high) и TP2 PDH 158.365 сняты до исполнения, новый HL 158.058 выше entry — лимит снят в 14:00."
+  },
+  "last_checked": "2026-10-09T14:00:00+02:00"
+ },
+ {
+  "id": "2026-10-09-pm",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 158.165,
+  "sl": 157.958,
+  "tp1": 158.413,
+  "rr_tp1": 1.2,
+  "zone_high": 158.194,
+  "zone_low": 158.133,
+  "price_at_creation": 158.271,
+  "created_at": "2026-10-09T14:05:00+02:00",
+  "expires": "2026-10-09T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 40.8,
+  "closest_approach": 6.3,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-09T08:00:00+02:00"
+  "last_checked": "2026-10-09T14:00:00+02:00"
  }
 ]
