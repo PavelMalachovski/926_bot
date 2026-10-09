@@ -1,11 +1,11 @@
 {
- "updated_at": "2026-10-08T14:08:00+02:00",
+ "updated_at": "2026-10-09T08:15:00+02:00",
  "orders": 4,
  "filled": 4,
  "tp": 0,
  "sl": 3,
- "be": 0,
- "open": 1,
+ "be": 1,
+ "open": 0,
  "pending": 0,
  "expired": 0,
  "invalidated": 0,
@@ -13,7 +13,7 @@
  "winrate": 0.0,
  "fill_rate": 100.0,
  "total_r": -3.0,
- "avg_r": -1.0,
+ "avg_r": -0.75,
  "total_pips": -58.0,
  "am": {
   "orders": 4,
@@ -29,6 +29,6 @@
   "sl": 0,
   "total_r": 0
  },
- "last10": "SSS",
+ "last10": "SSSB",
  "review": null
 }

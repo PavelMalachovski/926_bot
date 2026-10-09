@@ -1,0 +1,51 @@
+{
+ "date": "2026-10-09",
+ "created_at": "2026-10-09T08:15:00+02:00",
+ "price_at_creation": 1.42142,
+ "setup_valid": false,
+ "bias": "none",
+ "order": null,
+ "invalidation": {
+  "level": null,
+  "rule": "No order. Plan B-A: sweep EQL 1.42059 + M5 CHoCH up -> long to 1.42313/1.42517. Plan B-B: retrace into 1.42176-1.42262 + M5 CHoCH down -> short to EQL 1.42059, then 1.41387."
+ },
+ "levels": {
+  "asia_high": 1.42269,
+  "asia_low": 1.42072,
+  "pdh": 1.42769,
+  "pdl": 1.42167,
+  "pwh": 1.42636,
+  "pwl": 1.41387,
+  "eqh": 1.42857,
+  "eql": 1.42059,
+  "d1_range_high": 1.42941,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40135,
+  "week_open": 1.42528,
+  "h1_lh": 1.42313,
+  "h1_lh2": 1.42517,
+  "h1_supply_low": 1.42176,
+  "h1_supply_high": 1.42262,
+  "m5_choch_up": 1.42121
+ },
+ "d1_context": "D1 up (HH 1.42941, HL 1.41387), price at 86% of 1.37329-1.42941 -> premium. Buy-side 1.42941 untouched; untouched D1 bull FVGs 1.41104-1.41333 and 1.39988-1.40244 below.",
+ "h4_context": "H4 (native) range 1.42059-1.42941 since 05.10, descending LH 1.42857/1.42820/1.42769; price at the box floor (~9%), sell-side EQL 1.42059/1.42064/1.42072 untaken. H1 down since CHoCH 08.10 15:00 (< 1.42438), LH 1.42313, LL 1.42086; M5 swept Asia low 1.42086 at 07:40 (1.42072) with minor CHoCH up 1.42121.",
+ "news": [
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Employment Change"
+  },
+  {
+   "time": "2026-10-09T14:30:00+02:00",
+   "country": "CAD",
+   "title": "Unemployment Rate"
+  }
+ ],
+ "warnings": [
+  "H1 short candidate 1.42225/SL 1.42413: TP1 EQL 1.42059 RR 1:0.88 < 1:2",
+  "Short would be against D1 up and in H4 discount",
+  "H4/H1 disagree: H4 range floor vs H1 down",
+  "CAD jobs 14:30 - blackout 13:30-14:45, Friday"
+ ]
+}
