@@ -1,0 +1,35 @@
+{
+ "date": "2026-10-10",
+ "created_at": "2026-10-10T08:20:00+02:00",
+ "price_at_creation": 2496.86,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451); H4 aggregated from H1",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT", "entry": 2509.0, "sl": 2525.5, "tp1": 2472.0, "tp2": 2449.5, "tp3": 2410.0,
+  "zone_high": 2520.54, "zone_low": 2506.61,
+  "basis": "OB: H1 OB 09.10 13:00 (body top 2506.61, wick 2520.54) + M5 EQH 2509 (BSL); 60% of H1 leg 2577.39->2406.11, inside H4 bear FVG 2465.96-2527.57; SL above Strong High 2520.54 +5",
+  "risk_usd": 16.5, "rr_tp1": 2.24, "rr_tp2": 3.61, "rr_tp3": 6.0,
+  "expires": "2026-10-10T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2520.54,
+  "rule": "H1 body close above 2520.54 before fill -> cancel (H1 BOS up, short idea dead, wait). Drop through Asia low 2486.03 without retest -> do not chase, wait retest of 2486 + M5 CHoCH down."
+ },
+ "levels": {
+  "asia_high": 2499.14, "asia_low": 2486.03, "pdh": 2520.54, "pdl": 2471.05,
+  "pwh": 2777.33, "pwl": 2635.69, "eqh": 2578.5, "eql": 2406.0,
+  "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2726.93,
+  "m5_eqh": 2509.0, "ssl": 2474.34, "h1_hl": 2471.05, "h1_ob": [2506.61, 2520.54], "h1_ote": [2512.29, 2541.42],
+  "h4_bear_fvg": [2465.96, 2527.57], "h1_bull_fvg": [2443.52, 2449.65], "d1_bear_fvg": [2587.28, 2683.73]
+ },
+ "d1_context": "D1 bearish: LH 2777.33 -> LL 2406.11 (08.10), 09.10 inside day 2471.05-2520.54. Price 2497 = 30% of D1 range 2358.88-2807.34 (discount). Pools: EQL 2405.85/2406.11 below, PWL 2635.69 / bear FVG 2587.28-2683.73 above.",
+ "h4_context": "H4 bearish (BOS 2538 -> LL 2406.11). Correction inside H4 bear FVG 2465.96-2527.57, reached 2520.54 (63% of the leg) and rejected. H1 internal: HL 2471.05 -> HH 2520.54 -> HL 2474.34, M5 Asia BOS up 2496.60 drives price toward the OB.",
+ "news": [],
+ "warnings": [
+  "Short in D1 discount (30% of range)",
+  "Zone already reacted 09.10 13:45 (second retest)",
+  "Weekend: Friday range 49.5$ vs 10-day avg 82.6$ - fill risk (DEAD_RANGE)",
+  "No red USD news Sat/Sun"
+ ]
+}

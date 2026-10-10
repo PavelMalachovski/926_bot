@@ -228,15 +228,42 @@
   "price_at_creation": 2507.51,
   "created_at": "2026-10-09T14:15:00+02:00",
   "expires": "2026-10-09T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 5.37,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Max после создания 2509.13 (14:10) — $5.37 до 2514.50, 23% пути от 2507.51. Цена сразу ушла вниз: 15:00 H1 low 2476.87, вечером 2474.34 — дальше TP1 2488 без исполнения. Реакция зоны (sweep 2520.54) уже отыграла до создания ордера; вход надо было брать по рынку/от M5 LH 2509, а не ждать второй ретест."
+  },
+  "last_checked": "2026-10-10T08:10:00+02:00"
+ },
+ {
+  "id": "2026-10-10-am",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "entry": 2509.0,
+  "sl": 2525.5,
+  "tp1": 2472.0,
+  "rr_tp1": 2.24,
+  "zone_high": 2520.54,
+  "zone_low": 2506.61,
+  "price_at_creation": 2496.86,
+  "created_at": "2026-10-10T08:20:00+02:00",
+  "expires": "2026-10-10T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 6.99,
+  "closest_approach": 12.14,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-09T14:10:00+02:00"
+  "last_checked": "2026-10-10T08:10:00+02:00"
  }
 ]
