@@ -1,0 +1,37 @@
+{
+ "date": "2026-10-10",
+ "created_at": "2026-10-10T14:20:00+02:00",
+ "price_at_creation": 2497.22,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451); H4 aggregated from H1",
+ "morning_order_status": {
+  "id": "2026-10-10-am",
+  "status": "НЕ ДОШЛА",
+  "detail": "SELL LIMIT 2509.00 не исполнен: max 2498.92 (13:45 M5), $10.08 до entry (17% пути от 2496.86); инвалидации не было (max H1 close 2498.17 < 2520.54).",
+  "action": "оставить",
+  "reason": "Идея жива: M5 строит HL (2486.03 -> 2492.34 -> 2493.06) под EQH 2499.14 (Asia high = London high, 07:40/08:00). Sweep BSL 2499.14 ведёт в M5 EQH 2509 / H1 OB 2506.61-2520.54 — ровно в лимит. Срок до 23:59."
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "new_order_note": "Нового ордера нет: на 14:00+ та же зона и та же идея, второй лимит = двойная экспозиция. Утренний SELL LIMIT 2509 и есть план на вечер.",
+ "invalidation": {
+  "level": 2520.54,
+  "rule": "H1 body close above 2520.54 before fill -> cancel. M5 BOS below 2492.34 (London low) without fill -> no pullback today, do not chase; next target SSL 2486.03 / 2479.85."
+ },
+ "levels": {
+  "asia_high": 2499.14, "asia_low": 2486.03, "london_high": 2499.14, "london_low": 2492.34,
+  "pdh": 2520.54, "pdl": 2471.05, "pwh": 2777.33, "pwl": 2635.69, "eqh": 2578.5, "eql": 2406.0,
+  "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2726.93,
+  "m5_eqh": 2499.14, "m5_eqh_above": 2509.0, "day_low": 2479.85,
+  "swept_today": [],
+  "h1_ob": [2506.61, 2520.54], "h1_ote": [2512.29, 2541.42], "h4_bear_fvg": [2465.96, 2527.57], "h1_bull_fvg": [2443.52, 2449.65]
+ },
+ "d1_context": "Без изменений с утра: D1 bearish (LH 2777.33 -> LL 2406.11), цена 2497 = 31% D1 range (discount), D1 bear FVG 2587-2684 сверху, EQL 2406 снизу.",
+ "h4_context": "H4 bearish, коррекция внутри H4 bear FVG 2465.96-2527.57 (max 2520.54). H1: LH 2520.54 -> L 2474.34, сегодня H1 HL 2479.85/2486.03, цена в 49% плеча 2520.54->2474.34 (equilibrium). Суббота: диапазон дня 19.29$ против ~80$ среднего — DEAD_RANGE.",
+ "news": [],
+ "warnings": [
+  "Суббота: диапазон дня 19.29$ (24% от среднего ~80$) — высокий риск неисполнения",
+  "Утренние уровни не сняты: Asia high 2499.14 / low 2486.03, PDH 2520.54 / PDL 2471.05 целы",
+  "Красных USD новостей до понедельника нет"
+ ]
+}
