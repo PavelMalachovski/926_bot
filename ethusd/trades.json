@@ -255,18 +255,45 @@
   "price_at_creation": 2496.86,
   "created_at": "2026-10-10T08:20:00+02:00",
   "expires": "2026-10-10T23:59:00+02:00",
-  "status": "OPEN",
+  "status": "BE",
   "filled_at": "2026-10-10T16:25:00+02:00",
+  "closed_at": "2026-10-11T14:05:00+02:00",
+  "result_r": 0.0,
+  "result_usd": 0.0,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": true,
+  "review": {
+   "cause": "BE",
+   "note": "SL перенесён в BE 2509 по правилу утреннего плана: M5 close 2498.29 (12:35) < Asia low 2498.96 после sweep 2497.85 (10:30/12:40). Затем M5 BOS вверх: high 2510.34 (14:05) задел BE. Мин. после входа 2497.85 = +11.15$ (+0.68R), TP1 2472 не дошёл на 25.85$."
+  },
+  "last_checked": "2026-10-11T14:10:00+02:00",
+  "sl_moved_to": 2509.0
+ },
+ {
+  "id": "2026-10-11-pm",
+  "side": "SELL LIMIT",
+  "basis": "FVG",
+  "entry": 2524.0,
+  "sl": 2533.0,
+  "tp1": 2497.85,
+  "tp2": 2486.03,
+  "tp3": 2474.34,
+  "rr_tp1": 2.91,
+  "zone_high": 2527.57,
+  "zone_low": 2519.51,
+  "price_at_creation": 2507.86,
+  "created_at": "2026-10-11T14:15:00+02:00",
+  "expires": "2026-10-11T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 0.0,
+  "closest_approach": 16.14,
   "ambiguous": false,
   "adjusted": false,
-  "review": {
-   "cause": "FILLED",
-   "note": "Filled 10.10 16:25 (M5 high 2509.89) after sweep of EQH 2499.14; max adverse 2519.51 (21:40) < SL 2525.50 = 6$ short of SL; min after fill 2498.96 (11.10 06:00). Float at 08:10 11.10: 2503.79 = +5.21$ (+0.32R)."
-  },
-  "last_checked": "2026-10-11T08:10:00+02:00"
+  "review": null,
+  "last_checked": "2026-10-11T14:10:00+02:00"
  }
 ]
