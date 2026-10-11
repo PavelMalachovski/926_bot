@@ -255,15 +255,18 @@
   "price_at_creation": 2496.86,
   "created_at": "2026-10-10T08:20:00+02:00",
   "expires": "2026-10-10T23:59:00+02:00",
-  "status": "PENDING",
-  "filled_at": null,
+  "status": "OPEN",
+  "filled_at": "2026-10-10T16:25:00+02:00",
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 10.08,
+  "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
-  "review": null,
-  "last_checked": "2026-10-10T14:10:00+02:00"
+  "review": {
+   "cause": "FILLED",
+   "note": "Filled 10.10 16:25 (M5 high 2509.89) after sweep of EQH 2499.14; max adverse 2519.51 (21:40) < SL 2525.50 = 6$ short of SL; min after fill 2498.96 (11.10 06:00). Float at 08:10 11.10: 2503.79 = +5.21$ (+0.32R)."
+  },
+  "last_checked": "2026-10-11T08:10:00+02:00"
  }
 ]
