@@ -285,15 +285,44 @@
   "price_at_creation": 2507.86,
   "created_at": "2026-10-11T14:15:00+02:00",
   "expires": "2026-10-11T23:59:00+02:00",
+  "status": "SL",
+  "filled_at": "2026-10-11T17:40:00+02:00",
+  "closed_at": "2026-10-11T17:40:00+02:00",
+  "result_r": -1.0,
+  "result_usd": -9.0,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Один M5 бар 17:40 (11.10): low 2514.90 → high 2535.68 — вход 2524 и SL 2533 в одном импульсе; H1 17:00 закрылась 2535.73 телом над верхом H4 bear FVG 2527.57, затем HH 2555.22 (18:00). TP1 2497.85 после SL не дошёл (min 2515.84 в 23:00) — не stop hunt. H4 FVG уже 2.5 дня частично заполнялся и стоял над серией H1 HL (2474→2486→2498) — слабый, H1 структура вверх его съела."
+  },
+  "last_checked": "2026-10-12T08:10:00+02:00"
+ },
+ {
+  "id": "2026-10-12-am",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "entry": 2583.0,
+  "sl": 2593.0,
+  "tp1": 2552.16,
+  "tp2": 2542.08,
+  "tp3": 2533.77,
+  "rr_tp1": 3.08,
+  "zone_high": 2587.28,
+  "zone_low": 2577.39,
+  "price_at_creation": 2558.31,
+  "created_at": "2026-10-12T08:25:00+02:00",
+  "expires": "2026-10-12T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 16.14,
+  "closest_approach": 24.69,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-11T14:10:00+02:00"
+  "last_checked": "2026-10-12T08:10:00+02:00"
  }
 ]

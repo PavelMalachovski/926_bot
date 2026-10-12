@@ -1,0 +1,61 @@
+{
+ "date": "2026-10-12",
+ "created_at": "2026-10-12T08:25:00+02:00",
+ "price_at_creation": 2558.31,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451)",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2583.0,
+  "sl": 2593.0,
+  "tp1": 2552.16,
+  "tp2": 2542.08,
+  "tp3": 2533.77,
+  "zone_high": 2587.28,
+  "zone_low": 2577.39,
+  "basis": "OB: верх H4 supply OB 2564.35–2577.39 (10.08 06:00) → H4 strong high 2587.28 = низ D1 bear FVG 2587.28–2683.73; D1 EQ 2583.11; над Asia high 2579 (BSL)",
+  "risk_usd": 10.0,
+  "rr": [3.08, 4.09, 4.92],
+  "distance_usd": 24.69,
+  "expires": "2026-10-12T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2587.28,
+  "rule": "H1 body close > 2587.28 до исполнения → снять лимит (H4 CHoCH вверх, цена идёт в D1 FVG к 2620+). План Б: лонг от H1 bull FVG 2547.71–2552.16 только после M5 CHoCH вверх."
+ },
+ "levels": {
+  "asia_high": 2579.0,
+  "asia_low": 2533.77,
+  "pdh": 2555.22,
+  "pdl": 2497.85,
+  "pwh": 2738.0,
+  "pwl": 2406.11,
+  "eqh": null,
+  "eql": 2497.85,
+  "d1_range_high": 2807.34,
+  "d1_range_low": 2358.88,
+  "d1_eq": 2583.11,
+  "week_open": 2536.94,
+  "weekend_high": 2555.22,
+  "weekend_low": 2486.03,
+  "h4_strong_high": 2587.28,
+  "h4_ob": [2564.35, 2577.39],
+  "d1_bear_fvg": [2587.28, 2683.73],
+  "h1_bull_fvg": [2547.71, 2552.16],
+  "h1_hl": 2542.08,
+  "m5_choch_low": 2552.16
+ },
+ "d1_context": "D1 bearish: LH 2777.33 → LL 2406.11 (08.10), 4 дня коррекции, сегодня high 2579. Цена 2558 = 44% D1 range 2358.88–2807.34 (EQ 2583.11), над D1 bear FVG 2520.54–2538.06 (заполнен), снизу D1 bear FVG 2587.28–2683.73. Пулы: BSL 2587.28, SSL PDL/EQL 2497.85, PWL 2406.11.",
+ "h4_context": "H4 bearish (LL 2406.11), strong high 2587.28 не пробит; коррекция 87% плеча 2587.28→2406.11 (premium), H4 bear FVG 2465.96–2527.57 пробит телом 11.10 17:00. H1 bullish: HH 2555.22 → HL 2515.84 → HH 2564.92 → HL 2542.08 → HH 2579.00. M5: CHoCH вниз 07:30 (2552.16 < HL 2558.71), sweep 2573.04 фитилём до 2579 в 07:35 — H4/H1 разошлись.",
+ "news": [
+  {"time": "2026-10-14T14:30:00+02:00", "title": "USD CPI / Core CPI"},
+  {"time": "2026-10-15T14:30:00+02:00", "title": "USD PPI / Retail Sales"},
+  {"time": "2026-10-16T05:30:00+02:00", "title": "Fed Chairman Warsh Speaks"}
+ ],
+ "warnings": [
+  "Шорт против H1 (H1 bullish HH/HL) — по H4/D1; вход только после выноса Asia high 2579",
+  "Вход 2583 = 50% D1 range (EQ) — нейтрально, не premium D1",
+  "SL 2593 в 5.7$ над strong high 2587.28 — если H4 CHoCH вверх, стоп заберут"
+ ]
+}

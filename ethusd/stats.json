@@ -1,22 +1,22 @@
 {
- "updated_at": "2026-10-11T14:15:00+02:00",
- "orders": 9,
- "filled": 3,
+ "updated_at": "2026-10-12T08:25:00+02:00",
+ "orders": 10,
+ "filled": 4,
  "tp": 1,
- "sl": 0,
+ "sl": 1,
  "be": 2,
  "open": 0,
  "pending": 1,
  "expired": 4,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 100.0,
- "fill_rate": 37.5,
- "total_r": 2.32,
- "avg_r": 0.77,
- "total_usd": 33.25,
+ "winrate": 50.0,
+ "fill_rate": 44.4,
+ "total_r": 1.32,
+ "avg_r": 0.33,
+ "total_usd": 24.25,
  "am": {
-  "orders": 5,
+  "orders": 6,
   "filled": 3,
   "tp": 1,
   "sl": 0,
@@ -24,23 +24,11 @@
  },
  "pm": {
   "orders": 4,
-  "filled": 0,
+  "filled": 1,
   "tp": 0,
-  "sl": 0,
-  "total_r": 0
+  "sl": 1,
+  "total_r": -1.0
  },
- "last10": "BTB",
- "review": {
-  "type": "fill_rate",
-  "fill_rate": 37.5,
-  "expired_invalidated_causes": {
-   "UNCLEAR": 1,
-   "NO_PULLBACK": 4
-  },
-  "avg_closest_approach_usd": 15.12,
-  "avg_path_reached_pct": 30,
-  "finding": "5 недошедших (04-am, 07-pm, 08-am, 08-pm, 09-pm): 4 из 5 — NO_PULLBACK, все шорты в импульсном H4-тренде; цена уходила к TP без отката. 09-pm поставлен в 7$ от цены после того, как реакция зоны уже случилась — и всё равно не дошёл (23% пути).",
-  "proposal": "Когда зона уже дала реакцию до анализа (sweep + M5 BOS против), лимит ставить на ближний край зоны (±3$), а не на 50% OB/OTE 62%: два последних недохода (08-pm, 09-pm) остановились в 9.6$ и 5.4$ от entry.",
-  "note": "avg_r +0.77 по 3 закрытым. 10-10-am (ближний край OB 2509) исполнен и закрыт в BE 11.10 14:05: дал +0.68R max, до TP1 не хватило 25.85$ — на мёртвом воскресном диапазоне (15.7$ против ~80$) TP1 на HL 2472 был слишком далеко."
- }
+ "last10": "BTBS",
+ "review": null
 }
