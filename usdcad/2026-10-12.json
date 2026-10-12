@@ -1,0 +1,56 @@
+{
+ "date": "2026-10-12",
+ "created_at": "2026-10-12T08:15:00+02:00",
+ "price_at_creation": 1.42528,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 1.42686,
+  "sl": 1.42891,
+  "tp1": 1.42495,
+  "tp2": 1.42209,
+  "tp3": 1.42072,
+  "zone_high": 1.42755,
+  "zone_low": 1.42658,
+  "basis": "FVG (M5 FVG 1.42658-1.42715 + H1/M5 OB 1.42715-1.42755, OTE 64% of H1 leg 1.42791->1.42495)",
+  "risk_pips": 20.5,
+  "rr_tp1": 0.93,
+  "rr_tp2": 2.33,
+  "rr_tp3": 3.0,
+  "expires": "2026-10-12T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.42755,
+  "rule": "H1 body close above 1.42755 before fill -> cancel limit. If Asia low 1.42495 is swept before fill, TP1 moves to 1.42209."
+ },
+ "levels": {
+  "asia_high": 1.42652,
+  "asia_low": 1.42495,
+  "pdh": 1.43015,
+  "pdl": 1.42072,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "eqh": null,
+  "eql": 1.42059,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40172,
+  "week_open": 1.42703,
+  "strong_high": 1.42791,
+  "h1_tp2_low": 1.42209,
+  "d1_fvg_low": 1.4202,
+  "d1_fvg_high": 1.42059
+ },
+ "d1_context": "D1 up (HH/HL from 1.37329), price 91% premium of 1.37329-1.43015. Fri CAD jobs swept D1 high 1.42941 to 1.43015 and closed 1.42644 (rejection). Unswept SSL: EQL 1.42059/1.42064/1.42072; D1 FVG remainder 1.42020-1.42059.",
+ "h4_context": "H4 range 1.42059-1.43015 with LH series 1.42941/1.42857/1.42820/1.42769; Fri spike swept all of them without an H4 body close above 1.42769. Price at box EQ 1.42537. H1 LH 1.42791 / LL 1.42495 -> H1 down.",
+ "news": [],
+ "news_note": "Forex Factory rate-limited; TradingView calendar: no high-impact USD/CAD today (CA Thanksgiving, US Columbus Day - thin liquidity). Next: 13.10 16:00 US Existing Home Sales.",
+ "data_note": "Twelve Data served synthetic weekend bars (Sat/Sun); dropped Fri 23:00 - Sun 23:00. M5 covers only Sun 23:00 - Mon 08:05 (110 bars).",
+ "warnings": [
+  "RR to TP1 1:0.93 < 1:2",
+  "Short against D1 uptrend (in D1 premium, after BSL sweep)",
+  "H4 is a range, not a trend",
+  "Bank holidays CA/US - thin liquidity, risk of dead range"
+ ]
+}
