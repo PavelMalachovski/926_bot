@@ -192,16 +192,16 @@
   "price_at_creation": 158.271,
   "created_at": "2026-10-09T14:05:00+02:00",
   "expires": "2026-10-09T23:59:00+02:00",
-  "status": "OPEN",
+  "status": "TP",
   "filled_at": "2026-10-09T20:00:00+02:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
+  "closed_at": "2026-10-12T09:00:00+02:00",
+  "result_r": 1.2,
+  "result_pips": 24.8,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-12T08:00:00+02:00"
+  "last_checked": "2026-10-12T14:00:00+02:00"
  },
  {
   "id": "2026-10-12-am",
@@ -216,15 +216,42 @@
   "price_at_creation": 158.339,
   "created_at": "2026-10-12T08:10:00+02:00",
   "expires": "2026-10-12T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 12.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Не дошла: min 158.290 (M5 08:20), 12.0 п до 158.170 = 29% пути от 158.339. Без отката ушла вверх: TP1 158.395 и TP2 PDH 158.437 сняты в 09:00–09:05, TP3 PWH 158.503 в 11:30, хай 158.646. Новый HL 158.290 выше зоны — лимит снят в 14:00."
+  },
+  "last_checked": "2026-10-12T14:00:00+02:00"
+ },
+ {
+  "id": "2026-10-12-pm",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 158.395,
+  "sl": 158.19,
+  "tp1": 158.645,
+  "rr_tp1": 1.22,
+  "zone_high": 158.437,
+  "zone_low": 158.365,
+  "price_at_creation": 158.582,
+  "created_at": "2026-10-12T14:05:00+02:00",
+  "expires": "2026-10-12T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 16.9,
+  "closest_approach": 18.7,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-12T08:00:00+02:00"
+  "last_checked": "2026-10-12T14:00:00+02:00"
  }
 ]
