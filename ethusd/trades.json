@@ -314,15 +314,42 @@
   "price_at_creation": 2558.31,
   "created_at": "2026-10-12T08:25:00+02:00",
   "expires": "2026-10-12T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-12T14:20:00+02:00",
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 3.12,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Не дошла: max 2579.88 (09:10) = $3.12 до 2583, 87% пути от 2558.31. Удержал sweep Asia high 2579 (judas swing Лондона) под верхом H4 OB 2577.39, дальше −$39 до 2540.42 и H1 CHoCH вниз (10:00 close 2552.23 < HL 2554.12). Вход надо было ставить на Asia high 2579, а не на strong high. Снят в 14:20: идея отыграла без нас, заменён дневным SELL LIMIT 2556."
+  },
+  "last_checked": "2026-10-12T14:10:00+02:00"
+ },
+ {
+  "id": "2026-10-12-pm",
+  "side": "SELL LIMIT",
+  "basis": "OTE",
+  "entry": 2556.0,
+  "sl": 2566.0,
+  "tp1": 2541.0,
+  "rr_tp1": 1.5,
+  "zone_high": 2560.75,
+  "zone_low": 2551.81,
+  "price_at_creation": 2543.36,
+  "created_at": "2026-10-12T14:20:00+02:00",
+  "expires": "2026-10-12T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 24.69,
+  "closest_approach": 12.64,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-12T08:10:00+02:00"
+  "last_checked": "2026-10-12T14:10:00+02:00"
  }
 ]

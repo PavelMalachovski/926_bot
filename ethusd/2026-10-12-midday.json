@@ -1,0 +1,58 @@
+{
+ "date": "2026-10-12",
+ "created_at": "2026-10-12T14:20:00+02:00",
+ "price_at_creation": 2543.36,
+ "data_source": "TradingView MCP BINANCE:ETHUSDT (api.binance.com returned 451)",
+ "morning_order_status": {
+  "status": "НЕ ДОШЛА",
+  "closest_approach": 3.12,
+  "max_high": 2579.88,
+  "max_high_at": "2026-10-12T09:10:00+02:00",
+  "invalidated": false,
+  "decision": "снять (CANCELLED): sweep Asia high 2579.88 уже отработал на −$39, H1 CHoCH вниз, вход 2583 в $40 от цены — заменён дневным ордером",
+  "journal_status": "CANCELLED"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2556.0,
+  "sl": 2566.0,
+  "tp1": 2541.0,
+  "tp2": 2534.0,
+  "tp3": 2516.0,
+  "zone_high": 2560.75,
+  "zone_low": 2551.81,
+  "basis": "OTE 76% плеча LH 2560.75 → LL 2540.42 (62–79% = 2553.03–2556.48) внутри H1 OB 2552.23–2560.58 (свеча 11:00) над M5 bear FVG 2551.81–2553.86 (13:00–13:05); ниже M5 OB 2557.07–2560.75 (12:45)",
+  "risk_usd": 10.0,
+  "rr": [1.5, 2.2, 4.0],
+  "distance_usd": 12.64,
+  "expires": "2026-10-12T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 2560.75,
+  "rule": "H1 body close > 2560.75 (LH) до исполнения → снять лимит: H1 снова бычий. План Б: лонг только после sweep Asia low 2533.77 + M5 CHoCH вверх."
+ },
+ "levels": {
+  "asia_high": 2579.0, "asia_low": 2533.77,
+  "london_high": 2579.88, "london_low": 2540.42,
+  "pdh": 2555.22, "pdl": 2497.85, "pwh": 2738.0, "pwl": 2406.11,
+  "eqh": null, "eql": 2540.42,
+  "d1_range_high": 2807.34, "d1_range_low": 2358.88, "d1_eq": 2583.11, "week_open": 2536.94,
+  "h4_strong_high": 2587.28, "h1_lh": 2560.75, "h1_ob": [2552.23, 2560.58], "m5_bear_fvg": [2551.81, 2553.86],
+  "pm_low_11oct": 2515.84,
+  "swept_since_morning": ["asia_high 2579 (09:10, 2579.88)", "pdh 2555.22", "h1_hl 2542.08 (13:45, 2540.42)", "m5_choch_low 2552.16"]
+ },
+ "d1_context": "Из утра: D1 bearish LH 2777.33 → LL 2406.11, range 2358.88–2807.34, EQ 2583.11. С утра: high дня 2579.88 не дошёл до EQ/D1 bear FVG 2587.28, цена 2543 = 41% range (discount).",
+ "h4_context": "H4 bearish, strong high 2587.28 цел; бар 06:00 — sweep 2579.88 и разворот. H1: CHoCH вниз 10:00 (close 2552.23 < HL 2554.12), BOS 13:00 (close 2546.21 < 2548.78), LH 2560.75 (12:45), LL 2540.42. M5: judas swing Лондона вверх в 2579.88 → медвежий порядок, EQL 2540.42/2540.84.",
+ "news": [
+  {"time": "2026-10-14T14:30:00+02:00", "title": "USD CPI / Core CPI"},
+  {"time": "2026-10-15T14:30:00+02:00", "title": "USD PPI / Retail Sales"},
+  {"time": "2026-10-16T05:30:00+02:00", "title": "Fed Chairman Warsh Speaks"}
+ ],
+ "warnings": [
+  "RR к TP1 (EQL 2541) = 1:1.5 < 1:2 — TP1 частичная фиксация, основная цель TP2 2534 (1:2.2)",
+  "Шорт в D1 discount (41% range, ниже EQ 2583.11)",
+  "Цена может снять EQL 2540.4 до отката — тогда TP1 = Asia low 2534"
+ ]
+}
