@@ -1,0 +1,59 @@
+{
+ "date": "2026-10-12",
+ "created_at": "2026-10-12T14:15:00+02:00",
+ "price_at_creation": 1.4262,
+ "morning_status": "FILLED_OPEN",
+ "morning_status_text": "ИСПОЛНЕН, В РАБОТЕ",
+ "fill": {
+  "time": "2026-10-12T13:25:00+02:00",
+  "bar_high": 1.42689
+ },
+ "floating": {
+  "pips": 6.6,
+  "r": 0.32,
+  "usd_per_lot": 46
+ },
+ "pre_fill_events": [
+  "08:40 Asia low 1.42495 swept (low 1.42405) -> morning TP1 retired per plan rule",
+  "13:25 Asia high 1.42652 swept into supply FVG, filled, rejected"
+ ],
+ "invalidated_before_fill": false,
+ "adjustments": {
+  "decision": "adjust",
+  "entry": 1.42686,
+  "sl": 1.42891,
+  "tp1": 1.42405,
+  "tp2": 1.42209,
+  "tp3": 1.42072,
+  "rr_tp1": 1.37,
+  "rr_tp2": 2.33,
+  "rr_tp3": 3.0,
+  "tp1_basis": "London low 1.42405 = nearest unswept SSL (Asia low already swept)",
+  "be_rule": "SL -> 1.42686 on M5 body close below protected low 1.42602 or on TP1; close 50% at TP1",
+  "exit_rule": "H1 body close above 1.42791 (Strong High) -> close manually"
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "new_order_note": "no PM order: morning short is live",
+ "levels": {
+  "london_high": 1.42689,
+  "london_low": 1.42405,
+  "asia_high": 1.42652,
+  "asia_low": 1.42495,
+  "m5_protected_low": 1.42602,
+  "strong_high": 1.42791,
+  "h4_range_high": 1.43015,
+  "h4_range_low": 1.42059,
+  "h4_eq": 1.42537
+ },
+ "h4_context": "H4 (resampled) range 1.42059-1.43015, price near EQ; H1 LH 1.42791 / LL 1.42405 still down; fill at 74% of the leg (OTE).",
+ "d1_change": "no change since morning: D1 up, deep premium, Friday BSL sweep 1.43015.",
+ "news": [],
+ "news_note": "FF: no High USD/CAD today (CA/US holidays). Next: 14.10 14:30 US CPI.",
+ "warnings": [
+  "RR to TP1 1:1.37 < 1:2",
+  "Short against D1 uptrend",
+  "Thin holiday liquidity"
+ ]
+}
