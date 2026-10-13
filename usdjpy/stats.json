@@ -1,34 +1,34 @@
 {
- "updated_at": "2026-10-13T08:05:00+02:00",
- "orders": 9,
- "filled": 6,
+ "updated_at": "2026-10-13T14:05:00+02:00",
+ "orders": 10,
+ "filled": 7,
  "tp": 4,
- "sl": 2,
+ "sl": 3,
  "be": 0,
  "open": 0,
  "pending": 1,
  "expired": 2,
  "invalidated": 0,
  "unknown": 0,
- "winrate": 66.7,
- "fill_rate": 75.0,
- "total_r": 2.99,
- "avg_r": 0.5,
- "total_pips": 101.1,
+ "winrate": 57.1,
+ "fill_rate": 77.8,
+ "total_r": 1.99,
+ "avg_r": 0.28,
+ "total_pips": 81.9,
  "am": {
   "orders": 5,
-  "filled": 4,
+  "filled": 5,
   "tp": 3,
-  "sl": 1,
-  "total_r": 2.79
+  "sl": 2,
+  "total_r": 1.79
  },
  "pm": {
-  "orders": 4,
+  "orders": 5,
   "filled": 2,
   "tp": 1,
   "sl": 1,
   "total_r": 0.2
  },
- "last10": "TTSSTT",
- "review": null
+ "last10": "TTSSTTS",
+ "review": "WR 57.1% (4T/3S) при avg_r +0.28 — система в плюсе (ΣR +1.99), но RR к TP1 ~1.1–1.3 не держит серию стопов. Причины SL: ZONE_FAILED ×3 из 3, все лонги в D1 premium 87–89%. По basis: OB 3T/1S, OTE 1T/1S, FVG 0T/1S; am 3T/2S (+1.79R), pm 1T/1S (+0.2R). Общий паттерн: все три стопа стояли в 0–10 п от очевидного EQL/PDL, и каждый раз цена снимала пул на 11–24 п и разворачивалась. Правка: не ставить лимит над непробитым EQL/PDL — entry = пул −12 п, SL = пул −27 п (15 п за entry). По барам: 07.10 am не исполнился бы (low 157.865), 07.10 pm и 13.10 am исполнились бы и пережили sweep (low 157.630 при SL 157.513; low 157.817 при SL 157.788)."
 }
