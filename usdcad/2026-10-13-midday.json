@@ -1,0 +1,80 @@
+{
+ "date": "2026-10-13",
+ "created_at": "2026-10-13T14:10:00+02:00",
+ "price_at_creation": 1.42416,
+ "morning_status": "SL",
+ "morning_status_text": "ЗАКРЫТ ПО SL",
+ "fill": {
+  "time": "2026-10-13T09:35:00+02:00",
+  "bar_low": 1.42569
+ },
+ "close": {
+  "time": "2026-10-13T13:45:00+02:00",
+  "bar_low": 1.42447,
+  "max_favorable": 1.4266
+ },
+ "result": {
+  "pips": -13.5,
+  "r": -1.0,
+  "usd_per_lot": -95
+ },
+ "invalidated_before_fill": false,
+ "morning_order_decision": "closed by SL, nothing to manage",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.4233,
+  "sl": 1.42109,
+  "tp1": 1.42613,
+  "tp2": 1.42722,
+  "tp3": 1.42832,
+  "zone_high": 1.42371,
+  "zone_low": 1.42209,
+  "basis": "OB (H1 OB 09.10 13:00 1.42209-1.42371, origin of BOS to 1.43015; entry mid-body, OTE ~72% of leg 1.42072->1.43015; under PDL 1.42405 = sweep fuel)",
+  "risk_pips": 22.1,
+  "risk_usd_per_lot": 155,
+  "rr_tp1": 1.28,
+  "rr_tp2": 1.77,
+  "rr_tp3": 2.27,
+  "distance_pips": 8.6,
+  "expires": "2026-10-13T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.42209,
+  "rule": "H1 body close below 1.42209 before fill -> cancel; then bias short to EQL/PWL 1.42059"
+ },
+ "scenarios": [
+  "No sweep of PDL, bounce from 1.42405: do not chase; long only after M5 CHoCH up over 1.42613",
+  "H1 close < 1.42209: range low run to 1.42059"
+ ],
+ "levels": {
+  "london_high": 1.42722,
+  "london_low": 1.42429,
+  "asia_high": 1.42832,
+  "asia_low": 1.42628,
+  "pdh": 1.42878,
+  "pdl": 1.42405,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "m5_lh": 1.42613,
+  "m5_fvg": [
+   1.42493,
+   1.4253
+  ],
+  "d1_eq": 1.42537,
+  "swept_today": [
+   "asia_low 1.42628 (08:00)",
+   "strong_low 1.4255",
+   "ote_79 1.42504"
+  ]
+ },
+ "h4_context": "H4 (resampled) range 1.42059-1.43015; HL 1.42405 held by 0.7 pip (low 1.42412); H1 lower highs 1.42878/1.42722/1.42613 and body close 1.42441 through the morning OB = internal CHoCH down.",
+ "d1_change": "D1 unchanged (up, 2-week range); price moved from 61% premium to 37% discount of the range.",
+ "news": [],
+ "news_note": "FF: no High USD/CAD on 13.10. Next: 14.10 14:30 US CPI.",
+ "warnings": [
+  "RR to TP1 1:1.28 < 1:2",
+  "Third OB long in this range after two failures; H1 internal structure down"
+ ]
+}
