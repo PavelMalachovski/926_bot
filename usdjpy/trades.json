@@ -243,15 +243,42 @@
   "price_at_creation": 158.582,
   "created_at": "2026-10-12T14:05:00+02:00",
   "expires": "2026-10-12T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 18.1,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Не дошла до 23:59: min 158.576 (M5 14:00), 18.1 п до 158.395 ≈ 0% пути от 158.582. Тренд продолжился: TP1 EQH 158.645 снят, хай 158.757 (17:40). Entry задет лишь 13.10 02:30 (158.393) — уже после expires; низ отката 158.204 SL 158.190 не задел."
+  },
+  "last_checked": "2026-10-13T08:00:00+02:00"
+ },
+ {
+  "id": "2026-10-13-am",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 158.15,
+  "sl": 157.958,
+  "tp1": 158.366,
+  "rr_tp1": 1.13,
+  "zone_high": 158.206,
+  "zone_low": 158.132,
+  "price_at_creation": 158.257,
+  "created_at": "2026-10-13T08:05:00+02:00",
+  "expires": "2026-10-13T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 18.7,
+  "closest_approach": 10.7,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-12T14:00:00+02:00"
+  "last_checked": "2026-10-13T08:00:00+02:00"
  }
 ]
