@@ -1,0 +1,72 @@
+{
+ "date": "2026-10-14",
+ "created_at": "2026-10-14T14:10:00+02:00",
+ "price_at_creation": 1.4217,
+ "morning_status": "FILLED_OPEN",
+ "morning_order_id": "2026-10-14-am",
+ "morning_detail": {
+  "filled_at": "2026-10-14T10:50:00+02:00",
+  "fill_bar_high": 1.42155,
+  "mae_pips": 7.6,
+  "mae_price": 1.42231,
+  "mfe_pips": 6.6,
+  "mfe_price": 1.42089,
+  "floating_pips": -1.5,
+  "floating_r": -0.08,
+  "sl_hit": false,
+  "tp_hit": []
+ },
+ "adjustments": {
+  "decision": "keep as is",
+  "sl": 1.42343,
+  "tp1": 1.41918,
+  "tp2": 1.41767,
+  "tp3": 1.41549,
+  "be_rule": "M5 body close below 1.42089 (12:40 swing low) -> SL to entry 1.42155; protected high 1.42231",
+  "reason": "H1 OB 1.42153-1.42243 held (H1 13:00 body 1.42189), Asia high 1.42209 swept to 1.42231 and rejected; H4 LH 1.42243/1.42878 intact; TP pools 1.41918/1.41767 unswept. Position near flat, no partial before CPI (rule only for a position in profit)."
+ },
+ "invalidation": {
+  "level": 1.42243,
+  "rule": "H1 body close above 1.42243 -> close the short manually, do not wait for SL"
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "new_order_note": "No new order: the morning short is live; second short would double risk into CPI 14:30",
+ "levels": {
+  "asia_high": 1.42209,
+  "asia_low": 1.41918,
+  "london_high": 1.42231,
+  "london_low": 1.41995,
+  "pdh": 1.42869,
+  "pdl": 1.42042,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "h4_lh": 1.42878,
+  "h1_lh": 1.42243,
+  "m5_swing_low": 1.42089,
+  "eql": 1.41767,
+  "d1_hl": 1.41549
+ },
+ "levels_swept_since_morning": [
+  "asia_high 1.42209 (13:15-13:30, high 1.42231)"
+ ],
+ "h4_context": "H4 (resample) down: LH 1.42878, BOS below 1.42405, LL 1.41918; current H4 retrace to 1.42231 under LH 1.42243.",
+ "news": [
+  {
+   "time": "2026-10-14T14:30:00+02:00",
+   "country": "USD",
+   "title": "CPI m/m, CPI y/y, Core CPI m/m, Core CPI y/y"
+  },
+  {
+   "time": "2026-10-15T14:30:00+02:00",
+   "country": "USD",
+   "title": "PPI, Core PPI, Retail Sales, Core Retail Sales"
+  }
+ ],
+ "warnings": [
+  "Position live into US CPI 14:30 (blackout 13:30-14:45): SL 1.42343 may slip",
+  "Short against D1 uptrend",
+  "RR to TP1 1:1.26 < 1:2"
+ ]
+}

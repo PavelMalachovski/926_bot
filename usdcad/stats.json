@@ -1,12 +1,12 @@
 {
- "updated_at": "2026-10-14T08:10:00+02:00",
+ "updated_at": "2026-10-14T14:10:00+02:00",
  "orders": 8,
- "filled": 7,
+ "filled": 8,
  "tp": 0,
  "sl": 5,
  "be": 2,
- "open": 0,
- "pending": 1,
+ "open": 1,
+ "pending": 0,
  "expired": 0,
  "invalidated": 0,
  "unknown": 0,
@@ -17,7 +17,7 @@
  "total_pips": -93.6,
  "am": {
   "orders": 7,
-  "filled": 6,
+  "filled": 7,
   "tp": 0,
   "sl": 4,
   "total_r": -4.0
