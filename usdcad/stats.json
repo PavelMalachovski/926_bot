@@ -1,9 +1,9 @@
 {
- "updated_at": "2026-10-13T14:10:00+02:00",
- "orders": 7,
- "filled": 6,
+ "updated_at": "2026-10-14T08:10:00+02:00",
+ "orders": 8,
+ "filled": 7,
  "tp": 0,
- "sl": 4,
+ "sl": 5,
  "be": 2,
  "open": 0,
  "pending": 1,
@@ -12,11 +12,11 @@
  "unknown": 0,
  "winrate": 0.0,
  "fill_rate": 100.0,
- "total_r": -4.0,
- "avg_r": -0.67,
- "total_pips": -71.5,
+ "total_r": -5.0,
+ "avg_r": -0.71,
+ "total_pips": -93.6,
  "am": {
-  "orders": 6,
+  "orders": 7,
   "filled": 6,
   "tp": 0,
   "sl": 4,
@@ -24,11 +24,20 @@
  },
  "pm": {
   "orders": 1,
-  "filled": 0,
+  "filled": 1,
   "tp": 0,
-  "sl": 0,
-  "total_r": 0
+  "sl": 1,
+  "total_r": -1.0
  },
- "last10": "SSSBBS",
- "review": null
+ "last10": "SSSBBSS",
+ "review": {
+  "sl_causes": {
+   "ZONE_FAILED": 3,
+   "AGAINST_HTF": 2
+  },
+  "worst": "OB basis 0/4 (all SL); longs 4 SL + 1 BE of 5 vs shorts 1 SL + 1 BE; am 4 SL/2 BE, pm 1 SL/1",
+  "avg_r": -0.71,
+  "note": "WR 0% over 5 TP+SL with avg_r -0.71: not a low-WR/high-RR case, no TP1 was reached at all. All 5 SL were limits placed against the last H1 BOS or against D1.",
+  "proposal": "Limit only in the direction of the last H1 BOS AND only on an OB that swept a pool >= 3 pips right before its impulse; otherwise no limit, wait for M5 CHoCH."
+ }
 }

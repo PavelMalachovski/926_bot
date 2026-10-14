@@ -171,15 +171,42 @@
   "price_at_creation": 1.42416,
   "created_at": "2026-10-13T14:10:00+02:00",
   "expires": "2026-10-13T23:59:00+02:00",
+  "status": "SL",
+  "filled_at": "2026-10-13T15:15:00+02:00",
+  "closed_at": "2026-10-13T17:00:00+02:00",
+  "result_r": -1.0,
+  "result_pips": -22.1,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "H1 OB 1.42209-1.42371 filled 15:15 (M5 low 1.42286); H1 16:00 body closed 1.42172 under zone low 1.42209, M5 17:00 low 1.42109 hit SL 1.42109 exactly. Not a stop hunt: max after SL 1.42243, TP1 1.42613 never reached; price ran to 1.41918 (14.10 07:50). Third OB long against H1 internal down (warned)."
+  },
+  "last_checked": "2026-10-14T08:05:00+02:00"
+ },
+ {
+  "id": "2026-10-14-am",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 1.42155,
+  "sl": 1.42343,
+  "tp1": 1.41918,
+  "rr_tp1": 1.26,
+  "zone_high": 1.42243,
+  "zone_low": 1.42153,
+  "price_at_creation": 1.4202,
+  "created_at": "2026-10-14T08:06:00+02:00",
+  "expires": "2026-10-14T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 8.6,
+  "closest_approach": 13.5,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-13T14:05:00+02:00"
+  "last_checked": "2026-10-14T08:05:00+02:00"
  }
 ]

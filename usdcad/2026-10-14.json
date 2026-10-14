@@ -1,0 +1,73 @@
+{
+ "date": "2026-10-14",
+ "created_at": "2026-10-14T08:06:00+02:00",
+ "price_at_creation": 1.4202,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 1.42155,
+  "sl": 1.42343,
+  "tp1": 1.41918,
+  "tp2": 1.41767,
+  "tp3": 1.41549,
+  "zone_high": 1.42243,
+  "zone_low": 1.42153,
+  "basis": "OB (H1 bearish OB 13.10 23:00 1.42153-1.42243 that swept EQH 1.42207 before BOS below 1.42042; entry at proximal edge = OTE ~73% of leg 1.42243->1.41918)",
+  "risk_pips": 18.8,
+  "risk_usd_per_lot": 132,
+  "rr_tp1": 1.26,
+  "rr_tp2": 2.06,
+  "rr_tp3": 3.22,
+  "distance_pips": 13.5,
+  "expires": "2026-10-14T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.42243,
+  "rule": "H1 body close above 1.42243 before fill -> cancel; plan B long only after M5 CHoCH up over Asia high 1.42209 (D1 SSL sweep reversal)"
+ },
+ "scenarios": [
+  "No pullback, continuation down: do not chase; short only after sweep of a M5 high + M5 CHoCH down",
+  "D1 reversal: 1.42059 reclaimed + M5 CHoCH up over 1.42209 -> long toward D1 EQ 1.42537",
+  "CPI 14:30: if not filled by 13:30, pull the limit"
+ ],
+ "levels": {
+  "asia_high": 1.42209,
+  "asia_low": 1.41918,
+  "pdh": 1.42869,
+  "pdl": 1.42042,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "eqh": 1.42878,
+  "eql": 1.41767,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.42059,
+  "d1_eq": 1.42537,
+  "week_open": 1.42703,
+  "h1_lh": 1.42243,
+  "h1_eqh_swept": 1.42207,
+  "ote_62": 1.4212,
+  "ote_79": 1.42175,
+  "m5_swing_high": 1.42068,
+  "d1_hl": 1.41549
+ },
+ "d1_context": "D1 up (HH/HL from 1.37547), but 2-week range 1.42059-1.43015 pierced by wick: 13.10 low 1.42042 (close 1.42177 inside), Asia 14.10 low 1.41918. SSL EQL/PWL 1.42059 and D1 FVG 1.42020-1.42059 taken; price below range = discount for a short. Next SSL: EQL 1.41767 (29.09), D1 HL 1.41549 (30.09).",
+ "h4_context": "H4 down: LH 1.42878 after 1.43015, HL 1.42405 broken 13.10 (BOS down), LL 1.41918. H1 LHs 1.42613/1.42456/1.42358/1.42243, OB 23:00 swept H1 EQH 1.42207.",
+ "news": [
+  {
+   "time": "2026-10-14T14:30:00+02:00",
+   "country": "USD",
+   "title": "CPI m/m, CPI y/y, Core CPI m/m, Core CPI y/y"
+  },
+  {
+   "time": "2026-10-15T14:30:00+02:00",
+   "country": "USD",
+   "title": "PPI, Core PPI, Retail Sales, Core Retail Sales"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:1.26 < 1:2 (TP2 1:2.06)",
+  "Short against D1 uptrend, in D1 discount below the range",
+  "US CPI 14:30: blackout 13:30-14:45, fill possible inside it; pull if unfilled by 13:30"
+ ]
+}
