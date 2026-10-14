@@ -324,15 +324,42 @@
   "price_at_creation": 158.33,
   "created_at": "2026-10-14T08:05:00+02:00",
   "expires": "2026-10-14T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 21.1,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Не дошла: min 158.211 (M5 09:00) — 21.1 п до 158.000 = 36% пути от 158.330. Без отката вверх: TP1 158.436 взят 10:45 (158.462), хай 158.504 (13:05), TP2 158.519 не взят. Откат удержал London low/EQL 158.211–158.216 и 50% импульса 07:00 (158.235), а не FVG/OTE 70.5%. Снят по правилу плана до CPI 14:30."
+  },
+  "last_checked": "2026-10-14T14:00:00+02:00"
+ },
+ {
+  "id": "2026-10-14-pm",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 158.24,
+  "sl": 158.029,
+  "tp1": 158.515,
+  "rr_tp1": 1.3,
+  "zone_high": 158.265,
+  "zone_low": 158.226,
+  "price_at_creation": 158.447,
+  "created_at": "2026-10-14T14:05:00+02:00",
+  "expires": "2026-10-14T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 33.0,
+  "closest_approach": 20.7,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-14T08:00:00+02:00"
+  "last_checked": "2026-10-14T14:00:00+02:00"
  }
 ]
