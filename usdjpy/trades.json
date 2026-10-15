@@ -378,15 +378,42 @@
   "price_at_creation": 157.874,
   "created_at": "2026-10-15T08:05:00+02:00",
   "expires": "2026-10-15T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 14.8,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Не дошла: max 158.052 (M5 09:10) — 14.8 п до 158.200 = 55% пути от 157.874. Удержал EQH 158.017 + H4 bear FVG 157.997–158.066 (58% H1-плеча), а не H1 FVG/OTE 74%; дальше M5 CHoCH↓ 09:50 и ход до 157.681 (TP1 157.615 не взят, −6.6 п). Снят по правилу плана к 13:30 (PPI/Retail Sales 14:30). План Б (шорт от H4 FVG после sweep EQH) отработал бы."
+  },
+  "last_checked": "2026-10-15T14:00:00+02:00"
+ },
+ {
+  "id": "2026-10-15-pm",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 158.01,
+  "sl": 158.16,
+  "tp1": 157.695,
+  "rr_tp1": 2.1,
+  "zone_high": 158.066,
+  "zone_low": 157.997,
+  "price_at_creation": 157.955,
+  "created_at": "2026-10-15T14:05:00+02:00",
+  "expires": "2026-10-15T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 32.6,
+  "closest_approach": 5.5,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-15T08:00:00+02:00"
+  "last_checked": "2026-10-15T14:00:00+02:00"
  }
 ]
