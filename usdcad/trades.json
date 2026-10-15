@@ -198,15 +198,42 @@
   "price_at_creation": 1.4202,
   "created_at": "2026-10-14T08:06:00+02:00",
   "expires": "2026-10-14T23:59:00+02:00",
-  "status": "OPEN",
+  "status": "SL",
   "filled_at": "2026-10-14T10:50:00+02:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
+  "closed_at": "2026-10-14T14:30:00+02:00",
+  "result_r": -1.0,
+  "result_pips": -18.8,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
+  "review": {
+   "cause": "NEWS_SPIKE",
+   "note": "US CPI 14:30 bar: M5 high 1.42494 through SL 1.42343 (low 1.42087, TP1 1.41918 untouched); BE trigger (M5 close <1.42089) never fired, 14:25 close 1.42120. Spike to 1.42994 then full reversal to 1.41961 by 05:45 15.10 - the idea was right, the stop sat inside the CPI blackout (warned)."
+  },
+  "last_checked": "2026-10-15T08:05:00+02:00"
+ },
+ {
+  "id": "2026-10-15-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.4229,
+  "sl": 1.4254,
+  "tp1": 1.41961,
+  "rr_tp1": 1.32,
+  "zone_high": 1.42339,
+  "zone_low": 1.42273,
+  "price_at_creation": 1.4215,
+  "created_at": "2026-10-15T08:10:00+02:00",
+  "expires": "2026-10-15T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 13.4,
+  "ambiguous": false,
+  "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-14T14:05:00+02:00"
+  "last_checked": "2026-10-15T08:05:00+02:00"
  }
 ]

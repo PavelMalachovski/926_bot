@@ -1,0 +1,67 @@
+{
+ "date": "2026-10-15",
+ "created_at": "2026-10-15T08:10:00+02:00",
+ "price_at_creation": 1.4215,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.4229,
+  "sl": 1.4254,
+  "tp1": 1.41961,
+  "tp2": 1.41767,
+  "tp3": 1.41549,
+  "zone_high": 1.42339,
+  "zone_low": 1.42273,
+  "basis": "FVG (H1 bear FVG 1.42273-1.42307 inside H4 FVG 1.42166-1.42360) + OTE 62-79% of H1 leg 1.42439->1.41961 (1.42257-1.42339); Asia high 1.42273 sweep",
+  "risk_pips": 25.0,
+  "risk_usd_1lot": 175.9,
+  "rr_tp1": 1.32,
+  "rr_tp2": 2.09,
+  "rr_tp3": 2.96,
+  "distance_pips": 14.0,
+  "expires": "2026-10-15T13:30:00+02:00 (cancel if not filled before US news blackout; journal horizon 23:59)"
+ },
+ "invalidation": {
+  "level": 1.42439,
+  "rule": "H1 body close above 1.42439 (LH 14.10 22:00) = H1 CHoCH up -> cancel the limit / close the short; plan B: wait for sweep of SSL 1.41918 + M5 CHoCH up for a long to D1 EQ 1.42467"
+ },
+ "levels": {
+  "asia_high": 1.42273,
+  "asia_low": 1.41961,
+  "pdh": 1.42994,
+  "pdl": 1.41918,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "eqh": 1.43015,
+  "eql": 1.41918,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.41918,
+  "d1_eq": 1.42467,
+  "week_open": 1.42703,
+  "h1_lh": 1.42439,
+  "h1_ll": 1.41961,
+  "h4_lh": 1.42994,
+  "next_ssl": 1.41767,
+  "d1_hl": 1.41549
+ },
+ "d1_context": "D1 up (HH 1.43015, HL 1.42059) but 2.5-week range 1.41918-1.43015: 14.10 swept PWL 1.42059 to 1.41918, then CPI spike to 1.42994 (2 pips short of PWH/EQH 1.43015) and closed mid-range 1.42362. Price 1.4215 = 21% of range (discount). Unfilled D1 bull FVGs far below 1.40843-1.40951 / 1.40387-1.40570.",
+ "h4_context": "H4 down: CPI wick over LH 1.42878 to 1.42994 had no body BOS (close 1.42750) = BSL sweep, then 3 bearish H4 closes back below 1.42087 (CPI low). LL 1.41918 not yet taken (low 1.41961). H4 bear FVG 1.42166-1.42360 unfilled.",
+ "news": [
+  {
+   "time": "2026-10-15T14:30:00+02:00",
+   "country": "USD",
+   "title": "PPI m/m, Core PPI m/m, Retail Sales m/m, Core Retail Sales m/m"
+  },
+  {
+   "time": "2026-10-16T05:30:00+02:00",
+   "country": "USD",
+   "title": "Fed Chairman Warsh Speaks"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:1.32 < 1:2 (TP2 1:2.09)",
+  "Short in D1 discount (entry at 34% of D1 range 1.41918-1.43015)",
+  "US PPI + Retail Sales 14:30: blackout 13:30-14:45 - cancel if not filled by 13:30"
+ ]
+}
