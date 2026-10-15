@@ -1,17 +1,17 @@
 {
- "updated_at": "2026-10-15T08:10:00+02:00",
- "orders": 9,
+ "updated_at": "2026-10-15T14:10:00+02:00",
+ "orders": 10,
  "filled": 8,
  "tp": 0,
  "sl": 6,
  "be": 2,
  "open": 0,
  "pending": 1,
- "expired": 0,
+ "expired": 1,
  "invalidated": 0,
  "unknown": 0,
  "winrate": 0.0,
- "fill_rate": 100.0,
+ "fill_rate": 88.9,
  "total_r": -6.0,
  "avg_r": -0.75,
  "total_pips": -112.4,
@@ -23,7 +23,7 @@
   "total_r": -5.0
  },
  "pm": {
-  "orders": 1,
+  "orders": 2,
   "filled": 1,
   "tp": 0,
   "sl": 1,
@@ -38,7 +38,7 @@
   },
   "worst": "OB basis 0 TP / 4 SL; longs 4 SL + 1 BE of 5, shorts 2 SL + 1 BE of 3; am 5 SL/2 BE, pm 1 SL. TP1 never reached in 8 fills.",
   "avg_r": -0.75,
-  "note": "WR 0% over 6 TP+SL, avg_r -0.75: no TP1 hit at all, so not a low-WR/high-RR case. 14.10 short was right in direction but stopped by the CPI spike inside the blackout.",
+  "note": "WR 0% over 6 TP+SL, avg_r -0.75: no TP1 hit at all, so not a low-WR/high-RR case. 14.10 short was right in direction but stopped by the CPI spike inside the blackout. 15.10 am: first non-fill (NO_PULLBACK) - price reached TP1 1.41961 without touching entry 1.42290; entry 14 pips above price was too deep for a 5-pip pullback.",
   "proposal": "Limit only in the direction of the last H1 BOS AND only on an OB that swept a pool >= 3 pips right before its impulse; otherwise no limit, wait for M5 CHoCH."
  }
 }

@@ -1,0 +1,85 @@
+{
+ "date": "2026-10-15",
+ "created_at": "2026-10-15T14:10:00+02:00",
+ "price_at_creation": 1.42047,
+ "morning_status": "NOT_REACHED",
+ "morning_order_id": "2026-10-15-am",
+ "morning_detail": {
+  "max_high": 1.42204,
+  "max_high_at": "2026-10-15T08:45:00+02:00",
+  "closest_approach_pips": 8.6,
+  "tp1_reached_without_fill": "1.41961 swept 10:25, low 1.41927 13:15",
+  "invalidated": false,
+  "journal_status": "EXPIRED (own expiry 13:30 before US news)"
+ },
+ "morning_decision": "remove (already expired 13:30 per plan); do not re-place at 1.42290",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.4221,
+  "sl": 1.42373,
+  "tp1": 1.41918,
+  "tp2": 1.41767,
+  "tp3": 1.41549,
+  "zone_high": 1.42244,
+  "zone_low": 1.42204,
+  "basis": "FVG: unfilled part of H1 bear FVG 1.42164-1.42244 (filled to 1.42204) inside H4 FVG 1.42166-1.42360; entry = sweep of London high / H1 LH 1.42204",
+  "risk_pips": 16.3,
+  "risk_usd_1lot": 114.8,
+  "rr_tp1": 1.79,
+  "rr_tp2": 2.72,
+  "rr_tp3": 4.06,
+  "distance_pips": 16.3,
+  "place_after": "2026-10-15T14:45:00+02:00 (after PPI/Retail blackout)",
+  "expires": "2026-10-15T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.42273,
+  "rule": "H1 body close above 1.42273 (Asia high) -> cancel; also cancel if TP1 1.41918 trades before fill. Plan B: sweep of EQL 1.41918/1.41927 + M5 CHoCH up -> long to 1.42204"
+ },
+ "levels": {
+  "asia_high": 1.42273,
+  "asia_low": 1.41961,
+  "london_high": 1.42204,
+  "london_low": 1.41927,
+  "pdh": 1.42994,
+  "pdl": 1.41918,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "eqh": 1.43015,
+  "eql": 1.41918,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.41918,
+  "d1_eq": 1.42467,
+  "week_open": 1.42703,
+  "h1_lh": 1.42204,
+  "h1_ll": 1.41927,
+  "m5_lh": 1.42094,
+  "next_ssl": 1.41767,
+  "d1_hl": 1.41549
+ },
+ "levels_swept_since_morning": [
+  "asia_low 1.41961 (10:25, low 1.41927 13:15)"
+ ],
+ "d1_context": "Unchanged from morning; price now ~1% of D1 range 1.41918-1.43015 (deep discount), PDL 1.41918 tested to 1.41927 - not taken.",
+ "h4_context": "H4 (resample 12-16 grouping) closed 1.42956 above LH 1.42878 on CPI, fully reversed below origin 1.42087 = failed BOS; H4 down, LL 1.41918 not broken by body. H4 bear FVG 1.42166-1.42360 filled only to 1.42204.",
+ "news": [
+  {
+   "time": "2026-10-15T14:30:00+02:00",
+   "country": "USD",
+   "title": "PPI m/m, Core PPI m/m, Retail Sales m/m, Core Retail Sales m/m"
+  },
+  {
+   "time": "2026-10-16T05:30:00+02:00",
+   "country": "USD",
+   "title": "Fed Chairman Warsh Speaks"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:1.79 < 1:2 (TP2 1:2.72)",
+  "Short in deep D1 discount (price ~1% of D1 range), D1 up",
+  "US PPI + Retail Sales 14:30: blackout 13:30-14:45 - place the limit only after 14:45",
+  "Track record 0 TP in 8 fills"
+ ]
+}
