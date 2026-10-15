@@ -1,0 +1,51 @@
+{
+ "date": "2026-10-15",
+ "created_at": "2026-10-15T14:20:00+02:00",
+ "price_at_creation": 2362.08,
+ "data_source": "Twelve Data ETH/USD exchange=Binance (api.binance.com 451), сверено с TradingView BINANCE:ETHUSDT",
+ "morning_order_status": "ИСПОЛНЕН, В РАБОТЕ",
+ "morning_order": {
+  "id": "2026-10-15-am",
+  "filled_at": "2026-10-15T09:40:00+02:00",
+  "fill_bar_high": 2380.12,
+  "mae_usd": 4.12,
+  "mae_at": "2026-10-15T10:00:00+02:00 (high 2381.12)",
+  "mfe_usd": 17.24,
+  "mfe_at": "2026-10-15T12:45:00+02:00 (low 2359.76)",
+  "floating_usd": 14.92,
+  "floating_r": 0.93,
+  "invalidated_before_fill": false
+ },
+ "adjustments": {
+  "decision": "до 14:30: закрыть 50% по рынку ~2362, SL остатка 2393 → 2382.00, TP без изменений",
+  "partial_close": {"share": 0.5, "price": 2362.0, "result_r": 0.94, "result_usd": 15.0},
+  "sl": 2382.0,
+  "tp1": 2344.0, "tp2": 2320.0, "tp3": 2280.0,
+  "basis": "PPI/Core PPI/Retail Sales 14:30 при позиции +0.93R; M5 BOS вниз 12:20 (< 2365.62), protected high = хай после входа 2381.12 (10:00); LH 2379.30 (11:10) и 2378.11 (11:50)",
+  "close_all_if": "H1 body close > 2388.61 (Strong High) = H1 CHoCH вверх"
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "no_new_order_reason": "утренний шорт в работе — второй ордер в ту же сторону удвоил бы риск в блэкауте 13:30–14:45",
+ "invalidation": {"level": 2388.61, "rule": "H1 body close > 2388.61 → закрыть остаток руками"},
+ "levels": {
+  "london_high": 2381.12, "london_low": 2343.46,
+  "asia_high": 2429.41, "asia_low": 2318.0,
+  "m5_eql": [2359.76, 2360.0, 2360.01],
+  "m5_lh": [2379.3, 2378.11, 2371.01],
+  "h1_strong_high": 2388.61,
+  "h1_bear_fvg": [2381.46, 2410.0],
+  "swept_since_morning": ["нет: 2343.46 и 2388.61 целы; London open 08:05 снял лоу 07:55 2346.71 → 2343.46 (judas вниз), затем откат в FVG/OTE 2371–2381"]
+ },
+ "d1_context": "Без изменений с утра: D1 вниз, цена ~7% range 2318–2807; D1-свеча пока не закрыта ниже 2356.41 (сейчас 2362 — над EQL, вопрос BOS/sweep решает закрытие дня).",
+ "h4_context": "H4 вниз (LH 2530.44 → LL 2318.00). H4 06:00 закрыта 2380.06 бычьей, H4 10:00 — 2363.31 медвежьей: откат упёрся в H1 bear FVG 2381.46–2410.00. H1: LL 2318.00 → LH 2388.61 → HL 2343.46 → LH 2381.12 — сжатие 2343–2389, внутри M5 вниз.",
+ "news": [
+  {"time": "2026-10-15T14:30:00+02:00", "title": "USD PPI / Core PPI / Retail Sales / Core Retail Sales (блэкаут 13:30–14:45)"},
+  {"time": "2026-10-16T05:30:00+02:00", "title": "Fed Chairman Warsh Speaks"}
+ ],
+ "warnings": [
+  "PPI/Retail Sales 14:30: вчерашний CPI дал спайк +17$ вверх перед сливом — SL 2382 стоит в 20$ от цены, спайк его может снять",
+  "Шорт в D1 глубоком discount (7%): основная ликвидность 2318/2343 уже рядом, TP2/TP3 — против D1 discount"
+ ]
+}

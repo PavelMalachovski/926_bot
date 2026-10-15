@@ -465,7 +465,7 @@
   "side": "SELL LIMIT",
   "basis": "FVG",
   "entry": 2377.0,
-  "sl": 2393.0,
+  "sl": 2382.0,
   "tp1": 2344.0,
   "rr_tp1": 2.06,
   "zone_high": 2378.98,
@@ -473,15 +473,19 @@
   "price_at_creation": 2353.9,
   "created_at": "2026-10-15T08:20:00+02:00",
   "expires": "2026-10-15T23:59:00+02:00",
-  "status": "PENDING",
-  "filled_at": null,
+  "status": "OPEN",
+  "filled_at": "2026-10-15T09:40:00+02:00",
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 23.1,
+  "closest_approach": 0.0,
   "ambiguous": false,
-  "adjusted": false,
+  "adjusted": true,
   "review": null,
-  "last_checked": "2026-10-15T08:10:00+02:00"
+  "last_checked": "2026-10-15T14:10:00+02:00",
+  "sl_original": 2393.0,
+  "mae_usd": 4.12,
+  "mfe_usd": 17.24,
+  "mgmt": "15.10 день (14:15): исполнен 09:40 (high 2380.12 ≥ 2377), макс. против 2381.12 (10:00, −4.12$), лучший 2359.76 (12:45, +17.24$ = 1.08R), сейчас 2362.08 (+0.93R). До PPI/Retail Sales 14:30: закрыть 50% по рынку ~2362 (+0.46R), SL остатка 2393 → 2382.00 (над хаем после входа 2381.12), TP1 2344 / TP2 2320 / TP3 2280 без изменений. Основание: M5 BOS вниз 12:20 (< 2365.62), LH 2379.30/2378.11, позиция в плюсе перед красной новостью."
  }
 ]
