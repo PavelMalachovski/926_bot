@@ -252,15 +252,42 @@
   "price_at_creation": 1.42047,
   "created_at": "2026-10-15T14:10:00+02:00",
   "expires": "2026-10-15T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 3.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "After place_after 14:45 high 1.42180 (15:05) = 3.0 pips short of 1.42210, 82% of path from 1.42047; held at H1 FVG lower half 1.42164-1.42180. TP1 1.41918 traded 16:05 (cancel rule), low 1.41708. The only touch 1.42217 was 14:35 inside the PPI blackout before placement - would have been TP +1.79R. Entry should have been the FVG near edge 1.42164."
+  },
+  "last_checked": "2026-10-16T08:05:00+02:00"
+ },
+ {
+  "id": "2026-10-16-am",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 1.4202,
+  "sl": 1.42165,
+  "tp1": 1.41712,
+  "rr_tp1": 2.12,
+  "zone_high": 1.42063,
+  "zone_low": 1.41992,
+  "price_at_creation": 1.41852,
+  "created_at": "2026-10-16T08:10:00+02:00",
+  "expires": "2026-10-16T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 16.3,
+  "closest_approach": 16.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-15T14:05:00+02:00"
+  "last_checked": "2026-10-16T08:05:00+02:00"
  }
 ]

@@ -1,0 +1,58 @@
+{
+ "date": "2026-10-16",
+ "created_at": "2026-10-16T08:10:00+02:00",
+ "price_at_creation": 1.41852,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.4202,
+  "sl": 1.42165,
+  "tp1": 1.41712,
+  "tp2": 1.41545,
+  "tp3": 1.41345,
+  "zone_high": 1.42063,
+  "zone_low": 1.41992,
+  "basis": "OB: H1 OB 1.41992-1.42063 (17:00 up candle before 18:00 LH 1.42063 which swept M5 highs 1.42032 by 3.1 pips) + OTE 62% of leg 1.42217->1.41708 (1.42024) + sweep of EQH/Asia high 1.4199/1.4200",
+  "risk_pips": 14.5,
+  "risk_usd_1lot": 102.2,
+  "rr_tp1": 2.12,
+  "rr_tp2": 3.28,
+  "rr_tp3": 4.66,
+  "distance_pips": 16.8,
+  "expires": "2026-10-16T23:59:00+02:00 (Friday: practically pull by 18:30 before weekend)"
+ },
+ "invalidation": {
+  "level": 1.42063,
+  "rule": "H1 body close above 1.42063 -> cancel limit; also cancel if TP1 1.41712 (EQL/PDL) trades before fill. Plan B: sweep of D1 EQL 1.41533/1.41549 + M5 CHoCH up -> long to 1.42000"
+ },
+ "levels": {
+  "asia_high": 1.4199,
+  "asia_low": 1.41722,
+  "pdh": 1.42408,
+  "pdl": 1.41708,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "eqh": 1.42,
+  "eql": 1.41708,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.41533,
+  "d1_eq": 1.42274,
+  "week_open": 1.42703,
+  "h1_strong_high": 1.42217,
+  "h1_lh": 1.42063,
+  "d1_eql": 1.41533,
+  "d1_bull_fvg": [
+   1.40843,
+   1.40951
+  ]
+ },
+ "d1_context": "D1 HH 1.43015 / HL 1.41533 - structure still up, but 15.10 closed 1.41860 below the 2-week range low 1.41918 and PWL 1.42059. Price at 21% of HL-HH range = discount. Pools: SSL EQL 1.41533/1.41549 below, BSL EQH 1.42994/1.43015 above. Untouched D1 bull FVG 1.40843-1.40951.",
+ "h4_context": "H4 down: LL 1.41708 broke 1.41918 (BOS 15.10 16:00), LH 1.42217. H4 bear FVG 1.42166-1.42360 filled only to 1.42217.",
+ "news": [],
+ "warnings": [
+  "Short against D1 bullish structure, in D1 discount 21% (HL 1.41533 intact)",
+  "Friday: pull before weekend close",
+  "Journal: 0 TP in 8 fills - size down"
+ ]
+}
