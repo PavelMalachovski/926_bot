@@ -1,0 +1,77 @@
+{
+ "date": "2026-10-16",
+ "created_at": "2026-10-16T14:10:00+02:00",
+ "price_at_creation": 1.41537,
+ "morning_status": "NOT_REACHED",
+ "morning_order_id": "2026-10-16-am",
+ "morning_detail": {
+  "max_high": 1.41868,
+  "max_high_at": "2026-10-16T08:15:00+02:00",
+  "closest_approach_pips": 15.2,
+  "tp1_reached_without_fill": "1.41712 traded 09:10; TP2 1.41545 traded 12:05; low 1.41457 13:50",
+  "invalidated": false,
+  "journal_status": "EXPIRED (plan's cancel rule: TP1 before fill), review NO_PULLBACK"
+ },
+ "morning_decision": "remove; do not re-place at 1.42020 (move already played out to TP2)",
+ "setup_valid": false,
+ "bias": "none",
+ "order": null,
+ "no_setup_reason": "Short with H4/H1 trend: near entry H1 FVG/M5 supply 1.41592-1.41632 -> SL 1.41746 (above M5 LH 1.41646 +10p), TP1 low 1.41457 = 0.9R; deep entry OTE/H1 OB 1.41790 -> SL 1.41968, TP1 1.41457 = 1.87R, needs a 25-pip Friday pullback (3 straight misses). Both < 1:2 and short is below D1 HL 1.41533 in deep D1 discount. Long (plan B after D1 EQL sweep) is against H4/H1 and has no M5 CHoCH yet.",
+ "conditional": {
+  "rule": "No limit now. Long only if M5 body close above 1.41646 (CHoCH after D1 HL sweep 1.41457) before 17:00; then 5Д rules on the new M5 OB/FVG, target 1.41712-1.41722 (Asia low/PDL area). Short only if price returns to 1.41790-1.41868 and prints M5 CHoCH down there - not before 17:00.",
+  "expires": "2026-10-16T18:30:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.41457,
+  "rule": "New low below 1.41457 with H1 body close -> D1 HL lost, sweep idea dead, no long"
+ },
+ "levels": {
+  "asia_high": 1.4199,
+  "asia_low": 1.41722,
+  "london_high": 1.41868,
+  "london_low": 1.41457,
+  "pdh": 1.42408,
+  "pdl": 1.41708,
+  "pwh": 1.43015,
+  "pwl": 1.42059,
+  "d1_hl": 1.41533,
+  "d1_eql": 1.41549,
+  "h1_lh": 1.4199,
+  "h1_ob": [
+   1.41775,
+   1.41879
+  ],
+  "h1_fvg": [
+   [
+    1.41592,
+    1.41628
+   ],
+   [
+    1.4169,
+    1.41722
+   ]
+  ],
+  "ote_62_79": [
+   1.41787,
+   1.41878
+  ],
+  "m5_lh": [
+   1.41555,
+   1.41646
+  ],
+  "taken_since_morning": [
+   "asia_low 1.41722",
+   "pdl/eql 1.41708",
+   "d1_eql 1.41549",
+   "d1_hl 1.41533 (wick, H1 closes 1.41520/1.41509 below)"
+  ]
+ },
+ "d1_change": "D1 HL 1.41533 swept to 1.41457, H1 closed below it twice; daily close decides whether D1 turns down.",
+ "h4_context": "H4 (resample) down: LL 1.41457 below 1.41708, LH 1.4199; leg 1.4199->1.41457 = 53 pips, OTE 62-79% 1.41787-1.41878 holds London high 1.41868.",
+ "news": [],
+ "warnings": [
+  "Friday afternoon - pull everything before 18:30",
+  "No red USD/CAD news left today",
+  "Journal: 0 TP in 8 fills, 3 straight non-fills"
+ ]
+}

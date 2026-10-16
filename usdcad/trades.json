@@ -279,15 +279,18 @@
   "price_at_creation": 1.41852,
   "created_at": "2026-10-16T08:10:00+02:00",
   "expires": "2026-10-16T23:59:00+02:00",
-  "status": "PENDING",
+  "status": "EXPIRED",
   "filled_at": null,
-  "closed_at": null,
+  "closed_at": "2026-10-16T09:10:00+02:00",
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 16.8,
+  "closest_approach": 15.2,
   "ambiguous": false,
   "adjusted": false,
-  "review": null,
-  "last_checked": "2026-10-16T08:05:00+02:00"
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Max high after placement 1.41868 (08:15) = 15.2 pips short of 1.42020, price moved only 1.6 pips (10%) toward entry from 1.41852. TP1 1.41712 traded 09:10 before fill (plan's cancel rule), trend continued to TP2 1.41545 and low 1.41457 (13:50) - would have paid +2.12R/+3.28R. Third straight non-fill: entry at H1 LH 1.42020 was above the London high; the level that actually capped was the 08:15 high 1.41868 = H1 07:00 OB wick 1.41879."
+  },
+  "last_checked": "2026-10-16T14:05:00+02:00"
  }
 ]
