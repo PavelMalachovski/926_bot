@@ -405,15 +405,42 @@
   "price_at_creation": 157.955,
   "created_at": "2026-10-15T14:05:00+02:00",
   "expires": "2026-10-15T23:59:00+02:00",
+  "status": "SL",
+  "filled_at": "2026-10-15T16:40:00+02:00",
+  "closed_at": "2026-10-15T17:00:00+02:00",
+  "result_r": -1.0,
+  "result_pips": -15.0,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Лимит по плану после 14:45: исполнен 16:40 (high 158.030), SL 158.160 снят 17:00 (high 158.178), H1 17:00 закрылся телом 158.195 над зоной 157.997–158.066 — третий тест H4 FVG за день, зона не удержала; после SL цена ушла на 158.256 и до TP1 157.695 не дошла (min 157.802 16.10 06:40) — не stop hunt. Механически без условия 14:45: fill 14:20, SL 14:30 на PPI-спайке — тот же −1R."
+  },
+  "last_checked": "2026-10-16T08:00:00+02:00"
+ },
+ {
+  "id": "2026-10-16-am",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 158.02,
+  "sl": 158.215,
+  "tp1": 157.802,
+  "rr_tp1": 1.12,
+  "zone_high": 158.084,
+  "zone_low": 158.007,
+  "price_at_creation": 157.872,
+  "created_at": "2026-10-16T08:05:00+02:00",
+  "expires": "2026-10-16T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 5.5,
+  "closest_approach": 14.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-15T14:00:00+02:00"
+  "last_checked": "2026-10-16T08:00:00+02:00"
  }
 ]
