@@ -1,12 +1,12 @@
 {
- "updated_at": "2026-10-17T08:15:00+02:00",
- "orders": 16,
+ "updated_at": "2026-10-17T14:10:00+02:00",
+ "orders": 17,
  "filled": 8,
  "tp": 4,
  "sl": 2,
  "be": 2,
  "open": 0,
- "pending": 1,
+ "pending": 2,
  "expired": 6,
  "invalidated": 1,
  "unknown": 0,
@@ -23,7 +23,7 @@
   "total_r": 5.92
  },
  "pm": {
-  "orders": 8,
+  "orders": 9,
   "filled": 3,
   "tp": 1,
   "sl": 2,
