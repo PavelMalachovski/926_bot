@@ -1,0 +1,49 @@
+{
+ "date": "2026-10-20",
+ "created_at": "2026-10-20T14:10:00+02:00",
+ "price_at_creation": 1.40529,
+ "morning_status": "MORNING_PLAN_NOT_FOUND",
+ "morning_note": "usdcad/2026-10-20.json absent on claude/smc-state; full analysis incl. D1 request (budget 4)",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.4079,
+  "sl": 1.4092,
+  "tp1": 1.4047,
+  "tp2": 1.4025,
+  "tp3": 1.3999,
+  "zone_high": 1.40826,
+  "zone_low": 1.40735,
+  "basis": "OB",
+  "risk_pips": 13.0,
+  "expires": "2026-10-20T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.4083,
+  "rule": "H1 body close above 1.40830 -> cancel limit; EQL 1.40462 taken before entry touched -> cancel (TP1 pool gone)"
+ },
+ "levels": {
+  "asia_high": 1.41085,
+  "asia_low": 1.40768,
+  "london_high": 1.40817,
+  "london_low": 1.40462,
+  "pdh": 1.41429,
+  "pdl": 1.40703,
+  "pwh": 1.42994,
+  "pwl": 1.41326,
+  "eqh": null,
+  "eql": 1.40462,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.37598,
+  "d1_eq": 1.40307,
+  "week_open": 1.41361
+ },
+ "d1_context": "D1 bearish CHoCH since 1.43015 (09.10): HL 1.41533 broken 16.10, LL 1.40462 today. Range 1.37598-1.43015, price 54% (just above EQ 1.40307). Price sits in D1 bullish FVG 1.40387-1.40570; FVG 1.39988-1.40244 and 1.39283-1.39719 below.",
+ "h4_context": "H4 LH/LL (LH 1.41555, 1.41129), BOS of 1.40703 today 10:00. Unfilled bearish H4 FVG 1.40636-1.40826 = entry zone with H1 OB 08:00 1.40735-1.40817.",
+ "news": [],
+ "warnings": [
+  "Entry 26.1 pips from price; last 3 limits (15-17 pips) did not fill",
+  "Price in D1 bullish FVG near D1 EQ - short late in H1 leg"
+ ]
+}
