@@ -562,7 +562,7 @@
   "price_at_creation": 2430.45,
   "created_at": "2026-10-17T08:15:00+02:00",
   "expires": "2026-10-17T23:59:00+02:00",
-  "status": "PENDING",
+  "status": "EXPIRED",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
@@ -570,8 +570,11 @@
   "closest_approach": 23.34,
   "ambiguous": false,
   "adjusted": false,
-  "review": null,
-  "last_checked": "2026-10-17T14:05:00+02:00",
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "После 08:15 максимум 2441.66 (11:00), после 14:05 — 2435.64; до entry 2465 не хватило 23.34$ (32% пути от 2430.45). Тренд продолжился вниз: H1 21:00 low 2356.79 — TP1 2417.57 и TP2 2394 взяты без исполнения. Проверка по H1 (M5 за 17.10 нет в выгрузке), high ни разу не касался entry — исход однозначный."
+  },
+  "last_checked": "2026-10-21T08:05:00+02:00",
   "tp2": 2394.0,
   "tp3": 2320.0
  },
@@ -588,17 +591,46 @@
   "price_at_creation": 2433.86,
   "created_at": "2026-10-17T14:10:00+02:00",
   "expires": "2026-10-17T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 12.36,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "После 14:10 максимум 2435.64 (H1 12:00 UTC), до entry 2448 не хватило 12.36$ (13% пути от 2433.86). Цена ушла сразу к TP: 15:00–16:00 UTC low 2398.68, 21:00 UTC 2356.79 (TP1 2417.57 и TP2 2393.48 взяты). FVG 2446–2455 не тестировалась. Проверка по H1, high < entry — однозначно."
+  },
+  "last_checked": "2026-10-21T08:05:00+02:00",
+  "tp2": 2393.48,
+  "tp3": 2356.47
+ },
+ {
+  "id": "2026-10-21-am",
+  "side": "BUY LIMIT",
+  "basis": "FVG",
+  "entry": 2409.0,
+  "sl": 2367.5,
+  "tp1": 2465.0,
+  "rr_tp1": 1.35,
+  "zone_high": 2409.12,
+  "zone_low": 2403.94,
+  "price_at_creation": 2440.65,
+  "created_at": "2026-10-21T08:15:00+02:00",
+  "expires": "2026-10-21T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 14.14,
+  "closest_approach": 31.65,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-17T14:05:00+02:00",
-  "tp2": 2393.48,
-  "tp3": 2356.47
+  "last_checked": "2026-10-21T08:05:00+02:00",
+  "tp2": 2478.0,
+  "tp3": 2494.0
  }
 ]
