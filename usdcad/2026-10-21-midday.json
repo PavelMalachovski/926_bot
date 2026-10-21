@@ -1,0 +1,41 @@
+{
+ "date": "2026-10-21",
+ "created_at": "2026-10-21T14:15:00+02:00",
+ "price_at_creation": 1.40449,
+ "morning_status": "НЕ ДОШЛА -> CANCELLED",
+ "morning_note": "SELL LIMIT 1.40735: max high after 08:15 = 1.40624 (11.1 pips short). TP1 EQL 1.40561 taken 09:25 before fill; London low 1.40390. Removed: TP1 pool gone, entry 28.6 pips from price.",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.40536,
+  "sl": 1.40664,
+  "tp1": 1.4039,
+  "tp2": 1.4033,
+  "tp3": 1.40244,
+  "zone_high": 1.40564,
+  "zone_low": 1.40506,
+  "basis": "OB",
+  "risk_pips": 12.8,
+  "expires": "2026-10-21T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.40564,
+  "rule": "H1 body close above 1.40564 (OB top / strong high) -> cancel; PDL 1.40330 taken before fill -> cancel (move played out)"
+ },
+ "levels": {
+  "asia_high": 1.40682, "asia_low": 1.40565,
+  "london_high": 1.40643, "london_low": 1.4039,
+  "pdh": 1.41125, "pdl": 1.4033, "pwh": 1.42994, "pwl": 1.41326,
+  "eqh": 1.40578, "eql": 1.4039,
+  "d1_range_high": 1.43015, "d1_range_low": 1.37329, "d1_eq": 1.40172, "week_open": 1.41361
+ },
+ "d1_context": "Unchanged from morning: D1 bearish (LL 1.40330 20.10), price 1.40449 = 55% of 1.37329-1.43015 (shallow premium), EQ 1.40172; bullish D1 FVG 1.40146-1.40244 below. Since morning: Asia low and EQL 1.40561 swept, PDL still intact.",
+ "h4_context": "H4 (resampled) bearish, no new BOS: inside 1.40330-1.40682 since 20.10 15:00. H1 broke internal HL 1.40432 at 12:00 (bearish CHoCH), leg 1.40682 -> 1.40390; H1 OB 11:00 1.40506-1.40564 = 40-60% of leg, 50% 1.40536; OTE 1.40571-1.40621 above.",
+ "news": [],
+ "warnings": [
+  "RR to TP1 (London low 1.40390) 1:1.14 < 1:2; 1:2.28 only at TP3 1.40244 (D1 FVG top)",
+  "H1 OB 11:00 has no buy-side sweep before its impulse - fails the review proposal filter",
+  "TP2 PDL 1.40330 sits 8 pips above D1 bullish FVG 1.40146-1.40244 / D1 EQ 1.40172: discount below, sellers into support"
+ ]
+}

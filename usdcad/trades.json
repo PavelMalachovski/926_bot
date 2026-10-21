@@ -333,15 +333,42 @@
   "price_at_creation": 1.40622,
   "created_at": "2026-10-21T08:15:00+02:00",
   "expires": "2026-10-21T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-21T14:15:00+02:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 11.1,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Max high after placement 1.40624 (08:15) = 11.1 pips short of 1.40735; TP1 EQL 1.40561 traded 09:25 before fill, London low 1.40390 (12:55), PDL 1.40330 untouched. Midday decision: cancel - TP1 pool gone, entry 28.6 pips from price 1.40449. Fifth straight non-fill."
+  },
+  "last_checked": "2026-10-21T14:10:00+02:00"
+ },
+ {
+  "id": "2026-10-21-pm",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 1.40536,
+  "sl": 1.40664,
+  "tp1": 1.4039,
+  "rr_tp1": 1.14,
+  "zone_high": 1.40564,
+  "zone_low": 1.40506,
+  "price_at_creation": 1.40449,
+  "created_at": "2026-10-21T14:15:00+02:00",
+  "expires": "2026-10-21T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 11.3,
+  "closest_approach": 8.7,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-21T08:10:00+02:00"
+  "last_checked": "2026-10-21T14:10:00+02:00"
  }
 ]
