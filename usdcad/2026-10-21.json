@@ -1,0 +1,46 @@
+{
+ "date": "2026-10-21",
+ "created_at": "2026-10-21T08:15:00+02:00",
+ "price_at_creation": 1.40622,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.40735,
+  "sl": 1.4093,
+  "tp1": 1.40561,
+  "tp2": 1.4033,
+  "tp3": 1.40146,
+  "zone_high": 1.40826,
+  "zone_low": 1.40735,
+  "basis": "OB",
+  "risk_pips": 19.5,
+  "expires": "2026-10-21T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.40826,
+  "rule": "H1 body close above 1.40826 (OB/H4 FVG top) -> cancel limit, plan B; PDL 1.40330 taken before fill -> cancel (move played out)"
+ },
+ "levels": {
+  "asia_high": 1.40682,
+  "asia_low": 1.40565,
+  "pdh": 1.41125,
+  "pdl": 1.4033,
+  "pwh": 1.42994,
+  "pwl": 1.41326,
+  "eqh": 1.40682,
+  "eql": 1.40561,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.37329,
+  "d1_eq": 1.40172,
+  "week_open": 1.41361
+ },
+ "d1_context": "D1 bearish since HL 1.42059 broke 15.10 (CHoCH), LL 1.40330 on 20.10. Range 1.37329-1.43015, price 1.40622 = 58% (premium; EQ 1.40172 is 45 pips below). Unfilled bullish D1 FVG 1.40146-1.40244 below; bearish D1 FVGs 1.41125-1.41326 and 1.41429-1.41708 above.",
+ "h4_context": "H4 LH/LL: LH 1.41555 -> 1.41129, LL 1.40703 -> 1.40330 (BOS 20.10). Pullback into bearish H4 FVG 1.40636-1.40826 (24% filled, high 1.40682). H1 OB 20.10 08:00 1.40735-1.40817 inside it, 50.7-61% of leg 1.41129->1.40330.",
+ "news": [],
+ "warnings": [
+  "RR to TP1 (EQL 1.40561) 1:0.89 < 1:2; 1:2.08 only at TP2 = PDL 1.40330",
+  "OB has no buy-side sweep before its impulse - fails the review proposal filter",
+  "0 TP in 8 fills so far; last 4 orders unfilled"
+ ]
+}

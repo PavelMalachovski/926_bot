@@ -306,15 +306,42 @@
   "price_at_creation": 1.40529,
   "created_at": "2026-10-20T14:10:00+02:00",
   "expires": "2026-10-20T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 14.3,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Created 14:10 at 1.40529; 14:20 bar already traded TP1 1.4047 (EQL 1.40462 taken = plan cancel rule), low 1.4033 at 15:40 without any pullback. Best pullback 1.40647 (19:40) = 14.3 pips short, 45% of the 26.1-pip path; the overnight cap 1.40682 still sits 5 pips under the entry zone."
+  },
+  "last_checked": "2026-10-21T08:10:00+02:00"
+ },
+ {
+  "id": "2026-10-21-am",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 1.40735,
+  "sl": 1.4093,
+  "tp1": 1.40561,
+  "rr_tp1": 0.89,
+  "zone_high": 1.40826,
+  "zone_low": 1.40735,
+  "price_at_creation": 1.40622,
+  "created_at": "2026-10-21T08:15:00+02:00",
+  "expires": "2026-10-21T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 26.1,
+  "closest_approach": 11.3,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-20T14:05:00+02:00"
+  "last_checked": "2026-10-21T08:10:00+02:00"
  }
 ]
