@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-21",
+ "created_at": "2026-10-21T14:10:00+02:00",
+ "price_at_creation": 157.888,
+ "morning_order": {
+  "id": "2026-10-21-am",
+  "status": "ИСПОЛНЕН, В РАБОТЕ",
+  "journal_status": "OPEN",
+  "filled_at": "2026-10-21T13:10:00+02:00",
+  "fill_bar_low": 157.973,
+  "max_adverse": 157.862,
+  "max_adverse_pips": -13.8,
+  "floating_pips": -11.2,
+  "floating_r": -0.49,
+  "floating_usd_1lot": -70.9,
+  "invalidation_before_fill": false,
+  "decision": "оставить как есть: SL 157.771, TP1 158.390, TP2 158.602, TP3 158.962",
+  "exit_rule": "H1 body close < 157.871 (PDL / H4 HL) → закрыть по рынку, не ждать SL",
+  "adjusted": false,
+  "basis": "M5 14:00 снял PDL 157.871 фитилём (157.862) и вернулся выше — sweep, который план ждал; H4 HL 157.871 телом не пробит; пулы TP (Asia high 158.390, EQH/PDH 158.602, PWH 158.962) не сняты; красных новостей нет; TP1 и M5 BOS↑ не было — BE рано"
+ },
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "new_order_note": "позиция открыта, второй лонг в ту же зону не добавляем; шорт против H4 HL до H1 body close < 157.871 не берём",
+ "invalidation": {"level": 157.871, "rule": "H1 body close < 157.871 → H4 CHoCH↓, лонг закрыть; план Б — шорт после ретеста 157.87–157.97 снизу + M5 CHoCH↓, цель Monday low 157.714 / PWL 157.501"},
+ "levels": {
+  "asia_high": 158.39, "asia_low": 158.055,
+  "london_high": 158.219, "london_low": 157.895,
+  "pdh": 158.602, "pdl": 157.871, "pwh": 158.962, "pwl": 157.501,
+  "eqh": 158.602, "eql": 158.043, "monday_low": 157.714,
+  "swept_today": ["Asia low/EQL 158.055/158.043 (12:55)", "London low 157.895 → PDL 157.871 (14:00, low 157.862)"],
+  "not_swept": ["Asia high 158.390", "EQH/PDH 158.602", "PWH 158.962", "Monday low 157.714", "PWL 157.501"]
+ },
+ "h4_context": "H4 (ресемпл): HH 158.602 → HL 157.871 → LH 158.390; сейчас тест HL 157.871 фитилём. H1: внутренний CHoCH↓ 12:00 (close 158.015 под 158.055), London low 157.895 снят, PDL 157.871 снят на 0.9 п.",
+ "d1_change": "D1 без изменений: 86% → ~82% premium range 152.908–159.029.",
+ "news": [],
+ "warnings": ["RR к TP1 1.70 < 1:2", "лонг в D1 premium", "H1 внутренний CHoCH↓ против позиции — держим только пока H1 тело выше 157.871"]
+}

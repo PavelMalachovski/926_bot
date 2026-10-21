@@ -1,23 +1,23 @@
 {
- "updated_at": "2026-10-21T08:05:00+02:00",
+ "updated_at": "2026-10-21T14:10:00+02:00",
  "orders": 15,
- "filled": 10,
+ "filled": 11,
  "tp": 5,
  "sl": 5,
  "be": 0,
- "open": 0,
- "pending": 1,
+ "open": 1,
+ "pending": 0,
  "expired": 4,
  "invalidated": 0,
  "unknown": 0,
  "winrate": 50.0,
- "fill_rate": 71.4,
+ "fill_rate": 73.3,
  "total_r": 1.11,
  "avg_r": 0.11,
  "total_pips": 67.6,
  "am": {
   "orders": 7,
-  "filled": 6,
+  "filled": 7,
   "tp": 4,
   "sl": 2,
   "total_r": 2.91
@@ -30,5 +30,5 @@
   "total_r": -1.8
  },
  "last10": "TTSSTTSSST",
- "review": "21.10 am: WR 50% (5T/5S), avg_r +0.11, ΣR +1.11 — без изменений; средний RR побед 1.22R, проблема в TP1, а не в частоте. SL: ZONE_FAILED ×5 из 5 (все — повторно тестированные зоны). am 4T/2S +2.91R, pm 1T/3S −1.80R; OB 4T/2S +2.91R, OTE 1T/1S +0.20R, FVG 0T/2S −2.00R. EXPIRED 4: NO_PULLBACK ×3, DEEP_ENTRY ×1. Правка (без изменений с 16.10): лимит только в зону с 0 касаний H1; pm-ордер только при RR к TP1 ≥ 2. Сегодняшний am (OB 0 касаний) первую часть проходит, RR 1.70 — с ⚠."
+ "review": "21.10 pm: WR 50% (5T/5S), avg_r +0.11, ΣR +1.11 — без изменений; средний RR побед 1.22R, проблема в TP1, а не в частоте. SL: ZONE_FAILED ×5 из 5 (все — повторно тестированные зоны). am 4T/2S +2.91R, pm 1T/3S −1.80R; OB 4T/2S +2.91R, OTE 1T/1S +0.20R, FVG 0T/2S −2.00R. EXPIRED 4: NO_PULLBACK ×3, DEEP_ENTRY ×1. Правка (без изменений с 16.10): лимит только в зону с 0 касаний H1; pm-ордер только при RR к TP1 ≥ 2. Сегодняшний am (OB 0 касаний, RR 1.70) исполнен 13:10, в работе."
 }
