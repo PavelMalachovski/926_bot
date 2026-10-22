@@ -1,26 +1,26 @@
 {
- "updated_at": "2026-10-21T14:10:00+02:00",
- "orders": 15,
+ "updated_at": "2026-10-22T08:10:00+02:00",
+ "orders": 16,
  "filled": 11,
  "tp": 5,
- "sl": 5,
+ "sl": 6,
  "be": 0,
- "open": 1,
- "pending": 0,
+ "open": 0,
+ "pending": 1,
  "expired": 4,
  "invalidated": 0,
  "unknown": 0,
- "winrate": 50.0,
+ "winrate": 45.5,
  "fill_rate": 73.3,
- "total_r": 1.11,
- "avg_r": 0.11,
- "total_pips": 67.6,
+ "total_r": 0.11,
+ "avg_r": 0.01,
+ "total_pips": 44.7,
  "am": {
-  "orders": 7,
+  "orders": 8,
   "filled": 7,
   "tp": 4,
-  "sl": 2,
-  "total_r": 2.91
+  "sl": 3,
+  "total_r": 1.91
  },
  "pm": {
   "orders": 8,
@@ -29,6 +29,6 @@
   "sl": 3,
   "total_r": -1.8
  },
- "last10": "TTSSTTSSST",
- "review": "21.10 pm: WR 50% (5T/5S), avg_r +0.11, ΣR +1.11 — без изменений; средний RR побед 1.22R, проблема в TP1, а не в частоте. SL: ZONE_FAILED ×5 из 5 (все — повторно тестированные зоны). am 4T/2S +2.91R, pm 1T/3S −1.80R; OB 4T/2S +2.91R, OTE 1T/1S +0.20R, FVG 0T/2S −2.00R. EXPIRED 4: NO_PULLBACK ×3, DEEP_ENTRY ×1. Правка (без изменений с 16.10): лимит только в зону с 0 касаний H1; pm-ордер только при RR к TP1 ≥ 2. Сегодняшний am (OB 0 касаний, RR 1.70) исполнен 13:10, в работе."
+ "last10": "TSSTTSSSTS",
+ "review": "22.10 am: WR 45.5% (5T/6S), avg_r +0.01, ΣR +0.11 — на грани нуля: победы в среднем 1.22R, убытки полные −1R. SL: ZONE_FAILED ×5, AGAINST_HTF ×1 (21.10-am: лонг в D1 premium 86%, TP1 не добран 4.7 п). am 4T/3S +1.91R, pm 1T/3S -1.8R; BUY 4T/5S, SELL 1T/1S; OB 4T/3S, OTE 1T/1S, FVG 0T/2S (оба FVG-стопа — повторно тестированные зоны). EXPIRED 4: NO_PULLBACK ×3, DEEP_ENTRY ×1. Правка: ордер только при RR к TP1 ≥ 2.0 (все 5 побед были 1.10–1.48R) — сегодняшний am её соблюдает (2.16R)."
 }

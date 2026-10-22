@@ -486,15 +486,42 @@
   "price_at_creation": 158.2,
   "created_at": "2026-10-21T08:05:00+02:00",
   "expires": "2026-10-21T23:59:00+02:00",
-  "status": "OPEN",
+  "status": "SL",
   "filled_at": "2026-10-21T13:10:00+02:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
+  "closed_at": "2026-10-22T05:05:00+02:00",
+  "result_r": -1.0,
+  "result_pips": -22.9,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
+  "review": {
+   "cause": "AGAINST_HTF",
+   "note": "Лонг в D1 premium 86% у верха 3-недельного боковика (флаг был в плане). После fill 13:10 дала max 158.343 (21:10) — 4.7 п не дошла до TP1 158.390, затем Азия 05:00 телом пробила H4 HL 157.871 (H1 close 157.679) → H4 CHoCH↓; SL 157.771 задет 05:05, low 157.303 (07:45) — это разворот, не stop hunt."
+  },
+  "last_checked": "2026-10-22T08:00:00+02:00"
+ },
+ {
+  "id": "2026-10-22-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 157.92,
+  "sl": 158.205,
+  "tp1": 157.305,
+  "rr_tp1": 2.16,
+  "zone_high": 158.06,
+  "zone_low": 157.889,
+  "price_at_creation": 157.415,
+  "created_at": "2026-10-22T08:10:00+02:00",
+  "expires": "2026-10-22T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 50.5,
+  "ambiguous": false,
+  "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-21T14:05:00+02:00"
+  "last_checked": "2026-10-22T08:00:00+02:00"
  }
 ]
