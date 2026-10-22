@@ -1,34 +1,42 @@
 {
- "updated_at": "2026-10-22T08:10:00+02:00",
- "orders": 19,
- "filled": 8,
+ "updated_at": "2026-10-22T14:15:00+02:00",
+ "orders": 20,
+ "filled": 9,
  "tp": 4,
- "sl": 2,
+ "sl": 3,
  "be": 2,
  "open": 0,
  "pending": 1,
  "expired": 9,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 66.7,
- "fill_rate": 44.4,
- "total_r": 6.77,
- "avg_r": 0.85,
- "total_usd": 94.95,
+ "winrate": 57.1,
+ "fill_rate": 47.4,
+ "total_r": 5.77,
+ "avg_r": 0.64,
+ "total_usd": 78.95,
  "am": {
   "orders": 9,
-  "filled": 5,
+  "filled": 6,
   "tp": 3,
-  "sl": 0,
-  "total_r": 5.92
+  "sl": 1,
+  "total_r": 4.92
  },
  "pm": {
-  "orders": 10,
+  "orders": 11,
   "filled": 3,
   "tp": 1,
   "sl": 2,
   "total_r": 0.85
  },
- "last10": "BTBSTTTS",
- "review": null
+ "last10": "BTBSTTTSS",
+ "review": {
+  "sl_causes": {
+   "ZONE_FAILED": 3
+  },
+  "where_worse": "pm 1T/2S (ΣR +0.85) vs am 3T/1S (+4.92); long 0T/2S (−2R) vs short 4T/1S (+7.77R); FVG 2T/2S, OB 1T/1S, OTE 1T/0S",
+  "avg_r": 0.64,
+  "note": "WR 57.1% < 60%, но avg_r +0.64R при среднем RR 2.2 — система в плюсе. Все 3 SL — ZONE_FAILED, оба long-стопа стояли против H1 LH/LL (16.10 повторный тест OB, 22.10 H4-long при H1 вниз).",
+  "proposal": "При расхождении H4/H1 лимит не ставить, пока H1 не закроется телом за последним H1 swing в сторону сделки (22.10: выше LH 2448.38) — оба long-SL (−2R, −33$) были бы пропущены."
+ }
 }
