@@ -1,0 +1,83 @@
+{
+ "date": "2026-10-22",
+ "created_at": "2026-10-22T14:10:00+02:00",
+ "price_at_creation": 157.042,
+ "morning_order": {
+  "id": "2026-10-22-am",
+  "status": "НЕ ДОШЛА (47.7 пипсов до entry)",
+  "journal_status": "CANCELLED",
+  "filled_at": null,
+  "max_high_since_creation": 157.443,
+  "closest_approach_pips": 47.7,
+  "invalidation_before_fill": false,
+  "decision": "снять: цена прошла TP1 157.305 и TP2 156.996 без входа, до entry 157.920 — 88 п, H1 FVG 04:00 теперь далеко над новой LH 157.349",
+  "adjusted": false
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 157.21,
+  "sl": 157.45,
+  "tp1": 156.674,
+  "tp2": 156.383,
+  "tp3": 155.969,
+  "zone_high": 157.349,
+  "zone_low": 157.072,
+  "basis": "H1 bear OB 09:00 (тело 157.072–157.215, фитиль 157.349) = OTE 79% плеча 157.349→156.674 (157.207); над M5 bear FVG 157.122–157.166",
+  "risk_pips": 24.0,
+  "risk_usd_1lot": 152.8,
+  "rr": {
+   "tp1": 2.23,
+   "tp2": 3.45,
+   "tp3": 5.17
+  },
+  "distance_pips": 16.8,
+  "expires": "2026-10-22T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 157.349,
+  "rule": "H1 body close > 157.349 до исполнения → снять лимит; план Б — шорт только после sweep 157.446 (London high) + M5 CHoCH↓"
+ },
+ "levels": {
+  "london_high": 157.446,
+  "london_low": 156.674,
+  "asia_high": 158.25,
+  "asia_low": 157.303,
+  "pdh": 158.39,
+  "pdl": 157.822,
+  "pwh": 158.962,
+  "pwl": 157.501,
+  "eqh": 158.39,
+  "eql": 156.383,
+  "d1_range_high": 159.029,
+  "d1_range_low": 152.908,
+  "d1_eq": 155.969,
+  "week_open": 158.027,
+  "swept_since_morning": [
+   "Asia low 157.303 (08:00)",
+   "D1 low 25.09 156.996 (09:10)"
+  ],
+  "not_swept": [
+   "EQL 156.383",
+   "D1 EQ 155.969",
+   "M5 SH 157.252",
+   "LH 157.349",
+   "London high 157.446"
+  ]
+ },
+ "d1_context": "Без изменений по структуре; с утра D1 пробил низ 3-недельного боковика ещё на 63 п (low 156.674), цена 157.04 = 68% premium range 152.908–159.029.",
+ "h4_context": "H4 (ресемпл) вниз: LH 158.343 → CHoCH↓ под 157.871 → LL 156.674. H1: LH 157.349 (09:00), LL 156.674 (13:20), M5 CHoCH↑ над 157.036 в 13:45 — откат начался.",
+ "news": [
+  {
+   "time": "2026-10-22T14:30:00+02:00",
+   "country": "USD",
+   "title": "Unemployment Claims (Medium, не красная)"
+  }
+ ],
+ "warnings": [
+  "Дневной диапазон 158 п при ADR10 ~72 — поздняя нога, 6 BOS вниз без коррекции (риск LATE_LEG)",
+  "Вход может исполниться на открытии NY 14:30 (Claims, Medium) — не блэкаут, но волатильность",
+  "pm-ордера в журнале 1T/3S"
+ ]
+}

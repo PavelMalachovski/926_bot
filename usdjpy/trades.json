@@ -513,15 +513,42 @@
   "price_at_creation": 157.415,
   "created_at": "2026-10-22T08:10:00+02:00",
   "expires": "2026-10-22T23:59:00+02:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-22T14:10:00+02:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 47.7,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "От 157.415 вверх дошла лишь до 157.443 (08:05–08:10, 5.5% пути к 157.920), London продолжил вниз: TP1 157.305 и TP2 156.996 пройдены без входа, low 156.674 (13:20). Снят в 14:00 — рынок ушёл на 87 п от entry."
+  },
+  "last_checked": "2026-10-22T14:05:00+02:00"
+ },
+ {
+  "id": "2026-10-22-pm",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 157.21,
+  "sl": 157.45,
+  "tp1": 156.674,
+  "rr_tp1": 2.23,
+  "zone_high": 157.349,
+  "zone_low": 157.072,
+  "price_at_creation": 157.042,
+  "created_at": "2026-10-22T14:10:00+02:00",
+  "expires": "2026-10-22T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 50.5,
+  "closest_approach": 16.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-22T08:00:00+02:00"
+  "last_checked": "2026-10-22T14:05:00+02:00"
  }
 ]
