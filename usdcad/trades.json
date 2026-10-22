@@ -387,15 +387,42 @@
   "price_at_creation": 1.40275,
   "created_at": "2026-10-22T08:10:00+02:00",
   "expires": "2026-10-22T23:59:00+02:00",
+  "status": "INVALIDATED",
+  "filled_at": null,
+  "closed_at": "2026-10-22T09:05:00+02:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 9.7,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Max pullback before cancel 1.40293 (08:15) = 9.7 pips short of 1.40390. 09:05 bar traded TP2 1.40172 (low 1.40155) before any fill = plan cancel rule; London low 1.40139 at 09:25 swept D1 EQ. The pullback to the entry came only at 13:05 (high 1.40444 at 13:30) after an M5 CHoCH up - 4h late, order already off. Not an H1 body close through the zone (H1 13:00 closed 1.40368)."
+  },
+  "last_checked": "2026-10-22T14:10:00+02:00"
+ },
+ {
+  "id": "2026-10-22-pm",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 1.4047,
+  "sl": 1.406,
+  "tp1": 1.4015,
+  "rr_tp1": 2.46,
+  "zone_high": 1.40472,
+  "zone_low": 1.40386,
+  "price_at_creation": 1.40312,
+  "created_at": "2026-10-22T14:15:00+02:00",
+  "expires": "2026-10-22T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 11.5,
+  "closest_approach": 15.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-22T08:05:00+02:00"
+  "last_checked": "2026-10-22T14:10:00+02:00"
  }
 ]

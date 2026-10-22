@@ -1,0 +1,44 @@
+{
+ "date": "2026-10-22",
+ "created_at": "2026-10-22T14:15:00+02:00",
+ "price_at_creation": 1.40312,
+ "morning_order_status": {
+  "status": "INVALIDATED",
+  "detail": "TP2 1.40172 traded 09:05 (low 1.40155, London low 1.40139 09:25) before fill -> plan cancel rule; closest 9.7 pips (1.40293 at 08:15). Entry 1.40390 touched only 13:05 after the cancel (high 1.40444 13:30), SL 1.40585 not touched.",
+  "if_still_held": {"action": "adjust", "sl": 1.40455, "tp": 1.4015, "reason": "TP1 1.40250/TP2 pools already swept; M5 BOS down 14:05 below 1.40344, protected high 1.40444; floating +6.5 pips / +0.33R at 1.40325"}
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.4047,
+  "sl": 1.406,
+  "tp1": 1.4015,
+  "tp2": 1.4005,
+  "tp3": 1.3999,
+  "zone_high": 1.40472,
+  "zone_low": 1.40386,
+  "basis": "OB",
+  "risk_pips": 13.0,
+  "expires": "2026-10-22T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 1.40501,
+  "rule": "H1 body close above 1.40501 (Asia high) -> cancel, no shorts; TP1 1.40150 traded before fill -> cancel"
+ },
+ "levels": {
+  "asia_high": 1.40501, "asia_low": 1.40294, "london_high": 1.40444, "london_low": 1.40139,
+  "pdh": 1.40815, "pdl": 1.4039, "pwh": 1.42994, "pwl": 1.41326,
+  "eqh": 1.4044, "eql": 1.40139, "d1_range_high": 1.43015, "d1_range_low": 1.37329, "d1_eq": 1.40172, "week_open": 1.41361,
+  "swept_since_morning": ["asia_low 1.40294", "d1_eq 1.40172", "morning TP1 1.40250 / TP2 1.40172"]
+ },
+ "d1_context": "Unchanged from morning: D1 bearish, price at D1 EQ 1.40172 / bull FVG 1.40146-1.40244; London swept the FVG bottom (1.40139) and bounced 30 pips. EQL 1.40042 still the big pool below.",
+ "h4_context": "H4 (resampled) bearish: LH 1.40815, new LL 1.40139. H1: internal CHoCH up (13:00 close 1.40368 > 10:00 high 1.40290), external LH 1.40485 intact; retest of H1 OB 03:00 1.40386-1.40472 rejected at 1.40444 (EQH with 1.4044), M5 BOS down 14:05.",
+ "news": [],
+ "warnings": [
+  "H4 bearish vs H1 internal CHoCH up - H4/H1 disagree; the short needs the EQH 1.4044 sweep first",
+  "Entry 15.8 pips above price - deep entries missed in 5 of the last 7 orders",
+  "H1 OB 03:00 is a second retest (first at 13:05-13:30) - weaker zone",
+  "No red USD/CAD news this week remaining; medium US Unemployment Claims 14:30"
+ ]
+}

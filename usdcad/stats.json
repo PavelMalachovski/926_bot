@@ -1,6 +1,6 @@
 {
- "updated_at": "2026-10-22T08:15:00+02:00",
- "orders": 14,
+ "updated_at": "2026-10-22T14:20:00+02:00",
+ "orders": 15,
  "filled": 9,
  "tp": 0,
  "sl": 7,
@@ -8,10 +8,10 @@
  "open": 0,
  "pending": 1,
  "expired": 4,
- "invalidated": 0,
+ "invalidated": 1,
  "unknown": 0,
  "winrate": 0.0,
- "fill_rate": 69.2,
+ "fill_rate": 64.3,
  "total_r": -7.0,
  "avg_r": -0.78,
  "total_pips": -125.2,
@@ -23,7 +23,7 @@
   "total_r": -5.0
  },
  "pm": {
-  "orders": 4,
+  "orders": 5,
   "filled": 2,
   "tp": 0,
   "sl": 2,
@@ -38,7 +38,7 @@
   },
   "worst": "OB basis 0 TP / 5 SL; longs 4 SL + 1 BE of 5, shorts 3 SL + 1 BE of 4; am 5 SL/2 BE, pm 2 SL. TP1 never reached in 9 fills.",
   "avg_r": -0.78,
-  "note": "WR 0% over 6 TP+SL, avg_r -0.75: no TP1 hit at all, so not a low-WR/high-RR case. 14.10 short was right in direction but stopped by the CPI spike inside the blackout. 15.10 am: first non-fill (NO_PULLBACK) - price reached TP1 1.41961 without touching entry 1.42290; entry 14 pips above price was too deep for a 5-pip pullback. 15.10 pm: second straight non-fill (DEEP_ENTRY) - stopped 3.0 pips short, the blackout touch at 14:35 would have paid TP1 +1.79R; 2 of the last 2 orders missed by entries set at the sweep level instead of the zone near edge. 16.10 am: third straight non-fill (NO_PULLBACK) - entry 16.8 pips above price at H1 LH 1.42020, real pullback only 1.6 pips (cap = London high 1.41868 / H1 OB wick), TP1/TP2 then traded. 3 of the last 3 orders missed with entries 15-17 pips from price, while the moves themselves would have paid. 20.10 pm: fourth straight non-fill (NO_PULLBACK) - TP1 traded 10 minutes after creation, entry 26 pips away never approached closer than 14.3 pips. 21.10 pm: the one shallow entry that DID fill (OB 11:00, no sweep before it, RR 1.14) was run over by an H1 body close 18 pips through the zone - ZONE_FAILED #4; shallow fills on unswept OBs fail, deep entries don't fill.",
+  "note": "WR 0% over 6 TP+SL, avg_r -0.75: no TP1 hit at all, so not a low-WR/high-RR case. 14.10 short was right in direction but stopped by the CPI spike inside the blackout. 15.10 am: first non-fill (NO_PULLBACK) - price reached TP1 1.41961 without touching entry 1.42290; entry 14 pips above price was too deep for a 5-pip pullback. 15.10 pm: second straight non-fill (DEEP_ENTRY) - stopped 3.0 pips short, the blackout touch at 14:35 would have paid TP1 +1.79R; 2 of the last 2 orders missed by entries set at the sweep level instead of the zone near edge. 16.10 am: third straight non-fill (NO_PULLBACK) - entry 16.8 pips above price at H1 LH 1.42020, real pullback only 1.6 pips (cap = London high 1.41868 / H1 OB wick), TP1/TP2 then traded. 3 of the last 3 orders missed with entries 15-17 pips from price, while the moves themselves would have paid. 20.10 pm: fourth straight non-fill (NO_PULLBACK) - TP1 traded 10 minutes after creation, entry 26 pips away never approached closer than 14.3 pips. 21.10 pm: the one shallow entry that DID fill (OB 11:00, no sweep before it, RR 1.14) was run over by an H1 body close 18 pips through the zone - ZONE_FAILED #4; shallow fills on unswept OBs fail, deep entries don't fill. 22.10 am: INVALIDATED (NO_PULLBACK) - TP2 traded 09:05 before fill, entry touched only 13:05 after the cancel; 5 of the last 7 orders never filled in time.",
   "proposal": "Limit only in the direction of the last H1 BOS AND only on an OB that swept a pool >= 3 pips right before its impulse; entry at the zone's near edge (not the far sweep level), max 3 pips beyond the obvious EQH/EQL."
  }
 }
