@@ -414,15 +414,42 @@
   "price_at_creation": 1.40312,
   "created_at": "2026-10-22T14:15:00+02:00",
   "expires": "2026-10-22T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": "2026-10-22T23:59:00+02:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 6.9,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Pullback after 14:15 reached 1.40401 (15:45) = 6.9 pips short of 1.40470, 56% of the 15.8-pip path from 1.40312. What held was the zone NEAR edge (H1 OB 03:00 low 1.40386, touched by 1.5 pips at 15:45) - an entry there would have filled and paid TP1 1.40150 at 18:50 (+~2.6R on a 1.40386/1.40600 bracket). Entry at the zone top again too deep; TP1 traded 18:50 before fill."
+  },
+  "last_checked": "2026-10-23T08:05:00+02:00"
+ },
+ {
+  "id": "2026-10-23-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.4018,
+  "sl": 1.40305,
+  "tp1": 1.39975,
+  "rr_tp1": 1.64,
+  "zone_high": 1.40205,
+  "zone_low": 1.40154,
+  "price_at_creation": 1.40101,
+  "created_at": "2026-10-23T08:10:00+02:00",
+  "expires": "2026-10-23T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 15.8,
+  "closest_approach": 7.9,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-22T14:10:00+02:00"
+  "last_checked": "2026-10-23T08:05:00+02:00"
  }
 ]

@@ -1,0 +1,22 @@
+{
+ "date": "2026-10-23",
+ "created_at": "2026-10-23T08:10:00+02:00",
+ "price_at_creation": 1.40101,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL", "entry": 1.4018, "sl": 1.40305, "tp1": 1.39975, "tp2": 1.39805, "tp3": 1.39725,
+           "zone_high": 1.40205, "zone_low": 1.40154, "basis": "FVG", "risk_pips": 12.5,
+           "expires": "2026-10-23T23:59:00+02:00"},
+ "invalidation": {"level": 1.40205, "rule": "H1 body close above 1.40205 (H1 FVG top) -> cancel; Asia low 1.39973 traded before fill -> cancel, don't chase"},
+ "levels": {"asia_high": 1.40151, "asia_low": 1.39973, "pdh": 1.40509, "pdl": 1.40032, "pwh": 1.42994, "pwl": 1.41326,
+            "eqh": 1.40161, "eql": 1.398, "d1_range_high": 1.43015, "d1_range_low": 1.37329, "d1_eq": 1.40172, "week_open": 1.41361},
+ "d1_context": "D1 bearish: HH 1.43015 (09.10) -> LH 1.42994 -> LLs down to PDL 1.40032; Jul-Aug EQL 1.40042 swept. Price 1.40101 = 48.8% of 1.37329-1.43015, a hair under EQ 1.40172 (discount). D1 bull FVG 1.39988-1.40244 (Sep 20-22) fully traded (low 1.39973). Next sell-side pool: Sep EQL 1.39800/1.39802 and 1.39719.",
+ "h4_context": "H4 bearish: LH 1.40815 -> LL 1.40139 -> LL 1.39973 (Asia 02:40). H1 external LH 1.40444, minor LH 1.40161 (22:00) = EQH with Asia high 1.40151; H1 internal BOS up 06:00 (close 1.40118 > 1.40092). H1 bear FVG 1.40154-1.40205 (17:00-19:00 displacement) untouched beyond 0.7 pip.",
+ "news": [],
+ "warnings": [
+  "RR to TP1 1:1.64 < 1:2 (TP1 = Asia low 1.39973 is the nearest pool)",
+  "Short at 48.8% of the D1 range = discount; D1 bull FVG already filled",
+  "H1 internal BOS up 06:00 - short needs the EQH 1.40151/1.40161 sweep and rejection from the FVG",
+  "Friday: no red USD/CAD news today"
+ ]
+}
