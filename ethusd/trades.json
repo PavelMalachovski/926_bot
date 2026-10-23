@@ -711,15 +711,42 @@
   "price_at_creation": 2402.28,
   "created_at": "2026-10-22T14:15:00+02:00",
   "expires": "2026-10-22T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": "2026-10-22T23:59:00+02:00",
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 7.23,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Откат после 14:15 дошёл до 2417.77 (M5 15:30) — 7.23$ до entry 2425, это 68% пути от 2402.28. Удержал низ H4 bear FVG 2417.77–2426.19 / верх H1 OB 2410.38–2417.64, до M5 FVG 2425.12 не дотянул; затем падение до 2360.32 (TP1–TP3 2396/2388/2378 были бы взяты). Вход надо было ставить у края зоны ~2416–2417. Второй DEEP_ENTRY подряд."
+  },
+  "last_checked": "2026-10-23T08:05:00+02:00"
+ },
+ {
+  "id": "2026-10-23-am",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "entry": 2415.0,
+  "sl": 2431.2,
+  "tp1": 2382.0,
+  "rr_tp1": 2.04,
+  "zone_high": 2426.19,
+  "zone_low": 2410.0,
+  "price_at_creation": 2402.06,
+  "created_at": "2026-10-23T08:10:00+02:00",
+  "expires": "2026-10-23T23:59:00+02:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 22.72,
+  "closest_approach": 12.94,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-22T14:05:00+02:00"
+  "last_checked": "2026-10-23T08:05:00+02:00"
  }
 ]
