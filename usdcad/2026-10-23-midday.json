@@ -1,0 +1,25 @@
+{
+ "date": "2026-10-23",
+ "created_at": "2026-10-23T14:20:00+02:00",
+ "price_at_creation": 1.39976,
+ "morning_order_status": "ЗАКРЫТ ПО TP1: SELL 1.40180 filled 08:50 (high 1.40195, EQH sweep), TP1 1.39975 hit 13:25 (low 1.39968); +20.5 pips / +1.64R / ~+$146 per 1.00 lot. TP2/TP3 not reached (low 1.39951 at 14:10).",
+ "adjustments": null,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL", "entry": 1.4008, "sl": 1.40217, "tp1": 1.39805, "tp2": 1.39725, "tp3": 1.396,
+           "zone_high": 1.40117, "zone_low": 1.4008, "basis": "FVG", "risk_pips": 13.7,
+           "expires": "2026-10-23T23:59:00+02:00"},
+ "invalidation": {"level": 1.40117, "rule": "H1 body close above 1.40117 (H1 FVG top) -> cancel; TP1 1.39805 traded before fill -> cancel, don't chase"},
+ "levels": {"asia_high": 1.40151, "asia_low": 1.39973, "london_high": 1.40195, "london_low": 1.39968, "pdh": 1.40509, "pdl": 1.40032,
+            "pwh": 1.42994, "pwl": 1.41326, "eqh": 1.40161, "eql": 1.398, "d1_range_high": 1.43015, "d1_range_low": 1.37329,
+            "d1_eq": 1.40172, "week_open": 1.41361, "swept_today": ["eqh 1.40151/1.40161 (08:50)", "asia_low 1.39973 (13:25)", "pdl 1.40032 (11:45)"]},
+ "d1_context": "Unchanged from morning: D1 bearish LH/LL; price 1.39976 = 46% of 1.37329-1.43015 (discount, below EQ 1.40172). PDL 1.40032 and Asia low taken; next sell-side Sep EQL 1.39800/1.39802, then 1.39719.",
+ "h4_context": "H4 (resampled from H1) bearish: LH 1.40195 (08:00 block) -> LL 1.39951 (12:00 block, still forming). H1: Judas rally into the H1 FVG 1.40154-1.40205 at London open, then 11:00 displacement down left a bear H1 FVG 1.40080-1.40117; leg 1.40188 (10:35) -> 1.39951 (14:10), OTE 62-79% = 1.40098-1.40138.",
+ "news": [],
+ "warnings": [
+  "RR to TP1 1:2.01 - only just above the 1:2 floor",
+  "Short at 46% of the D1 range = discount (against D1 premium/discount)",
+  "Entry 10.4 pips above price - above the 8-pip cap the review proposed; a weak NY pullback may not fill it (DEEP_ENTRY/NO_PULLBACK history)",
+  "Friday NY afternoon: no red USD/CAD news, but thin liquidity into the weekend close"
+ ]
+}
