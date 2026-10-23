@@ -1,0 +1,54 @@
+{
+ "date": "2026-10-23",
+ "created_at": "2026-10-23T14:10:00+02:00",
+ "price_at_creation": 156.9,
+ "morning_status": {
+  "status": "НЕ ДОШЛА",
+  "closest_approach_pips": 28.6,
+  "max_high": 157.164,
+  "max_high_at": "2026-10-23T08:40:00+02:00",
+  "invalidated": false,
+  "decision": "СНЯТЬ (CANCELLED): пул TP1 156.845 (Asia EQL) снят 10:25–10:45 без входа; London high 157.164 стал Strong High, премиум ближе"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 157.035,
+  "sl": 157.265,
+  "tp1": 156.554,
+  "tp2": 156.235,
+  "tp3": 156.068,
+  "zone_high": 157.052,
+  "zone_low": 157.001,
+  "basis": "OTE 79% London-плеча 157.164→156.554 (62% 156.932, 79% 157.036) + M5 bear FVG 09:55 157.001–157.051 (1 касание 10:10) + LH 157.052; H4 premium 75% плеча 157.359→156.069",
+  "risk_pips": 23.0,
+  "risk_usd_1lot": 146.6,
+  "rr": {"tp1": 2.09, "tp2": 3.48, "tp3": 4.2},
+  "distance_pips": 13.5,
+  "expires": "2026-10-23T23:59:00+02:00"
+ },
+ "invalidation": {
+  "level": 157.164,
+  "rule": "H1 body close > 157.164 (Strong High London) до исполнения → снять; M5 close < 156.554 без входа → снять (TP1 взят без нас). План Б: шорт после sweep 157.164–157.359 + M5 CHoCH↓"
+ },
+ "levels": {
+  "london_high": 157.164, "london_low": 156.554,
+  "asia_high": 157.109, "asia_low": 156.069,
+  "pdh": 158.25, "pdl": 156.674, "eql_london": 156.554,
+  "h4_lh": 157.359, "h1_hl_unswept": 156.235,
+  "swept_since_morning": ["Asia high 157.109 (08:35, judas)", "Asia EQL 156.833–156.858 (10:25)", "PDL 156.674 повторно (11:10)"],
+  "not_swept": ["London low/EQL 156.554–156.556", "H1 HL 156.235", "Asia low 156.068", "H4 LH 157.359"]
+ },
+ "d1_context": "Без изменений с утра: D1 вниз (LH/LL), цена 156.900 ≈ 65% premium range 152.908–159.029.",
+ "h4_context": "H4 (ресемпл) вниз: LH 157.359, LL 156.069; 06:00 H4 сняла Asia high до 157.164 и закрылась 156.981, 10:00 H4 вниз до 156.554. H1 internal: HH 157.164 / HL 156.554, M5 CHoCH↑ 13:05 (close 156.918 > LH 156.848) — коррекция в premium.",
+ "news": [
+  {"time": "2026-10-23T15:45:00+02:00", "country": "USD", "title": "Flash Manufacturing/Services PMI (Medium)"},
+  {"time": "2026-10-23T16:00:00+02:00", "country": "USD", "title": "Revised UoM Sentiment / Inflation Expectations (Medium)"}
+ ],
+ "warnings": [
+  "Вход у открытия NY 14:30, 15:45/16:00 USD Medium — красных нет, блэкаута нет, но спайк возможен",
+  "M5 CHoCH↑ 13:05 против шорта; H1 internal HH/HL — шорт держится на H4/D1",
+  "Пятница: рынок закрывается ~23:00, лимит снять до закрытия"
+ ]
+}
