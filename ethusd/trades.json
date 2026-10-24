@@ -767,10 +767,34 @@
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 17.59,
+  "closest_approach": 10.22,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-24T08:05:00+02:00"
+  "last_checked": "2026-10-24T14:00:00+02:00"
+ },
+ {
+  "id": "2026-10-24-pm",
+  "side": "SELL LIMIT",
+  "basis": "OTE",
+  "entry": 2380.5,
+  "sl": 2389.3,
+  "tp1": 2357.3,
+  "rr_tp1": 2.64,
+  "zone_high": 2384.28,
+  "zone_low": 2374.74,
+  "price_at_creation": 2365.74,
+  "created_at": "2026-10-24T14:10:00+02:00",
+  "expires": "2026-10-24T23:59:00+02:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 14.76,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-10-24T14:00:00+02:00"
  }
 ]
