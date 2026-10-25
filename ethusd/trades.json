@@ -762,16 +762,19 @@
   "price_at_creation": 2376.91,
   "created_at": "2026-10-24T08:10:00+02:00",
   "expires": "2026-10-24T23:59:00+02:00",
-  "status": "PENDING",
+  "status": "EXPIRED",
   "filled_at": null,
-  "closed_at": null,
+  "closed_at": "2026-10-24T23:59:00+02:00",
   "result_r": null,
   "result_usd": null,
   "closest_approach": 10.22,
   "ambiguous": false,
   "adjusted": false,
-  "review": null,
-  "last_checked": "2026-10-24T14:00:00+02:00"
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Откат после 08:10 дошёл до 2384.28 (M5 09:15) — 10.22$ до entry 2394.50, 58% пути от 2376.91. Удержал London high / M5 OB 2379.28–2384.28 под Asia H 2390.24, до H1 OB 2394.52 не дотянул; затем 16:00–17:15 падение до 2282.46 (TP1 2358 был бы взят). Вход надо было ставить у 2382–2384."
+  },
+  "last_checked": "2026-10-25T07:00:00+01:00"
  },
  {
   "id": "2026-10-24-pm",
@@ -786,15 +789,42 @@
   "price_at_creation": 2365.74,
   "created_at": "2026-10-24T14:10:00+02:00",
   "expires": "2026-10-24T23:59:00+02:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": "2026-10-24T23:59:00+02:00",
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 7.32,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "После 14:10 максимум 2373.18 (M5 14:45) — 7.32$ до entry 2380.50, 50% пути от 2365.74. Удержали EQH 2372–2373 (H1 12:00–15:00) — середина London-диапазона 2370.8, до OTE 2377.72 не дотянул; затем пролив до 2282.46 (TP1–TP3 взяты бы). Четвёртый DEEP_ENTRY из последних пяти недошедших."
+  },
+  "last_checked": "2026-10-25T07:00:00+01:00"
+ },
+ {
+  "id": "2026-10-25-am",
+  "side": "SELL LIMIT",
+  "basis": "OTE",
+  "entry": 2377.9,
+  "sl": 2389.3,
+  "tp1": 2347.5,
+  "rr_tp1": 2.67,
+  "zone_high": 2384.28,
+  "zone_low": 2374.74,
+  "price_at_creation": 2350.09,
+  "created_at": "2026-10-25T07:15:00+01:00",
+  "expires": "2026-10-25T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 14.76,
+  "closest_approach": 27.81,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-24T14:00:00+02:00"
+  "last_checked": "2026-10-25T07:00:00+01:00"
  }
 ]
