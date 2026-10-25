@@ -1,0 +1,55 @@
+{
+ "date": "2026-10-25",
+ "mode": "midday",
+ "created_at": "2026-10-25T13:10:00+01:00",
+ "price_at_creation": 2339.85,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_order": {
+  "id": "2026-10-25-am",
+  "status": "НЕ ДОШЛА",
+  "closest_approach": 24.6,
+  "max_high": 2353.3,
+  "max_high_at": "2026-10-25T07:20:00+01:00",
+  "invalidated": false,
+  "decision": "снять (CANCELLED): вход 2377.90 выше нового Strong High 2371.52 — исполнение = H1 BOS вверх; TP1–TP3 2347.5/2334.5/2318.5 пройдены без входа (low 2318.00 в 10:15). Заменён PM-ордером 2355.00"
+ },
+ "adjustments": null,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2355.0,
+  "sl": 2376.5,
+  "tp1": 2319.0,
+  "tp2": 2297.8,
+  "tp3": 2287.5,
+  "zone_high": 2362.32,
+  "zone_low": 2354.14,
+  "basis": "FVG: низ H1 bear FVG 2354.14–2362.32 (H1 05:00 low / 07:00 high) в OTE плеча 2371.52→2318.00 (2351.18–2360.28), над London high 2351.00 (sweep buy-side). SL над Strong High 2371.52 +5$",
+  "risk_usd": 21.5,
+  "expires": "2026-10-25T23:59:00+01:00",
+  "rr_tp1": 1.67,
+  "rr_tp2": 2.66,
+  "rr_tp3": 3.14,
+  "distance_usd": 15.15
+ },
+ "invalidation": {
+  "level": 2362.32,
+  "rule": "До исполнения: H1 body close > 2362.32 → снять лимит. H1 close > 2371.52 → H1 бычий, short-идея снята. Уход к 2318 без отката — не гнаться; sweep 2318 + M5 CHoCH вверх → план Б long к 2351/2371."
+ },
+ "levels": {
+  "asia_high": 2371.52, "asia_low": 2336.85,
+  "london_high": 2351.0, "london_low": 2318.0,
+  "pdh": 2390.24, "pdl": 2282.46, "pwh": 2579.88, "pwl": 2318.0,
+  "eqh": null, "eql": [2318.0, 2318.0],
+  "d1_range_high": 2526.62, "d1_range_low": 2282.46, "d1_eq": 2404.54, "week_open": 2410.31,
+  "h1_leg": [2371.52, 2318.0], "h1_ote": [2351.18, 2360.28],
+  "strong_high": 2371.52, "h1_hl": 2318.0, "m5_choch_up": 2334.84,
+  "swept_today": ["asia_low 2336.85 (07:50)", "утренний m5_low 2347.32", "h1_hl_internal 2334.31", "PWL 2318.00 касание без пробоя (10:15)"]
+ },
+ "d1_context": "Из утра без изменений: D1 медвежий (LH 2526.62, LL 2282.46), цена 2339.85 = 24% range (discount). С утра: снят Asia low и internal HL 2334.31, PWL 2318.00 протестирован повторно и удержан (EQL).",
+ "h4_context": "H4 медвежий: LH 2417.77 → LL 2282.46, цена 42% плеча, 50% = 2350.12; CHoCH вверх нет. H4 bear FVG 2390.24–2393.24 и 2417.77–2426.19 не закрыты.",
+ "h1_context": "H1 internal бычий: BOS > 2342.79 (24.10 22:00–25.10 01:00), HL 2318.00; новое плечо 2371.52→2318.00; bear FVG 2354.14–2362.32. M5: London 2318.00–2351.00, CHoCH вверх 12:45 > 2334.84 — идёт откат к зоне.",
+ "news": [],
+ "warnings": ["RR к TP1 1:1.67 < 1:2 (TP1 — EQL/PWL 2318)", "H1 internal структура бычья (HL 2318) — вход против неё, по H4/D1", "Воскресенье: низкая ликвидность", "Вход у 54% H4-плеча — premium минимальный"]
+}
