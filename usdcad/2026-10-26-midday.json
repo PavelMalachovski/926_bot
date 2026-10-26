@@ -1,0 +1,24 @@
+{
+ "date": "2026-10-26",
+ "created_at": "2026-10-26T13:15:00+01:00",
+ "price_at_creation": 1.4018,
+ "morning_order_status": "ИСПОЛНЕН, В РАБОТЕ: SELL 1.40207 filled 08:05 (high 1.40209) on the London Judas sweep of Asia high 1.40184 / PDH 1.40195; London high 1.40265 at 08:45, 0.3 pips under the H1 FVG top 1.40268 (H1 08:00 body close 1.40215 - FVG held, no invalidation). SL 1.40370 and TP1 1.39990 untouched; low 1.40096 (12:30/12:45). Floating +2.7 pips / +0.17R (~+$19 per 1.00 lot) at 1.40180; MAE 5.8 pips, MFE 11.1 pips.",
+ "adjustments": "Leave as is: SL 1.40370, TP1 1.39990 / TP2 1.39931 / TP3 1.39700. No BE: the 12:30 M5 break of 1.40105 was 0.9 pips on the wick, 0.1 pip on the body, then an EQL 1.40096/1.40096 - no displacement, not a BOS; the protected high 1.40205 (11:50 LH) sits on the entry, a BE stop there is the obvious buy-side pool. BE trigger: M5 body close below 1.40088 (07:50 swing low, origin of the London rally) -> SL 1.40212 (entry + 0.5 pip). No red news today.",
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "invalidation": {"level": 1.40268, "rule": "Position: H1 body close above 1.40268 (H1 FVG top) -> close manually before SL 1.40370; otherwise SL/TP as is"},
+ "levels": {"asia_high": 1.40184, "asia_low": 1.39988, "london_high": 1.40265, "london_low": 1.40096, "pdh": 1.40195, "pdl": 1.39697,
+            "pwh": 1.41429, "pwl": 1.39697, "eqh": 1.40168, "eql": 1.40096, "d1_range_high": 1.43015, "d1_range_low": 1.37329,
+            "d1_eq": 1.40172, "week_open": 1.40324,
+            "swept_today": ["asia_high/eqh 1.40168-1.40184 (08:05)", "pdh 1.40195 (08:15)"]},
+ "d1_context": "Unchanged from morning: D1 bearish LH 1.42994 -> LL 1.39697; price 1.40180 at EQ 1.40172 (50% of 1.37329-1.43015). Sell-side below: Asia low/EQL 1.39988, PDL/PWL 1.39697.",
+ "h4_context": "H4 (resampled from H1) bearish LH/LL intact: Sunday wick 1.40526 = buy-side sweep, 20:00 block closed 1.40159; 08:00 block high 1.40265 (lower high), closed 1.40181. H1: range 1.39988-1.40265 after the Sunday CHoCH up; the London Judas into the bear H1 FVG 1.40207-1.40268 held; M5 CHoCH down 09:10 (below 1.40136), LH 1.40205 (11:50), EQL 1.40096 = next M5 sell-side pool.",
+ "news": [],
+ "warnings": [
+  "No new pm order: the morning SELL is open - one position per bias",
+  "RR to TP1 1:1.33 (< 1:2) on the open trade",
+  "H1 still formally bullish (HL 1.39988 intact) - short rests on H4/D1",
+  "BoC + FOMC Wed 28.10 (14:45 / 19:00 Prague): the position is intraday only"
+ ]
+}
