@@ -1,0 +1,80 @@
+{
+ "date": "2026-10-26",
+ "mode": "midday",
+ "created_at": "2026-10-26T13:20:00+01:00",
+ "price_at_creation": 2332.13,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_order": {
+  "id": "2026-10-26-am",
+  "status": "ИСПОЛНЕН, В РАБОТЕ",
+  "filled_at": "2026-10-26T10:55:00+01:00",
+  "fill_bar_high": 2338.27,
+  "max_adverse_usd": 0.77,
+  "floating_usd": 5.37,
+  "floating_r": 0.27,
+  "invalidated": false,
+  "decision": "оставить как есть: SL 2357.50 над Strong High 2352.46 цел, H1 body close > 2342.49 нет, M5 BOS вниз (< 2322.94) ещё нет; TP-пулы Asia low 2293.09 и PWL 2282.46 не сняты; красных USD-новостей сегодня нет"
+ },
+ "adjustments": null,
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "be_rule": "SL → BE 2337.50 после TP1 2294.00 или после M5 BOS < 2322.94 с новым protected high",
+ "invalidation": {
+  "level": 2352.46,
+  "rule": "H1 close > 2352.46 → short-структура H1 сломана, позицию закрыть до SL. Sweep 2338.45 (Asia high) + возврат под 2336.9 — норма, не повод выходить."
+ },
+ "levels": {
+  "asia_high": 2338.45,
+  "asia_low": 2293.09,
+  "london_high": 2338.27,
+  "london_low": 2304.44,
+  "pdh": 2371.52,
+  "pdl": 2308.7,
+  "pwh": 2526.62,
+  "pwl": 2282.46,
+  "eqh": [
+   2338.27,
+   2338.01
+  ],
+  "m5_hl": 2322.94,
+  "m5_last_low": 2324.13,
+  "strong_high": 2352.46,
+  "h4_fvg": [
+   2338.45,
+   2341.91
+  ],
+  "d1_range_high": 2526.62,
+  "d1_range_low": 2282.46,
+  "d1_eq": 2404.54,
+  "week_open": 2329.87,
+  "swept_today": [
+   "M5 EQH 2329.85 (09:35)",
+   "H1 high 2334.13 (10:25)"
+  ],
+  "unswept": [
+   "Asia high 2338.45",
+   "Asia low 2293.09",
+   "PWL 2282.46",
+   "PDH 2371.52"
+  ]
+ },
+ "d1_context": "Из утра: D1 медвежий (LH 2526.62 → LL 2282.46). С утра: цена 2332.13 = 20% range (было 15%), пулы не сняты.",
+ "h4_context": "H4 медвежий: LH 2371.52/2365.40, low 2293.09; бар 09:00 откатил к 2338.27 — в нижний край bear FVG 2338.45–2341.91 не зашёл телом.",
+ "h1_context": "H1 коррекция вверх от 2293.09: HL 2304.44, highs 2334.13 → 2338.27/2338.01 (двойная вершина под Asia high). M5: London 2304.44–2338.27, M5 HL 2322.94, last low 2324.13; BOS вниз нет.",
+ "news": [],
+ "news_week": [
+  {
+   "time": "2026-10-28T19:00",
+   "title": "FOMC Rate/Statement"
+  },
+  {
+   "time": "2026-10-29T13:30",
+   "title": "Advance GDP, Core PCE"
+  }
+ ],
+ "warnings": [
+  "Short в D1 discount (20% range) — против D1",
+  "Над входом EQH 2338.27/2338.01 + Asia high 2338.45 — вероятен sweep к 2342 до разворота (SL не задет, он над 2352.46)"
+ ]
+}
