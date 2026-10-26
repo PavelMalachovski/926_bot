@@ -594,15 +594,42 @@
   "price_at_creation": 156.9,
   "created_at": "2026-10-23T14:10:00+02:00",
   "expires": "2026-10-23T23:59:00+02:00",
-  "status": "PENDING",
+  "status": "INVALIDATED",
   "filled_at": null,
-  "closed_at": null,
+  "closed_at": "2026-10-23T15:00:00+02:00",
   "result_r": null,
   "result_pips": null,
   "closest_approach": 13.5,
   "ambiguous": false,
   "adjusted": false,
+  "review": {
+   "cause": "TP1_BEFORE_FILL",
+   "note": "По правилу плана «close < 156.554 без входа → снять»: H1 14:00 23.10 (open 156.896 = цена создания) ушёл до 156.338 и закрылся телом 156.455 < 156.554 — TP1 взят без нас, max до этого 156.900 (13.5 п до 157.035). Entry задет лишь в H1 18:00 (157.090) — уже после инвалидации. M5 за пятницу 14:00–23:00 не отдаются (окно с 24.10 22:40), исход по H1 однозначный. Не слабая зона: это был OTE-лимит, а движение сделало TP раньше отката — вход стоял слишком глубоко для NY."
+  },
+  "last_checked": "2026-10-26T07:00:00+01:00"
+ },
+ {
+  "id": "2026-10-26-am",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 157.28,
+  "sl": 157.47,
+  "tp1": 156.67,
+  "rr_tp1": 3.21,
+  "zone_high": 157.359,
+  "zone_low": 157.255,
+  "price_at_creation": 157.083,
+  "created_at": "2026-10-26T07:10:00+01:00",
+  "expires": "2026-10-26T23:59:00+01:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 19.7,
+  "ambiguous": false,
+  "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-23T14:00:00+02:00"
+  "last_checked": "2026-10-26T07:00:00+01:00"
  }
 ]

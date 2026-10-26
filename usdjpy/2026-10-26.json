@@ -1,0 +1,48 @@
+{
+ "date": "2026-10-26",
+ "created_at": "2026-10-26T07:10:00+01:00",
+ "price_at_creation": 157.083,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 157.28,
+  "sl": 157.47,
+  "tp1": 156.67,
+  "tp2": 156.34,
+  "tp3": 156.07,
+  "zone_high": 157.359,
+  "zone_low": 157.255,
+  "basis": "OB: H1 bearish OB 22.10 15:00–16:00 (тело 157.255, фитиль 157.359 = H4 LH) над BSL Asia high/PDH 157.164–157.203; внутри D1 bear FVG 157.164–157.822; H4 premium 94% плеча 157.359→156.069",
+  "risk_pips": 19.0,
+  "risk_usd_1lot": 121.0,
+  "rr": {"tp1": 3.21, "tp2": 4.95, "tp3": 6.37},
+  "distance_pips": 19.7,
+  "expires": "2026-10-26T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 157.359,
+  "rule": "H1 body close > 157.359 (H4 LH) до исполнения → снять лимит, H4 CHoCH↑; M5 close < 156.67 без входа → снять (TP1 взят без нас). План Б: лонг не берём против D1; ждать sweep 157.45–157.63 (H1 FVG) + M5 CHoCH↓"
+ },
+ "levels": {
+  "asia_high": 157.203, "asia_low": 156.661,
+  "pdh": 157.164, "pdl": 156.069,
+  "pwh": 158.602, "pwl": 156.069,
+  "eqh": 157.203, "eql": 156.661,
+  "d1_range_high": 159.029, "d1_range_low": 152.908, "d1_eq": 155.968,
+  "week_open": 156.838,
+  "h4_lh": 157.359, "h1_fvg_bear": [157.446, 157.634], "h4_fvg_bear": [157.359, 157.61], "d1_fvg_bear": [157.164, 157.822], "fri_hl": 156.338
+ },
+ "d1_context": "D1 вниз: LH 158.962→158.602, LL 156.069 (23.10, снят EQL 156.383 от 30.09). Range 152.908–159.029, цена 157.08 = 68% premium (EQ 155.968). Над ценой незакрытый D1 bear FVG 157.164–157.822, PWH 158.602; снизу PWL/PDL 156.069.",
+ "h4_context": "H4 вниз с CHoCH 22.10 (под 157.822): LH 157.359, LL 156.069; сейчас коррекция 156.069→157.203, 88% плеча. Bear FVG 157.359–157.610. H1 internal вверх (HH 157.203 / HL 156.661) — коррекция, H4/H1 расходятся.",
+ "news": [
+  {"time": "2026-10-28T19:00:00+01:00", "country": "USD", "title": "FOMC Rate/Statement (+19:30 Press Conference)"},
+  {"time": "2026-10-29T13:30:00+01:00", "country": "USD", "title": "Advance GDP q/q, Core PCE m/m"},
+  {"time": "2026-10-30T03:30:00+01:00", "country": "JPY", "title": "BOJ Policy Rate / Statement / Outlook (06:30 Press Conf)"}
+ ],
+ "warnings": [
+  "H4/H1 расходятся: H1 internal HH/HL вверх — шорт по H4/D1, вход только после sweep Asia high 157.203",
+  "Красных USD/JPY сегодня и завтра нет; FOMC ср 19:00, BOJ пт 03:30",
+  "Бары 24–25.10 у Twelve Data — выходные котировки (тонкий фид), в структуре не учитывались"
+ ]
+}

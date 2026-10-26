@@ -1,6 +1,6 @@
 {
- "updated_at": "2026-10-23T14:10:00+02:00",
- "orders": 17,
+ "updated_at": "2026-10-26T07:10:00+01:00",
+ "orders": 18,
  "filled": 12,
  "tp": 6,
  "sl": 6,
@@ -8,15 +8,15 @@
  "open": 0,
  "pending": 1,
  "expired": 4,
- "invalidated": 0,
+ "invalidated": 1,
  "unknown": 0,
  "winrate": 50.0,
- "fill_rate": 75.0,
+ "fill_rate": 70.6,
  "total_r": 2.34,
  "avg_r": 0.19,
  "total_pips": 98.3,
  "am": {
-  "orders": 7,
+  "orders": 8,
   "filled": 7,
   "tp": 4,
   "sl": 3,
@@ -30,5 +30,5 @@
   "total_r": 0.43
  },
  "last10": "SSTTSSSTST",
- "review": "23.10 pm: WR 50.0% (6T/6S), avg_r +0.19, ΣR +2.34 — в плюсе за счёт RR. SL: ZONE_FAILED ×5, AGAINST_HTF ×1. am 4T/3S +1.91R, pm 2T/3S +0.43R; OB 5T/3S, OTE 1T/1S, FVG 0T/2S. Недошедшие/снятые: NO_PULLBACK ×6, DEEP_ENTRY ×3 (23.10-am: откат 51% пути, удержал sweep Asia/London high, а не H1 FVG). Правка: утренний лимит ставить не глубже первого пула над ценой (Asia high + ≤10 п), если до entry > 40 п — RR≥2 сохранить."
+ "review": "26.10 am: WR 50.0% (6T/6S), avg_r +0.19, ΣR +2.34 — плюс за счёт RR. SL: ZONE_FAILED ×5, AGAINST_HTF ×1 (5 из 6 — лонги в D1 premium). am 4T/3S +1.91R, pm 2T/3S +0.43R; OB 5T/3S, OTE 1T/1S, FVG 0T/2S. Неисполненные: NO_PULLBACK ×6, DEEP_ENTRY ×3, TP1_BEFORE_FILL ×1 (23.10-pm). Правка: pm-лимит снимать автоматически, если до entry > 10 п к открытию NY 14:30 и цена уже прошла 50% пути к TP1 — у pm 5/10 ордеров без входа."
 }
