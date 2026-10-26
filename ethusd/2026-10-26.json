@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-26",
+ "mode": "morning",
+ "created_at": "2026-10-26T07:15:00+01:00",
+ "price_at_creation": 2318.68,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2337.5,
+  "sl": 2357.5,
+  "tp1": 2294.0,
+  "tp2": 2283.5,
+  "tp3": 2256.4,
+  "zone_high": 2342.49,
+  "zone_low": 2336.9,
+  "basis": "FVG: H4 bear FVG 2338.45–2341.91 + H1 OB 25.10 23:00 (тело 2332.38–2342.49, фитиль 2352.46) + OTE 62% 2337.92 плеча 2365.40→2293.09; под Asia high 2338.45, выше M5 EQH 2329.85 (sweep buy-side). SL над LH 2352.46 +5$",
+  "risk_usd": 20.0,
+  "rr_tp1": 2.18, "rr_tp2": 2.7, "rr_tp3": 4.06,
+  "distance_usd": 18.82,
+  "expires": "2026-10-26T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 2342.49,
+  "rule": "До исполнения: H1 body close > 2342.49 → снять лимит. H1 close > 2352.46 → H1 short-структура сломана. Уход к 2282 без отката — не гнаться; sweep PWL 2282.46 + M5 CHoCH вверх → план Б long к 2318/2330."
+ },
+ "levels": {
+  "asia_high": 2338.45, "asia_low": 2293.09,
+  "pdh": 2371.52, "pdl": 2308.7, "pwh": 2526.62, "pwl": 2282.46,
+  "eqh": 2329.85, "eql": null,
+  "d1_range_high": 2526.62, "d1_range_low": 2282.46, "d1_eq": 2404.54, "week_open": 2329.87,
+  "weekend_high": 2390.24, "weekend_low": 2282.46,
+  "h1_leg": [2365.4, 2293.09], "h1_ote": [2337.92, 2350.21],
+  "strong_high": 2352.46, "h4_fvg": [2338.45, 2341.91],
+  "m5_choch_up": 2318.74, "m5_choch_down": 2320.27,
+  "swept_today": ["PDL 2308.70 (00:30 и 04:50)", "H1 EQL 2318.00/2318.33", "round 2300.00"]
+ },
+ "d1_context": "D1 медвежий: LH 2526.62 → LL 2282.46 (24.10). Цена 2318.68 = 15% range 2282.46–2526.62 — глубокий discount. Незанятые пулы: PWL/weekend low 2282.46 снизу, PDH 2371.52 и PWH 2526.62 сверху. D1 bear FVG 2587.28–2683.73 не закрыт (далеко).",
+ "h4_context": "H4 медвежий: LH 2417.77 → LL 2282.46, затем LH 2371.52/2365.40 и новый low 2293.09; CHoCH вверх нет. Bear FVG 2338.45–2341.91 (25.10 17:00–26.10 01:00), 2390.24–2393.24 и 2417.77–2426.19 не закрыты.",
+ "news": [],
+ "warnings": ["Short в D1 discount (15% range) — против D1; TP1–TP2 у PWL 2282.46, ниже — только TP3", "M5 откат слабый (EQH 2329.85 ниже OTE) — вход может не дойти (DEEP_ENTRY)"]
+}
