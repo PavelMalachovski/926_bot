@@ -465,15 +465,42 @@
   "price_at_creation": 1.39976,
   "created_at": "2026-10-23T14:20:00+02:00",
   "expires": "2026-10-23T23:59:00+02:00",
+  "status": "INVALIDATED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 27.2,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "TP1 1.39805 traded in the 15:00 H1 bar (low 1.39727, high 1.39808) before any touch of entry 1.40080 -> plan rule cancelled the order. Pullback to 1.40086 came only 18:xx, after the cancel; held, it would have floated and then been stopped by the Sunday-open spike to 1.4046. M5 feed starts Sat 22:50, resolved from H1 bars (unambiguous)."
+  },
+  "last_checked": "2026-10-26T07:10:00+01:00"
+ },
+ {
+  "id": "2026-10-26-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.40207,
+  "sl": 1.4037,
+  "tp1": 1.3999,
+  "rr_tp1": 1.33,
+  "zone_high": 1.40268,
+  "zone_low": 1.40207,
+  "price_at_creation": 1.40145,
+  "created_at": "2026-10-26T07:20:00+01:00",
+  "expires": "2026-10-26T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 10.4,
+  "closest_approach": 6.2,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-23T14:15:00+02:00"
+  "last_checked": "2026-10-26T07:10:00+01:00"
  }
 ]

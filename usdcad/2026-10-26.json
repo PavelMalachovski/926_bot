@@ -1,0 +1,23 @@
+{
+ "date": "2026-10-26",
+ "created_at": "2026-10-26T07:20:00+01:00",
+ "price_at_creation": 1.40145,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL", "entry": 1.40207, "sl": 1.4037, "tp1": 1.3999, "tp2": 1.39931, "tp3": 1.397,
+           "zone_high": 1.40268, "zone_low": 1.40207, "basis": "FVG", "risk_pips": 16.3,
+           "expires": "2026-10-26T23:59:00+01:00"},
+ "invalidation": {"level": 1.40268, "rule": "H1 body close above 1.40268 (H1 FVG top) -> cancel, plan B (long only after M5 CHoCH up from 1.3999 EQL); TP1 1.39990 traded before fill -> cancel, don't chase"},
+ "levels": {"asia_high": 1.40168, "asia_low": 1.39988, "pdh": 1.40195, "pdl": 1.39697, "pwh": 1.41429, "pwl": 1.39697,
+            "eqh": 1.40168, "eql": 1.39988, "d1_range_high": 1.43015, "d1_range_low": 1.37329, "d1_eq": 1.40172, "week_open": 1.40324},
+ "d1_context": "D1 bearish: LH 1.42994 (14.10) -> LL 1.39697 (23.10, swept Sep EQL 1.39800 and 1.39719). Price 1.40145 = 49.5% of 1.37329-1.43015, right at EQ 1.40172 (neither premium nor discount). No open D1 FVG nearby (Sep 1.40387-1.40570 filled). Sell-side below: PDL/PWL 1.39697, then 1.38972.",
+ "h4_context": "H4 bearish LH/LL: LH 1.40195 (23.10) was wicked on the Sunday gap-up (high 1.40526, real-open high 1.40460) but the 21:00 H4 bar closed 1.40135 below it - buy-side sweep, no H4 CHoCH. H1 printed body closes above 1.40195 (Sun 21:00-22:00) = formal H1 CHoCH up, then Asia retraced 90% to 1.39988 leaving a bear H1 FVG 1.40207-1.40268 and OB 22:00 (body 1.40324-1.40356).",
+ "news": [],
+ "warnings": [
+  "RR to TP1 1:1.33 (< 1:2); 1:2 only at TP2+ (TP2 1:1.69, TP3 1:3.11)",
+  "H1 formally bullish after the Sunday gap (CHoCH up on body closes 1.40284/1.40356, HL 1.39988 intact) - H1 vs H4/D1 divergence; wait for M5 CHoCH down after the sweep",
+  "Price at D1 EQ (49.5%) - short is not from premium",
+  "Twelve Data serves Sat/Sun quotes; the Sunday 19:00-21:00 spike to 1.40526 is pre-open and unreliable",
+  "No red USD/CAD news today; BoC + FOMC Wed 28.10 (14:45 / 19:00 Prague), GDP + Core PCE Thu 29.10 13:30"
+ ]
+}
