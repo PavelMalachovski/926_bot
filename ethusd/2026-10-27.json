@@ -1,0 +1,96 @@
+{
+ "date": "2026-10-27",
+ "created_at": "2026-10-27T07:15:00+01:00",
+ "price_at_creation": 2316.3,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2329.0,
+  "sl": 2339.0,
+  "tp1": 2308.0,
+  "tp2": 2296.0,
+  "tp3": 2283.0,
+  "zone_high": 2333.97,
+  "zone_low": 2326.26,
+  "basis": "OB: M5 bear OB 02:40 (тело 2326.26–2329.52, фитиль 2333.97 = sweep EQH 2332.60/2332.44) после CHoCH↓ < 2319.45; внутри H4 OB 26.10 09:00 (2318.72–2334.05); OTE 62% 2328.57 плеча 2344.72→2302.22 / 79% 2328.47 плеча 2333.97→2307.77; week open 2329.86. SL над Strong High 2333.97 +5$",
+  "risk_usd": 10.0,
+  "rr_tp1": 2.1,
+  "rr_tp2": 3.3,
+  "rr_tp3": 4.6,
+  "distance_usd": 12.7,
+  "expires": "2026-10-27T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 2333.97,
+  "rule": "До исполнения: H1 body close > 2333.97 → снять лимит. H1 close > 2344.72 (PDH) → короткий план мёртв. Sweep Asia low 2307.77 до входа → TP1 = 2302.50 (H1 HL). Sweep EQL 2293/PWL 2282.46 + M5 CHoCH↑ → план Б long к 2329/2344."
+ },
+ "levels": {
+  "asia_high": 2333.97,
+  "asia_low": 2307.77,
+  "pdh": 2344.72,
+  "pdl": 2293.09,
+  "pwh": 2526.62,
+  "pwl": 2282.46,
+  "eqh": [
+   2332.6,
+   2332.44
+  ],
+  "eqh_swept": true,
+  "eql": [
+   2293.09,
+   2295.88
+  ],
+  "d1_range_high": 2526.62,
+  "d1_range_low": 2282.46,
+  "d1_eq": 2404.54,
+  "week_open": 2329.86,
+  "h1_lh": [
+   2344.72,
+   2333.97
+  ],
+  "h1_hl": [
+   2295.88,
+   2302.22
+  ],
+  "strong_high": 2333.97,
+  "m5_choch_down": 2319.45,
+  "h4_ob": [
+   2318.72,
+   2334.05
+  ],
+  "d1_fvg": [
+   2417.77,
+   2436.87
+  ],
+  "d1_position_pct": 14
+ },
+ "d1_context": "D1 медвежий: LH 2526.62 → LL 2282.46 (24.10); цена 2316.30 = 14% range 2282.46–2526.62 (глубокий discount), EQ 2404.54. Пулы: PWL 2282.46, PDL 2293.09 (+EQL 2295.88), PDH 2344.72. Незакрытый D1 bear FVG 2417.77–2436.87.",
+ "h4_context": "H4 ↓: LH 2371.52→2365.40→2344.72, последний BOS↓ 2351.55 (24.10 → 2282.46). Нового LL нет, лоу 2293.09/2295.88 = EQL; H4 bear OB 26.10 09:00 тело 2318.72–2334.05. H1 — сжатие (LH падают, HL растут 2295.88→2302.22→2307.77).",
+ "news": [
+  {
+   "time": "2026-10-28 19:00",
+   "title": "USD Federal Funds Rate / FOMC Statement"
+  },
+  {
+   "time": "2026-10-28 19:30",
+   "title": "USD FOMC Press Conference"
+  },
+  {
+   "time": "2026-10-29 13:30",
+   "title": "USD Advance GDP q/q, Core PCE m/m"
+  }
+ ],
+ "warnings": [
+  "Short в D1 discount (вход на 19% range) — против D1 P/D",
+  "H1 не чистый тренд: HL растут, bias только по H4",
+  "Уже открыт 26-am SELL 2337.50 — второй short, суммарный риск по ETH"
+ ],
+ "open_position": {
+  "id": "2026-10-26-am",
+  "decision": "SL → BE 2337.50 (M5 BOS↓ 26.10 14:00 < 2322.94 + новый protected high 2333.97); TP1 2294.00 без изменений",
+  "floating_usd": 21.2,
+  "floating_r": 1.06
+ }
+}
