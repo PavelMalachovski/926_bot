@@ -1,0 +1,60 @@
+{
+ "date": "2026-10-27",
+ "created_at": "2026-10-27T13:15:00+01:00",
+ "price_at_creation": 1.40217,
+ "morning_order_status": "НЕ ДОШЛА (3.2 пипса до entry)",
+ "morning_order_check": {
+  "filled": false,
+  "max_high": 1.40278,
+  "max_high_at": "2026-10-27T09:25:00+01:00",
+  "closest_approach_pips": 3.2,
+  "invalidated": false,
+  "last_checked": "2026-10-27T13:05:00+01:00"
+ },
+ "morning_order_decision": "keep",
+ "morning_order_decision_note": "Оставить SELL LIMIT 1.40310 до 23:59: H1 bear FVG 1.40291-1.40425 нетронут, London снял EQH 1.40241/45 + Asia H (1.40278) - пул под зоной снят (условие из review выполнено), H1 body close над 1.40425 не было.",
+ "adjustments": null,
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "new_order_note": "Нового ордера нет: единственная валидная зона для шорта по H4/D1 - тот же H1 FVG, лонг против H4/D1 не даём.",
+ "invalidation": {
+  "level": 1.40425,
+  "rule": "H1 body close above 1.40425 before fill -> cancel the limit"
+ },
+ "levels": {
+  "asia_high": 1.40242,
+  "asia_low": 1.40092,
+  "london_high": 1.40278,
+  "london_low": 1.401,
+  "pdh": 1.40553,
+  "pdl": 1.39988,
+  "pwh": 1.41429,
+  "pwl": 1.39697,
+  "eqh": 1.40243,
+  "eql": 1.40092,
+  "swept_today": [
+   "eqh",
+   "asia_high"
+  ]
+ },
+ "d1_context": "Без изменений с утра: D1 bearish, цена у EQ 1.40172; день inside, диапазон 18.6 пипса (~37% среднего за 10 дней).",
+ "h4_context": "H4 (ресемпл) bearish, LH 1.40553 цел; H1 зажат 1.40065-1.40278 с 26.10 18:00, FVG 1.40291-1.40425 нетронут.",
+ "news": [
+  {
+   "time": "2026-10-28T14:45:00+01:00",
+   "country": "CAD",
+   "title": "BOC Rate Statement / Overnight Rate / MPR"
+  },
+  {
+   "time": "2026-10-28T19:00:00+01:00",
+   "country": "USD",
+   "title": "FOMC Statement / Federal Funds Rate"
+  }
+ ],
+ "warnings": [
+  "RR к TP1 1:0.81 (< 1:2)",
+  "День узкого диапазона (DEAD_RANGE risk для лимита)",
+  "26.10 NY-ралли выбило такой же SELL - ZONE_FAILED"
+ ]
+}
