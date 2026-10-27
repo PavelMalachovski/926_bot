@@ -648,15 +648,42 @@
   "price_at_creation": 157.496,
   "created_at": "2026-10-26T13:20:00+01:00",
   "expires": "2026-10-26T23:59:00+01:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 9.1,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Не дошла до 23:59: max 157.649 (M5 16:30) — 9.1 п до 157.740 = 63% пути от 157.496. Удержал NY high 157.649 = ровно 62% H4-плеча 158.250→156.661 (OTE 62%), а не H1 OB 157.683–157.778. Entry задет лишь 27.10 02:05 (157.742) — после срока; инвалидация H1 close > 157.875 не случилась, TP1 157.225 не взят (min 157.367)."
+  },
+  "last_checked": "2026-10-27T07:05:00+01:00"
+ },
+ {
+  "id": "2026-10-27-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 157.955,
+  "sl": 158.35,
+  "tp1": 157.554,
+  "rr_tp1": 1.02,
+  "zone_high": 158.06,
+  "zone_low": 157.889,
+  "price_at_creation": 157.755,
+  "created_at": "2026-10-27T07:10:00+01:00",
+  "expires": "2026-10-27T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 24.4,
+  "closest_approach": 20.0,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-26T13:10:00+01:00"
+  "last_checked": "2026-10-27T07:05:00+01:00"
  }
 ]
