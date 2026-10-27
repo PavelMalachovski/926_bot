@@ -492,15 +492,42 @@
   "price_at_creation": 1.40145,
   "created_at": "2026-10-26T07:20:00+01:00",
   "expires": "2026-10-26T23:59:00+01:00",
-  "status": "OPEN",
+  "status": "SL",
   "filled_at": "2026-10-26T08:05:00+01:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
+  "closed_at": "2026-10-26T14:35:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -16.3,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "NY-open rally 14:00-15:15 (no red news) ran straight through the H1 bear FVG 1.40207-1.40268: H1 14:00 body closed 1.40492, 22 pips above the FVG top; SL 1.40370 hit 14:35 (high 1.40372), MFE before that was 11.1 pips (low 1.40096), TP1 1.39990 never traded afterwards (low 1.40065 18:30) - not a stop hunt. The FVG sat below the unswept Sunday high 1.40526 / H4 LH 1.40444, the rally took that buy-side pool first (high 1.40553). Lesson: a sell FVG with an obvious unswept pool 30 pips above it is not the last supply."
+  },
+  "last_checked": "2026-10-26T14:40:00+01:00"
+ },
+ {
+  "id": "2026-10-27-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.4031,
+  "sl": 1.40575,
+  "tp1": 1.40095,
+  "rr_tp1": 0.81,
+  "zone_high": 1.40425,
+  "zone_low": 1.40291,
+  "price_at_creation": 1.4023,
+  "created_at": "2026-10-27T07:20:00+01:00",
+  "expires": "2026-10-27T23:59:00+01:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 8.0,
+  "ambiguous": false,
+  "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-26T13:05:00+01:00"
+  "last_checked": "2026-10-27T07:05:00+01:00"
  }
 ]

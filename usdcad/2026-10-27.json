@@ -1,0 +1,23 @@
+{
+ "date": "2026-10-27",
+ "created_at": "2026-10-27T07:20:00+01:00",
+ "price_at_creation": 1.40230,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL", "entry": 1.40310, "sl": 1.40575, "tp1": 1.40095, "tp2": 1.39995, "tp3": 1.39705,
+           "zone_high": 1.40425, "zone_low": 1.40291,
+           "basis": "FVG: untouched H1 bear FVG 1.40291-1.40425 (16:00 26.10 displacement off PDH 1.40553), entry at EQ 50% of leg 1.40553->1.40065, above EQH 1.40241/1.40245",
+           "risk_pips": 26.5, "expires": "2026-10-27T23:59:00+01:00"},
+ "invalidation": {"level": 1.40425, "rule": "H1 body close above 1.40425 (FVG far edge) before fill -> cancel the limit, plan B"},
+ "levels": {"asia_high": 1.40241, "asia_low": 1.40092, "pdh": 1.40553, "pdl": 1.39988, "pwh": 1.41429, "pwl": 1.39697,
+            "eqh": 1.40243, "eql": 1.40092, "d1_range_high": 1.43015, "d1_range_low": 1.37329, "d1_eq": 1.40172, "week_open": 1.40324},
+ "d1_context": "D1 bearish LH 1.42994 -> LL 1.39697 (23.10, tapped the D1 bull FVG 1.39283-1.39719). Price 1.40230 = 51% of 1.37329-1.43015, at EQ. Sell-side PDL 1.39988 / PWL 1.39697; D1 bear FVG 1.41512-1.41708 above.",
+ "h4_context": "H4 bearish: LH 1.40553 < 1.40815; Monday NY wick swept the internal LH 1.40444 and Sunday high 1.40526 without an H4 body close above, back to 1.40065. H4 bear FVG 1.40636-1.40826 above. H1 formally bullish (HH 1.40553 / HL 1.40065), price at 29% of the leg; M5 pushing up into EQH 1.40241/1.40245.",
+ "news": [{"time": "2026-10-28T14:45:00+01:00", "country": "CAD", "title": "BOC Rate Statement / Overnight Rate / MPR"},
+          {"time": "2026-10-28T19:00:00+01:00", "country": "USD", "title": "FOMC Statement / Federal Funds Rate"},
+          {"time": "2026-10-29T13:30:00+01:00", "country": "USD", "title": "Advance GDP q/q, Core PCE m/m"}],
+ "warnings": ["RR to TP1 1:0.81 (< 1:2); 1:2 only at TP3 PWL",
+              "H1 formally bullish (HL 1.40065 intact) - short rests on H4/D1",
+              "26.10 SELL at the FVG just below stopped out by the NY-open rally (ZONE_FAILED)",
+              "No red news today; BoC/FOMC tomorrow - intraday only"]
+}
