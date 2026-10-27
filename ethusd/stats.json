@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-10-27T07:15:00+01:00",
+ "updated_at": "2026-10-27T13:10:00+01:00",
  "orders": 26,
  "filled": 12,
  "tp": 6,
@@ -16,14 +16,14 @@
  "avg_r": 0.86,
  "total_usd": 147.95,
  "am": {
-  "orders": 13,
+  "orders": 12,
   "filled": 8,
   "tp": 4,
   "sl": 1,
   "total_r": 6.96
  },
  "pm": {
-  "orders": 13,
+  "orders": 14,
   "filled": 4,
   "tp": 2,
   "sl": 2,

@@ -1,0 +1,36 @@
+{
+ "date": "2026-10-27",
+ "created_at": "2026-10-27T13:10:00+01:00",
+ "price_at_creation": 2314.1,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_order_status": {
+  "id": "2026-10-27-am",
+  "status": "НЕ ДОШЛА ($3.38 до entry)",
+  "max_high": 2325.62, "max_high_at": "2026-10-27T11:45:00+01:00",
+  "invalidated": false,
+  "decision": "СНЯТЬ (CANCELLED): новый H1 LH 2325.62 ниже entry 2329.00 — возврат к 2329 означает слом LH, лимит перенесён в 27-pm 2320.00"
+ },
+ "open_position": {
+  "id": "2026-10-26-am",
+  "status": "ИСПОЛНЕН, В РАБОТЕ",
+  "floating_usd": 23.4, "floating_r": 1.17,
+  "decision": "SL BE 2337.50 → 2331.00 (над LH 2325.62 + буфер; sweep London high 2323.80 + M5 CHoCH↓ < 2314.22), TP1 2294.00 без изменений (EQL 2293.09/2295.88 не сняты)"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT", "entry": 2320.0, "sl": 2330.6, "tp1": 2297.6, "tp2": 2293.5, "tp3": 2283.0,
+  "zone_high": 2322.63, "zone_low": 2316.18,
+  "basis": "FVG: M5 bear FVG 12:05–12:15 (2316.18–2319.93) + M5 bear OB 12:00 (тело 2316.50–2321.52, фитиль 2322.63); OTE 62% 2320.67 плеча 2325.62→2312.59; после sweep London high 2323.80 фитилём 2325.62 и M5 CHoCH↓ < 2314.22. SL над LH 2325.62 +5$",
+  "risk_usd": 10.6, "rr_tp1": 2.11, "rr_tp2": 2.5, "rr_tp3": 3.49, "distance_usd": 5.9,
+  "expires": "2026-10-27T23:59:00+01:00"
+ },
+ "invalidation": {"level": 2325.62, "rule": "До исполнения: H1 body close > 2325.62 → снять лимит. Sweep EQL 2293.09 + M5 CHoCH↑ → план Б long к 2320/2325."},
+ "levels": {"asia_high": 2333.97, "asia_low": 2307.77, "asia_low_swept": true, "london_high": 2325.62, "london_low": 2297.44,
+  "pdh": 2344.72, "pdl": 2293.09, "pwh": 2526.62, "pwl": 2282.46, "eql": [2293.09, 2295.88], "h1_hl_2302_22_swept": true,
+  "h1_lh": [2344.72, 2333.97, 2325.62], "m5_choch_down": 2314.22, "m5_lh": 2322.63, "week_open": 2329.86},
+ "d1_context": "Без изменений с утра: D1 медвежий, цена 2314 = 13% range 2282.46–2526.62 (глубокий discount), PWL 2282.46 / PDL 2293.09 не сняты.",
+ "h4_context": "H4 ↓, сжатие: LH 2344.72→2333.97→2325.62, лоу 2293.09/2295.88/2297.44 — нисходящий треугольник над EQL. Лондон снял Asia low 2307.77 и H1 HL 2302.22 (2297.44), затем выкинул в 2325.62 (sweep 2323.80) и вернулся.",
+ "news": [{"time": "2026-10-28 19:00", "title": "USD FOMC Rate / Statement"}, {"time": "2026-10-29 13:30", "title": "USD Advance GDP, Core PCE"}],
+ "warnings": ["Short в D1 discount (вход на 15% range) — против D1 P/D", "Вход может исполниться на открытии NY 14:30 (красных USD сегодня нет, но волатильность)", "Второй short при открытом 26-am (он с SL 2331 почти безрисковый)"]
+}

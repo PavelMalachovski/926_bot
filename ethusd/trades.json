@@ -858,7 +858,7 @@
   "side": "SELL LIMIT",
   "basis": "FVG",
   "entry": 2337.5,
-  "sl": 2337.5,
+  "sl": 2331.0,
   "tp1": 2294.0,
   "tp2": 2283.5,
   "tp3": 2256.4,
@@ -877,8 +877,8 @@
   "ambiguous": false,
   "adjusted": true,
   "review": null,
-  "last_checked": "2026-10-27T07:00:00+01:00",
-  "adjust_note": "27.10 07:15: SL 2357.50 → BE 2337.50 (M5 BOS↓ < 2322.94 на 26.10 14:00, protected high 2333.97). Мин. после 13:15 2295.88 (1.88$ до TP1), макс. 2344.72 < SL 2357.50."
+  "last_checked": "2026-10-27T13:05:00+01:00",
+  "adjust_note": "27.10 07:15: SL 2357.50 → BE 2337.50 (M5 BOS↓ < 2322.94 на 26.10 14:00, protected high 2333.97). Мин. после 13:15 2295.88 (1.88$ до TP1), макс. 2344.72 < SL 2357.50. | 27.10 13:10: SL BE 2337.50 → 2331.00 (новый H1 LH 2325.62 после sweep London high 2323.80 + M5 CHoCH↓ < 2314.22), фиксирует +6.50$. Мин. с 07:00 2297.44 (3.44$ до TP1), макс. 2325.62."
  },
  {
   "id": "2026-10-27-am",
@@ -895,15 +895,44 @@
   "price_at_creation": 2316.3,
   "created_at": "2026-10-27T07:15:00+01:00",
   "expires": "2026-10-27T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-27T13:10:00+01:00",
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 3.38,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "CANCELLED",
+   "note": "макс. 2325.62 (11:45) — $3.38 до 2329.00; новый LH 2325.62 ниже entry, лимит перенесён в 27-pm 2320.00"
+  },
+  "last_checked": "2026-10-27T13:05:00+01:00"
+ },
+ {
+  "id": "2026-10-27-pm",
+  "side": "SELL LIMIT",
+  "basis": "FVG",
+  "entry": 2320.0,
+  "sl": 2330.6,
+  "tp1": 2297.6,
+  "tp2": 2293.5,
+  "tp3": 2283.0,
+  "rr_tp1": 2.11,
+  "zone_high": 2322.63,
+  "zone_low": 2316.18,
+  "price_at_creation": 2314.1,
+  "created_at": "2026-10-27T13:10:00+01:00",
+  "expires": "2026-10-27T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 12.7,
+  "closest_approach": 5.9,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-27T07:00:00+01:00"
+  "last_checked": "2026-10-27T13:05:00+01:00"
  }
 ]
