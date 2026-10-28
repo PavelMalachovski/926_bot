@@ -1,0 +1,21 @@
+{
+ "date": "2026-10-28",
+ "created_at": "2026-10-28T07:10:00+01:00",
+ "price_at_creation": 2352.13,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY LIMIT", "entry": 2336.5, "sl": 2320.6, "tp1": 2371.0, "tp2": 2390.0, "tp3": 2417.5,
+  "zone_high": 2340.24, "zone_low": 2325.62,
+  "basis": "FVG: H4 bull FVG 2325.62–2340.24 (H4 27.10 13:00, не тронута) + низ H1 bull FVG 2337.34–2343.65; entry под EQL 2340.14/2340.78 (Asia low) — лимит берёт sweep sell-side. SL под низом H4 FVG 2325.62 −5$. Плечо H1 2297.44→2369.26: entry = 46% (50% 2333.35, OTE 62% 2324.73).",
+  "risk_usd": 15.9, "rr_tp1": 2.17, "rr_tp2": 3.36, "rr_tp3": 5.13, "distance_usd": 15.63,
+  "expires": "2026-10-28T23:59:00+01:00"},
+ "invalidation": {"level": 2325.62, "rule": "До исполнения: H1 body close < 2325.62 (низ H4 FVG) → снять лимит; план Б — ждать sweep PDL 2297.44 + M5 CHoCH↑. Не исполнен к 18:00 → снять перед блэкаутом FOMC."},
+ "levels": {"asia_high": 2369.26, "asia_low": 2340.78, "pdh": 2364.35, "pdh_swept": true, "pdl": 2297.44, "pwh": 2526.62, "pwl": 2282.46,
+  "eqh": [2367.63, 2369.26], "eql": [2340.14, 2340.78], "h4_lh": 2371.52,
+  "d1_range_high": 2526.62, "d1_range_low": 2282.46, "d1_eq": 2404.54, "week_open": 2329.86},
+ "d1_context": "D1 медвежий (LH 2526.62 → LL 2282.46), но 27.10 закрылся 2350.36 бычьим поглощением. Цена 2352 = 29% range 2282.46–2526.62 (discount). Пулы: PWL 2282.46 снизу, сверху D1 bear FVG 2417.77–2436.87 и EQ 2404.54.",
+ "h4_context": "H4 CHoCH↑: 27.10 13:00 close 2347.18 над LH 2344.72, оставила bull FVG 2325.62–2340.24. Следующий LH 2371.52 (25.10) не пробит — high 2369.26 под ним, над ним H4 bear FVG 2390.24–2393.24.",
+ "news": [{"time": "2026-10-28 19:00", "title": "USD Federal Funds Rate / FOMC Statement"}, {"time": "2026-10-28 19:30", "title": "USD FOMC Press Conference"}, {"time": "2026-10-29 13:30", "title": "USD Advance GDP, Core PCE"}],
+ "warnings": ["Long против D1 структуры (LH/LL), хотя в D1 discount 29% и по H4 CHoCH", "FOMC 19:00/19:30: блэкаут 18:00–19:45 — неисполненный лимит снять в 18:00, открытую позицию до 18:00 в BE или частично зафиксировать", "EQL 2340 очевиден — sweep может пройти глубже, до 50% плеча 2333 / OTE 2325"]
+}

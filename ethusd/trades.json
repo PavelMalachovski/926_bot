@@ -868,16 +868,19 @@
   "price_at_creation": 2318.68,
   "created_at": "2026-10-26T07:15:00+01:00",
   "expires": "2026-10-26T23:59:00+01:00",
-  "status": "OPEN",
+  "status": "BE",
   "filled_at": "2026-10-26T10:55:00+01:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_usd": null,
+  "closed_at": "2026-10-27T13:35:00+01:00",
+  "result_r": 0.33,
+  "result_usd": 6.5,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": true,
-  "review": null,
-  "last_checked": "2026-10-27T13:05:00+01:00",
+  "review": {
+   "cause": "TRAIL_STOP",
+   "note": "Подтянутый SL 2331.00 (выше entry на 6.50$) задет M5 13:35 27.10 (high 2335.00) — импульс H1 13:00 до 2341.91. Итог +6.50$ = +0.33R от исходного риска 20$. TP1 2294 не взят: мин. после входа 2295.88 (1.88$ не хватило)."
+  },
+  "last_checked": "2026-10-28T07:00:00+01:00",
   "adjust_note": "27.10 07:15: SL 2357.50 → BE 2337.50 (M5 BOS↓ < 2322.94 на 26.10 14:00, protected high 2333.97). Мин. после 13:15 2295.88 (1.88$ до TP1), макс. 2344.72 < SL 2357.50. | 27.10 13:10: SL BE 2337.50 → 2331.00 (новый H1 LH 2325.62 после sweep London high 2323.80 + M5 CHoCH↓ < 2314.22), фиксирует +6.50$. Мин. с 07:00 2297.44 (3.44$ до TP1), макс. 2325.62."
  },
  {
@@ -924,15 +927,44 @@
   "price_at_creation": 2314.1,
   "created_at": "2026-10-27T13:10:00+01:00",
   "expires": "2026-10-27T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-10-27T13:15:00+01:00",
+  "closed_at": "2026-10-27T13:35:00+01:00",
+  "result_r": -1.0,
+  "result_usd": -10.6,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "AGAINST_HTF",
+   "note": "Исполнен 13:15 (high 2321.05), M5 13:25 закрылась 2327.90 телом над зоной и LH 2325.62, SL 2330.60 снят 13:35 (high 2335.00). H1 13:00 close 2335.22 = H1 CHoCH↑, H4 13:00 close 2347.18 пробила LH 2344.72. После SL — 2369.26, TP1 2297.60 не взят: не stop hunt. Short стоял на 15% D1 range (глубокий discount) над несобранными EQL 2293/2296 — разворот от discount."
+  },
+  "last_checked": "2026-10-28T07:00:00+01:00"
+ },
+ {
+  "id": "2026-10-28-am",
+  "side": "BUY LIMIT",
+  "basis": "FVG",
+  "entry": 2336.5,
+  "sl": 2320.6,
+  "tp1": 2371.0,
+  "rr_tp1": 2.17,
+  "zone_high": 2340.24,
+  "zone_low": 2325.62,
+  "price_at_creation": 2352.13,
+  "created_at": "2026-10-28T07:10:00+01:00",
+  "expires": "2026-10-28T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 5.9,
+  "closest_approach": 15.63,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-27T13:05:00+01:00"
+  "last_checked": "2026-10-28T07:00:00+01:00",
+  "tp2": 2390.0,
+  "tp3": 2417.5
  }
 ]
