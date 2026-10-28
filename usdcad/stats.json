@@ -1,26 +1,26 @@
 {
- "updated_at": "2026-10-27T13:15:00+01:00",
- "orders": 19,
- "filled": 11,
+ "updated_at": "2026-10-28T07:15:00+01:00",
+ "orders": 20,
+ "filled": 12,
  "tp": 1,
- "sl": 8,
+ "sl": 9,
  "be": 2,
  "open": 0,
  "pending": 1,
  "expired": 5,
  "invalidated": 2,
  "unknown": 0,
- "winrate": 11.1,
- "fill_rate": 61.1,
- "total_r": -6.36,
- "avg_r": -0.58,
- "total_pips": -121.0,
+ "winrate": 10.0,
+ "fill_rate": 63.2,
+ "total_r": -7.36,
+ "avg_r": -0.61,
+ "total_pips": -147.5,
  "am": {
-  "orders": 13,
-  "filled": 9,
+  "orders": 14,
+  "filled": 10,
   "tp": 1,
-  "sl": 6,
-  "total_r": -4.36
+  "sl": 7,
+  "total_r": -5.36
  },
  "pm": {
   "orders": 6,
@@ -29,17 +29,17 @@
   "sl": 2,
   "total_r": -2.0
  },
- "last10": "SSBBSSSSTS",
+ "last10": "SBBSSSSTSS",
  "review": {
   "sl_causes": {
-   "ZONE_FAILED": 5,
+   "ZONE_FAILED": 6,
    "AGAINST_HTF": 2,
    "NEWS_SPIKE": 1
   },
-  "worst": "OB basis 0 TP / 5 SL; FVG basis 1 TP / 2 SL / 2 BE; shorts 1 TP / 4 SL / 1 BE, longs 0 TP / 4 SL / 1 BE; am 1 TP / 6 SL / 2 BE, pm 0 TP / 2 SL.",
-  "avg_r": -0.58,
-  "note": "WR 0% over 6 TP+SL, avg_r -0.75: no TP1 hit at all, so not a low-WR/high-RR case. 14.10 short was right in direction but stopped by the CPI spike inside the blackout. 15.10 am: first non-fill (NO_PULLBACK) - price reached TP1 1.41961 without touching entry 1.42290; entry 14 pips above price was too deep for a 5-pip pullback. 15.10 pm: second straight non-fill (DEEP_ENTRY) - stopped 3.0 pips short, the blackout touch at 14:35 would have paid TP1 +1.79R; 2 of the last 2 orders missed by entries set at the sweep level instead of the zone near edge. 16.10 am: third straight non-fill (NO_PULLBACK) - entry 16.8 pips above price at H1 LH 1.42020, real pullback only 1.6 pips (cap = London high 1.41868 / H1 OB wick), TP1/TP2 then traded. 3 of the last 3 orders missed with entries 15-17 pips from price, while the moves themselves would have paid. 20.10 pm: fourth straight non-fill (NO_PULLBACK) - TP1 traded 10 minutes after creation, entry 26 pips away never approached closer than 14.3 pips. 21.10 pm: the one shallow entry that DID fill (OB 11:00, no sweep before it, RR 1.14) was run over by an H1 body close 18 pips through the zone - ZONE_FAILED #4; shallow fills on unswept OBs fail, deep entries don't fill. 22.10 am: INVALIDATED (NO_PULLBACK) - TP2 traded 09:05 before fill, entry touched only 13:05 after the cancel; 5 of the last 7 orders never filled in time. 22.10 pm: EXPIRED (DEEP_ENTRY) - pullback stopped 6.9 pips short at the zone NEAR edge 1.40386 (56% of path), TP1 traded 18:50; 6 of the last 8 orders never filled, and in 3 of them the zone near edge would have filled and paid TP1. 23.10 am: FIRST TP - SELL 1.40180 at the H1 FVG near-ish edge (FVG 1.40154-1.40205, entry 2.6 pips inside), filled 08:50 on the Judas sweep of EQH 1.40151/1.40161 (high 1.40195), TP1 Asia low 1.39975 taken 13:25: +1.64R / +20.5 pips. The winning combination: FVG basis, with H4/H1/D1 trend, sweep of an EQH pool into the zone, entry inside the zone not at its far edge. 23.10 pm: INVALIDATED (NO_PULLBACK) - TP1 1.39805 traded 15:xx with entry 27 pips away untouched; the pullback to 1.40086 came 3h later. 7 of the last 10 orders never filled in time; pm orders 0 TP / 2 SL, 4 never filled. 26.10 am: SELL 1.40207 at the near edge of the untouched H1 FVG 1.40207-1.40268 filled 08:05 on the London Judas sweep of Asia high/PDH (high 1.40265, FVG top held on H1 body close 1.40215) - the proposed pattern (FVG near edge, sweep into it, 6 pips from price) filled; open at midday, MAE 5.8 pips, MFE 11.1 pips. 26.10 am: SL (ZONE_FAILED #5) - the near-edge FVG pattern filled as planned but the NY-open rally (no news) took the unswept Sunday high 1.40526 / PDH 1.40553 straight through the FVG (H1 body close 1.40492); TP1 never traded. 5 of 8 SL are ZONE_FAILED: zones below an unswept buy-side pool (or above a sell-side one) fail.",
-  "proposal": "Only sell an FVG that sits ABOVE (buy an FVG BELOW) the nearest obvious unswept pool, or after that pool has been swept; if a pool lies within 30 pips beyond the zone, put SL beyond that pool + 5 pips, not zone far edge + 10.",
+  "worst": "OB basis 0 TP / 5 SL; FVG basis 1 TP / 3 SL / 2 BE; shorts 1 TP / 5 SL / 1 BE, longs 0 TP / 4 SL / 1 BE; am 1 TP / 7 SL / 2 BE, pm 0 TP / 2 SL.",
+  "avg_r": -0.61,
+  "note": "WR 0% over 6 TP+SL, avg_r -0.75: no TP1 hit at all, so not a low-WR/high-RR case. 14.10 short was right in direction but stopped by the CPI spike inside the blackout. 15.10 am: first non-fill (NO_PULLBACK) - price reached TP1 1.41961 without touching entry 1.42290; entry 14 pips above price was too deep for a 5-pip pullback. 15.10 pm: second straight non-fill (DEEP_ENTRY) - stopped 3.0 pips short, the blackout touch at 14:35 would have paid TP1 +1.79R; 2 of the last 2 orders missed by entries set at the sweep level instead of the zone near edge. 16.10 am: third straight non-fill (NO_PULLBACK) - entry 16.8 pips above price at H1 LH 1.42020, real pullback only 1.6 pips (cap = London high 1.41868 / H1 OB wick), TP1/TP2 then traded. 3 of the last 3 orders missed with entries 15-17 pips from price, while the moves themselves would have paid. 20.10 pm: fourth straight non-fill (NO_PULLBACK) - TP1 traded 10 minutes after creation, entry 26 pips away never approached closer than 14.3 pips. 21.10 pm: the one shallow entry that DID fill (OB 11:00, no sweep before it, RR 1.14) was run over by an H1 body close 18 pips through the zone - ZONE_FAILED #4; shallow fills on unswept OBs fail, deep entries don't fill. 22.10 am: INVALIDATED (NO_PULLBACK) - TP2 traded 09:05 before fill, entry touched only 13:05 after the cancel; 5 of the last 7 orders never filled in time. 22.10 pm: EXPIRED (DEEP_ENTRY) - pullback stopped 6.9 pips short at the zone NEAR edge 1.40386 (56% of path), TP1 traded 18:50; 6 of the last 8 orders never filled, and in 3 of them the zone near edge would have filled and paid TP1. 23.10 am: FIRST TP - SELL 1.40180 at the H1 FVG near-ish edge (FVG 1.40154-1.40205, entry 2.6 pips inside), filled 08:50 on the Judas sweep of EQH 1.40151/1.40161 (high 1.40195), TP1 Asia low 1.39975 taken 13:25: +1.64R / +20.5 pips. The winning combination: FVG basis, with H4/H1/D1 trend, sweep of an EQH pool into the zone, entry inside the zone not at its far edge. 23.10 pm: INVALIDATED (NO_PULLBACK) - TP1 1.39805 traded 15:xx with entry 27 pips away untouched; the pullback to 1.40086 came 3h later. 7 of the last 10 orders never filled in time; pm orders 0 TP / 2 SL, 4 never filled. 26.10 am: SELL 1.40207 at the near edge of the untouched H1 FVG 1.40207-1.40268 filled 08:05 on the London Judas sweep of Asia high/PDH (high 1.40265, FVG top held on H1 body close 1.40215) - the proposed pattern (FVG near edge, sweep into it, 6 pips from price) filled; open at midday, MAE 5.8 pips, MFE 11.1 pips. 26.10 am: SL (ZONE_FAILED #5) - the near-edge FVG pattern filled as planned but the NY-open rally (no news) took the unswept Sunday high 1.40526 / PDH 1.40553 straight through the FVG (H1 body close 1.40492); TP1 never traded. 5 of 8 SL are ZONE_FAILED: zones below an unswept buy-side pool (or above a sell-side one) fail. 27.10 am: SL (ZONE_FAILED #6) - SELL 1.40310 in H1 FVG 1.40291-1.40425 filled at NY open 14:55, H1 body close 1.40480 through the FVG, SL 1.40575 taken 28.10 02:00 on the H4 BOS above PDH 1.40553. The midday 'pool swept' check counted the London EQH 1.40245, but the real buy-side pool (PDH 1.40553, 13 pips above the zone top) was unswept - exactly the proposal's failure case, 6 of 9 SL are ZONE_FAILED.",
+  "proposal": "Only sell an FVG that sits ABOVE (buy an FVG BELOW) the nearest obvious unswept pool within 30 pips (PDH/PDL and session highs/lows count, not only EQH/EQL), or after that pool has been swept; otherwise no order.",
   "unfilled_causes": {
    "NO_PULLBACK": 5,
    "DEEP_ENTRY": 2

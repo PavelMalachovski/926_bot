@@ -519,15 +519,42 @@
   "price_at_creation": 1.4023,
   "created_at": "2026-10-27T07:20:00+01:00",
   "expires": "2026-10-27T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-10-27T14:55:00+01:00",
+  "closed_at": "2026-10-28T02:00:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -26.5,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "SELL 1.40310 filled 27.10 14:55 at NY open (H1 FVG 1.40291-1.40425); H1 body close 17:00 at 1.40480 went straight through the FVG top, rally took the unswept PDH 1.40553 / Sunday high 1.40526 (13 pips above the zone) and SL 1.40575 at 28.10 02:00 (high 1.40602). TP1 1.40095 never traded after fill (low 1.40157). Same pattern as 26.10: FVG below an unswept buy-side pool; the London EQH sweep was the small pool, not PDH. H4 then printed BOS above 1.40553."
+  },
+  "last_checked": "2026-10-28T07:05:00+01:00"
+ },
+ {
+  "id": "2026-10-28-am",
+  "side": "BUY",
+  "basis": "FVG",
+  "entry": 1.40575,
+  "sl": 1.40316,
+  "tp1": 1.40706,
+  "rr_tp1": 0.51,
+  "zone_high": 1.40594,
+  "zone_low": 1.40544,
+  "price_at_creation": 1.40646,
+  "created_at": "2026-10-28T07:15:00+01:00",
+  "expires": "2026-10-28T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 3.2,
+  "closest_approach": 7.1,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-27T13:05:00+01:00"
+  "last_checked": "2026-10-28T07:05:00+01:00"
  }
 ]
