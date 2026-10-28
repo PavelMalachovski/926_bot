@@ -667,7 +667,7 @@
   "side": "SELL",
   "basis": "FVG",
   "entry": 157.955,
-  "sl": 158.35,
+  "sl": 158.1,
   "tp1": 157.554,
   "rr_tp1": 1.02,
   "zone_high": 158.06,
@@ -675,15 +675,18 @@
   "price_at_creation": 157.755,
   "created_at": "2026-10-27T07:10:00+01:00",
   "expires": "2026-10-27T23:59:00+01:00",
-  "status": "PENDING",
-  "filled_at": null,
+  "status": "OPEN",
+  "filled_at": "2026-10-27T19:20:00+01:00",
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 6.8,
+  "closest_approach": 0.0,
   "ambiguous": false,
-  "adjusted": false,
-  "review": null,
-  "last_checked": "2026-10-27T13:30:00+01:00"
+  "adjusted": true,
+  "review": {
+   "cause": "OPEN",
+   "note": "Исполнен 27.10 19:20 (M5 high 157.965 ≥ 157.955); max после входа 158.044 (00:55, sweep PDH/EQH) — исходный SL 158.350 не задет, min 157.755 (06:45) — TP1 157.554 не взят. 28.10 утро: M5 BOS↓ 157.853 с LH 158.001 → SL перенесён 158.350→158.100 (LH +10 п), риск 14.5 п вместо 39.5; result_r считать от исходного риска 39.5 п (SL 158.100 = −0.37R). Закрыть вручную до 18:00, если TP1 не взят (FOMC 19:00)."
+  },
+  "last_checked": "2026-10-28T07:00:00+01:00"
  }
 ]
