@@ -1,0 +1,67 @@
+{
+ "date": "2026-10-29",
+ "created_at": "2026-10-29T07:10:59+01:00",
+ "price_at_creation": 1.3991,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.39995,
+  "sl": 1.40185,
+  "tp1": 1.39706,
+  "tp2": 1.395,
+  "tp3": 1.39137,
+  "zone_high": 1.40081,
+  "zone_low": 1.39995,
+  "basis": "FVG (H1 bear FVG 1.39995-1.40081 near edge, inside H4 bear FVG 1.39995-1.40263; sweep of Asia high 1.39985)",
+  "risk_pips": 19.0,
+  "expires": "2026-10-29T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.40081,
+  "rule": "H1 body close above 1.40081 (H1 FVG top) before fill -> cancel limit; plan B: SELL from OTE / H1 FVG 1.40216-1.40328 only after M5 CHoCH down"
+ },
+ "levels": {
+  "asia_high": 1.39985,
+  "asia_low": 1.39706,
+  "pdh": 1.40706,
+  "pdl": 1.39925,
+  "pwh": 1.41429,
+  "pwl": 1.39697,
+  "eqh": null,
+  "eql": 1.39697,
+  "d1_range_high": 1.40815,
+  "d1_range_low": 1.39697,
+  "d1_eq": 1.40256,
+  "week_open": 1.40048,
+  "h1_ote_62": 1.40206,
+  "h1_ote_79": 1.40343,
+  "h1_leg_high": 1.40512,
+  "h1_leg_low": 1.39706,
+  "d1_bull_fvg": [
+   1.39283,
+   1.39719
+  ],
+  "d1_low_16_09": 1.39137
+ },
+ "d1_context": "D1 bearish (LH 1.40815 21.10, LL 1.39697 23.10); FOMC day rejected 1.40706 (85% premium) and closed 1.39932 near the low. Price 1.3991 = 19% of range 1.39697-1.40815 (discount). Sell-side pool EQL 1.39697 (PWL) / 1.39706 (Asia low) / 1.39719 (17.09) unswept; below it D1 bull FVG 1.39283-1.39719, D1 swing low 1.39137. D1 bear FVG 1.41125-1.41185 untouched.",
+ "h4_context": "H4 CHoCH down: HL 1.40065 broken 28.10 20:00 (FOMC), aligned with D1. H4 bear FVG 1.39995-1.40263 untouched; H1 leg 1.40512 -> 1.39706, OTE 62-79% 1.40206-1.40343, H1 FVGs 1.39995-1.40081 and 1.40216-1.40328, H1 OB 1.40328-1.40417.",
+ "news": [
+  {
+   "time": "2026-10-29T13:30:00+01:00",
+   "country": "USD",
+   "title": "Advance GDP q/q"
+  },
+  {
+   "time": "2026-10-29T13:30:00+01:00",
+   "country": "USD",
+   "title": "Core PCE Price Index m/m"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1.52 < 1:2 (TP1 = Asia low/EQL 1.39706; TP2 2.61R)",
+  "Sell from D1 discount: entry at 27% of D1 range 1.39697-1.40815 (review proposal: against-D1 = no order - owner's call)",
+  "Blackout 12:30-13:45 (USD GDP + Core PCE 13:30): a fill in that window is a news fill",
+  "D1 bull FVG 1.39283-1.39719 just below the EQL can hold the move"
+ ]
+}

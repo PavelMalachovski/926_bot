@@ -559,5 +559,29 @@
    "note": "BUY 1.40575 in H1 bull FVG 1.40544-1.40594 filled 08:00 (low 1.40572) on the London open, MFE only 7.2 pips (high 1.40647 09:15), TP1 Asia high 1.40706 never traded. H1 11:00 body closed 1.40529 below the FVG, 12:00 dumped 18 pips through Asia low 1.40416 (H1 CHoCH down), SL 1.40316 hit 13:05 (low 1.40309) before BOC. Long against bearish D1 from 79% D1 premium under the D1 LH 1.40815 - flagged in the morning warnings; the H4 BOS was a premium sweep, not a reversal."
   },
   "last_checked": "2026-10-28T13:10:00+01:00"
+ },
+ {
+  "id": "2026-10-29-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.39995,
+  "sl": 1.40185,
+  "tp1": 1.39706,
+  "rr_tp1": 1.52,
+  "zone_high": 1.40081,
+  "zone_low": 1.39995,
+  "price_at_creation": 1.3991,
+  "created_at": "2026-10-29T07:10:59+01:00",
+  "expires": "2026-10-29T23:59:00+01:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 8.5,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-10-29T07:05:00+01:00"
  }
 ]
