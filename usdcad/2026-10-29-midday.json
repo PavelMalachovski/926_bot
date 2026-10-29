@@ -1,0 +1,89 @@
+{
+ "date": "2026-10-29",
+ "created_at": "2026-10-29T13:35:00+01:00",
+ "price_at_creation": 1.3984,
+ "morning_order_status": "ИСПОЛНЕН, В РАБОТЕ",
+ "morning_order_check": {
+  "filled": true,
+  "filled_at": "2026-10-29T09:10:00+01:00",
+  "max_high_after_fill": 1.40014,
+  "min_low_after_fill": 1.39724,
+  "mae_pips": 1.9,
+  "mfe_pips": 27.1,
+  "floating_pips": 15.5,
+  "floating_r": 0.82,
+  "floating_usd_1lot": 110.8,
+  "tp1_hit": false,
+  "sl_hit": false,
+  "ambiguous": false,
+  "last_checked": "2026-10-29T13:25:00+01:00"
+ },
+ "morning_order_decision": "adjust",
+ "morning_order_decision_note": "Закрыть 50% по рынку ~1.39840 до 13:30 GDP+Core PCE; SL остатка 1.40185 -> 1.39995 (BE) после M5 BOS вниз 11:45 (protected high 1.39971 ниже entry); TP1 1.39706 оставить (triple EQL 1.39697/1.39706/1.39724 не снят), TP2 1.39500.",
+ "adjustments": {
+  "partial_close": {
+   "pct": 50,
+   "price": 1.3984
+  },
+  "sl": 1.39995,
+  "tp1": 1.39706,
+  "tp2": 1.395,
+  "tp3": 1.39137
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "new_order_note": "Нового ордера нет: позиция открыта, 13:30-13:45 блэкаут, M5 CHoCH вверх от 1.39724. Добор шорта только по рынку после ретеста 1.39971-1.39995 + M5 CHoCH вниз.",
+ "invalidation": {
+  "level": 1.40081,
+  "rule": "H1 body close above 1.40081 (H1 FVG top) -> bearish idea off"
+ },
+ "levels": {
+  "asia_high": 1.39985,
+  "asia_low": 1.39706,
+  "pdh": 1.40706,
+  "pdl": 1.39925,
+  "pwh": 1.41429,
+  "pwl": 1.39697,
+  "eqh": null,
+  "eql": 1.39697,
+  "d1_range_high": 1.40815,
+  "d1_range_low": 1.39697,
+  "d1_eq": 1.40256,
+  "week_open": 1.40048,
+  "h1_ote_62": 1.40206,
+  "h1_ote_79": 1.40343,
+  "h1_leg_high": 1.40512,
+  "h1_leg_low": 1.39706,
+  "d1_bull_fvg": [
+   1.39283,
+   1.39719
+  ],
+  "d1_low_16_09": 1.39137,
+  "london_high": 1.40014,
+  "london_low": 1.39724,
+  "m5_protected_high": 1.39971,
+  "swept_today": [
+   "asia_high 1.39985 (09:10-09:25)"
+  ]
+ },
+ "d1_context": "С утра без изменений: D1 bearish, цена 1.3984 = 13% range 1.39697-1.40815 (глубокий discount), EQL 1.39697 не снят.",
+ "h4_context": "H4 (ресемпл): bearish после CHoCH под 1.40065; H4 bear FVG 1.39995-1.40263 отработал (high 1.40014). H1 LH 1.40014, плечо 1.40014->1.39724.",
+ "news": [
+  {
+   "time": "2026-10-29T13:30:00+01:00",
+   "country": "USD",
+   "title": "Advance GDP q/q"
+  },
+  {
+   "time": "2026-10-29T13:30:00+01:00",
+   "country": "USD",
+   "title": "Core PCE Price Index m/m"
+  }
+ ],
+ "warnings": [
+  "13:30 USD GDP + Core PCE - блэкаут 12:30-13:45, позиция в плюсе",
+  "Шорт из D1 discount (флаг утра)",
+  "M5 CHoCH вверх от 1.39724 перед новостью"
+ ]
+}

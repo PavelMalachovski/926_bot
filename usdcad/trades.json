@@ -565,7 +565,7 @@
   "side": "SELL",
   "basis": "FVG",
   "entry": 1.39995,
-  "sl": 1.40185,
+  "sl": 1.39995,
   "tp1": 1.39706,
   "rr_tp1": 1.52,
   "zone_high": 1.40081,
@@ -573,15 +573,25 @@
   "price_at_creation": 1.3991,
   "created_at": "2026-10-29T07:10:59+01:00",
   "expires": "2026-10-29T23:59:00+01:00",
-  "status": "PENDING",
-  "filled_at": null,
+  "status": "OPEN",
+  "filled_at": "2026-10-29T09:10:00+01:00",
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 8.5,
+  "closest_approach": 0.0,
   "ambiguous": false,
-  "adjusted": false,
+  "adjusted": true,
   "review": null,
-  "last_checked": "2026-10-29T07:05:00+01:00"
+  "last_checked": "2026-10-29T13:25:00+01:00",
+  "sl_initial": 1.40185,
+  "partial_close": {
+   "pct": 50,
+   "price": 1.3984,
+   "pips": 15.5,
+   "r": 0.82,
+   "note": "closing half before 13:30 USD GDP+Core PCE; rest SL->BE"
+  },
+  "mfe_pips": 27.1,
+  "mae_pips": 1.9
  }
 ]
