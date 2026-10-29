@@ -1,0 +1,111 @@
+{
+ "date": "2026-10-29",
+ "created_at": "2026-10-29T07:05:00+01:00",
+ "price_at_creation": 157.82,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 158.12,
+  "sl": 158.436,
+  "tp1": 157.62,
+  "tp2": 157.428,
+  "tp3": 156.881,
+  "zone_high": 158.156,
+  "zone_low": 158.086,
+  "basis": "FVG (H1 bear FVG 158.086–158.156 CE, над Asia high 158.064 — вход после sweep buy-side)",
+  "risk_pips": 31.6,
+  "expires": "2026-10-29T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 158.156,
+  "rule": "До входа: H1 body close > 158.156 → снять лимит (план Б: H4 вверх к PDH 158.336/PWH 158.602, ждать sweep + M5 CHoCH). H1 body close < 157.620 до входа → движение ушло без нас, снять."
+ },
+ "levels": {
+  "asia_high": 158.064,
+  "asia_low": 157.62,
+  "pdh": 158.336,
+  "pdl": 157.657,
+  "pwh": 158.602,
+  "pwl": 156.069,
+  "eqh": [
+   157.996,
+   158.001,
+   158.044
+  ],
+  "eql": [
+   157.667,
+   157.676
+  ],
+  "d1_range_high": 159.029,
+  "d1_range_low": 152.908,
+  "d1_eq": 155.969,
+  "week_open": 156.881,
+  "h1_lh": 158.064,
+  "h1_ll": 157.62,
+  "h1_choch_down": 157.876,
+  "h1_fvg_bear": [
+   158.086,
+   158.156
+  ],
+  "h1_ob_bear": [
+   157.845,
+   158.064
+  ],
+  "h1_ob_fomc": [
+   158.156,
+   158.29
+  ],
+  "h1_leg": [
+   158.064,
+   157.62
+  ],
+  "h1_ote_62": 157.895,
+  "h1_ote_79": 157.971,
+  "h4_strong_low": 157.428,
+  "h4_hh": 158.336,
+  "london_low_27": 157.598,
+  "m5_choch_up": 157.807,
+  "m5_hh": 157.912,
+  "m5_hl": 157.667,
+  "d1_ote": [
+   157.639,
+   158.07
+  ]
+ },
+ "d1_context": "D1 вниз: LH 158.602 (20.10) / LL 156.069 (23.10). Цена 157.820 = 80% premium range 152.908–159.029 и 69% плеча 158.602→156.069 (D1 OTE 157.639–158.070). 28.10 — doji с FOMC-фитилём 158.336 над OTE, под PWH 158.602. Пулы: сверху PWH 158.602, PDH 158.336; снизу 157.598, 157.428, week open 156.881, PWL 156.069.",
+ "h4_context": "H4 вверх: HH 158.336 (FOMC), HL 157.657 снят фитилём до 157.620 без body close, Strong Low 157.428. H1 вниз после FOMC: CHoCH↓ 21:00 (close 157.836 < 157.876), LH 158.064 / LL 157.620. Азия: sweep EQH 158.044 → sweep PDL 157.657 → M5 CHoCH↑ 157.807, HH 157.912.",
+ "news": [
+  {
+   "time": "2026-10-29T13:30:00+01:00",
+   "country": "USD",
+   "title": "Advance GDP q/q"
+  },
+  {
+   "time": "2026-10-29T13:30:00+01:00",
+   "country": "USD",
+   "title": "Core PCE Price Index m/m"
+  },
+  {
+   "time": "2026-10-30T03:30:00+01:00",
+   "country": "JPY",
+   "title": "BOJ Policy Rate / Monetary Policy Statement"
+  },
+  {
+   "time": "2026-10-30T03:31:00+01:00",
+   "country": "JPY",
+   "title": "BOJ Outlook Report"
+  },
+  {
+   "time": "2026-10-30T06:30:00+01:00",
+   "country": "JPY",
+   "title": "BOJ Press Conference"
+  }
+ ],
+ "warnings": [
+  "RR к TP1 (Asia low 157.620) 1:1.58 < 1:2; 1:2 только на TP2 157.428",
+  "Вход против H4 (вверх, Strong Low 157.428); по D1 и H1",
+  "Блэкаут 12:30–13:45 (US GDP + Core PCE 13:30): исполнение в блэкаут — не держать, лимит снять до 12:30 и вернуть после 13:45",
+  "BOJ 30.10 03:30 — лимит снять до 23:59"
+ ]
+}
