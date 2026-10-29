@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-10-29T07:05:00+01:00",
+ "updated_at": "2026-10-29T13:20:00+01:00",
  "orders": 21,
  "filled": 14,
  "tp": 6,
@@ -16,19 +16,19 @@
  "avg_r": 0.11,
  "total_pips": 85.2,
  "am": {
-  "orders": 10,
+  "orders": 9,
   "filled": 9,
   "tp": 4,
   "sl": 4,
   "total_r": 1.06
  },
  "pm": {
-  "orders": 11,
+  "orders": 12,
   "filled": 5,
   "tp": 2,
   "sl": 3,
   "total_r": 0.43
  },
  "last10": "TTSSSTSTSB",
- "review": "28.10 pm: 27.10-am SELL 157.955 закрыт вручную 157.896 по плану Б (+5.9 п, +0.15R, B). WR 46.2% (6T/7S/1B), avg_r +0.11, ΣR +1.49. SL: ZONE_FAILED ×6, AGAINST_HTF ×1. am ΣR +1.06 vs pm +0.43; BUY 4T/5S ΣR −0.01, SELL 2T/2S ΣR +1.35; basis OB 5T/4S +3.14R, FVG 0T/2S −2R, OTE 1T/1S. Правка (в силе): при расхождении D1 и H4/H1 entry на 62% HTF-плеча, а не глубже; FVG-входы — только с H1 OB под ними."
+ "review": "29.10 pm: 29.10-am SELL 158.120 снят (CANCELLED, DEEP_ENTRY — не дошла 4.0 п, держал край H1 FVG 158.086; снят перед GDP/PCE 13:30). Закрытых без изменений: WR 46.2% (6T/7S/1B), avg_r +0.11, ΣR +1.49. SL: ZONE_FAILED ×6, AGAINST_HTF ×1. am ΣR +1.06 vs pm +0.43; BUY 4T/5S ΣR −0.01, SELL 2T/2S ΣR +1.35; basis OB 5T/4S +3.14R, FVG 0T/2S −2R, OTE 1T/1S. Правка (в силе): при расхождении D1 и H4/H1 entry на 62% HTF-плеча, а не глубже; FVG-входы — только с H1 OB под ними."
 }

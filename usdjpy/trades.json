@@ -702,15 +702,42 @@
   "price_at_creation": 157.82,
   "created_at": "2026-10-29T07:05:00+01:00",
   "expires": "2026-10-29T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-29T13:15:00+01:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 4.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Не дошла: max 158.080 (M5 13:05, sweep Asia high 158.064 на 1.6 п) — 4.0 п до 158.120 = 87% пути от 157.820. Держал край H1 FVG 158.086. Инвалидаций нет (H1 close max 158.023). Снят в 13:15: 4 п от цены за 15 мин до GDP+Core PCE 13:30 = рыночный вход в релиз; заменён 2026-10-29-pm 158.220 (50% FOMC OB) с TP1 RR ≥ 2."
+  },
+  "last_checked": "2026-10-29T13:15:00+01:00"
+ },
+ {
+  "id": "2026-10-29-pm",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 158.22,
+  "sl": 158.436,
+  "tp1": 157.778,
+  "rr_tp1": 2.05,
+  "zone_high": 158.29,
+  "zone_low": 158.156,
+  "price_at_creation": 158.054,
+  "created_at": "2026-10-29T13:20:00+01:00",
+  "expires": "2026-10-29T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 30.0,
+  "closest_approach": 16.6,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-29T07:00:00+01:00"
+  "last_checked": "2026-10-29T13:15:00+01:00"
  }
 ]
