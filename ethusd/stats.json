@@ -1,22 +1,22 @@
 {
- "updated_at": "2026-10-28T13:10:00+01:00",
- "orders": 27,
- "filled": 13,
+ "updated_at": "2026-10-29T07:05:00+01:00",
+ "orders": 28,
+ "filled": 14,
  "tp": 6,
- "sl": 4,
+ "sl": 5,
  "be": 3,
  "open": 0,
  "pending": 1,
  "expired": 12,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 60.0,
- "fill_rate": 50.0,
- "total_r": 8.81,
- "avg_r": 0.68,
- "total_usd": 143.85,
+ "winrate": 54.5,
+ "fill_rate": 51.9,
+ "total_r": 7.81,
+ "avg_r": 0.56,
+ "total_usd": 130.95,
  "am": {
-  "orders": 12,
+  "orders": 13,
   "filled": 8,
   "tp": 4,
   "sl": 1,
@@ -24,11 +24,11 @@
  },
  "pm": {
   "orders": 15,
-  "filled": 5,
+  "filled": 6,
   "tp": 2,
-  "sl": 3,
-  "total_r": 1.52
+  "sl": 4,
+  "total_r": 0.52
  },
- "last10": "STTTSSTTBS",
- "review": null
+ "last10": "TTTSSTTBSS",
+ "review": "WR 54.5% (6TP/5SL) < 60% при 11 закрытых, но avg_r +0.56 и ΣR +7.81 — система в плюсе. Причины SL: ZONE_FAILED 4, AGAINST_HTF 1. Хуже всего: pm (SL 4 из 5, ΣR pm +0.52 против am +7.29) и long (3 исполнено — 3 SL, −3R; short: 6TP/3BE/2SL). По basis: FVG 3 SL, OB 1, OTE 1. Правка: не выставлять BUY LIMIT, пока D1 в LH/LL (все 3 long против D1 = −3R) — лимит против D1 только после H1 body close выше последнего D1 LH; в pm-ране при этом лонг пропускать."
 }

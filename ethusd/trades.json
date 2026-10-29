@@ -985,15 +985,44 @@
   "price_at_creation": 2361.64,
   "created_at": "2026-10-28T13:10:00+01:00",
   "expires": "2026-10-28T18:00:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-10-28T13:10:00+01:00",
+  "closed_at": "2026-10-28T14:45:00+01:00",
+  "result_r": -1.0,
+  "result_usd": -12.9,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Исполнен 13:10 (low 2344.72). Зона 2340.14–2351.00 не удержала: H1 13:00 закрылась 2340.00 под зоной, M5 14:45 телом прошёл SL (close 2327.61, low 2323.20). TP1 2375 взят лишь после FOMC в 20:00–21:00 (high 2391.55) — не stop hunt, а провал OTE-зоны в лонге против D1."
+  },
+  "last_checked": "2026-10-29T07:05:00+01:00"
+ },
+ {
+  "id": "2026-10-29-am",
+  "side": "SELL LIMIT",
+  "basis": "OTE",
+  "entry": 2354.0,
+  "sl": 2377.0,
+  "tp1": 2294.5,
+  "tp2": 2283.5,
+  "tp3": 2267.0,
+  "rr_tp1": 2.59,
+  "zone_high": 2371.93,
+  "zone_low": 2354.27,
+  "price_at_creation": 2323.42,
+  "created_at": "2026-10-29T07:05:00+01:00",
+  "expires": "2026-10-29T12:30:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 11.91,
+  "closest_approach": 30.58,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-28T13:00:00+01:00"
+  "last_checked": "2026-10-29T07:05:00+01:00"
  }
 ]
