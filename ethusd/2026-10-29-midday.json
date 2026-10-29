@@ -1,0 +1,56 @@
+{
+ "date": "2026-10-29",
+ "created_at": "2026-10-29T13:10:00+01:00",
+ "price_at_creation": 2322.43,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_order_status": {
+  "id": "2026-10-29-am",
+  "status": "EXPIRED",
+  "text": "НЕ ДОШЛА ($23.07 до entry) — max 2330.93 в 11:50, срок 12:30 истёк; инвалидации (H1 close > 2371.93) не было",
+  "action": "снять (уже истёк), не переносить"
+ },
+ "since_morning": "Лондон 2305.19–2330.93: откат 38.2% плеча 2391.55→2293.44 под LH 2335.46; PDL 2323.20 и week open 2329.86 сняты, Asia/EQL/PDH нетронуты; M5 CHoCH↓ 13:00 под 2323.01.",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2337.0,
+  "sl": 2348.5,
+  "tp1": 2317.5,
+  "tp2": 2306.0,
+  "tp3": 2294.5,
+  "zone_high": 2342.5,
+  "zone_low": 2333.98,
+  "basis": "FVG: sweep buy-side London H 2330.93 + H1 LH 2335.46 в M5 FVG 2333.98–2337.44 и остаток H1 bear FVG 2335.46–2354.50, ниже H1 50% 2342.50 плеча 2391.55→2293.44; SL над 50% и H1 high 28.10 18:00 2348.00",
+  "risk_usd": 11.5,
+  "rr_tp1": 1.7,
+  "rr_tp2": 2.7,
+  "rr_tp3": 3.7,
+  "distance_usd": 14.57,
+  "expires": "2026-10-29T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 2342.5,
+  "rule": "До исполнения: H1 body close > 2342.50 → снять лимит; план Б — ждать H1 OTE 2354–2371 (утренняя зона) + M5 CHoCH↓. H1 close < 2305.19 без исполнения → не гнаться, снять. Не исполнен к 23:59 → снять."
+ },
+ "levels": {
+  "asia_high": 2361.48, "asia_low": 2293.44, "london_high": 2330.93, "london_low": 2305.19,
+  "pdh": 2391.55, "pdl": 2323.2, "pwh": 2526.62, "pwl": 2282.46,
+  "eqh": [2371.52, 2371.93], "eql": [2293.09, 2293.44], "m5_eql": [2316.89, 2317.18],
+  "d1_range_high": 2526.62, "d1_range_low": 2282.46, "d1_eq": 2404.54, "week_open": 2329.86,
+  "h1_lh": 2335.46, "h1_hl": 2305.19, "h1_50": 2342.5,
+  "swept_since_morning": ["pdl 2323.20", "week_open 2329.86"]
+ },
+ "d1_context": "Из утра: D1 медвежий LH 2526.62 / LL 2282.46, цена 16.6% range — глубокий discount; D1 bear FVG 2417.77–2436.87; sell-side EQL 2293.09/2293.44, PWL 2282.46.",
+ "h4_context": "H4 CHoCH↓ 01:00 (close 2309.03 < 2323.20) после SFP 2391.55 сохраняется; H4 09:00 — inside-откат до 2330.93, без BOS вверх.",
+ "h1_context": "H1 BOS↓ 02:00, LH 2335.46 (06:00), HL 2305.19 (08:00) — сжатие 2305–2335 под LH; откат 38.2%. M5: BOS↑ 11:50 (2327.34) к 2330.93, затем CHoCH↓ 13:00 под 2323.01; strong low M5 2317.18.",
+ "news": [
+  {"time": "2026-10-29 13:30", "title": "USD Advance GDP q/q"},
+  {"time": "2026-10-29 13:30", "title": "USD Core PCE Price Index m/m"}
+ ],
+ "warnings": [
+  "RR к TP1 (M5 EQL 2316.89/2317.18) 1:1.70 < 1:2; TP2 London low 1:2.70",
+  "Шорт в D1 discount 16.6% — по структуре D1/H4/H1, против D1 premium/discount",
+  "Блэкаут 12:30–13:45 (GDP + Core PCE): лимит ставить после 13:45, вход на спайке NY-open/новости не брать"
+ ]
+}
