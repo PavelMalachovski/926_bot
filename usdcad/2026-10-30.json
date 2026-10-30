@@ -1,0 +1,69 @@
+{
+ "date": "2026-10-30",
+ "created_at": "2026-10-30T07:12:00+01:00",
+ "price_at_creation": 1.39737,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.3979,
+  "sl": 1.39985,
+  "tp1": 1.39635,
+  "tp2": 1.39283,
+  "tp3": 1.39137,
+  "zone_high": 1.3988,
+  "zone_low": 1.39766,
+  "basis": "FVG",
+  "risk_pips": 19.5,
+  "expires": "2026-10-30T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.3988,
+  "rule": "H1 body close above 1.39880 (H1 OB 00:00 top / Asia high) before fill -> cancel limit, plan B"
+ },
+ "levels": {
+  "asia_high": 1.39882,
+  "asia_low": 1.3959,
+  "pdh": 1.40148,
+  "pdl": 1.39655,
+  "pwh": 1.41429,
+  "pwl": 1.39697,
+  "eqh": 1.39766,
+  "eql": 1.39631,
+  "d1_range_high": 1.40706,
+  "d1_range_low": 1.3959,
+  "d1_eq": 1.40148,
+  "week_open": 1.40048,
+  "h1_leg_high": 1.39944,
+  "h1_leg_low": 1.3959,
+  "h1_ote_62": 1.39809,
+  "h1_ote_79": 1.3987,
+  "h1_fvg": [
+   1.39732,
+   1.3981
+  ],
+  "h1_ob": [
+   1.3981,
+   1.3988
+  ],
+  "d1_bull_fvg": [
+   1.39283,
+   1.39719
+  ],
+  "d1_low_16_09": 1.39137,
+  "swept_overnight": [
+   "PDL 1.39655",
+   "PWL 1.39697",
+   "EQL 1.39697 (23.10)"
+  ]
+ },
+ "d1_context": "D1 bearish (LH 1.40706 28.10 -> LL 1.39590 today). Range 1.39590-1.40706, EQ 1.40148: price 1.39737 = 13% (deep discount). PWL/PDL swept overnight; price inside unfilled D1 bull FVG 1.39283-1.39719 (Sep 16). D1 bear FVGs above 1.41125-1.41326 / 1.41429-1.41708.",
+ "h4_context": "H4 bearish: BOS below 1.39655 (29.10 low) at 01:00 bar, low 1.39590; swing high 1.40148 (29.10 13:00, PDH). H1 leg 1.39944 -> 1.39590, H1 bear FVG 1.39732-1.39810 (44% filled to 1.39766) + OB 1.39810-1.39880 = OTE 62-79%.",
+ "news": [],
+ "news_note": "No red USD/CAD today. Medium: 13:30 CAD GDP m/m + USD ECI q/q (orange, no blackout by rule).",
+ "warnings": [
+  "RR to TP1 (EQL 1.39631) 1:0.79 < 1:2",
+  "Short against D1 PD: entry at ~18% of D1 range (discount), inside D1 bull FVG",
+  "Friday month-end: 13:30 CAD GDP + USD ECI (medium) can spike the zone"
+ ]
+}
