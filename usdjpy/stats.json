@@ -1,5 +1,5 @@
 {
- "updated_at": "2026-10-30T07:10:00+01:00",
+ "updated_at": "2026-10-30T13:35:00+01:00",
  "orders": 22,
  "filled": 14,
  "tp": 6,
@@ -16,19 +16,19 @@
  "avg_r": 0.11,
  "total_pips": 85.2,
  "am": {
-  "orders": 10,
+  "orders": 9,
   "filled": 9,
   "tp": 4,
   "sl": 4,
   "total_r": 1.06
  },
  "pm": {
-  "orders": 12,
+  "orders": 13,
   "filled": 5,
   "tp": 2,
   "sl": 3,
   "total_r": 0.43
  },
  "last10": "TTSSSTSTSB",
- "review": "30.10 am: 29.10-pm SELL 158.220 EXPIRED (DEEP_ENTRY — max 158.118, 10.2 п; держал H1 FVG 158.086–158.156, после экспирации TP1 взят бы). Закрытых без изменений: WR 46.2% (6T/7S/1B), avg_r +0.11, ΣR +1.49. SL: ZONE_FAILED ×6, AGAINST_HTF ×1. Недошедшие (EXPIRED+CANCELLED): DEEP_ENTRY 6, NO_PULLBACK 6 — вход систематически на 4–10 п глубже реального отката. Правка (в силе): при расхождении D1 и H4/H1 entry на 62% HTF-плеча; FVG-входы — только с H1 OB под ними; новое предложение: если над OB лежит незакрытый H1 FVG — entry на ближний край FVG, а не 50% OB."
+ "review": "30.10 pm: 30.10-am SELL 157.746 CANCELLED (DEEP_ENTRY — max 157.741, 0.5 п; затем TP1/TP2 взяты бы, low 156.972). Закрытых без изменений: WR 46.2% (6T/7S/1B), avg_r +0.11, ΣR +1.49. SL: ZONE_FAILED ×6, AGAINST_HTF ×1. Недошедшие (EXPIRED+CANCELLED): DEEP_ENTRY 7, NO_PULLBACK 6 — третий день подряд entry на 0.5–10 п глубже реального отката. Правка: entry на 50% OB минус 3 п (шорт) / плюс 3 п (лонг), либо на ближний край незакрытого H1 FVG над OB."
 }

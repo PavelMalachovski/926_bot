@@ -756,15 +756,42 @@
   "price_at_creation": 157.599,
   "created_at": "2026-10-30T07:10:00+01:00",
   "expires": "2026-10-30T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-30T13:35:00+01:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 0.5,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Не дошла на 0.5 п: max 157.741 (M5 08:00, открытие Лондона) при entry 157.746 = 97% пути от 157.599. Держал верх OB 07:00 / 50% OB 157.751 не дотянуло. Дальше BOS вниз, 12:00 H1 close 156.992 < 157.142 (правило «ушла без нас») → снят. TP1 157.142 и TP2 157.076 взяты бы (low 156.972). Ровно урок С6в: entry на 0.5–1 п ниже 50% OB / на край зоны."
+  },
+  "last_checked": "2026-10-30T13:20:00+01:00"
+ },
+ {
+  "id": "2026-10-30-pm",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 157.357,
+  "sl": 157.535,
+  "tp1": 156.972,
+  "rr_tp1": 2.16,
+  "zone_high": 157.433,
+  "zone_low": 157.269,
+  "price_at_creation": 157.054,
+  "created_at": "2026-10-30T13:35:00+01:00",
+  "expires": "2026-10-30T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 14.7,
+  "closest_approach": 30.3,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-30T07:05:00+01:00"
+  "last_checked": "2026-10-30T13:20:00+01:00"
  }
 ]
