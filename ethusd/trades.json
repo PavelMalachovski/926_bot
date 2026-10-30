@@ -1043,15 +1043,44 @@
   "price_at_creation": 2322.43,
   "created_at": "2026-10-29T13:10:00+01:00",
   "expires": "2026-10-29T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-10-29T15:30:00+01:00",
+  "closed_at": "2026-10-29T15:35:00+01:00",
+  "result_r": -1.0,
+  "result_usd": -11.5,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Исполнен 15:30 (high 2342.99), через бар M5 15:35 телом прошёл SL (high 2353.87, close 2350.93); H1 15:00 закрылась 2344.73 над зоной 2333.98–2342.50, затем ралли до 2379.55. TP1 2317.5 взят только в 21:00 — уже после выноса на +42$ выше entry, т.е. не stop hunt фитилём, а прорыв зоны телом (FVG M5 внутри узкого сжатия не удержал NY-импульс)."
+  },
+  "last_checked": "2026-10-30T07:05:00+01:00"
+ },
+ {
+  "id": "2026-10-30-am",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "entry": 2270.0,
+  "sl": 2290.3,
+  "tp1": 2226.8,
+  "tp2": 2208.08,
+  "tp3": 2174.08,
+  "rr_tp1": 2.13,
+  "zone_high": 2285.29,
+  "zone_low": 2269.5,
+  "price_at_creation": 2239.47,
+  "created_at": "2026-10-30T07:10:00+01:00",
+  "expires": "2026-10-30T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 14.57,
+  "closest_approach": 30.53,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-29T13:10:00+01:00"
+  "last_checked": "2026-10-30T07:05:00+01:00"
  }
 ]
