@@ -608,15 +608,42 @@
   "price_at_creation": 1.39737,
   "created_at": "2026-10-30T07:12:00+01:00",
   "expires": "2026-10-30T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-10-30T13:16:00+01:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 2.5,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "SELL 1.39790 (H1 FVG/OB 1.39766-1.39880) never filled: Asia/London high 1.39765 at 07:45 stopped 2.5 pips short (EQH 1.39766 held as the cap). London sold off from 08:00, TP1 EQL 1.39631 traded 09:00 (low 1.39596), Asia low 1.39590 swept 11:00, London low 1.39498 12:05. Cancelled at midday - the move played out without a fill; zone near edge 1.39766 would have needed entry at the EQH itself."
+  },
+  "last_checked": "2026-10-30T13:15:00+01:00"
+ },
+ {
+  "id": "2026-10-30-pm",
+  "side": "SELL",
+  "basis": "OTE",
+  "entry": 1.3966,
+  "sl": 1.39791,
+  "tp1": 1.39498,
+  "rr_tp1": 1.24,
+  "zone_high": 1.39691,
+  "zone_low": 1.39647,
+  "price_at_creation": 1.39553,
+  "created_at": "2026-10-30T13:20:00+01:00",
+  "expires": "2026-10-30T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 5.3,
+  "closest_approach": 10.7,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-30T07:05:00+01:00"
+  "last_checked": "2026-10-30T13:15:00+01:00"
  }
 ]
