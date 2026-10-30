@@ -1077,11 +1077,11 @@
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 30.53,
+  "closest_approach": 10.98,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-30T07:05:00+01:00",
+  "last_checked": "2026-10-30T13:10:00+01:00",
   "rules": "v2",
   "rr_tp2": 3.04,
   "tp1_passed": false
