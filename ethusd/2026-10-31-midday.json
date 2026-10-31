@@ -1,0 +1,38 @@
+{
+ "date": "2026-10-31",
+ "created_at": "2026-10-31T13:15:00+01:00",
+ "rules": "v2",
+ "price_at_check": 2247.52,
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_order_id": "2026-10-31-am",
+ "morning_status": "НЕ ДОШЛА",
+ "status_journal": "PENDING",
+ "distance_to_entry": 22.48,
+ "closest_approach": 18.0,
+ "closest_approach_at": "2026-10-31T12:40:00+01:00",
+ "invalidated": false,
+ "decision": "оставить до 23:59",
+ "decision_basis": "H1 body close > 2285.29 не было (max close с утра 2248.64), H1 CHoCH↑ нет: цена внутри H1 range 2208.40–2262.49, buy-side EQH 2252.62/2252.70 и PDH 2262.49 не сняты — sweep их и есть путь к OB 2269.50–2285.29. Красных USD новостей до конца дня нет (суббота). Entry/SL/TP2 без изменений, RR TP2 3.03 ≥ 2.5.",
+ "new_order": null,
+ "new_order_note": "Ф5 (v2): дневной ран новых ордеров не выдаёт",
+ "levels_taken_since_morning": [],
+ "levels_intact": [
+  "EQH 2252.62/2252.70",
+  "PDH 2262.49",
+  "Asia low 2237.00",
+  "H1 HL 2234.21",
+  "EQL 2217.46–2221.27",
+  "H1 low 2208.40",
+  "PDL 2174.08",
+  "H1 OB 2269.50–2285.29"
+ ],
+ "london_range": {
+  "high": 2252.0,
+  "low": 2238.57
+ },
+ "h1_context": "Inside-day: Лондон 2238.57–2252.00 целиком внутри Азии 2237.00–2252.62. H1 боковик, M5 HL 2238.57 (09:30) → подход к EQH (12:40 high 2252.00, недобрал 0.62$). Структура H4/H1 медвежья, без CHoCH.",
+ "news": [],
+ "warnings": [
+  "Суббота, мёртвый диапазон: день 15.6$ при среднем ~87$ — исполнение маловероятно, неисполненный лимит снять в 23:59"
+ ]
+}
