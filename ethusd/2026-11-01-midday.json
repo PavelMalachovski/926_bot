@@ -1,0 +1,78 @@
+{
+ "date": "2026-11-01",
+ "created_at": "2026-11-01T13:05:00+01:00",
+ "mode": "ДЕНЬ",
+ "rules": "v1",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_status": "утренний план не найден (воскресенье, утреннего рана не было)",
+ "morning_order_id": null,
+ "previous_order": {
+  "id": "2026-10-31-am",
+  "status": "EXPIRED",
+  "closest_approach": 1.24,
+  "cause": "DEEP_ENTRY"
+ },
+ "price_at_creation": 2269.01,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 2262.0,
+  "sl": 2246.36,
+  "tp1": 2278.5,
+  "tp2": 2294.0,
+  "tp3": 2323.2,
+  "zone_high": 2262.32,
+  "zone_low": 2257.27,
+  "basis": "H1 FVG 2257.27–2262.32 + OTE 62% (2261.48) плеча Strong Low 2251.36 → 2278.00",
+  "risk_usd": 15.64,
+  "expires": "2026-11-01T23:59:00+01:00"
+ },
+ "new_order_id": "2026-11-01-pm",
+ "invalidation": {
+  "level": 2257.27,
+  "rule": "H1 body close < 2257.27 до исполнения → снять лимит; план Б — short только после sweep 2278.00 + M5 CHoCH↓ внутри H4 FVG 2257.80–2324.38"
+ },
+ "levels": {
+  "asia_high": 2276.31,
+  "asia_low": 2254.6,
+  "london_high": 2278.0,
+  "london_low": 2265.29,
+  "pdh": 2268.76,
+  "pdl": 2237.0,
+  "pwh": 2526.62,
+  "pwl": 2282.46,
+  "eqh": null,
+  "eql": 2264.9,
+  "d1_range_high": 2526.62,
+  "d1_range_low": 2174.08,
+  "d1_eq": 2350.35,
+  "week_open": 2329.86
+ },
+ "levels_taken": [
+  "PDH 2268.76 (02:00)",
+  "Asia high 2276.31 (09:00, sweep → 2278.00)",
+  "PWL 2282.46 (снят 10-29/30)"
+ ],
+ "d1_context": "D1 медвежий: LH 2526.62→2391.55, LL 2282.46→2174.08. Range 2174.08–2526.62, EQ 2350.35, цена 2269 = 27% (discount). Над ценой D1 bear FVG 2262.49–2323.20 (заполнен до 2278). Пулы: PWL 2282.46 снят, low недели 2174.08.",
+ "h4_context": "H4: LH/LL до 2174.08, затем HL 2208.40 и пробой LH 2262.49 → CHoCH↑. Цена внутри H4 bear FVG 2257.80–2324.38, у 50% ноги 2379.55→2174.08 (2276.82).",
+ "h1_context": "H1 HH/HL с 2174.08; Strong Low 2251.36, BOS↑ PDH 2268.76 в 02:00, high 2278.00. H1 FVG 2257.27–2262.32 нетронут = OTE 62–79% (2261.48–2256.96). M5: боковик 2266.88–2278 после sweep Asia high, EQL 2264.90–2265.29 над зоной.",
+ "news": [],
+ "news_week": [
+  {
+   "time": "2026-11-03T16:16",
+   "title": "Congressional Elections"
+  },
+  {
+   "time": "2026-11-06T14:30",
+   "title": "NFP / Unemployment Rate / AHE"
+  }
+ ],
+ "warnings": [
+  "RR к TP1 1:1.05 < 1:2 (ближайший пул — high 2278.00)",
+  "вход против D1 (LH/LL)",
+  "над ценой H4/D1 bear FVG до 2324",
+  "воскресенье, тонкий рынок",
+  "pm/long/FVG — худшие срезы журнала (pm ΣR −0.48, long 3/3 SL)"
+ ]
+}
