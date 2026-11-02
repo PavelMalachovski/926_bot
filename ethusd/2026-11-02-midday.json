@@ -1,0 +1,37 @@
+{
+ "date": "2026-11-02",
+ "created_at": "2026-11-02T13:10:00+01:00",
+ "mode": "ДЕНЬ",
+ "rules": "v1",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_status": "НЕ ДОШЛА (11.70$ до entry; low 2278.50 в 08:45, инвалидации нет — min H1 close 2284.62 > 2262.54)",
+ "morning_order_id": "2026-11-02-am",
+ "morning_decision": "оставить BUY LIMIT 2266.80 / SL 2242.80 / TP1 2317.50 до 23:59 без изменений: H1 плечо 2247.84→2317.84 цело, HL 2278.50; M5 с 09:40 LH/LL (CHoCH ↓ 11:05 под 2287.61) ведёт к London low 2278.50 → Asia low/EQL 2268.47 → H1 FVG 2265.17–2268.47",
+ "price_at_creation": 2286.46,
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "new_order_id": null,
+ "no_new_order_reason": "по тем же правилам точка входа на 14:00+ совпадает с утренним лимитом (H1 FVG/OTE 2265–2268); второй лимит = удвоение риска в той же зоне",
+ "invalidation": {"level": 2262.54, "rule": "H1 body close ниже 2262.54 до исполнения → снять лимит; план Б SELL от H1 bear FVG 2343.18–2351.30 после M5 CHoCH вниз"},
+ "scenarios": [
+  "sweep London low 2278.50 + M5 CHoCH вверх (close > 2289.40) — без отката к лимиту не гнаться",
+  "NY выносит London high 2304.43 без отката — лимит не дойдёт, цель EQH/Asia high 2317.84"
+ ],
+ "levels": {
+  "asia_high": 2317.84, "asia_low": 2268.47, "london_high": 2304.43, "london_low": 2278.5,
+  "pdh": 2278.0, "pdl": 2247.84, "pwh": 2391.55, "pwl": 2174.08, "eqh": 2317.84, "eql": 2268.47,
+  "d1_range_high": 2391.55, "d1_range_low": 2174.08, "d1_eq": 2282.82, "week_open": 2275.31, "weekend_low": 2237.0
+ },
+ "levels_taken": [],
+ "d1_context": "Без изменений с утра: D1 LH/LL медвежий, цена 2286.46 = 52% range 2174.08–2391.55 (у EQ 2282.82).",
+ "h4_context": "H4 бычий: BOS 2262.49/2278.00, HH 2317.84, HL 2247.84; свеча 09:00 закрылась 2286.62 внутри H1 OTE-плеча.",
+ "h1_context": "H1 плечо 2247.84→2317.84, откат до 2278.50 (56%), отскок до 2304.43 (LH), сейчас 2286. H1 FVG 2283.19–2288.86 заполнен; 2265.17–2268.47 не тронут.",
+ "m5_context": "Лондон 2278.50–2304.43: judas ↓ (sweep 2282.88 → 2278.50) и отскок; с 09:40 LH 2304.43/2295.35/2289.40, LL 2282.63 — M5 медвежий внутри H1 отката.",
+ "news": [],
+ "news_week": [
+  {"time": "2026-11-03T16:16:00+01:00", "title": "USD Congressional Elections"},
+  {"time": "2026-11-06T14:30:00+01:00", "title": "USD NFP / Unemployment / AHE"}
+ ],
+ "warnings": ["утренний лонг против D1 (LH/LL)", "SL 2242.80 над незанятым weekend low 2237.00"]
+}
