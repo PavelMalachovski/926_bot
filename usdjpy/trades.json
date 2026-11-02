@@ -783,15 +783,42 @@
   "price_at_creation": 157.054,
   "created_at": "2026-10-30T13:35:00+01:00",
   "expires": "2026-10-30T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-10-30T15:00:00+01:00",
+  "closed_at": "2026-10-30T17:00:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -17.8,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Исполнен в H1 15:00 (high 157.379), SL в H1 17:00 (high 157.653). H1 16:00 закрылся телом 157.497 > zone_high 157.433 — OB 157.269–157.433 не удержал, NY выкупил весь второй колено от PDL 156.972. После SL low 157.270 — TP1 156.972 не взят, не stop-hunt. Расчёт по H1: M5 Twelve Data отдал только бары с сб 31.10 (пятница вне окна 401 бар), порядок однозначен (в баре входа high < SL)."
+  },
+  "last_checked": "2026-11-02T07:00:00+01:00"
+ },
+ {
+  "id": "2026-11-02-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 157.88,
+  "sl": 158.096,
+  "tp1": 157.685,
+  "rr_tp1": 0.9,
+  "zone_high": 157.956,
+  "zone_low": 157.871,
+  "price_at_creation": 157.792,
+  "created_at": "2026-11-02T07:10:00+01:00",
+  "expires": "2026-11-02T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 30.3,
+  "closest_approach": 8.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-30T13:20:00+01:00"
+  "last_checked": "2026-11-02T07:00:00+01:00"
  }
 ]
