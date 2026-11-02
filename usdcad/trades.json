@@ -662,15 +662,42 @@
   "price_at_creation": 1.39796,
   "created_at": "2026-11-02T07:20:00+01:00",
   "expires": "2026-11-02T23:59:00+01:00",
+  "status": "TP",
+  "filled_at": "2026-11-02T07:30:00+01:00 (M5 07:30, high 1.39874)",
+  "closed_at": "2026-11-02T09:35:00+01:00 (M5 09:35, low 1.39613)",
+  "result_r": 1.29,
+  "result_pips": 22.5,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "TP",
+   "note": "Filled by 0.4 pips: M5 07:30 high 1.39874 vs entry 1.39870 (OTE 62% / Asia high EQH 1.3988), MAE 0.4 pips, SL 1.40044 never approached. London took Asia low: TP1 1.39645 in the 09:35 bar, low of day 1.39512 (TP2 1.39445 missed by 6.7 pips). +1.29R / +22.5 pips. 4th straight paying H4-trend short at OTE/near edge (23.10 TP, 29.10 BE+, 30.10 TP, 02.11 TP)."
+  },
+  "last_checked": "2026-11-02T13:05:00+01:00"
+ },
+ {
+  "id": "2026-11-02-pm",
+  "side": "SELL",
+  "basis": "OTE",
+  "entry": 1.39798,
+  "sl": 1.39977,
+  "tp1": 1.3952,
+  "rr_tp1": 1.55,
+  "zone_high": 1.39877,
+  "zone_low": 1.39794,
+  "price_at_creation": 1.39742,
+  "created_at": "2026-11-02T13:15:00+01:00",
+  "expires": "2026-11-02T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 7.4,
+  "closest_approach": 5.6,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-02T07:10:00+01:00"
+  "last_checked": "2026-11-02T13:05:00+01:00"
  }
 ]
