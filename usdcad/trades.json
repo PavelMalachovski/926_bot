@@ -635,15 +635,42 @@
   "price_at_creation": 1.39553,
   "created_at": "2026-10-30T13:20:00+01:00",
   "expires": "2026-10-30T23:59:00+01:00",
+  "status": "TP",
+  "filled_at": "2026-10-30T13:20:00+01:00/13:59 (H1 13:00 bar, high 1.39680)",
+  "closed_at": "2026-10-30T16:00:00+01:00/16:59 (H1 16:00 bar, low 1.39418)",
+  "result_r": 1.24,
+  "result_pips": 16.2,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "TP",
+   "note": "M5 history did not reach back to 30.10 (400 bars start 31.10); resolved on H1 bars, unambiguous: fill in the 13:00 bar after creation (high 1.39680), no H1 bar touched SL 1.39791 before TP1 (max high 1.39785 at 15:00, 0.6 pips short), TP1 London low 1.39498 traded in the 16:00 bar (low 1.39418). +1.24R / +16.2 pips. 2nd TP in a row of the H4-trend short at OTE."
+  },
+  "last_checked": "2026-11-02T07:10:00+01:00"
+ },
+ {
+  "id": "2026-11-02-am",
+  "side": "SELL",
+  "basis": "OTE",
+  "entry": 1.3987,
+  "sl": 1.40044,
+  "tp1": 1.39645,
+  "rr_tp1": 1.29,
+  "zone_high": 1.39944,
+  "zone_low": 1.39874,
+  "price_at_creation": 1.39796,
+  "created_at": "2026-11-02T07:20:00+01:00",
+  "expires": "2026-11-02T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 10.7,
+  "closest_approach": 7.4,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-10-30T13:15:00+01:00"
+  "last_checked": "2026-11-02T07:10:00+01:00"
  }
 ]
