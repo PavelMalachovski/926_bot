@@ -1,0 +1,90 @@
+{
+ "date": "2026-11-03",
+ "created_at": "2026-11-03T13:15:00+01:00",
+ "price_at_creation": 158.256,
+ "morning_plan_found": false,
+ "morning_order_status": {
+  "status": "СЕТАПА УТРОМ НЕ БЫЛО",
+  "note": "Файл usdjpy/2026-11-03.json не найден — утренний ран не сохранил план. Вчерашний 2026-11-02-pm SELL 158.086 → EXPIRED (max 158.071, 1.5 п)."
+ },
+ "morning_action": "нет утреннего ордера",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 158.045,
+  "sl": 157.828,
+  "tp1": 158.336,
+  "tp2": 158.602,
+  "tp3": 158.757,
+  "zone_high": 158.105,
+  "zone_low": 157.978,
+  "basis": "FVG: 50% H1 bull FVG 157.978–158.105 (09:00/11:00) + M5 FVG 158.041–158.060 (10:10–10:20), ретест PDH 158.008, ≈50% плеча H1 157.750→158.307 (EQ 158.029); откат снимает M5 HL 158.054. Вход после Judas: sweep Asia low 157.802 (08:35) → M5 CHoCH↑ 09:20 → BOS PDH 10:05 → H4 CHoCH↑ над LH 158.118",
+  "risk_pips": 21.7,
+  "expires": "2026-11-03T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 157.978,
+  "rule": "До входа: H1 body close < 157.978 (ниже FVG/PDH) → снять. H1 body close > 158.336 (PWH снят) до входа → TP1 взят без нас, снять, не гнаться."
+ },
+ "levels": {
+  "asia_high": 157.959,
+  "asia_low": 157.802,
+  "london_high": 158.307,
+  "london_low": 157.75,
+  "pdh": 158.008,
+  "pdl": 157.444,
+  "pwh": 158.336,
+  "pwl": 156.661,
+  "eqh": 158.336,
+  "eql": null,
+  "d1_range_high": 158.962,
+  "d1_range_low": 156.069,
+  "d1_eq": 157.516,
+  "week_open": 157.535,
+  "h1_fvg1_low": 157.857,
+  "h1_fvg1_high": 157.969,
+  "h1_fvg2_low": 157.978,
+  "h1_fvg2_high": 158.105,
+  "m5_fvg_low": 158.041,
+  "m5_fvg_high": 158.06,
+  "h1_ote_62": 157.962,
+  "h1_ote_79": 157.867,
+  "h4_lh_broken": 158.118,
+  "d1_lh_2": 158.602,
+  "strong_low": 157.75,
+  "adr10_pips": 82.4,
+  "swept_today": [
+   "asia low 157.802 (08:35, 157.750 — Judas)",
+   "asia high 157.959 (09:55)",
+   "pdh 158.008 (10:05)",
+   "H1 bear FVG 158.086–158.118 / H4 LH 158.118 (10:30–10:40)"
+  ]
+ },
+ "d1_context": "D1 медвежий: LH 158.962→158.602→158.336, LL 156.069 (23.10), HL 156.972 (30.10). Цена 158.256 = 76% range 156.069–158.962 — premium; 3 п под PWH/D1 LH 158.336. Незакрытый D1 bear FVG 158.967–159.029.",
+ "h4_context": "H4 (нативный 4h): CHoCH↑ — бар 09:00 закрылся 158.256 > LH 158.118; H4 bear OB 157.876–158.252 пробит. H1 вверх: HL 157.750 → HH 158.307; H4/H1 согласны (лонг), D1 против.",
+ "news": [
+  {
+   "time": "2026-11-03T16:16:00+01:00",
+   "country": "USD",
+   "title": "Congressional Elections (high; результаты ночью — после экспирации)"
+  },
+  {
+   "time": "2026-11-06T14:30:00+01:00",
+   "country": "USD",
+   "title": "NFP / Unemployment Rate / Avg Hourly Earnings"
+  },
+  {
+   "time": "2026-11-06T17:00:00+01:00",
+   "country": "JPY",
+   "title": "BOJ Gov Ueda Speaks"
+  }
+ ],
+ "warnings": [
+  "RR к TP1 (PWH 158.336) = 1:1.34 < 1:2; к TP2 1:2.57, TP3 1:3.28",
+  "Вход против D1: структура LH/LL, цена в premium 76%, TP1 = D1 LH/PWH — место для шортов D1",
+  "День уже прошёл 55.7 п = 68% ADR10 (82.4 п); pm-ордера исторически 2T/4S (−0.57R)",
+  "16:16 Congressional Elections (USD) — блэкаут 15:16–16:31; NY open 14:30 без красных",
+  "План Б: sweep PWH 158.336 + M5 CHoCH↓ → шорт по D1 (только после подтверждения, без лимита)"
+ ]
+}
