@@ -1,8 +1,8 @@
 {
- "updated_at": "2026-11-03T13:15:00+01:00",
- "orders": 25,
- "filled": 16,
- "tp": 7,
+ "updated_at": "2026-11-04T07:10:00+01:00",
+ "orders": 26,
+ "filled": 17,
+ "tp": 8,
  "sl": 8,
  "be": 1,
  "open": 0,
@@ -10,13 +10,13 @@
  "expired": 7,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 46.7,
- "fill_rate": 66.7,
- "total_r": 1.39,
- "avg_r": 0.09,
- "total_pips": 86.9,
+ "winrate": 50.0,
+ "fill_rate": 68.0,
+ "total_r": 2.73,
+ "avg_r": 0.16,
+ "total_pips": 116.0,
  "am": {
-  "orders": 10,
+  "orders": 11,
   "filled": 10,
   "tp": 5,
   "sl": 4,
@@ -24,11 +24,11 @@
  },
  "pm": {
   "orders": 15,
-  "filled": 6,
-  "tp": 2,
+  "filled": 7,
+  "tp": 3,
   "sl": 4,
-  "total_r": -0.57
+  "total_r": 0.77
  },
- "last10": "SSSTSTSBST",
- "review": "03.11 pm: 02.11-pm SELL 158.086 → EXPIRED (DEEP_ENTRY, 1.5 п; после экспирации был бы SL). Закрытых 16: WR 46.7% (7T/8S/1B), avg_r +0.09, ΣR +1.39 — в плюсе, но тонко. SL: ZONE_FAILED ×7, AGAINST_HTF ×1. am 5T/4S +1.96R против pm 2T/4S −0.57R — проблема в pm. Правка (без изменений): pm-ордер только с RR к TP1 ≥ 2 и только при sweep пула перед входом; pm-ордер не выставлять, если цена уже прошла ≥70% дневного ATR(10)."
+ "last10": "SSTSTSBSTT",
+ "review": "04.11 am: 03.11-pm BUY 158.045 → TP +1.34R. Закрытых 17: WR 50.0% (8T/8S/1B), avg_r +0.16, ΣR +2.73 — в плюсе. SL: ZONE_FAILED ×7, AGAINST_HTF ×1. am 5T/4S +1.96R, pm 3T/4S +0.77R; OB 5T/5S +2.14R лучше FVG/OTE. Средний RR взятых TP1 всего 1.32 — при WR 50% это едва-едва. Правка (предложение): выставлять ордер только при RR к TP1 ≥ 1.8; иначе — вход глубже (OB 70–79% плеча) или TP1 на следующий внешний пул."
 }
