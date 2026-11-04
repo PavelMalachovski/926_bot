@@ -1,0 +1,27 @@
+{
+ "date": "2026-11-04",
+ "created_at": "2026-11-04T13:10:00+01:00",
+ "price_at_creation": 158.434,
+ "morning_plan_found": true,
+ "morning_order_status": {
+  "status": "ИСПОЛНЕН, В РАБОТЕ",
+  "filled_at": "2026-11-04T10:45:00+01:00",
+  "floating_pips": -4.4,
+  "floating_r": -0.14,
+  "mae_pips": -20.4,
+  "max_high": 158.595,
+  "note": "SELL 158.390 задет M5 10:45 (high 158.396). Пик 12:05 158.595 — зона 158.368–158.548 пробита фитилём, но H1 11:00 закрылся 158.535, H1 12:00 — 158.434 (верхний фитиль 16 п). Strong High 158.612 и SL 158.712 не задеты. M5: внутренний HL 158.452 пробит в 12:45 → M5 CHoCH↓, защищённый high 158.595."
+ },
+ "morning_action": "оставить как есть",
+ "adjustments": null,
+ "adjustment_note": "SL 158.712 над Strong High 158.612/пиком 158.595 — структура цела; BE невозможен (цена выше entry); TP1 EQL 157.906 не снят (low дня после 07:00 = 157.986). Красных новостей до конца дня нет. Перенос в BE — после M5 BOS ниже 158.325 (H1 HL 11:00) или после TP1.",
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "invalidation": {"level": 158.612, "rule": "H1 body close > 158.612 (Strong High) → закрыть вручную, не ждать SL; H1 close < 158.325 → SL в BE 158.390"},
+ "levels": {"london_high": 158.595, "london_low": 158.013, "asia_high": 158.612, "asia_low": 157.421, "pdh": 158.764, "pdl": 157.75, "eqh": 158.753, "eql": 157.906, "m5_protected_high": 158.595, "h1_hl": 158.325},
+ "h4_context": "H4 (ресемпл): CHoCH↓ 04.11 00:00 (закрытие 157.716 < HL 157.750), откат 157.421→158.595 = 87% плеча — глубже OTE, но ниже Strong High 158.612. H4 08:00 закрылся 158.535 бычьим — давление вверх есть.",
+ "news": [],
+ "news_note": "Красных USD/JPY 04.11 после 14:00 нет (ISM Services 16:00 — medium). NFP пт 06.11 14:30, BOJ Ueda пт 17:00.",
+ "warnings": ["Откат 87% — глубже OTE; H1 с 157.421 идёт HH/HL — шорт против локального H1 импульса", "Buy-side EQH 158.753/PDH 158.764 в 4 п над SL 158.712 — риск STOP_HUNT"]
+}
