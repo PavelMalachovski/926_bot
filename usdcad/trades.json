@@ -713,15 +713,42 @@
   "price_at_creation": 1.39579,
   "created_at": "2026-11-03T13:15:00+01:00",
   "expires": "2026-11-03T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-11-03T13:20:00+01:00",
+  "closed_at": "2026-11-03T14:35:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -17.3,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Filled 13:20 (high 1.39737 vs entry 1.39675) on the bounce from the PDL 1.39501 sweep; H1 13:00 body closed 1.39755 above the zone top 1.39748, 14:00 closed 1.39833, SL 1.39848 hit exactly at 14:35. The rally ran to 1.40143 (00:00 04.11) and then dropped back to 1.39575 - TP1 1.39430 never traded, so not a stop hunt. Short at 12% of the D1 range right after a sell-side sweep: the flagged PDL-bounce risk is what happened."
+  },
+  "last_checked": "2026-11-04T07:05:00+01:00"
+ },
+ {
+  "id": "2026-11-04-am",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.398,
+  "sl": 1.4001,
+  "tp1": 1.39585,
+  "rr_tp1": 1.02,
+  "zone_high": 1.39909,
+  "zone_low": 1.39775,
+  "price_at_creation": 1.39628,
+  "created_at": "2026-11-04T07:10:00+01:00",
+  "expires": "2026-11-04T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 9.6,
+  "closest_approach": 17.2,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-03T13:10:00+01:00"
+  "last_checked": "2026-11-04T07:05:00+01:00"
  }
 ]
