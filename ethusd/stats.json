@@ -1,8 +1,8 @@
 {
- "updated_at": "2026-11-03T13:15:00+01:00",
- "orders": 34,
- "filled": 17,
- "tp": 7,
+ "updated_at": "2026-11-04T07:10:00+01:00",
+ "orders": 35,
+ "filled": 18,
+ "tp": 8,
  "sl": 7,
  "be": 3,
  "open": 0,
@@ -10,13 +10,13 @@
  "expired": 15,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 50.0,
- "fill_rate": 51.5,
- "total_r": 6.86,
- "avg_r": 0.4,
- "total_usd": 111.95,
+ "winrate": 53.3,
+ "fill_rate": 52.9,
+ "total_r": 8.97,
+ "avg_r": 0.5,
+ "total_usd": 158.45,
  "am": {
-  "orders": 16,
+  "orders": 17,
   "filled": 9,
   "tp": 4,
   "sl": 2,
@@ -24,10 +24,10 @@
  },
  "pm": {
   "orders": 18,
-  "filled": 8,
-  "tp": 3,
+  "filled": 9,
+  "tp": 4,
   "sl": 5,
-  "total_r": 0.57
+  "total_r": 2.68
  },
  "v2": {
   "orders": 2,
@@ -46,6 +46,6 @@
   "avg_r": null,
   "total_usd": 0
  },
- "last10": "SSTTBSSSTS",
- "review": "WR 50.0% (7TP/7SL) < 60% при 14 закрытых, но avg_r +0.40, ΣR +6.86 — система в плюсе (при RR≥2 норма). Причины SL: ZONE_FAILED 5, AGAINST_HTF 2 (10-27-pm SELL, 11-02-am BUY против D1). Хуже: pm (5 из 7 SL), long (4 SL против 3 у short), basis FVG. fill_rate 51.5% ≥ 40%. Правка: ордер против структуры D1 (LH/LL → BUY) не выдавать до D1 close за последним LH — 2 из 7 SL ушли бы, ΣR +2."
+ "last10": "STTBSSSTST",
+ "review": "WR 53.3% (8TP/7SL) < 60% при 15 закрытых, но avg_r +0.5, ΣR +8.97 — система в плюсе (RR≥2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 2. Хуже: pm (5 из 7 SL), long (4 SL), basis FVG. fill_rate 52.9% ≥ 40%. Правка (без изменений): BUY против D1 LH/LL не выдавать до D1 close выше последнего LH — 2 из 7 SL ушли бы."
 }
