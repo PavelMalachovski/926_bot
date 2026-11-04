@@ -740,15 +740,42 @@
   "price_at_creation": 1.39628,
   "created_at": "2026-11-04T07:10:00+01:00",
   "expires": "2026-11-04T23:59:00+01:00",
+  "status": "INVALIDATED",
+  "filled_at": null,
+  "closed_at": "2026-11-04T08:35:00+01:00 (TP1 1.39585 traded, M5 08:35 low 1.39584, before fill)",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 4.2,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "London Judas pullback topped at 1.39758 (M5 08:10) - 4.2 pips short of entry 1.39800, 13.0 of 17.2 pips = 76% of the path; it was capped under the unswept Asia EQH 1.39768/1.39775 (FVG near edge). TP1 EQL 1.39585 traded 08:35 without a fill -> cancelled by rule; low of day 1.39461 at 11:00 (PDL swept, PWL 1.39418 not). An entry at the EQH/near edge 1.39775 would still have missed by 1.7 pips; 1.39755 (London high) would have filled and paid TP1."
+  },
+  "last_checked": "2026-11-04T13:05:00+01:00"
+ },
+ {
+  "id": "2026-11-04-pm",
+  "side": "SELL",
+  "basis": "OTE",
+  "entry": 1.3965,
+  "sl": 1.39785,
+  "tp1": 1.39461,
+  "rr_tp1": 1.4,
+  "zone_high": 1.39696,
+  "zone_low": 1.39621,
+  "price_at_creation": 1.39571,
+  "created_at": "2026-11-04T13:15:00+01:00",
+  "expires": "2026-11-04T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 17.2,
+  "closest_approach": 7.9,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-04T07:05:00+01:00"
+  "last_checked": "2026-11-04T13:05:00+01:00"
  }
 ]
