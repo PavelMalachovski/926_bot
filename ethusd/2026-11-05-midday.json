@@ -1,0 +1,56 @@
+{
+ "date": "2026-11-05",
+ "created_at": "2026-11-05T13:10:00+01:00",
+ "mode": "ДЕНЬ",
+ "rules": "v1",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "morning_order_status": "НЕ ДОШЛА (17.52$ до entry 2394.00; min 2411.52 в 10:20), не инвалидирован",
+ "morning_order_decision": "оставить до 23:59: вход 2394 = sweep EQL 2405.23/Asia L 2407.66 в H1 FVG 2387.00–2405.23, H4 up не сломан; ликвидность под ним нетронута",
+ "price_at_creation": 2418.0,
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "new_order_note": "нового нет — утренний лимит покрывает сетап на NY, дубль в той же зоне не выдаётся",
+ "invalidation": {
+  "level": 2387.0,
+  "rule": "H1 body close ниже 2387.00 до исполнения → снять лимит; H1 close < 2378.09 (база импульса) → лонг мёртв, план Б: ждать 2339.27 (дно H4 FVG / London high 11-04) + M5 CHoCH вверх"
+ },
+ "scenarios": [
+  "H1 close > 2437.10 без отката — не гнаться, лимит оставить",
+  "Sweep PDH 2450 и H1 close обратно < 2437 — лимит снять",
+  "14:30 Unemployment Claims (medium) может дать sweep EQL 2405 → исполнение"
+ ],
+ "levels": {
+  "asia_high": 2437.1,
+  "asia_low": 2407.66,
+  "pdh": 2450.0,
+  "pdl": 2226.44,
+  "pwh": 2391.55,
+  "pwl": 2174.08,
+  "eqh": 2445.5,
+  "eql": 2405.23,
+  "d1_range_high": 2526.62,
+  "d1_range_low": 2174.08,
+  "d1_eq": 2350.35,
+  "week_open": 2275.3,
+  "london_high": 2434.91,
+  "london_low": 2411.52
+ },
+ "swept_since_morning": [],
+ "d1_context": "с утра без изменений: premium 69.6% range 2174.08–2526.62",
+ "h4_context": "H4 up, HH 2450; инсайд-консолидация 2405.23–2450, нисходящие LH 2446.28/2444.75/2437.10/2434.91, восходящие HL 2405.23/2407.66/2411.52",
+ "news": [
+  {
+   "time": "2026-11-05 14:30",
+   "title": "Unemployment Claims (medium)"
+  },
+  {
+   "time": "2026-11-06 14:30",
+   "title": "NFP / Unemployment Rate / AHE"
+  }
+ ],
+ "warnings": [
+  "Лонг в premium D1",
+  "Завтра NFP — лимит снять до 23:59"
+ ]
+}
