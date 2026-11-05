@@ -1,0 +1,62 @@
+{
+ "date": "2026-11-05",
+ "created_at": "2026-11-05T07:10:00+01:00",
+ "mode": "УТРО",
+ "rules": "v1",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "price_at_creation": 2419.0,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 2394.0,
+  "sl": 2373.0,
+  "tp1": 2437.1,
+  "tp2": 2450.0,
+  "tp3": 2470.53,
+  "zone_high": 2405.23,
+  "zone_low": 2387.0,
+  "basis": "H1 FVG 2387.00–2405.23 (импульс 15:00–17:00 11-04, внутри H4 bull FVG 2339.27–2405.23) под EQL 2405.23/2405.59/Asia low 2407.66 — вход после sweep sell-side",
+  "risk_usd": 21.0,
+  "rr_tp1": 2.05,
+  "rr_tp2": 2.67,
+  "rr_tp3": 3.64,
+  "distance_usd": 25.0,
+  "expires": "2026-11-05T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 2387.0,
+  "rule": "H1 body close ниже 2387.00 до исполнения → снять лимит; H1 close < 2378.09 (база импульса) → лонг мёртв, план Б: ждать 2339.27 (дно H4 FVG / London high 11-04) + M5 CHoCH вверх"
+ },
+ "scenarios": [
+  "Без отката (Asia low 2407.66 держит) — не гнаться; лонг только после sweep 2407.66 + M5 CHoCH вверх",
+  "Sweep PDH 2450.00 в H4 bear FVG 2450.00–2470.53 и H1 close обратно < 2437 — D1 premium-шорт после M5 CHoCH вниз, цели 2405/2387; лонг-лимит снять",
+  "H1 close > 2470.53 — H4 supply сломан, лимит оставить, TP3 → 2526.62 (D1 LH)"
+ ],
+ "levels": {
+  "asia_high": 2437.1,
+  "asia_low": 2407.66,
+  "pdh": 2450.0,
+  "pdl": 2226.44,
+  "pwh": 2391.55,
+  "pwl": 2174.08,
+  "eqh": 2445.5,
+  "eql": 2405.23,
+  "d1_range_high": 2526.62,
+  "d1_range_low": 2174.08,
+  "d1_eq": 2350.35,
+  "week_open": 2275.3
+ },
+ "d1_context": "D1 LH 2526.62 / LL 2174.08; 11-04 close 2424.61 выше LH 2391.55 (=PWH, снят) → D1 CHoCH вверх. Цена 2419 = 69.6% range 2174–2527 (premium). Сверху H4 bear FVG 2450.00–2470.53 (отбой ровно от 2450), D1 bear FVG 2587–2684. PDH 2450, PDL 2226.44.",
+ "h4_context": "H4 up: BOS 2317.84 и 2391.55, HH 2450.00. Незакрытый bull FVG 2339.27–2405.23 (частично заполнен до 2405.23), ниже bull FVG 2281.15–2303.50. Ночь — консолидация 2405–2446 под supply.",
+ "news": [
+  {
+   "time": "2026-11-06 14:30",
+   "title": "NFP / Unemployment Rate / Avg Hourly Earnings (завтра)"
+  }
+ ],
+ "warnings": [
+  "Вход в premium D1 (69.6% range 2174–2527) и под H4 bear FVG 2450–2470.53 — лонг против D1 premium",
+  "Сегодня красных USD нет; завтра 14:30 NFP — ордер снять до 23:59"
+ ]
+}

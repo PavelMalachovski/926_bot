@@ -1256,15 +1256,46 @@
   "price_at_creation": 2322.94,
   "created_at": "2026-11-04T13:10:00+01:00",
   "expires": "2026-11-04T23:59:00+01:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 4.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "Откат дошёл до 2310.41 (13:50, London HL) и флеш-фитилём до 2310.00 (16:05) — 4.00$ до entry 2306, 76% пути от 2322.94. Держал London HL 2310.41 над краем зоны 2308.60; затем импульс +140$ до 2450 (TP1 2339 был бы взят). Вход надо было ставить на верх OB/HL 2310–2311, а не в середину зоны."
+  },
+  "last_checked": "2026-11-05T07:00:00+01:00"
+ },
+ {
+  "id": "2026-11-05-am",
+  "rules": "v1",
+  "side": "BUY LIMIT",
+  "basis": "FVG",
+  "entry": 2394.0,
+  "sl": 2373.0,
+  "tp1": 2437.1,
+  "tp2": 2450.0,
+  "tp3": 2470.53,
+  "rr_tp1": 2.05,
+  "rr_tp2": 2.67,
+  "zone_high": 2405.23,
+  "zone_low": 2387.0,
+  "price_at_creation": 2419.0,
+  "created_at": "2026-11-05T07:10:00+01:00",
+  "expires": "2026-11-05T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 16.94,
+  "closest_approach": 25.0,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-04T13:05:00+01:00"
+  "last_checked": "2026-11-05T07:00:00+01:00"
  }
 ]
