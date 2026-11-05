@@ -1,0 +1,23 @@
+{
+ "date": "2026-11-05",
+ "created_at": "2026-11-05T07:15:00+01:00",
+ "price_at_creation": 1.3952,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL", "entry": 1.39685, "sl": 1.39915, "tp1": 1.3948, "tp2": 1.3932, "tp3": 1.39145,
+  "zone_high": 1.39747, "zone_low": 1.39623, "basis": "OTE", "risk_pips": 23.0,
+  "expires": "2026-11-05T23:59:00+01:00"},
+ "invalidation": {"level": 1.39747, "rule": "H1 body close above 1.39747 (EQH / OTE 79% / zone top) before fill -> cancel limit; also cancel if TP1 Asia-low EQL 1.39474 trades before fill (no chase)"},
+ "levels": {"asia_high": 1.39731, "asia_low": 1.39474, "pdh": 1.40143, "pdl": 1.39311, "pwh": 1.40706, "pwl": 1.39418,
+  "pwl_swept": "04.11 14:00 low 1.39311", "eqh": 1.39745, "eql": 1.39474, "d1_range_high": 1.40706, "d1_range_low": 1.39311,
+  "d1_eq": 1.40009, "week_open": 1.39675, "h1_leg_high": 1.39817, "h1_leg_low": 1.39474, "h1_eq": 1.39646,
+  "h1_ote_62": 1.39687, "h1_ote_79": 1.39745, "h1_bear_fvg": [1.39623, 1.39694], "m5_bear_fvg": [1.39675, 1.39697],
+  "m5_bear_fvg_low": [1.3954, 1.39579], "h4_lh": 1.40143, "d1_low_16_09": 1.39137},
+ "d1_context": "D1 bearish LH/LL: LH 1.40706 (28.10) -> LL 1.39311 (04.11, swept PWL 1.39418) but closed 1.39720 near the middle - long lower wick, bullish rejection of sell-side. Price 1.39520 at 15% of the D1 range 1.39311-1.40706 (deep discount), inside the D1 bull FVG 1.39283-1.39719. Unswept: PDL 1.39311, D1 low 1.39137; buy-side PDH 1.40143.",
+ "h4_context": "H4 bearish: LH 1.40143 (04.11 00:00) -> LL 1.39311 (13:00 H4), bounce to 1.39817 (21:00 H4, lower high), 01:00 H4 closed 1.39499. H1: leg 1.39817 -> 1.39474 broke the 1.3962 HLs (BOS down), untouched H1 bear FVG 1.39623-1.39694, OTE 62-79% 1.39687-1.39745. M5: Asia 1.39474-1.39731, EQL 1.39474/1.39477 below, EQH 1.39745/1.39747 above.",
+ "news": [{"time": "2026-11-06T14:30:00+01:00", "country": "USD", "title": "Non-Farm Employment Change / Unemployment Rate / AHE"}, {"time": "2026-11-06T14:30:00+01:00", "country": "CAD", "title": "Employment Change / Unemployment Rate"}],
+ "news_note": "No red USD/CAD today (05.11). Fri 06.11 14:30 NFP + CAD jobs.",
+ "warnings": ["RR to TP1 (Asia-low EQL 1.39474) 1:0.89 < 1:2; TP2 PDL 1:1.59, TP3 D1 low 1:2.35",
+  "Against D1 PD: short at 15% of the D1 range, inside the D1 bull FVG, after a D1 sweep-and-reclaim of PWL (bullish rejection candle)",
+  "Entry 16.5 pips from price - the distance that went unfilled 6 times (NO_PULLBACK/DEEP_ENTRY)"]
+}
