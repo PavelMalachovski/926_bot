@@ -1,0 +1,70 @@
+{
+ "date": "2026-11-05",
+ "created_at": "2026-11-05T13:05:00+01:00",
+ "price_at_creation": 158.379,
+ "morning_plan_found": true,
+ "morning_order_status": {
+  "status": "ИСПОЛНЕН, В РАБОТЕ",
+  "filled_at": "2026-11-05T10:45:00+01:00",
+  "floating_pips": -5.9,
+  "floating_r": -0.17,
+  "mae_pips": -10.5,
+  "max_high": 158.425,
+  "note": "SELL 158.320 задет M5 10:45 (high 158.329). Пик 158.425 дважды (11:40, 12:50) — M5 EQH под Asia high 158.438, SL 158.660 не задет. H1 11:00 c 158.376, 12:00 c 158.379 — тела ниже 79% OTE 158.392. Лондон: HH/HL 157.897→158.425, protected HL 158.327, ключевой HL 158.163."
+ },
+ "morning_action": "оставить как есть",
+ "adjustments": null,
+ "adjustment_note": "Структура H4/H1 медвежья: LH 158.695 < HH 158.764, Strong High 158.557 цел; откат Лондона 83% плеча 158.557→157.772 — глубоко, но без H1 body close над зоной. TP1 Asia low 157.772 не снят. BE невозможен (цена выше entry). SL→BE 158.320 после M5 BOS ниже 158.163 (с protected high ≤158.425) или после TP1. Красных USD/JPY до конца 05.11 нет; если позиция открыта в пт 06.11 13:30 (NFP 14:30) — закрыть/BE.",
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "invalidation": {
+  "level": 158.557,
+  "rule": "H1 body close > 158.557 (Strong High/EQH) → закрыть вручную, не ждать SL; M5 BOS < 158.163 → SL в BE 158.320"
+ },
+ "levels": {
+  "london_high": 158.425,
+  "london_low": 157.897,
+  "asia_high": 158.438,
+  "asia_low": 157.772,
+  "pdh": 158.755,
+  "pdl": 157.421,
+  "eqh": 158.557,
+  "m5_eqh": 158.425,
+  "m5_protected_hl": 158.327,
+  "m5_key_hl": 158.163,
+  "h4_lh": 158.695,
+  "h4_hh": 158.764,
+  "swept_today": [
+   "EQL 157.906 (02:20)"
+  ],
+  "not_swept": [
+   "Asia high 158.438",
+   "Asia low 157.772",
+   "EQH 158.557",
+   "PDL 157.421"
+  ]
+ },
+ "h4_context": "H4 (ресемпл): LH 158.695 < HH 158.764, CHoCH↓ 04.11 00:00 в силе. H4 08:00 бычий (157.927→158.376) — откат в premium 71% H4 range 157.421–158.764.",
+ "h1_context": "H1: с 157.772 HH/HL откат 83% плеча, верхние фитили 158.425 ×2; H1 CHoCH↑ против шорта нет (выше 158.557 не закрывались).",
+ "news": [
+  {
+   "time": "2026-11-06T14:30:00+01:00",
+   "country": "USD",
+   "title": "NFP / AHE / Unemployment Rate"
+  },
+  {
+   "time": "2026-11-06T17:00:00+01:00",
+   "country": "JPY",
+   "title": "BOJ Gov Ueda Speaks"
+  }
+ ],
+ "news_note": "Красных USD/JPY 05.11 после 14:00 нет.",
+ "warnings": [
+  "Откат 83% плеча — глубже OTE 79%; Лондон идёт HH/HL против шорта",
+  "Buy-side Asia high 158.438 / EQH 158.425 в 1–2 п над ценой — вероятен sweep до разворота",
+  "SL 158.660 между EQH 158.557 и H4 LH 158.695 — риск STOP_HUNT",
+  "RR к TP1 1:1.6 < 1:2"
+ ],
+ "new_order_note": "Нового ордера нет: позиция уже открыта в шорт, второй вход в ту же сторону удвоит риск."
+}

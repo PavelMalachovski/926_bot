@@ -1,23 +1,23 @@
 {
- "updated_at": "2026-11-05T07:10:00+01:00",
+ "updated_at": "2026-11-05T13:05:00+01:00",
  "orders": 27,
- "filled": 18,
+ "filled": 19,
  "tp": 8,
  "sl": 8,
  "be": 2,
- "open": 0,
- "pending": 1,
+ "open": 1,
+ "pending": 0,
  "expired": 7,
  "invalidated": 1,
  "unknown": 0,
  "winrate": 50.0,
- "fill_rate": 69.2,
+ "fill_rate": 70.4,
  "total_r": 2.73,
  "avg_r": 0.15,
  "total_pips": 116.0,
  "am": {
   "orders": 12,
-  "filled": 11,
+  "filled": 12,
   "tp": 5,
   "sl": 4,
   "total_r": 1.96
@@ -30,5 +30,5 @@
   "total_r": 0.77
  },
  "last10": "STSTSBSTTB",
- "review": "05.11 am: 04.11-am SELL 158.390 закрыт в BE 19:25 — SL перенесён в entry по правилу дневного плана (H1 close 158.290 < 158.325), после чего TP1 157.906 был взят в 02:20 → правило BE стоило +1.5R. Закрытых 18: WR 50.0% (8T/8S/2B), avg_r +0.15, ΣR +2.73 — в плюсе. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; OB 5T/5S (+2.14R) лучше FVG 2T/2S (+0.39R) и OTE; am +1.96R vs pm +0.77R. EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение, без изменений): SL в BE только после TP1 или после хода ≥1.0R в сторону сделки — не по H1 close в 7 пипсах от entry."
+ "review": "05.11 pm: новых закрытий нет; 05.11-am SELL 158.320 (FVG∩OTE) исполнен 10:45, в работе. Закрытых 18: WR 50.0% (8T/8S/2B), avg_r +0.15, ΣR +2.73 — в плюсе при RR ~1.2–1.5. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; OB 5T/5S лучше FVG/OTE; am +1.96R vs pm +0.77R. EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение, без изменений): SL в BE только после TP1 или хода ≥1.0R — не по близкому H1 close (04.11-am стоило +1.5R)."
 }
