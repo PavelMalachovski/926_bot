@@ -1,0 +1,80 @@
+{
+ "date": "2026-11-05",
+ "created_at": "2026-11-05T13:10:00+01:00",
+ "price_at_creation": 1.39624,
+ "morning_order_status": "INVALIDATED",
+ "morning_order_note": "SELL LIMIT 1.39685 not filled: TP1 Asia-low EQL 1.39474 traded 07:30 (low 1.39465) before fill -> cancelled per plan rule (no chase). London Judas low 1.39428 (08:00), then slow M5 HH/HL retrace to 1.39644 (12:50) - 4.1 pips short of entry. No H1 body close above 1.39747.",
+ "morning_order_action": "снять (already invalidated) -> replaced by the pm SELL LIMIT 1.39702",
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 1.39702,
+  "sl": 1.39915,
+  "tp1": 1.39463,
+  "tp2": 1.39428,
+  "tp3": 1.39311,
+  "zone_high": 1.39747,
+  "zone_low": 1.39623,
+  "basis": "OTE",
+  "risk_pips": 21.3,
+  "expires": "2026-11-05T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.39747,
+  "rule": "H1 body close above 1.39747 (EQH / OTE 79% / zone top) before fill -> cancel; also cancel if TP1 EQL 1.39463 trades before fill (no chase)"
+ },
+ "levels": {
+  "asia_high": 1.39731,
+  "asia_low": 1.39435,
+  "asia_low_swept": "08:00 low 1.39428",
+  "london_high": 1.39644,
+  "london_low": 1.39428,
+  "pdh": 1.40143,
+  "pdl": 1.39311,
+  "pwh": 1.40706,
+  "pwl": 1.39418,
+  "eqh": 1.39745,
+  "eql": 1.39463,
+  "d1_range_high": 1.40706,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.40009,
+  "week_open": 1.39675,
+  "h1_leg_high": 1.39817,
+  "h1_leg_low": 1.39428,
+  "h1_eq": 1.39623,
+  "h1_ote_62": 1.39669,
+  "h1_ote_705": 1.39702,
+  "h1_ote_79": 1.39735,
+  "h1_bear_fvg": [
+   1.39623,
+   1.39694
+  ],
+  "m5_hl": [
+   1.39529,
+   1.39511
+  ],
+  "d1_low_16_09": 1.39137
+ },
+ "d1_context": "Unchanged from morning: D1 bearish LH/LL, price 1.39624 at 22% of the D1 range 1.39311-1.40706 (discount), inside the D1 bull FVG 1.39283-1.39719. Since morning: Asia low 1.39435 swept by London (1.39428), PDL 1.39311 still unswept.",
+ "h4_context": "H4 (resampled, 01/05/09 blocks): bearish LH 1.39817 -> 05:00 H4 low 1.39428, 09:00 H4 1.39463-1.39644 closing 1.39623 (no BOS up, 1.39817 intact). H1: leg 1.39817 -> 1.39428, retrace at 50% (1.39623) now tagging the H1 bear FVG 1.39623-1.39694; M5 bullish internal (BOS 10:45 > 1.39580, 12:40 > 1.39601) carrying price into the zone.",
+ "news": [
+  {
+   "time": "2026-11-06T14:30:00+01:00",
+   "country": "USD",
+   "title": "NFP / Unemployment Rate / AHE"
+  },
+  {
+   "time": "2026-11-06T14:30:00+01:00",
+   "country": "CAD",
+   "title": "Employment Change / Unemployment Rate"
+  }
+ ],
+ "news_note": "No red USD/CAD 14:00-close today. Fri 06.11 14:30 NFP + CAD jobs.",
+ "warnings": [
+  "RR to TP1 (EQL 1.39463) 1:1.12 < 1:2; TP2 London low 1:1.29, TP3 PDL 1:1.84",
+  "Against D1 PD: short at 22% of the D1 range, inside the D1 bull FVG, day after the PWL sweep-and-reclaim",
+  "Short after the London sweep of the Asia low (sell-side taken 08:00) - 5 H1 bars ago, outside the 3-bar rule; PDL 1.39311 still unswept",
+  "Entry 7.8 pips from price - inside the fill distance; NY open 14:30 without red news (no blackout)"
+ ]
+}
