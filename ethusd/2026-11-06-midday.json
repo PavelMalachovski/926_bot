@@ -1,0 +1,108 @@
+{
+ "date": "2026-11-06",
+ "created_at": "2026-11-06T14:15:00+01:00",
+ "mode": "ДЕНЬ",
+ "rules": "v3",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "price_at_creation": 2238.93,
+ "morning_order": {
+  "id": "2026-11-06-am",
+  "rules": "v1",
+  "status": "ИСПОЛНЕН L1, В РАБОТЕ",
+  "filled_at": "2026-11-06T10:15:00+01:00",
+  "filled_legs": "L1",
+  "fill_bar": "M5 10:15 high 2246.00",
+  "invalidated_before_fill": false,
+  "max_adverse": {
+   "price": 2251.0,
+   "at": "2026-11-06T13:25:00+01:00",
+   "to_sl_usd": 4.5
+  },
+  "max_favorable_since_fill": {
+   "price": 2233.7,
+   "at": "2026-11-06T12:10:00+01:00"
+  },
+  "floating_usd": 6.57,
+  "floating_r": 0.66,
+  "sl_hit": false,
+  "tp1_hit": false
+ },
+ "adjustments": {
+  "decision": "закрыть 50% по рынку до NFP 14:30; SL остатка → BE; TP без изменений",
+  "partial_close": {
+   "share": 0.5,
+   "price": 2238.93,
+   "usd_per_eth": 3.29
+  },
+  "sl": {
+   "from": 2255.5,
+   "to": 2245.5
+  },
+  "tp1": 2206.28,
+  "tp2": 2174.08,
+  "tp3": 2167.14,
+  "basis": "13:25 sweep EQH/Asia high 2250.03 (high 2251.00), M5 CHoCH↓ 13:45 под HL 2240.36 → protected high 2251.00; NFP 14:30 через 18 мин, старый SL всего 4.5$ над protected high; PDL 2206.28 (TP1) не снят"
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "no_new_order_reason": "утренний ордер исполнен и в работе — 5Д (новый план) не применяется",
+ "invalidation": {
+  "level": 2251.0,
+  "rule": "H1 body close > 2251.00 → шорт-структура сломана (HL 2213.47 + HH); остаток закрывается по BE, шорты не искать до sweep LH 2269.61 / H1 FVG 2287.11 + M5 CHoCH↓"
+ },
+ "scenarios": [
+  "NFP вниз: BOS под M5 2233.70 → TP1 PDL 2206.28 (остаток 50%), дальше PWL 2174.08",
+  "NFP вверх: снимет BE 2245.50 и, вероятно, 2251.00; H1 close > 2251.00 = H1 HL/HH → шорт снят, ждать 2269.61/2287.11",
+  "Пила 2233–2251 без H1 close за 2251 — держать остаток с SL BE до конца дня"
+ ],
+ "levels": {
+  "asia_high": 2250.03,
+  "asia_low": 2216.39,
+  "london_high": 2251.0,
+  "london_low": 2213.47,
+  "pdh": 2437.1,
+  "pdl": 2206.28,
+  "pwh": 2391.55,
+  "pwl": 2174.08,
+  "eqh": 2250.03,
+  "eql": null,
+  "d1_range_high": 2450.0,
+  "d1_range_low": 2174.08,
+  "d1_eq": 2312.04,
+  "week_open": 2275.3,
+  "h1_lh": 2269.61,
+  "h1_hl": 2213.47,
+  "m5_strong_high": 2251.0,
+  "m5_choch": 2240.36,
+  "m5_next_low": 2233.7,
+  "m5_bear_fvg_low": 2238.78,
+  "m5_bear_fvg_high": 2243.01,
+  "h1_fvg_low": 2287.11,
+  "h1_fvg_high": 2334.3,
+  "h4_fvg_low": 2287.11,
+  "h4_fvg_high": 2411.52,
+  "swept_today": {
+   "asia_low": "08:30 2213.47 (London judas)",
+   "asia_high_eqh": "13:25 2251.00"
+  },
+  "not_swept": [
+   "pdl 2206.28",
+   "pwl 2174.08",
+   "h1_lh 2269.61"
+  ]
+ },
+ "d1_context": "Без изменений с утра: D1 LH 2450 / LL 2174.08, цена 2238.93 = 23.5% range (discount), над D1 bull FVG top 2221.54. День пока inside 11-05 (2213.47–2251.00).",
+ "h4_context": "H4 down: CHoCH↓ (HL 2226.44 пробит, LL 2206.28), бар 09:00 откатил к 2249.41/2251.00 под H4 bear FVG 2287.11–2411.52. H1: LH 2269.61 → LL 2206.28 → LH 2250.03 (снят фитилём 2251.00, close 2238.95) → HL 2213.47 — коридор 2206–2251.",
+ "news": [
+  {
+   "time": "2026-11-06 14:30",
+   "title": "NFP / Unemployment Rate / Average Hourly Earnings (прогноз NFP 65K, пред. 29K)"
+  }
+ ],
+ "warnings": [
+  "Позиция открыта, NFP 14:30 — блэкаут 13:30–14:45, возможен спайк ±30–50$",
+  "BE 2245.50 ниже protected high 2251.00 — спайк NFP может снять BE, поэтому 50% фиксируем заранее",
+  "Утренний ордер v1: риск 10$ < 13$ — по П4 из routine_prompt_v3.md (в триггер ещё не внесён) не был бы выдан"
+ ]
+}
