@@ -1,0 +1,69 @@
+{
+ "date": "2026-11-06",
+ "created_at": "2026-11-06T07:10:00+01:00",
+ "mode": "УТРО",
+ "rules": "v1",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "price_at_creation": 2225.67,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2245.5,
+  "sl": 2255.5,
+  "tp1": 2206.28,
+  "tp2": 2174.08,
+  "tp3": 2167.14,
+  "zone_high": 2250.03,
+  "zone_low": 2238.01,
+  "basis": "H1 bear OB 01:00 (тело 2238.01–2247.30, фитиль 2250.03) ∩ OTE 62–79% плеча 2269.61→2206.28 (2245.55–2256.31), под EQH 2246.91/2250.03",
+  "risk_usd": 10.0,
+  "rr_tp1": 3.92,
+  "rr_tp2": 7.14,
+  "rr_tp3": 7.84,
+  "distance_usd": 19.83,
+  "expires": "2026-11-06T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 2250.03,
+  "rule": "H1 body close > 2250.03 до исполнения → снять лимит; план Б — ждать sweep LH 2269.61 в H1 bear FVG 2287.11–2334.30 + M5 CHoCH вниз"
+ },
+ "scenarios": [
+  "Без отката (пробой PDL 2206.28 сразу) — не гнаться; шорт только с ретеста под 2206 после M5 CHoCH, или ждать",
+  "Sweep PWL 2174.08 и H1 close обратно > 2174 — D1 discount + D1 bull FVG: шорт не держать, лонг после M5 CHoCH вверх",
+  "NFP 14:30: блэкаут 13:30–14:45 — исполнение на спайке NFP = ⚠, лимит до 13:30 не исполнен → решение в 14:00-ране"
+ ],
+ "levels": {
+  "asia_high": 2250.03,
+  "asia_low": 2216.39,
+  "pdh": 2437.1,
+  "pdl": 2206.28,
+  "pwh": 2391.55,
+  "pwl": 2174.08,
+  "eqh": 2250.03,
+  "eql": null,
+  "d1_range_high": 2450.0,
+  "d1_range_low": 2174.08,
+  "d1_eq": 2312.04,
+  "week_open": 2275.3,
+  "h1_lh": 2269.61,
+  "h1_fvg_low": 2287.11,
+  "h1_fvg_high": 2334.3,
+  "h4_fvg_low": 2287.11,
+  "h4_fvg_high": 2411.52,
+  "d1_bull_fvg_top": 2221.54
+ },
+ "d1_context": "D1 LH/LL: 11-04 sweep PWH 2391.55 → HH 2450, 11-05 bearish engulf close 2238.01 — CHoCH вверх отменён, LH 2450 / LL 2174.08. Цена 2225.67 = 18.7% range 2174.08–2450 (глубокий discount), на верхнем крае D1 bull FVG 1923.27–2221.54. Пулы снизу PDL 2206.28, PWL 2174.08; сверху H4/D1 bear FVG 2287–2411.",
+ "h4_context": "H4 CHoCH вниз: HL 2226.44 пробит (low 2206.28), бар 11-05 13:00 оставил bear FVG 2287.11–2411.52 (заполнен до 2262.04). H1 down: LH 2269.61 → LL 2206.28 → LH 2250.03, Asia low 2216.39.",
+ "news": [
+  {
+   "time": "2026-11-06 14:30",
+   "title": "NFP / Unemployment Rate / Average Hourly Earnings"
+  }
+ ],
+ "warnings": [
+  "Шорт в D1 discount 18.7% на крае D1 bull FVG 1923–2221.54 — вход против D1 premium/discount",
+  "NFP 14:30: блэкаут 13:30–14:45, исполнение на спайке возможно",
+  "SL 2255.50 всего 5.5$ над EQH 2250.03 — очевидный пул, риск stop hunt"
+ ]
+}

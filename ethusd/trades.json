@@ -1287,15 +1287,46 @@
   "price_at_creation": 2419.0,
   "created_at": "2026-11-05T07:10:00+01:00",
   "expires": "2026-11-05T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-11-05T13:35:00+01:00",
+  "closed_at": "2026-11-05T15:35:00+01:00",
+  "result_r": -1.0,
+  "result_usd": -21.0,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "AGAINST_HTF",
+   "note": "BUY в D1 premium 69.6% (range 2174–2527) под H4 bear FVG 2450–2470.53 — предупреждение было. Fill 13:35 (low 2392.00), SL 15:35 (low 2364.28); H1 15:00 закрылся 2344.23 сквозь FVG 2387–2405, день закрыт 2238.01 — D1 bearish engulf, ложный D1 CHoCH 11-04 отменён. После SL до TP1 2437.10 не дошла (max 2408.00) → не stop hunt."
+  },
+  "last_checked": "2026-11-06T07:00:00+01:00"
+ },
+ {
+  "id": "2026-11-06-am",
+  "rules": "v1",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "entry": 2245.5,
+  "sl": 2255.5,
+  "tp1": 2206.28,
+  "tp2": 2174.08,
+  "tp3": 2167.14,
+  "rr_tp1": 3.92,
+  "rr_tp2": 7.14,
+  "zone_high": 2250.03,
+  "zone_low": 2238.01,
+  "price_at_creation": 2225.67,
+  "created_at": "2026-11-06T07:10:00+01:00",
+  "expires": "2026-11-06T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 17.52,
+  "closest_approach": 19.83,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-05T13:05:00+01:00"
+  "last_checked": "2026-11-06T07:00:00+01:00"
  }
 ]

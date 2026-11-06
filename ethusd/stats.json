@@ -1,26 +1,26 @@
 {
- "updated_at": "2026-11-05T13:10:00+01:00",
- "orders": 36,
- "filled": 18,
+ "orders": 37,
+ "filled": 19,
  "tp": 8,
- "sl": 7,
+ "sl": 8,
  "be": 3,
  "open": 0,
  "pending": 1,
  "expired": 16,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 53.3,
- "fill_rate": 51.4,
- "total_r": 8.97,
- "avg_r": 0.5,
- "total_usd": 158.45,
+ "winrate": 50.0,
+ "fill_rate": 52.8,
+ "total_r": 7.97,
+ "avg_r": 0.42,
+ "total_usd": 137.45,
+ "updated_at": "2026-11-06T07:10:00+01:00",
  "am": {
-  "orders": 17,
-  "filled": 9,
+  "orders": 18,
+  "filled": 10,
   "tp": 4,
-  "sl": 2,
-  "total_r": 6.29
+  "sl": 3,
+  "total_r": 5.29
  },
  "pm": {
   "orders": 19,
@@ -46,6 +46,6 @@
   "avg_r": null,
   "total_usd": 0
  },
- "last10": "STTBSSSTST",
- "review": "WR 53.3% (8TP/7SL) < 60% при 15 закрытых, но avg_r +0.5, ΣR +8.97 — система в плюсе (RR≥2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 2. Хуже: pm (5 из 7 SL), long (4 SL), basis FVG. fill_rate 51.4% ≥ 40%; EXPIRED 16, последний — DEEP_ENTRY (4$ не дошла). Правка (предложение): BUY против D1 LH/LL не выдавать до D1 close выше последнего LH — 2 из 7 SL ушли бы."
+ "last10": "TTBSSSTSTS",
+ "review": "WR 50.0% (8TP/8SL) < 60% при 16 закрытых, но avg_r +0.42, ΣR +7.97 — система в плюсе (RR≥2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 3. Хуже: BUY 1TP/5SL −3.95R против SELL 7TP/3SL +11.92R; pm 5 из 8 SL; basis FVG 4/6 +0.65R. fill_rate 52.8% ≥ 40%. Правка (предложение): BUY не выдавать при цене в D1 premium > 60% range — все 3 AGAINST_HTF SL (вкл. 11-05, 69.6%) ушли бы."
 }
