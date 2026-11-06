@@ -1,36 +1,36 @@
 {
- "updated_at": "2026-11-06T07:05:00+01:00",
- "orders": 28,
- "filled": 19,
+ "updated_at": "2026-11-06T13:05:00+01:00",
+ "orders": 29,
+ "filled": 20,
  "tp": 9,
  "sl": 8,
  "be": 2,
- "open": 0,
+ "open": 1,
  "pending": 1,
  "expired": 7,
  "invalidated": 1,
  "unknown": 0,
  "winrate": 52.9,
- "fill_rate": 70.4,
+ "fill_rate": 71.4,
  "total_r": 4.34,
  "avg_r": 0.23,
  "total_pips": 170.8,
  "am": {
   "orders": 13,
-  "filled": 12,
+  "filled": 13,
   "tp": 6,
   "sl": 4,
   "total_r": 3.57
  },
  "pm": {
-  "orders": 15,
+  "orders": 16,
   "filled": 7,
   "tp": 3,
   "sl": 4,
   "total_r": 0.77
  },
  "last10": "TSTSBSTTBT",
- "review": "06.11: эксперимент v2.2 (v1 + фильтр RR 1.0–1.6 + весь объём на TP1). v2/v2.1 отменены — на годовом бэктесте ухудшали результат. 06.11 am: 05.11-am SELL 158.320 → TP1 157.772 (05.11 16:50) +1.61R / +54.8 п. Закрытых 19: WR 52.9% (9T/8S/2B), avg_r +0.23, ΣR +4.34. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение, без изменений): SL в BE только после TP1 или хода ≥1.0R — 05.11-am без раннего BE дошёл до TP1.",
+ "review": "06.11: эксперимент v2.2 (v1 + фильтр RR 1.0–1.6 + весь объём на TP1). v2/v2.1 отменены — на годовом бэктесте ухудшали результат. 06.11 am: 05.11-am SELL 158.320 → TP1 157.772 (05.11 16:50) +1.61R / +54.8 п. Закрытых 19: WR 52.9% (9T/8S/2B), avg_r +0.23, ΣR +4.34. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение, без изменений): SL в BE только после TP1 или хода ≥1.0R — 05.11-am без раннего BE дошёл до TP1. | 06.11 pm: 06-am (v1) SELL 158.175 исполнен 10:00, плав. −0.36R, закрыть по рынку 13:30 до NFP; 06-pm — первый ордер v2.2 (SELL 158.430, RR 1.08).",
  "experiment": {
   "rules": "v2.2",
   "started": "2026-11-06",
@@ -51,7 +51,7 @@
  },
  "v1": {
   "orders": 28,
-  "filled": 19,
+  "filled": 20,
   "tp": 9,
   "sl": 8,
   "be": 2,
@@ -59,7 +59,7 @@
   "total_r": 4.34
  },
  "v2_2": {
-  "orders": 0,
+  "orders": 1,
   "filled": 0,
   "tp": 0,
   "sl": 0,
@@ -69,5 +69,6 @@
   "total_r": 0,
   "net_r": 0,
   "avg_r": null
- }
+ },
+ "net_r": 3.11
 }
