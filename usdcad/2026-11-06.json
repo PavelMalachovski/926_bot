@@ -1,0 +1,90 @@
+{
+ "date": "2026-11-06",
+ "created_at": "2026-11-06T07:15:00+01:00",
+ "price_at_creation": 1.40456,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.4025,
+  "sl": 1.39995,
+  "tp1": 1.40536,
+  "tp2": 1.40706,
+  "tp3": 1.40815,
+  "zone_high": 1.40294,
+  "zone_low": 1.40176,
+  "basis": "OTE",
+  "risk_pips": 25.5,
+  "expires": "2026-11-06T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.40176,
+  "rule": "H1 body close below 1.40176 (zone low / OTE 79%) before fill -> cancel, plan B short; also cancel if TP1 EQH 1.40536 trades before fill (no chase) and if not filled by 13:30 (NFP/CAD jobs blackout 13:30-14:45)"
+ },
+ "levels": {
+  "asia_high": 1.40483,
+  "asia_low": 1.40112,
+  "pdh": 1.40058,
+  "pdl": 1.39428,
+  "pwh": 1.40706,
+  "pwl": 1.39418,
+  "eqh": 1.40536,
+  "eqh_pair": [
+   1.40536,
+   1.40553
+  ],
+  "eql": 1.40095,
+  "eql_pair": [
+   1.40095,
+   1.40112
+  ],
+  "d1_range_high": 1.40706,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.40009,
+  "week_open": 1.39675,
+  "h1_leg_low": 1.40095,
+  "h1_leg_high": 1.40483,
+  "h1_ote_62": 1.40242,
+  "h1_ote_705": 1.40209,
+  "h1_ote_79": 1.40176,
+  "h1_bull_fvg": [
+   1.4022,
+   1.40294
+  ],
+  "m5_bull_fvg": [
+   1.40246,
+   1.40294
+  ],
+  "h4_bull_fvg": [
+   1.40058,
+   1.40112
+  ],
+  "h4_choch": 1.40143,
+  "d1_bear_fvg": [
+   1.41125,
+   1.41326
+  ],
+  "d1_high_21_10": 1.40815
+ },
+ "d1_context": "D1 bearish LH/LL (1.43015 -> LH 1.40706 -> LL 1.39311), but 04.11 swept PWL and closed back in, 05.11 closed 1.39985 (bull). Price 1.4046 = 82% of the D1 range 1.39311-1.40706 (premium). Buy-side pools: EQH 1.40536/1.40553, PWH 1.40706, 21.10 high 1.40815; D1 bear FVG 1.41125-1.41326 untouched; D1 bull FVG 1.39283-1.39719 holding.",
+ "h4_context": "H4 CHoCH up: 05.11 22:05 broke the LH 1.40143 (04.11 high), HH 1.40483; three unfilled H4 bull FVGs, nearest 1.40058-1.40112. H1 HH/HL, leg 1.40095 -> 1.40483, OTE 1.40176-1.40242 overlaps the H1 bull FVG 1.40220-1.40294 and the M5 flip 1.40250 (22:10 high, broken 03:55).",
+ "news": [
+  {
+   "time": "2026-11-06T14:30:00+01:00",
+   "country": "USD",
+   "title": "Non-Farm Payrolls / Unemployment Rate / AHE"
+  },
+  {
+   "time": "2026-11-06T14:30:00+01:00",
+   "country": "CAD",
+   "title": "Employment Change / Unemployment Rate"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 (EQH 1.40536) 1:1.12 < 1:2; TP2 PWH 1:1.79, TP3 1.40815 1:2.22",
+  "Against D1: long entry at 67% of the D1 range (price at 82%) in a bearish D1 under PWH - same picture as the 28.10 long (H4 BOS from D1 premium -> SL)",
+  "Asia high 1.40483 is 2.7 pips above price - it will likely be swept at the London open; that is NOT TP1",
+  "NFP + CAD jobs 14:30: blackout 13:30-14:45 - a fill in the blackout is a news fill; cancel the limit at 13:30 if not filled",
+  "Entry 20.6 pips from price - beyond the 16-pip distance that keeps missing (NO_PULLBACK x7)"
+ ]
+}

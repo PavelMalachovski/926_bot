@@ -821,15 +821,42 @@
   "price_at_creation": 1.39624,
   "created_at": "2026-11-05T13:10:00+01:00",
   "expires": "2026-11-05T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-11-05T13:30:00+01:00",
+  "closed_at": "2026-11-05T15:35:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -21.3,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "AGAINST_HTF",
+   "note": "Filled 13:30 (M5 high 1.39721 vs entry 1.39702), MAE grew as H1 13:00 closed 1.39708 and H1 14:00 body closed 1.39793 above the zone top 1.39747; SL 1.39915 hit exactly at M5 15:35 (high 1.39915). TP1 1.39463 never traded: the rally ran through PDH 1.40058 to 1.40483 (06.11 06:30) = H4 CHoCH up. Short at 22% of the D1 range, inside the D1 bull FVG 1.39283-1.39719, the day after the PWL sweep-and-reclaim - all three flagged in the warnings; the D1 discount reversal was real, not a stop hunt."
+  },
+  "last_checked": "2026-11-06T07:05:00+01:00"
+ },
+ {
+  "id": "2026-11-06-am",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 1.4025,
+  "sl": 1.39995,
+  "tp1": 1.40536,
+  "rr_tp1": 1.12,
+  "zone_high": 1.40294,
+  "zone_low": 1.40176,
+  "price_at_creation": 1.40456,
+  "created_at": "2026-11-06T07:15:00+01:00",
+  "expires": "2026-11-06T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 7.8,
+  "closest_approach": 20.6,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-05T13:05:00+01:00"
+  "last_checked": "2026-11-06T07:05:00+01:00"
  }
 ]
