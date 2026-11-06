@@ -30,11 +30,13 @@
   "total_r": 0.77
  },
  "last10": "TSTSBSTTBT",
- "review": "06.11: внедрены правила v2 (usdjpy/rules_v2.md) как эксперимент; счёт v2 ведётся отдельно. 06.11 am: 05.11-am SELL 158.320 → TP1 157.772 (05.11 16:50) +1.61R / +54.8 п. Закрытых 19: WR 52.9% (9T/8S/2B), avg_r +0.23, ΣR +4.34. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение, без изменений): SL в BE только после TP1 или хода ≥1.0R — 05.11-am без раннего BE дошёл до TP1.",
+ "review": "06.11: эксперимент v2.2 (v1 + фильтр RR 1.0–1.6 + весь объём на TP1). v2/v2.1 отменены — на годовом бэктесте ухудшали результат. 06.11 am: 05.11-am SELL 158.320 → TP1 157.772 (05.11 16:50) +1.61R / +54.8 п. Закрытых 19: WR 52.9% (9T/8S/2B), avg_r +0.23, ΣR +4.34. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение, без изменений): SL в BE только после TP1 или хода ≥1.0R — 05.11-am без раннего BE дошёл до TP1.",
  "experiment": {
-  "rules": "v2",
+  "rules": "v2.2",
   "started": "2026-11-06",
-  "doc": "usdjpy/rules_v2.md",
+  "doc": "usdjpy/routine_prompt_v2_2.md",
+  "rules_text": "v1 + Ф1: ордер только при RR к TP1 1.0–1.6; Ф2: весь объём на TP1, без раннего BE",
+  "basis": "usdjpy/backtest_1y.md — год M5: 63 сделки, WR 52.5%, +12.9R, чистыми +9.1R (издержки 1.5 п), DD −5.8R, плюс во всех 4 кварталах",
   "baseline_v1": {
    "closed": 19,
    "winrate": 52.9,
@@ -42,7 +44,10 @@
    "avg_r": 0.23,
    "total_r": 4.34
   },
-  "target": "WR ≥ 65%, avg_r > +0.3R, fill_rate ≥ 75% на 15–20 ордерах v2"
+  "checkpoint": "30 исполненных v2.2: net_r < 0 → остановить и разобрать",
+  "superseded": [
+   "v2 / v2.1 (rules_v2.md, routine_prompt_v2.md) — не подтвердились на годе"
+  ]
  },
  "v1": {
   "orders": 28,
@@ -53,7 +58,7 @@
   "winrate": 52.9,
   "total_r": 4.34
  },
- "v2": {
+ "v2_2": {
   "orders": 0,
   "filled": 0,
   "tp": 0,
@@ -62,6 +67,7 @@
   "winrate": null,
   "fill_rate": null,
   "total_r": 0,
+  "net_r": 0,
   "avg_r": null
  }
 }
