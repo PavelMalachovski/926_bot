@@ -1,26 +1,26 @@
 {
- "updated_at": "2026-11-06T14:15:00+01:00",
- "orders": 37,
+ "updated_at": "2026-11-07T08:15:00+01:00",
+ "orders": 38,
  "filled": 20,
  "tp": 8,
  "sl": 8,
- "be": 3,
- "open": 1,
- "pending": 0,
+ "be": 4,
+ "open": 0,
+ "pending": 1,
  "expired": 16,
  "invalidated": 1,
  "unknown": 0,
  "winrate": 50.0,
  "fill_rate": 54.1,
- "total_r": 7.97,
+ "total_r": 8.3,
  "avg_r": 0.42,
- "total_usd": 137.45,
+ "total_usd": 140.74,
  "am": {
-  "orders": 18,
+  "orders": 19,
   "filled": 11,
   "tp": 4,
   "sl": 3,
-  "total_r": 5.29
+  "total_r": 5.62
  },
  "pm": {
   "orders": 19,
@@ -47,13 +47,13 @@
   "total_usd": 0
  },
  "v3": {
-  "orders": 0,
+  "orders": 1,
   "filled": 0,
   "tp": 0,
   "sl": 0,
   "be": 0,
   "open": 0,
-  "pending": 0,
+  "pending": 1,
   "expired": 0,
   "invalidated": 0,
   "unknown": 0,
@@ -63,6 +63,6 @@
   "avg_r": null,
   "total_usd": 0
  },
- "last10": "TTBSSSTSTS",
- "review": "б) WR 50.0% (8TP/8SL) < 65% при 16 закрытых, но avg_r +0.42, ΣR +7.97 — система в плюсе (RR ≥ 2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 3. Хуже: BUY 1TP/5SL −3.95R против SELL 7TP/3SL +11.92R; pm 5 из 8 SL; basis FVG 4TP/6SL +0.65R (голый FVG уже закрыт П1); L1 vs L2 — данных нет (все ордера v1/v2). Риск L1 < 13$: 2TP/4SL/2BE +0.68R против ≥ 13$: 6TP/4SL/1BE +7.29R. Правка (предложение): включить в триггер П4 из routine_prompt_v3.md — риск L1 ≥ 13$, иначе сетапа нет (06.11-am с риском 10$ не был бы выдан). в) fill 54.1% < 65% (37 ордеров без pending): EXPIRED — DEEP_ENTRY 8, NO_PULLBACK 6, NEWS 1, UNCLEAR 1; средний closest_approach 10.50$ = 47.7% пути; 8 из 16 подходили на ≤ 8$ — L2 из П2 их бы исполнил. Дистанция до entry > 25$: fill 1/6 (16.7%) против 19/31 (61.3%) при ≤ 25$. Правка (предложение): включить П5 — L1 не дальше 25$ от цены, дальше — только зона наблюдения."
+ "last10": "TBSSSTSTSB",
+ "review": "б) WR 50.0% (8TP/8SL) < 65% при 16 закрытых, но avg_r +0.42, ΣR +8.3 — система в плюсе (RR ≥ 2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 3. Хуже: BUY 1TP/5SL −3.95R против SELL 7TP/3SL/4BE +12.25R; pm 5 из 8 SL; basis FVG 4TP/6SL; L1 vs L2 — данных нет (первый v3-ордер 07.11-am). 11-06-am (риск 10$) закрыт в BE +0.33R: SL в BE стоял ниже protected high 2251.00 и снят на 0.08$ спайком перед NFP, исходный SL не задет. Правка (предложение): П4 из routine_prompt_v3.md — риск L1 ≥ 13$, иначе сетапа нет. в) fill 54.1% < 65% (37 ордеров без pending): EXPIRED — DEEP_ENTRY 8, NO_PULLBACK 6, NEWS 1, UNCLEAR 1; средний closest_approach 10.5$ = 52.3% пути; 8 из 16 подходили на ≤ 8$ — L2 из П2 их бы исполнил. Правка (предложение): П5 — L1 не дальше 25$ от цены (дальше — зона наблюдения); П6 — в выходные без ордеров (07.11 — суббота, ордер выдан по триггеру v3)."
 }
