@@ -1,0 +1,134 @@
+{
+ "date": "2026-11-07",
+ "created_at": "2026-11-07T14:05:00+01:00",
+ "mode": "ДЕНЬ",
+ "rules": "v3",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "price_at_creation": 2241.82,
+ "morning_order": {
+  "id": "2026-11-07-am",
+  "rules": "v3",
+  "status": "ИСПОЛНЕН L2, В РАБОТЕ",
+  "filled_at": "2026-11-07T09:00:00+01:00",
+  "filled_legs": "L2",
+  "fill_bar": "M5 09:00 high 2248.00 (касание), уверенно 09:20 high 2248.36",
+  "l1": {
+   "entry": 2256.0,
+   "filled": false,
+   "closest": 2251.54,
+   "closest_at": "2026-11-07T10:00:00+01:00",
+   "to_l1_usd": 4.46
+  },
+  "invalidated_before_fill": false,
+  "max_adverse": {
+   "price": 2251.54,
+   "at": "2026-11-07T10:00:00+01:00",
+   "usd": 3.54
+  },
+  "max_favorable_since_fill": {
+   "price": 2238.5,
+   "at": "2026-11-07T13:45:00+01:00",
+   "usd": 9.5
+  },
+  "floating_usd_leg": 6.18,
+  "floating_usd": 3.09,
+  "floating_r": 0.14,
+  "sl_hit": false,
+  "tp1_hit": false
+ },
+ "adjustments": {
+  "decision": "L2: SL → BE 2248.00; L1 SELL LIMIT 2256.00 оставить с SL 2274.61 до 23:59; TP без изменений",
+  "sl_l2": {
+   "from": 2274.61,
+   "to": 2248.0
+  },
+  "sl_l1": 2274.61,
+  "tp1": 2225.36,
+  "tp2": 2210.0,
+  "tp3": 2174.08,
+  "basis": "10:00 sweep Asia high/EQH 2250.74 (high 2251.54) под OB 2252.10, M5 CHoCH↓ 11:25 (close 2242.89 < 2245.12), M5 BOS↓ 13:40 (close 2240.69 < HL 2242.16) → protected high 2246.69 ниже входа L2 → BE по правилу; L1 оставлен — OB 2252.10–2262.05 не тронут и не инвалидирован (П3/4Д); пулы TP1 2225.36 / PDL 2210.00 / PWL 2174.08 не сняты; красных USD новостей нет"
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "no_new_order_reason": "утренний ордер исполнен (L2) и в работе, L1 ещё стоит — 5Д (новый план) не применяется",
+ "invalidation": {
+  "level": 2262.05,
+  "rule": "H1 body close > 2262.05 → снять L1 (L2 уже в BE); шорт только от LH 2269.61 / H4 bear FVG 2287.11 после sweep + M5 CHoCH↓"
+ },
+ "scenarios": [
+  "Продолжение вниз: H1 close < 2235.70 (H1 HL 00:00) = H1 BOS↓ → TP1 2225.36, дальше PDL 2210.00 / EQL 2206.28",
+  "Возврат над Strong High 2246.69 (M5 CHoCH↑ после sweep Asia low 2238.50) → L2 закрывается в BE 2248.00 (0R), L1 2256.00 ждёт sweep PDH 2254.26",
+  "Пробой вверх: H1 close > 2262.05 → снять L1; цели покупателей 2269.61 / 2287.11",
+  "Суббота, день 15.84$ (16% среднего 101.61$): L1 до 23:59 скорее EXPIRED; L2 с BE остаётся до TP/BE"
+ ],
+ "levels": {
+  "asia_high": 2250.74,
+  "asia_low": 2238.66,
+  "london_high": 2251.54,
+  "london_low": 2238.5,
+  "pdh": 2254.26,
+  "pdl": 2210.0,
+  "pwh": 2391.55,
+  "pwl": 2174.08,
+  "eqh": 2250.74,
+  "eql": 2206.28,
+  "d1_range_high": 2450.0,
+  "d1_range_low": 2174.08,
+  "d1_eq": 2312.04,
+  "week_open": 2275.3,
+  "h1_lh": 2269.61,
+  "h1_lh_today": 2249.04,
+  "h1_hl": 2235.7,
+  "h1_hl2": 2225.36,
+  "h1_ob_low": 2252.1,
+  "h1_ob_high": 2262.05,
+  "h4_ob_low": 2252.7,
+  "h4_ob_high": 2262.05,
+  "ote_62": 2245.54,
+  "ote_79": 2256.31,
+  "m5_strong_high": 2246.69,
+  "m5_choch": 2245.12,
+  "m5_bos": 2242.16,
+  "m5_bear_ob_low": 2244.1,
+  "m5_bear_ob_high": 2244.99,
+  "m5_bear_fvg_low": 2242.88,
+  "m5_bear_fvg_high": 2243.72,
+  "h1_fvg_low": 2287.11,
+  "h1_fvg_high": 2334.3,
+  "h4_fvg_low": 2287.11,
+  "h4_fvg_high": 2411.52,
+  "swept_today": {
+   "asia_high_eqh": "10:00 2251.54 (на 0.80$, close 2249.34) — London judas вверх",
+   "asia_low": "13:45 2238.50 (на 0.16$, close 2241.38)",
+   "h1_low_2240.32": "13:00 фитиль 2238.50, H1 close 2241.82 — без BOS"
+  },
+  "not_swept": [
+   "pdh 2254.26",
+   "h1_hl 2235.70",
+   "h1_hl 2225.36",
+   "pdl 2210.00",
+   "eql 2206.28",
+   "h1_lh 2269.61",
+   "pwl 2174.08"
+  ]
+ },
+ "d1_context": "Без изменений с утра: D1 range 2174.08–2450, цена 2241.82 = 24.5% (discount), над D1 bull FVG top 2221.54. День пока inside 11-06 (2235.70–2251.54 против 2210.00–2254.26).",
+ "h4_context": "H4 down (LH 2287.11 → LL 2206.28), сжатие: lows 2210.00 → 2225.36 → 2238.66 → 2240.43 → 2242.16 под 2250–2254; бар 09:00–13:00 2242.16–2251.54 закрылся 2245.30 под H4 OB 2252.70. H1: LH 2251.54 → 2249.04, фитиль 2238.50 под HL 2240.32 без body close; ключевой H1 HL 2235.70.",
+ "london_range": {
+  "high": 2251.54,
+  "high_at": "10:00",
+  "low": 2238.5,
+  "low_at": "13:45",
+  "size_usd": 13.04
+ },
+ "news": [],
+ "news_note": "Суббота — красных USD нет (FF thisweek до 06.11)",
+ "warnings": [
+  "RR L1 к TP1 2225.36 = 1:1.65 < 1:2 (L2 в BE)",
+  "Шорт в D1 discount 24.5% над D1 bull FVG (верх 2221.54)",
+  "Sweep Asia low 13:45 (2238.50) с возвратом — возможен ход вверх к 2246.69–2248 и выход L2 в BE",
+  "Суббота: день 15.84$ = 16% среднего 101.61$ — риск DEAD_RANGE для L1",
+  "Ордер выдан в выходной — П6 из routine_prompt_v3.md (в триггер не внесён) его бы не допустил"
+ ]
+}
