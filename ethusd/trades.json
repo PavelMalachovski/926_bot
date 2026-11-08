@@ -1417,16 +1417,24 @@
   "price_at_creation": 2234.04,
   "created_at": "2026-11-08T08:25:00+01:00",
   "expires": "2026-11-08T23:59:00+01:00",
-  "status": "PENDING",
-  "filled_at": null,
-  "filled_legs": null,
+  "status": "OPEN",
+  "filled_at": "2026-11-08T08:40:00+01:00",
+  "filled_legs": "L2",
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 3.46,
+  "closest_approach": 2.13,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-08T08:00:00+01:00"
+  "last_checked": "2026-11-08T14:05:00+01:00",
+  "max_adverse": {
+   "price": 2243.37,
+   "at": "2026-11-08T12:20:00+01:00"
+  },
+  "mae_usd": 5.87,
+  "mfe_usd": 4.02,
+  "mgmt": "08.11 день (14:05): L2 2237.50 исполнен M5 08:40 (high 2238.72); L1 2245.50 не дошла — max 2243.37 (12:20, sweep London high 2242.49), 2.13$. Инвалидации нет (max H1 close 2241.41 < 2248.11), SL 2256.54 / TP1 2223.15 не задеты (min после fill 2233.48 в 11:30). BE не по правилу: TP1 не взят, M5 BOS↓ с protected high < 2237.50 не было (M5 HL 2233.48 > 2232.69, HH 2243.37). Решение: оставить как есть — L2 SL 2256.54, L1 SELL LIMIT 2245.50 до 23:59, TP1 2223.15 / TP2 2206.28 / TP3 2174.08. Плавающий на 14:05 (2240.22): L2 −2.72$ → −1.36$ на 1 ETH = −0.09R.",
+  "l1_status": "PENDING (max 2243.37 в 12:20, 2.13$ до L1)"
  }
 ]
