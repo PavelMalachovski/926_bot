@@ -1,0 +1,27 @@
+{
+ "date": "2026-11-09",
+ "created_at": "2026-11-09T13:20:00+01:00",
+ "price_at_creation": 1.40931,
+ "morning_order_status": "OPEN",
+ "morning_order_note": "BUY LIMIT 1.40880 filled 09:00 (M5 low 1.40875) on the London Judas through Asia low 1.40975 + Friday EQL 1.40909/1.40936. MAE 11.1 pips (low 1.40769 at 11:10), SL 1.40543 untouched, TP1 1.41240 not traded. H1 10:00 body close 1.40808 (0.5 pips under the H4 FVG bottom) reclaimed by H1 11:00/12:00; no H1 close below the post-fill invalidation 1.40659. M5 CHoCH up 12:15 (above LH 1.40884), BOS 13:00 (above LH 1.40928). Floating +5.1 pips / +0.15R at 1.40931.",
+ "morning_order_action": "оставить как есть: SL 1.40543 / TP1 1.41240 / TP2 1.41340 / TP3 1.41700. BE not yet - the new M5 protected low 1.40855 is below entry; move SL to 1.40880 only after an M5 BOS above 1.41025 (London high) with a higher low above 1.40880. If still open tomorrow at 13:30 (US CPI 14:30 blackout) - close 50% and move SL to BE.",
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "pm_note": "No new pm order - the morning long is open and is the setup; a second long in the same zone would double the risk.",
+ "invalidation": {"level": 1.40659, "rule": "H1 body close below 1.40659 (NFP H1 FVG bottom) = the long is wrong, close it without waiting for the SL."},
+ "levels": {"asia_high": 1.4124, "asia_low": 1.40975, "london_high": 1.41025, "london_low": 1.40769,
+  "swept_today": ["asia_low 1.40999/1.40975 (08:15-08:25)", "eql 1.40909/1.40936 (08:50-08:55)", "h4 FVG mid / H1 OTE 62% 1.40848 (09:35)"],
+  "pdh": 1.41376, "pdl": 1.39967, "pwh": 1.41376, "pwl": 1.39311,
+  "eqh": 1.43015, "eql": 1.40909, "d1_range_high": 1.43015, "d1_range_low": 1.39311, "d1_eq": 1.41163, "week_open": 1.41235,
+  "m5_choch_up": 1.40884, "m5_bos_up": 1.40928, "m5_protected_low": 1.40855, "strong_low": 1.40769,
+  "h4_bull_fvg": [1.40813, 1.40936], "h1_bull_fvg_nfp": [1.40659, 1.40935], "d1_bear_fvg": [1.41429, 1.41708]},
+ "d1_context": "Unchanged since the morning: D1 CHoCH up on Friday's NFP close, price 1.4093 = 44% of 1.39311-1.43015 (discount), D1 bear FVG 1.41429-1.41708 above.",
+ "h4_context": "H4 (H1 resample) bullish: HH 1.41376 Fri; Monday's 08:00 H4 bar wicked to 1.40769 under the H4 FVG and closed 1.40841 back inside (bullish rejection). H1 pullback reached 71.5% of the 1.40524-1.41376 leg (OTE 70.5%), M5 CHoCH/BOS up after 12:15.",
+ "news": [{"time": "2026-11-10T14:30:00+01:00", "country": "USD", "title": "CPI m/m / Core CPI m/m"},
+  {"time": "2026-11-13T14:30:00+01:00", "country": "USD", "title": "PPI m/m / Core PPI m/m"}],
+ "warnings": [
+  "RR to TP1 1.41240 1:1.07 (below 1:2) - as in the morning",
+  "No red USD/CAD news today; position may run into tomorrow's US CPI 14:30 - partial + BE by 13:30",
+  "Twelve Data serves weekend bars - ignored for structure and dropped from the charts"]
+}
