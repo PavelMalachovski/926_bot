@@ -1,23 +1,23 @@
 {
- "updated_at": "2026-11-06T13:05:00+01:00",
- "orders": 29,
- "filled": 20,
+ "updated_at": "2026-11-09T07:05:00+01:00",
+ "orders": 30,
+ "filled": 19,
  "tp": 9,
  "sl": 8,
  "be": 2,
- "open": 1,
+ "open": 0,
  "pending": 1,
  "expired": 7,
  "invalidated": 1,
- "unknown": 0,
+ "unknown": 2,
  "winrate": 52.9,
- "fill_rate": 71.4,
+ "fill_rate": 65.5,
  "total_r": 4.34,
  "avg_r": 0.23,
  "total_pips": 170.8,
  "am": {
-  "orders": 13,
-  "filled": 13,
+  "orders": 14,
+  "filled": 12,
   "tp": 6,
   "sl": 4,
   "total_r": 3.57
@@ -30,7 +30,7 @@
   "total_r": 0.77
  },
  "last10": "TSTSBSTTBT",
- "review": "06.11: эксперимент v2.2 (v1 + фильтр RR 1.0–1.6 + весь объём на TP1). v2/v2.1 отменены — на годовом бэктесте ухудшали результат. 06.11 am: 05.11-am SELL 158.320 → TP1 157.772 (05.11 16:50) +1.61R / +54.8 п. Закрытых 19: WR 52.9% (9T/8S/2B), avg_r +0.23, ΣR +4.34. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение, без изменений): SL в BE только после TP1 или хода ≥1.0R — 05.11-am без раннего BE дошёл до TP1. | 06.11 pm: 06-am (v1) SELL 158.175 исполнен 10:00, плав. −0.36R, закрыть по рынку 13:30 до NFP; 06-pm — первый ордер v2.2 (SELL 158.430, RR 1.08).",
+ "review": "09.11 am: пятничные 06-am (v1, закрытие 13:30 до NFP) и 06-pm (v2.2 SELL 158.430) → UNKNOWN: M5 из бюджета начинаются с 07.11 21:45, пятница после 13:00 не покрыта. По H1: 06-am ≈ −0.26…−0.47R при закрытии 13:30; 06-pm скорее TP1 +1.08R (исполнение 15:00, TP1 16:00), но NFP-бар 14:00 (H 158.614 ≥ SL) делает его неоднозначным. Закрытых 19: WR 52.9% (9T/8S/2B), avg_r +0.23, ΣR +4.34, net_r 3.06. SL: ZONE_FAILED ×7, AGAINST_HTF ×1; EXPIRED: DEEP_ENTRY ×4, NO_PULLBACK ×3. Правка (предложение): пятничный ДЕНЬ-ордер дорасчитывать нечем — в понедельник УТРО брать M5 с start_date пятницы 13:00 (5-й запрос) или не выдавать pm-ордер в пятницу. 09.11-am: BUY 158.140 v2.2 (RR 1.04), ⚠ против D1 premium.",
  "experiment": {
   "rules": "v2.2",
   "started": "2026-11-06",
@@ -51,7 +51,7 @@
  },
  "v1": {
   "orders": 28,
-  "filled": 20,
+  "filled": 19,
   "tp": 9,
   "sl": 8,
   "be": 2,
@@ -59,16 +59,18 @@
   "total_r": 4.34
  },
  "v2_2": {
-  "orders": 1,
+  "orders": 2,
   "filled": 0,
   "tp": 0,
   "sl": 0,
   "be": 0,
   "winrate": null,
-  "fill_rate": null,
   "total_r": 0,
+  "fill_rate": null,
   "net_r": 0,
-  "avg_r": null
+  "avg_r": null,
+  "unknown": 1,
+  "pending": 1
  },
- "net_r": 3.11
+ "net_r": 3.06
 }
