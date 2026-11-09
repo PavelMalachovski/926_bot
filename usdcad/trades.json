@@ -876,15 +876,42 @@
   "created_at": "2026-11-06T13:15:00+01:00",
   "active_from": "2026-11-06T14:45:00+01:00",
   "expires": "2026-11-06T23:59:00+01:00",
+  "status": "INVALIDATED",
+  "filled_at": null,
+  "closed_at": "2026-11-06T14:xx (TP1 1.40800 traded on the NFP spike, H1 14:00 high 1.41074, before any fill)",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 18.5,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "BUY 1.40368 (OTE 62%/H1 FVG), active from 14:45: the NFP + CAD jobs spike went straight up - TP1 1.40800 traded in the H1 14:00 bar (high 1.41074) and no H1 low after 14:00 came below 1.40553 (18.5 pips short at best; after 15:00 the lowest was 1.40909, 54 pips away); TP2 1.41125 also traded, Friday high 1.41376. Resolved on H1 - the M5 window starts 07.11 21:45. NO_PULLBACK #9: right direction, entry 26 pips under price again never filled."
+  },
+  "last_checked": "2026-11-06T23:59:00+01:00"
+ },
+ {
+  "id": "2026-11-09-am",
+  "side": "BUY",
+  "basis": "FVG",
+  "entry": 1.4088,
+  "sl": 1.40543,
+  "tp1": 1.4124,
+  "rr_tp1": 1.07,
+  "zone_high": 1.40936,
+  "zone_low": 1.40813,
+  "price_at_creation": 1.41034,
+  "created_at": "2026-11-09T07:15:00+01:00",
+  "expires": "2026-11-09T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 26.4,
+  "closest_approach": 15.4,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-06T13:10:00+01:00"
+  "last_checked": "2026-11-09T07:05:00+01:00"
  }
 ]

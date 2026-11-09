@@ -1,0 +1,27 @@
+{
+ "date": "2026-11-09",
+ "created_at": "2026-11-09T07:15:00+01:00",
+ "price_at_creation": 1.41034,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY", "entry": 1.4088, "sl": 1.40543, "tp1": 1.4124, "tp2": 1.4134, "tp3": 1.417,
+  "zone_high": 1.40936, "zone_low": 1.40813, "basis": "FVG (H4 bull FVG 1.40813-1.40936 + H1 OTE 62% 1.40848 + Friday EQL 1.40909/1.40936 sweep)",
+  "risk_pips": 33.7, "expires": "2026-11-09T23:59:00+01:00"},
+ "invalidation": {"level": 1.40813, "rule": "Cancel on an H1 body close below 1.40813 (H4 FVG bottom) before fill, or if TP1 Asia high 1.41240 trades before fill (no chase). After fill: H1 body close below 1.40659 (NFP H1 FVG bottom) = the trade is wrong, do not wait for the stop."},
+ "levels": {"asia_high": 1.4124, "asia_low": 1.40999, "pdh": 1.41376, "pdl": 1.39967, "pwh": 1.41376, "pwl": 1.39311,
+  "eqh": 1.43015, "eqh_pair": [1.42994, 1.43015], "eql": 1.40909, "eql_pair": [1.40909, 1.40936],
+  "d1_range_high": 1.43015, "d1_range_low": 1.39311, "d1_eq": 1.41163, "week_open": 1.41235,
+  "monday_high": 1.41285, "m5_lh_protected": 1.41151, "m5_bos_down": 1.41051,
+  "h1_leg_low": 1.40524, "h1_leg_high": 1.41376, "h1_eq": 1.4095, "h1_ote_62": 1.40848, "h1_ote_705": 1.40775, "h1_ote_79": 1.40703,
+  "h4_bull_fvg": [1.40813, 1.40936], "h1_bull_fvg_nfp": [1.40659, 1.40935], "nfp_candle_low": 1.40553,
+  "d1_bear_fvg": [1.41429, 1.41708], "d1_bear_fvg_filled": [1.41125, 1.41326], "d1_lh_broken": 1.40706},
+ "d1_context": "D1: down leg 1.43015 (09.10) -> 1.39311 (04.11), Friday's NFP candle closed 1.41337 above the LH 1.40706 = D1 CHoCH up and filled the D1 bear FVG 1.41125-1.41326. Price 1.4103 = 47% of 1.39311-1.43015 (just under EQ 1.41163, discount); next D1 bear FVG 1.41429-1.41708 above, EQH 1.42994/1.43015 at the top. PDH/PWH 1.41376 (D1 bar 1.41346) unswept.",
+ "h4_context": "H4 bullish: CHoCH Thursday, BOS Friday above 1.40813, HH 1.41376. Fresh unfilled H4 bull FVG 1.40813-1.40936 (NFP), deeper H4 FVGs 1.40405-1.40567 / 1.4025-1.40385. Monday Asia: M5 LH/LL drift 1.41285 -> 1.40999, M5 BOS down 1.41051, protected LH 1.41151 - the pullback is delivering price towards the FVG.",
+ "news": [{"time": "2026-11-10T14:30:00+01:00", "country": "USD", "title": "CPI m/m / Core CPI m/m"},
+  {"time": "2026-11-13T14:30:00+01:00", "country": "USD", "title": "PPI m/m / Core PPI m/m"}],
+ "warnings": [
+  "RR to TP1 (Asia high 1.41240) 1:1.07 < 1:2; TP2 PDH 1.41340 1:1.36, TP3 D1 bear FVG 1.41700 1:2.43",
+  "Entry 15.4 pips below price - the distance at which 9 past orders never filled; realistic only on a London Judas below Asia low 1.40999 + Friday EQL 1.40909",
+  "Twelve Data serves Saturday/Sunday bars (1.411-1.414 drift) - ignored for structure; Friday M5 not in the window (starts 07.11 21:45)",
+  "No red USD/CAD news today; US CPI tomorrow 14:30 - the order expires tonight anyway"]
+}
