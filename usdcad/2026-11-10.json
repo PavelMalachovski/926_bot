@@ -1,0 +1,23 @@
+{
+ "date": "2026-11-10",
+ "created_at": "2026-11-10T07:15:00+01:00",
+ "price_at_creation": 1.41173,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY", "entry": 1.40999, "sl": 1.40669, "tp1": 1.41374, "tp2": 1.41568, "tp3": 1.41708,
+           "zone_high": 1.40999, "zone_low": 1.40911,
+           "basis": "OTE 62% of the H1 leg 1.40769-1.41374 + untouched H1 bull FVG 1.40911-1.40965, under the sell-side pool H1 low 1.41096 / EQL 1.41147 / Asia low 1.41164",
+           "risk_pips": 33.0, "expires": "2026-11-10T23:59:00+01:00 (pull before 13:30 if unfilled - US CPI 14:30)"},
+ "invalidation": {"level": 1.40911, "rule": "H1 body close below 1.40911 (H1 FVG bottom) before the fill -> pull the limit; plan B = wait for a sweep of 1.40769 + M5 CHoCH up."},
+ "levels": {"asia_high": 1.41288, "asia_low": 1.41164, "pdh": 1.41387, "pdl": 1.40769, "pwh": 1.41376, "pwl": 1.39311,
+            "eqh": 1.41374, "eql": 1.41147, "d1_range_high": 1.43015, "d1_range_low": 1.39311, "d1_eq": 1.41163, "week_open": 1.41235,
+            "h1_low_ssl": 1.41096, "h1_bull_fvg": [1.40911, 1.40965], "d1_bear_fvg": [1.41429, 1.41708], "strong_low": 1.40769},
+ "d1_context": "D1 downtrend 1.43015 -> 1.39311 broken by Friday's NFP close above LH 1.40706 (D1 CHoCH up); Monday wicked to 1.40769 and closed 1.41218 (bullish rejection). Price 1.4117 = 50% of 1.39311-1.43015 (equilibrium); entry 1.40999 = 46% (discount). Buy-side pool PWH/PDH/EQH 1.41374-1.41391, then D1 bear FVG 1.41429-1.41708 overhead.",
+ "h4_context": "H4 bullish: HL 1.40769 (Mon) above 1.39428, but the rally stalled at 1.41374 = equal to Friday's 1.41376 (EQH, not a HH). Range 1.40769-1.41391 with the buy-side liquidity on top; H4 bull FVG 1.40813-1.40936 already used Monday.",
+ "news": [{"time": "2026-11-10T14:30:00+01:00", "country": "USD", "title": "CPI m/m / Core CPI m/m"},
+          {"time": "2026-11-13T14:30:00+01:00", "country": "USD", "title": "PPI m/m / Core PPI m/m"}],
+ "warnings": ["RR to TP1 1.41374 = 1:1.14 (below 1:2); 1:2 only at TP3 1.41708",
+              "US CPI 14:30: blackout 13:30-14:45 - pull the limit at 13:30 if unfilled; if filled, partial + SL to BE before 13:30",
+              "Entry 17.4 pips from price - 9 earlier orders this far out never filled; this one sits UNDER an unswept sell-side pool (as 09.11, which filled)",
+              "D1 at equilibrium, TP1 sits under the D1 bear FVG 1.41429-1.41708 - expect a reaction at the EQH"]
+}
