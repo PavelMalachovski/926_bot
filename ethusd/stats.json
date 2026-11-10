@@ -1,23 +1,23 @@
 {
- "updated_at": "2026-11-09T14:05:00+01:00",
- "orders": 40,
- "filled": 22,
+ "updated_at": "2026-11-10T08:05:00+01:00",
+ "orders": 41,
+ "filled": 23,
  "tp": 9,
  "sl": 8,
  "be": 5,
- "open": 0,
+ "open": 1,
  "pending": 1,
  "expired": 16,
  "invalidated": 1,
  "unknown": 0,
  "winrate": 52.9,
- "fill_rate": 56.4,
+ "fill_rate": 57.5,
  "total_r": 9.52,
  "avg_r": 0.43,
  "total_usd": 159.09,
  "am": {
-  "orders": 21,
-  "filled": 13,
+  "orders": 22,
+  "filled": 14,
   "tp": 5,
   "sl": 3,
   "total_r": 6.84
@@ -47,12 +47,12 @@
   "total_usd": 0
  },
  "v3": {
-  "orders": 3,
-  "filled": 2,
+  "orders": 4,
+  "filled": 3,
   "tp": 1,
   "sl": 0,
   "be": 1,
-  "open": 0,
+  "open": 1,
   "pending": 1,
   "expired": 0,
   "invalidated": 0,
@@ -64,5 +64,5 @@
   "total_usd": 18.35
  },
  "last10": "SSSTSTSBBT",
- "review": "б) WR 52.9% (9TP/8SL) < 65% при 17 закрытых, но avg_r +0.43, ΣR +9.52 — система в плюсе (RR ≥ 2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 3. Хуже: BUY 1TP/5SL против SELL 8TP/3SL/5BE; pm 5 из 8 SL (am 5TP/3SL); basis FVG 4TP/6SL против OB 3TP/1SL/4BE. v3: 08.11 L1+L2 → TP1 +1.22R, 07.11 BE 0R. Правка (предложение, в силе): П7 — стоп в BE ставить за вход с буфером 4$ (SELL entry+4, BUY entry−4): по журналу +2.25R (10-05, 11-07) против −0.44R (10-10, 11-06), нетто ≈ +1.8R. в) fill 56.4% (22/39) < 65%: EXPIRED — DEEP_ENTRY 8, NO_PULLBACK 6, NEWS 1, UNCLEAR 1; средний closest_approach 10.5$ = 52.3% пути. v3: L2 исполнена 2/2, L1 1/2 (08.11 — в 14:15 на 0.50$ за L1; 07.11 не хватило 4.46$). Правка (предложение): П5 — L1 не дальше 25$ от цены (09.11-am: 37.47$ — П5 бы не допустила; к 14:05 откат дошёл до 2133.84 — 2.66$ до L2, 10.66$ до L1, ордер в силе до 23:59)."
+ "review": "б) WR 52.9% (9TP/8SL) < 65% при 17 закрытых, но avg_r +0.43, ΣR +9.52 — система в плюсе (RR ≥ 2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 3. Хуже: BUY 1TP/5SL против SELL 8TP/3SL/5BE; pm 5 из 8 SL (am 5TP/3SL); basis FVG 4TP/6SL против OB 3TP/1SL/4BE. v3: 4 ордера, исполнено 3/3 (L2 3/3, L1 2/3): 07.11 BE 0R, 08.11 TP +1.22R, 09.11 OPEN L1+L2 (+0.78R плав. на 10.11 08:05). Правка (предложение, в силе): П7 — стоп в BE ставить за вход с буфером 4$ (SELL entry+4, BUY entry−4) или по средней цене L1/L2, если у L2 над/под ним пул: по журналу +2.25R (10-05, 11-07) против −0.44R (10-10, 11-06). в) fill 57.5% (23/40) < 65%, но только из-за v1/v2: EXPIRED — DEEP_ENTRY 8, NO_PULLBACK 6, NEWS 1, UNCLEAR 1; средний closest_approach 10.5$ = 52.3% пути. v3 fill 100% (3/3) — L2 = L1∓8 решает проблему недохода. Правка (предложение): П5 — L1 не дальше 25$ от цены (09.11-am: 37.47$ — исполнилась только на NY-откате 16:40)."
 }
