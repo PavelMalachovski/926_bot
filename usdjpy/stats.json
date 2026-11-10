@@ -1,8 +1,8 @@
 {
- "updated_at": "2026-11-09T13:05:00+01:00",
- "orders": 31,
- "filled": 20,
- "tp": 9,
+ "updated_at": "2026-11-10T07:10:00+01:00",
+ "orders": 32,
+ "filled": 21,
+ "tp": 10,
  "sl": 9,
  "be": 2,
  "open": 0,
@@ -10,13 +10,13 @@
  "expired": 7,
  "invalidated": 1,
  "unknown": 2,
- "winrate": 50.0,
- "fill_rate": 66.7,
- "total_r": 3.34,
- "avg_r": 0.17,
- "total_pips": 146.8,
+ "winrate": 52.6,
+ "fill_rate": 67.7,
+ "total_r": 4.7,
+ "avg_r": 0.22,
+ "total_pips": 169.3,
  "am": {
-  "orders": 14,
+  "orders": 15,
   "filled": 13,
   "tp": 6,
   "sl": 5,
@@ -24,13 +24,13 @@
  },
  "pm": {
   "orders": 17,
-  "filled": 7,
-  "tp": 3,
+  "filled": 8,
+  "tp": 4,
   "sl": 4,
-  "total_r": 0.77
+  "total_r": 2.13
  },
- "last10": "STSBSTTBTS",
- "review": "09.11 pm: 09-am BUY 158.140 → SL −1R (ZONE_FAILED: H1 08:00 body close 157.974 под OB, LL 157.860). Закрытых 18 (9T/9S/2B): WR 50.0%, avg_r +0.17, ΣR +3.34, net_r +2.00 — в плюсе только за счёт RR. SL: ZONE_FAILED ×8, AGAINST_HTF ×1. Хуже всего basis OB (5T/6S, +1.14R) против FVG (3T/2S, +2.00R); BUY 5T/6S +0.33R против SELL 4T/3S +3.01R; am +2.57R, pm +0.77R. v2.2: 1 исполнен, 1 SL (−1.06R чистыми), 1 UNKNOWN. Правка (предложение): OB как основание входа — только если до выдачи ордера цена не заходила в тело OB глубже 30% (09.11: OB 157.976–158.147 был пробит пятничным low 158.000 на 86% тела); иначе — FVG/OTE или «сетапа нет».",
+ "last10": "TSBSTTBTST",
+ "review": "10.11 am: 09-pm SELL 158.085 → TP 157.860 +1.36R (+22.5 п). Закрытых 20 (10T/9S/2B): WR 52.6%, avg_r +0.22, ΣR +4.70, net_r +3.27 — плюс за счёт RR. SL: ZONE_FAILED ×8, AGAINST_HTF ×1. v2.2: 2 исполнено, 1T/1S, net +0.21R. Правка (предложение, без изменений): OB как основание — только если до выдачи ордера цена не заходила в тело OB глубже 30%; иначе FVG/OTE или «сетапа нет».",
  "experiment": {
   "rules": "v2.2",
   "started": "2026-11-06",
@@ -59,18 +59,18 @@
   "total_r": 4.34
  },
  "v2_2": {
-  "orders": 3,
-  "filled": 1,
-  "tp": 0,
+  "orders": 4,
+  "filled": 2,
+  "tp": 1,
   "sl": 1,
   "be": 0,
-  "winrate": 0.0,
-  "fill_rate": 50.0,
-  "total_r": -1.0,
-  "net_r": -1.06,
-  "avg_r": -1.0,
+  "winrate": 50.0,
+  "fill_rate": 66.7,
+  "total_r": 0.36,
+  "net_r": 0.21,
+  "avg_r": 0.18,
   "unknown": 1,
   "pending": 1
  },
- "net_r": 2.0
+ "net_r": 3.27
 }
