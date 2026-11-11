@@ -957,15 +957,42 @@
   "price_at_creation": 1.42072,
   "created_at": "2026-11-11T07:20:00+01:00",
   "expires": "2026-11-11T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-11-11T13:15:00+01:00 (cancelled at midday, TP1 07:30 / TP2 10:35 traded before any fill)",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 16.4,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "BUY 1.41865 at OTE 79% 20.7 pips under price: the lowest print after creation was 1.42029 (08:20 London Judas, 16.4 pips short, 21% of the path); TP1 PDH 1.42100 traded 07:30 (10 min after creation), TP2 1.42200 10:35, then the Oct-15 H4 EQH 1.42204-1.42231 was swept to 1.42326 at 12:55. NO_PULLBACK #10: right direction, entry 16+ pips from price again, the cap was the swept PDH/Asia high flip 1.42029-1.42060, not the Asia low."
+  },
+  "last_checked": "2026-11-11T13:05:00+01:00"
+ },
+ {
+  "id": "2026-11-11-pm",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 1.42158,
+  "sl": 1.41929,
+  "tp1": 1.42326,
+  "rr_tp1": 0.73,
+  "zone_high": 1.42167,
+  "zone_low": 1.42091,
+  "price_at_creation": 1.42315,
+  "created_at": "2026-11-11T13:15:00+01:00",
+  "expires": "2026-11-11T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 20.7,
+  "closest_approach": 15.7,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-11T07:05:00+01:00"
+  "last_checked": "2026-11-11T13:05:00+01:00"
  }
 ]
