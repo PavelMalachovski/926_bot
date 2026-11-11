@@ -1,0 +1,22 @@
+{
+ "date": "2026-11-11",
+ "created_at": "2026-11-11T07:20:00+01:00",
+ "price_at_creation": 1.42072,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {"side": "BUY", "entry": 1.41865, "sl": 1.417, "tp1": 1.421, "tp2": 1.422, "tp3": 1.4243,
+           "zone_high": 1.41916, "zone_low": 1.418,
+           "basis": "OTE 62-79% of the H1 internal leg 1.41800-1.42104 (79% = 1.41864) at the Asia low 1.41858, above the H1 HL 1.41800 and the untouched H4 bull FVG 1.41407-1.41800",
+           "risk_pips": 16.5, "expires": "2026-11-11T23:59:00+01:00"},
+ "invalidation": {"level": 1.418, "rule": "H1 body close below 1.41800 (H1 HL / zone bottom) before the fill -> pull the limit; plan B = sweep into the H4 FVG 1.41407-1.41800 / OTE 62% of the big leg 1.41457 + M5 CHoCH up."},
+ "levels": {"asia_high": 1.42082, "asia_low": 1.41858, "pdh": 1.42104, "pdl": 1.4106, "pwh": 1.41376, "pwl": 1.39311,
+            "eqh": 1.42104, "eql": 1.418, "d1_range_high": 1.43015, "d1_range_low": 1.39311, "d1_eq": 1.41163, "week_open": 1.41235,
+            "h4_eqh_oct15": [1.42204, 1.42231], "h4_bull_fvg": [1.41407, 1.418], "h1_bull_fvg": [1.41383, 1.41563], "strong_low": 1.418, "h1_leg": [1.4106, 1.42104]},
+ "d1_context": "D1 flipped bullish: NFP CHoCH above LH 1.40706 (Fri), HL 1.40769 (Mon), CPI BOS through PWH/EQH 1.41376-1.41391 to 1.42104 (Tue), D1 bear FVG 1.41429-1.41708 run over. Price 1.4207 = 75% of 1.39311-1.43015 (premium); entry 1.41865 = 69%. Buy-side pools overhead: PDH 1.42104, Oct-15 H4 EQH 1.42204-1.42231, 1.42439; unfilled D1 bull FVG 1.40058-1.41135 below.",
+ "h4_context": "H4 bullish: BOS above 1.41391 on the 13:00 CPI bar, HL 1.41060; untouched H4 bull FVG 1.41407-1.41800 (CPI impulse). Since 17:00 a tight 1.41800-1.42104 consolidation under PDH, Asia pressing the top (EQH 1.42073/1.42082/1.42104).",
+ "news": [],
+ "warnings": ["RR to TP1 1.42100 = 1:1.42 (below 1:2); 1:2 from TP2 1.42200",
+              "Long at 69% of the D1 range (premium) the day after a buy-side sweep of PWH 1.41391 - the stats proposal flags exactly this case",
+              "Forex Factory calendar unavailable (rate limited) - red news not checked; 11.11 = Veterans Day (US) / Remembrance Day (CA), thin liquidity expected",
+              "Entry 20.7 pips from price; sits on the Asia low pool 1.41858 (sweep into 1.418 likely before the fill)"]
+}
