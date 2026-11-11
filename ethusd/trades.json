@@ -1571,10 +1571,66 @@
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 21.6,
+  "closest_approach": 3.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-11T08:00:00+01:00"
+  "last_checked": "2026-11-11T14:05:00+01:00",
+  "max_approach": {
+   "price": 2070.7,
+   "at": "2026-11-11T09:05:00+01:00",
+   "to_l2_usd": 3.8,
+   "to_l1_usd": 11.8
+  },
+  "conditional_tp1": {
+   "if": "Asia low/EQL 2043.57 снят до исполнения",
+   "tp1": 2038.53,
+   "rr_tp1": 2.3,
+   "basis": "верх H1 bull FVG 2031.80–2038.53 (утренний сценарий 3)"
+  },
+  "mgmt": "11.11 день (14:05): НЕ ДОШЛА — L2 2074.50 / L1 2082.50 не исполнены; max 2070.70 (M5 09:05, London judas↑) = 62.8% плеча 2109.09→2006.00, 82.4% пути от 2052.90 до L2; до L2 3.80$, до L1 11.80$. Удержали Asia high 2073.41 / M5 bear FVG 2068.93–2070.44 / OTE 62% 2069.92. Инвалидации нет (max H1 close 2069.67 < 2096.59). TP1-пул 2043.57 цел (min после 08:10 — 2046.73 в 14:00). Решение: оставить как есть до 23:59 — L1 2082.50 / L2 2074.50, SL 2101.59, TP1 2043.57 / TP2 2024.57 / TP3 2006.00; если 2043.57 снят до fill — TP1 → 2038.53 (RR L1 1:2.30). Ниже поставлен отдельный 2026-11-11-pm (SELL LIMIT 2062.00/2054.00, SL 2071.12): его SL — под утренним L2, утро работает как план Б на sweep London high 2070.70."
+ },
+ {
+  "id": "2026-11-11-pm",
+  "rules": "v3",
+  "side": "SELL LIMIT",
+  "basis": "OB",
+  "confluence": "M5 OB 12:10 (2058.89–2063.30, источник BOS↓ 12:30 < 2057.28) ∩ OTE 62–79% плеча H1 2066.12→2046.73 (2058.75–2062.05) ∩ H1 OB 11:00 (2053.52–2066.12, тело 2058.26–2060.00, источник BOS↓ 14:00 < 2051.20 + sweep London low 2047.79); L1 = OTE 78.8% под M5 OB 11:30 (2062.22–2066.12, Strong High 2066.12); L2 = L1−8 в M5 bear FVG 2053.70–2055.23",
+  "entry": 2062.0,
+  "entry2": 2054.0,
+  "sl": 2071.12,
+  "tp1": 2043.57,
+  "tp2": 2024.57,
+  "tp3": 2006.0,
+  "rr_tp1": 2.02,
+  "rr2_tp1": 0.61,
+  "rr_avg_tp1": 1.1,
+  "rr_tp2": 4.1,
+  "rr2_tp2": 1.72,
+  "rr_avg_tp2": 2.55,
+  "risk_usd": 9.12,
+  "risk2_usd": 17.12,
+  "zone_high": 2066.12,
+  "zone_low": 2058.75,
+  "price_at_creation": 2048.93,
+  "created_at": "2026-11-11T14:15:00+01:00",
+  "expires": "2026-11-11T23:59:00+01:00",
+  "conditional_tp1": {
+   "if": "Asia low/EQL 2043.57 снят до исполнения",
+   "tp1": 2038.53,
+   "rr_tp1": 2.57
+  },
+  "invalidation": "H1 body close > 2066.12 до исполнения → снять обе части",
+  "status": "PENDING",
+  "filled_at": null,
+  "filled_legs": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_usd": null,
+  "closest_approach": 5.07,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-11-11T14:05:00+01:00"
  }
 ]
