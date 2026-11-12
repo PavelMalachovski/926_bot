@@ -1,0 +1,227 @@
+{
+ "date": "2026-11-12",
+ "created_at": "2026-11-12T14:20:00+01:00",
+ "mode": "ДЕНЬ",
+ "rules": "v3",
+ "data_source": "Twelve Data ETH/USD (exchange Binance) — api.binance.com 451",
+ "price_at_creation": 2017.73,
+ "morning_order": {
+  "id": "2026-11-12-am",
+  "rules": "v3",
+  "status": "ЗАКРЫТ ПО TP1",
+  "l1": {
+   "entry": 2060.9,
+   "filled": false,
+   "closest": 2053.07,
+   "closest_at": "2026-11-12T09:05:00+01:00",
+   "to_l1_usd": 7.83,
+   "note": "позже 2053.28 (11:25) — 7.62$, уже после закрытия"
+  },
+  "l2": {
+   "entry": 2052.9,
+   "filled": true,
+   "filled_at": "2026-11-12T09:00:00+01:00",
+   "fill_bar_high": 2053.0
+  },
+  "invalidated_before_fill": false,
+  "max_h1_close_before_fill": 2051.53,
+  "tp1_pool_swept_before_fill": false,
+  "sl_hit": false,
+  "tp1_hit": true,
+  "tp1_at": "2026-11-12T10:20:00+01:00",
+  "tp1_bar_low": 2039.24,
+  "tp2_hit_after": "2026-11-12T12:45 (low 2024.30)",
+  "tp3_hit_after": null,
+  "result_usd": 6.35,
+  "result_r": 0.44,
+  "ambiguous": false,
+  "calc": "L2: 2052.90−2040.20 = +12.70$ → 0.5×12.70 = +6.35$/ETH; R = 6.35/(0.5×10.52+0.5×18.52) = +0.44R"
+ },
+ "adjustments": {
+  "decision": "L1 2060.90 СНЯТЬ: сделка закрыта по TP1 (L2), новый Strong High 2053.28 (London high) ниже L1 — утренняя зона вне новой структуры; вместо неё pm-ордер ниже",
+  "basis": "Морнинг-ордер закрыт TP 10:20; обвал 12:30–12:50 сформировал новое плечо H1 2053.28→2013.38"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT",
+  "entry": 2044.9,
+  "entry2": 2036.9,
+  "sl": 2058.79,
+  "tp1": 2013.38,
+  "tp2": 2006.0,
+  "tp3": 2000.0,
+  "zone_high": 2053.28,
+  "zone_low": 2030.5,
+  "basis": "OB",
+  "confluence": "M5 OB 12:00 (2044.17–2046.48, тело 2044.51–2045.90; источник displacement 12:25–12:50 с BOS↓ < 2039.24/2035.83 после sweep EQH 2053.07 в 11:25) ∩ OTE 79% плеча H1 2053.28→2013.38 (OTE 2038.12–2044.90), под H1 OB 08:00 (2045.31–2052.04); L2 = L1−8 в H1 bear FVG 2030.50–2041.88 ∩ M5 bear FVG 2031.81–2038.74 (OTE 58.9%, над сломанным PDL 2035.83)",
+  "risk_usd": 13.89,
+  "risk2_usd": 21.89,
+  "risk_avg_usd": 17.89,
+  "entry_avg": 2040.9,
+  "rr_tp1": 2.27,
+  "rr2_tp1": 1.07,
+  "rr_avg_tp1": 1.54,
+  "rr_tp2": 2.8,
+  "rr2_tp2": 1.41,
+  "rr_avg_tp2": 1.95,
+  "rr_tp3": 3.23,
+  "rr2_tp3": 1.69,
+  "rr_avg_tp3": 2.29,
+  "dist_l1_usd": 27.17,
+  "dist_l2_usd": 19.17,
+  "expires": "2026-11-12T23:59:00+01:00",
+  "conditional_tp1": {
+   "if": "London low 2013.38 снят до исполнения",
+   "tp1": 2006.0,
+   "rr_tp1": 2.8,
+   "rr2_tp1": 1.41,
+   "rr_avg_tp1": 1.95,
+   "basis": "D1 low 2006.00"
+  },
+  "blackout": "нет: красных USD-релизов 12.11 нет; 14:30 Unemployment Claims (medium) = NY open — ⚠ спайк, не блэкаут"
+ },
+ "invalidation": {
+  "level": 2053.28,
+  "rule": "H1 body close > 2053.28 (London high / Strong High, EQH 2053.00–2053.79) до исполнения → снять обе части. План Б: шорт только из H4 bear FVG 2066.42–2068.22 / Asia high 2066.42 после sweep + M5 CHoCH↓ — отдельно, не v3 без расчёта"
+ },
+ "scenarios": [
+  "База (NY): sweep London low 2013.38 (и/или D1 low 2006.00) → M5 CHoCH↑ (close > 2030.50) → откат в H1 bear FVG → L2 2036.90 → L1 2044.90 (M5 OB 12:00 / OTE 79%) → M5 CHoCH↓ → TP1 2013.38 (если снят до fill — 2006.00) → TP2 2006.00 → TP3 2000.00",
+  "Без отката: пробой 2006.00/2000.00 сразу (D1 BOS↓ к D1 bull FVG 1923.27–2006.00) — не гнаться, EXPIRED в 23:59",
+  "Sweep London high 2053.28 / EQH 2053.79 в H1 OB 08:00 (2045.31–2052.04): обе части в минусе до ~−0.5R, SL 2058.79 держит, пока H1 OB держит; H1 close > 2053.28 = SL-сценарий",
+  "Разворот от D1 low: sweep 2006/2000 + M5 CHoCH↑ + H1 close > 2053.28 — шорт снят; лонг из D1 discount — только идея против H4, не сетап v3"
+ ],
+ "levels": {
+  "asia_high": 2066.42,
+  "asia_low": 2040.2,
+  "london_high": 2053.28,
+  "london_low": 2013.38,
+  "pdh": 2103.78,
+  "pdl": 2035.83,
+  "pwh": 2450.0,
+  "pwl": 2060.0,
+  "eqh": 2053.28,
+  "eqh_cluster": [
+   2053.0,
+   2053.07,
+   2053.28,
+   2053.79
+  ],
+  "eql": null,
+  "d1_range_high": 2450.0,
+  "d1_range_low": 2006.0,
+  "d1_eq": 2228.0,
+  "week_open": 2127.46,
+  "h1_leg": [
+   2053.28,
+   2013.38
+  ],
+  "h1_50": 2033.33,
+  "ote_62": 2038.12,
+  "ote_705": 2041.51,
+  "ote_79": 2044.9,
+  "h1_ob_0800": [
+   2045.31,
+   2052.04
+  ],
+  "h1_ob_0800_body": [
+   2045.36,
+   2051.53
+  ],
+  "m5_ob_1200": [
+   2044.17,
+   2046.48
+  ],
+  "m5_ob_1200_body": [
+   2044.51,
+   2045.9
+  ],
+  "h1_bear_fvg": [
+   2030.5,
+   2041.88
+  ],
+  "m5_bear_fvg": [
+   2031.81,
+   2038.74
+  ],
+  "h4_bear_fvg": [
+   2066.42,
+   2068.22
+  ],
+  "h4_ob_1700": [
+   2068.22,
+   2103.78
+  ],
+  "h4_bos_down": {
+   "level": 2035.83,
+   "at": "2026-11-12T09:00 (H4)",
+   "close": 2022.76
+  },
+  "h1_bos_down": {
+   "level": 2035.83,
+   "at": "2026-11-12T12:00",
+   "close": 2022.76
+  },
+  "m5_bos_down": [
+   {
+    "level": 2039.24,
+    "at": "12:30"
+   },
+   {
+    "level": 2019.38,
+    "at": "14:00",
+    "close": 2017.73
+   }
+  ],
+  "m5_lh": 2030.5,
+  "swept_today": {
+   "asia_low_2040.20": "10:20 (low 2039.24)",
+   "eqh_2053.07": "11:25 (high 2053.28)",
+   "pdl_2035.83": "12:30 (low 2029.58)",
+   "h1_hl_2024.57": "12:45 (low 2024.30)"
+  },
+  "not_swept": [
+   "2013.38 London low",
+   "2006.00 D1 low",
+   "2000.00",
+   "2053.28/2053.79 London high / EQH",
+   "2066.42 Asia high",
+   "2103.78 PDH"
+  ],
+  "d1_low": 2006.0,
+  "d1_bull_fvg_remaining": [
+   1923.27,
+   2006.0
+  ],
+  "day_range": 53.04,
+  "avg_day_range_10d": 113.75
+ },
+ "d1_context": "D1 down: LH 2450.00 → LL 2006.00 (10.11). 12.11: 2066.42–2013.38, цена 2017.73 = 2.6% range 2006.00–2450.00 (глубокий discount), в 11.73$ над D1 low 2006.00 и 2000.00, ниже — D1 bull FVG 1923.27–2006.00. Пулы: sell-side 2006.00/2000; buy-side 2053.28, 2066.42, PDH 2103.78.",
+ "d1_change_since_morning": "London снял Asia low 2040.20 и PDL 2035.83, H1 HL 2024.57 → 2013.38; D1 discount 8.9% → 2.6%, до D1 low 11.73$; день 53.04$ = 47% среднего 113.75$",
+ "h4_context": "H4 down: LH 2103.78 → BOS↓ 12.11 09:00 (close 2022.76 < H4 swing low 2035.83) → цель LL 2006.00. Supply: H4 bear FVG 2066.42–2068.22, H4 OB 11.11 17:00 2068.22–2103.78. CHoCH↑ H4 — close > 2103.78.",
+ "h1_context": "H1 down: LH 2066.42 (01:00) → 2040.20 → LH 2053.28 (11:00, sweep EQH 2053.07) → BOS↓ 12:00 (close 2022.76 < 2035.83/2040.20) → 2013.38. Плечо 2053.28→2013.38: 50% 2033.33, OTE 2038.12–2044.90. H1 OB 08:00 2045.31–2052.04, H1 bear FVG 2030.50–2041.88 (нетронут).",
+ "m5_context": "London 2013.38–2053.28: judas↑ 09:05 2053.07 (L2 утра исполнена), sweep Asia low 10:20 (2039.24), sweep EQH 11:25 (2053.28 = Strong High), displacement 12:25–12:50 BOS↓ 12:30 → 2013.38. Затем LH 2030.50 (13:10), BOS↓ 14:00 (close 2017.73 < 2019.38). Supply: M5 OB 12:00 2044.17–2046.48, M5 bear FVG 2031.81–2038.74 (fill 11%). Откат к L2 — только после M5 CHoCH↑ (close > 2030.50).",
+ "news": [
+  {
+   "time": "2026-11-12T14:30:00+01:00",
+   "title": "Unemployment Claims (USD, medium)"
+  },
+  {
+   "time": "2026-11-13T14:30:00+01:00",
+   "title": "PPI m/m / Core PPI m/m (USD, High)"
+  }
+ ],
+ "news_today": "красных USD-релизов 12.11 нет (FF, impact High); 14:30 Unemployment Claims — medium (NY open)",
+ "warnings": [
+  "Шорт в D1 discount 2.6% (range 2006.00–2450.00), в 11.73$ над D1 low 2006.00 / 2000 и D1 bull FVG 1923.27–2006.00 — против D1 PD",
+  "Поздняя нога: −90.40$ от PDH 2103.78 за ~20 ч (CHoCH↓ 23:00 → BOS↓ 06:00 → BOS↓ 12:00) — риск LATE_LEG",
+  "TP1 2013.38 в 4.35$ под ценой, M5 BOS↓ 14:00 — вероятно снимется до fill → TP1 2006.00 (RR L1 1:2.80)",
+  "14:30 NY open + Unemployment Claims (medium, не блэкаут) — спайк может исполнить L2 рано",
+  "L1 в 27.17$ от цены (П5-предложение 25$ — не правило); v3 L1 не добирала 3/7 раз"
+ ],
+ "stats_line": "📊 ETHUSD: ордеров 45 | исполнено 27 | TP 12 | SL 10 | BE 5 | WR 54.5% | ΣR +9.98 | Σ$ +175.01",
+ "stats_v3": "v3: ордеров 8 | fill 100% | WR 66.7% | ΣR +1.68",
+ "closed_since_last_run": [
+  "2026-11-12-am → TP, +0.44R (+6.35$/ETH), только L2"
+ ]
+}
