@@ -984,15 +984,42 @@
   "price_at_creation": 1.42315,
   "created_at": "2026-11-11T13:15:00+01:00",
   "expires": "2026-11-11T23:59:00+01:00",
+  "status": "EXPIRED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 7.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "BUY 1.42158 (OTE under London EQL 1.42160/67, 15.7 pips under price): TP1 1.42326 traded in the creation bar 13:15, TP2 1.42439 at 14:xx, NY ran to 1.42506 with no pullback below the H1 HL 1.42353; the only dip was the 23:30 rollover spike to 1.42228 (7.0 pips short, 55% of path) - EXPIRED 23:59, no H1 body close below 1.42091."
+  },
+  "last_checked": "2026-11-12T07:10:00+01:00"
+ },
+ {
+  "id": "2026-11-12-am",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 1.42425,
+  "sl": 1.42218,
+  "tp1": 1.42652,
+  "rr_tp1": 1.1,
+  "zone_high": 1.42444,
+  "zone_low": 1.42353,
+  "price_at_creation": 1.42569,
+  "created_at": "2026-11-12T07:20:00+01:00",
+  "expires": "2026-11-12T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 15.7,
+  "closest_approach": 14.4,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-11T13:05:00+01:00"
+  "last_checked": "2026-11-12T07:10:00+01:00"
  }
 ]
