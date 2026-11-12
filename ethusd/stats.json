@@ -1,33 +1,33 @@
 {
- "updated_at": "2026-11-11T14:15:00+01:00",
- "orders": 43,
- "filled": 24,
+ "updated_at": "2026-11-12T08:15:00+01:00",
+ "orders": 44,
+ "filled": 26,
  "tp": 11,
- "sl": 8,
+ "sl": 10,
  "be": 5,
  "open": 0,
- "pending": 2,
+ "pending": 1,
  "expired": 16,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 57.9,
- "fill_rate": 58.5,
- "total_r": 11.54,
- "avg_r": 0.48,
- "total_usd": 204.87,
+ "winrate": 52.4,
+ "fill_rate": 60.5,
+ "total_r": 9.54,
+ "avg_r": 0.37,
+ "total_usd": 168.66,
  "am": {
-  "orders": 23,
-  "filled": 15,
+  "orders": 24,
+  "filled": 16,
   "tp": 7,
-  "sl": 3,
-  "total_r": 8.86
+  "sl": 4,
+  "total_r": 7.86
  },
  "pm": {
   "orders": 20,
-  "filled": 9,
+  "filled": 10,
   "tp": 4,
-  "sl": 5,
-  "total_r": 2.68
+  "sl": 6,
+  "total_r": 1.68
  },
  "v2": {
   "orders": 2,
@@ -47,22 +47,22 @@
   "total_usd": 0
  },
  "v3": {
-  "orders": 6,
-  "filled": 4,
+  "orders": 7,
+  "filled": 6,
   "tp": 3,
-  "sl": 0,
+  "sl": 2,
   "be": 1,
   "open": 0,
-  "pending": 2,
+  "pending": 1,
   "expired": 0,
   "invalidated": 0,
   "unknown": 0,
-  "winrate": 100.0,
+  "winrate": 60.0,
   "fill_rate": 100.0,
-  "total_r": 3.24,
-  "avg_r": 0.81,
-  "total_usd": 64.13
+  "total_r": 1.24,
+  "avg_r": 0.21,
+  "total_usd": 27.92
  },
- "last10": "STSTSBBTTT",
- "review": "б) WR 57.9% (11TP/8SL) < 65% при 19 закрытых, но avg_r +0.48, ΣR +11.54 — система в плюсе (RR ≥ 2). Причины SL: ZONE_FAILED 5, AGAINST_HTF 3. Хуже: BUY 1TP/5SL (−3.95R) против SELL 10TP/3SL/5BE (+15.49R); pm 4TP/5SL (+2.68R) против am 7TP/3SL/5BE (+8.86R); basis FVG 4TP/6SL (+0.65R) против OB 5TP/1SL/4BE (+6.93R). v3: 4 закрыто, fill 4/4 (L2 4/4, L1 2/4), 3TP/0SL/1BE, ΣR +3.24, avg +0.81R. Правка (предложение, в силе): П7 — BE ставить по средней цене L1/L2 или за вход с буфером 4$ (10.11 BE по средней пережил откат и дал +1.53R; 06.11/07.11 BE ровно на входе сняли на 0.08–0.11$). в) fill 58.5% (24/41) < 65% только из-за v1/v2: EXPIRED — DEEP_ENTRY 8, NO_PULLBACK 6, NEWS 1, UNCLEAR 1; средний closest_approach 10.5$ = 52.3% пути. v3 fill 100% (4/4), L1 исполнена в 2 из 4 (не дошли 4.46$ и 5.78$). Правка (предложение, в силе): П5 — L1 не дальше 25$ от цены. Контроль 11.11-am (L1 29.60$ от цены): к 14:05 откат 17.80$ (82% пути), до L2 3.80$, до L1 11.80$ — пока подтверждает П5."
+ "last10": "STSBBTTTSS",
+ "review": "б) WR 52.4% (11TP/10SL) < 65% при 21 закрытых, но avg_r +0.37, ΣR +9.54 — система в плюсе. Причины SL: ZONE_FAILED 6, AGAINST_HTF 3, STOP_HUNT 1. Хуже: BUY 1TP/5SL (−3.95R) против SELL 10TP/5SL/5BE (+13.49R); pm 4TP/6SL (+1.68R) против am 7TP/4SL/5BE (+7.86R); basis FVG 4TP/6SL/1BE (+0.65R) против OB 5TP/3SL/4BE (+4.93R), OTE 2TP/1SL (+3.96R). v3: 6 закрыто, 3TP/2SL/1BE, WR 60%, ΣR +1.24, avg +0.21R; L2 исполнена 6/6, L1 4/6. 11.11 — два шорта одного направления сняты одним импульсом (−2R): am STOP_HUNT (SL в 1.54$ над H1 high 2100.05, фитиль 2103.78), pm ZONE_FAILED (SL в 0.42$ над London high 2070.70). Правка (предложение): П8 — SL не ближе 5$ за ближайшим незанятым пулом за swing (H1 high/low, Asia/London high/low, EQH/EQL): 11.11-am с SL 2105.05 (2100.05+5) пережил бы sweep 2103.78 и закрылся по TP1 2043.57 → +34.93$/ETH = +1.32R вместо −1R; 11.11-pm с SL 2075.70 (2070.70+5) всё равно SL (high 2078.00). П7 (BE по средней L1/L2) — в силе. в) fill 60.5% (26/43) < 65% только из-за v1/v2: EXPIRED — DEEP_ENTRY 8, NO_PULLBACK 6, NEWS 1, UNCLEAR 1; средний closest_approach 10.5$ ≈ 48% пути. v3 fill 100% (6/6), L1 4/6. Правка (предложение, в силе): П5 — L1 не дальше 25$ от цены; контроль 11.11-am (L1 в 29.6$) исполнился лишь на +50$-импульсе и ушёл в SL."
 }
