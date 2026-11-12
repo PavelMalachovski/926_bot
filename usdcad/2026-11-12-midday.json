@@ -1,0 +1,58 @@
+{
+ "date": "2026-11-12",
+ "created_at": "2026-11-12T13:15:00+01:00",
+ "price_at_creation": 1.4246,
+ "morning_order_status": "ИСПОЛНЕН, В РАБОТЕ",
+ "morning_order": {
+  "id": "2026-11-12-am",
+  "filled_at": "2026-11-12T11:45:00+01:00",
+  "fill_bar_low": 1.42414,
+  "mae_pips": 1.1,
+  "mfe_pips": 7.4,
+  "floating_pips": 3.5,
+  "floating_r": 0.17
+ },
+ "adjustment": {
+  "decision": "оставить как есть",
+  "sl": 1.42218,
+  "tp1": 1.42652,
+  "tp2": 1.43015,
+  "tp3": 1.4305,
+  "be_rule": "SL -> BE 1.42425 after M5 body close above 1.42562 (H1 10:00 LH = M5 BOS) or at TP1 1.42652; partial 50% at TP1",
+  "basis": "H1 HL 1.42353 and H1 leg intact (retrace 79.6% to 1.42414, H1 12:00 closed 1.42493 back above the PDH flip zone), sell-side pool Asia low/EQL swept, M5 CHoCH up 12:45 (above 1.42486); TP pools 1.42629 London high / 1.42652 Asia high unswept; no red USD/CAD news today"
+ },
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "invalidation": {
+  "level": 1.42353,
+  "rule": "H1 body close below 1.42353 = H1 HL lost -> close manually, do not wait for SL 1.42218"
+ },
+ "levels": {
+  "london_high": 1.42629,
+  "london_low": 1.42414,
+  "asia_high": 1.42652,
+  "asia_low": 1.42435,
+  "m5_choch": 1.42486,
+  "m5_bos": 1.42562,
+  "h1_hl": 1.42353,
+  "pdh": 1.42506,
+  "swept_today": [
+   "Asia low/EQL 1.42435-1.42444 (11:45, low 1.42414)",
+   "PDH flip 1.42506 (10:00 onward)"
+  ]
+ },
+ "changed_since_morning": "London made a lower high 1.42629 under the Asia high and ran the Asia sell-side pool into the order zone; H1/H4 bullish structure unchanged.",
+ "news": [
+  {
+   "time": "2026-11-13T14:30:00+01:00",
+   "country": "USD",
+   "title": "PPI m/m / Core PPI m/m"
+  }
+ ],
+ "warnings": [
+  "No new pm order: morning long is open, adding a second long in the same zone doubles the risk",
+  "RR to TP1 1:1.10 (morning flag) unchanged",
+  "Holding overnight into tomorrow's PPI 14:30 - close or BE before it if still open"
+ ]
+}

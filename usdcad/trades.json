@@ -1011,15 +1011,18 @@
   "price_at_creation": 1.42569,
   "created_at": "2026-11-12T07:20:00+01:00",
   "expires": "2026-11-12T23:59:00+01:00",
-  "status": "PENDING",
-  "filled_at": null,
+  "status": "OPEN",
+  "filled_at": "2026-11-12T11:45:00+01:00",
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 14.4,
+  "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-12T07:10:00+01:00"
+  "last_checked": "2026-11-12T13:05:00+01:00",
+  "mae_pips": 1.1,
+  "mfe_pips": 7.4,
+  "note": "Filled 11:45 (M5 low 1.42414) when London swept the Asia low/EQL 1.42435-1.42444 by 2.1 pips; M5 CHoCH up 12:45 above 1.42486; at 13:05 1.42460 = +3.5 pips / +0.17R. SL 1.42218 / TP1 1.42652 unchanged."
  }
 ]
