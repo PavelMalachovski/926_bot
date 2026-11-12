@@ -1,0 +1,49 @@
+{
+ "date": "2026-11-12",
+ "created_at": "2026-11-12T13:10:00+01:00",
+ "price_at_creation": 159.677,
+ "rules": "v2.2",
+ "morning_order": {
+  "id": "2026-11-12-am",
+  "status": "НЕ ДОШЛА → снят: TP1 159.845 взят 07:40 до исполнения",
+  "closest_approach_pips": 17.6,
+  "closest_at": "2026-11-12T11:50:00+01:00",
+  "closest_price": 159.54,
+  "filled_at": null,
+  "action": "снять: TP1 (Asia high) снят до исполнения — по правилу утреннего плана",
+  "journal_status": "CANCELLED",
+  "ambiguous": false
+ },
+ "setup_valid": true,
+ "bias": "long",
+ "rr_filter": "pass (1.05 в 1.0–1.6)",
+ "order": {
+  "side": "BUY", "entry": 159.602, "sl": 159.44, "tp1": 159.772, "tp2": 159.948, "tp3": 160.206,
+  "rr_tp1": 1.05, "rr_tp2": 2.14, "rr_tp3": 3.73,
+  "zone_high": 159.624, "zone_low": 159.581,
+  "basis": "50% M5 bull OB 12:00 (159.581–159.624) в OTE 62–79% M5 плеча 159.540→159.740 (159.616–159.582), после sweep EQL 159.612/159.625 и M5 CHoCH вверх 12:40 (EQH 159.727); дисконт H1 плеча 159.484→159.948",
+  "risk_pips": 16.2, "risk_usd_1lot": 102, "distance_pips": 7.5,
+  "expires": "2026-11-12T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 159.581,
+  "rule": "H1 body close < 159.581 до исполнения → снять. TP1 159.772 взят до исполнения → снять, не гнаться. План Б: sweep Asia low 159.484 + M5 CHoCH вверх → BUY от H1 bull FVG 159.201–159.527 / OTE плеча 159.104→159.948; SELL только после sweep 159.948 + M5 CHoCH вниз."
+ },
+ "levels": {
+  "asia_high": 159.876, "asia_low": 159.484, "london_high": 159.948, "london_low": 159.54,
+  "pdh": 159.941, "pdl": 158.662, "pwh": 158.764, "pwl": 157.271,
+  "eqh": 160.206, "eql": 159.645, "d1_range_high": 159.948, "d1_range_low": 156.069, "d1_eq": 158.005,
+  "week_open": 158.461, "h1_strong_low": 159.104, "m5_strong_low": 159.54, "h1_lh": 159.772,
+  "swept_since_morning": ["asia_high 159.845/159.876", "pdh 159.941 (159.948)", "eql 159.645", "London EQL 159.612/159.625"]
+ },
+ "d1_context": "Без изменений с утра: D1 BOS вверх, range 156.069–159.948, цена ~93% (premium). Изменение: PDH 159.941 снят на 0.7 п (159.948) без закрепления — buy-side над ним (D1 EQH 160.206) цел.",
+ "h4_context": "H4 (ресемпл) бычий: HL 158.662 → HH 159.948, H4 bull FVG 159.160–159.765 работает. H1: HL 159.484, откат от 159.948 до 159.540 (88% плеча). M5: judas вверх на открытии Лондона → CHoCH вниз 08:40 → sweep EQL → CHoCH вверх 12:40.",
+ "news": [{"time": "2026-11-13T14:30:00+01:00", "country": "USD", "title": "PPI m/m / Core PPI m/m"}],
+ "warnings": [
+  "RR к TP1 1.05 < 1:2 (норма v2.2: 1.0–1.6)",
+  "Вход в D1 premium ~93%",
+  "SL 159.440 всего в 4.4 п под Asia low 159.484 — очевидный sell-side пул рядом со стопом",
+  "TP1 159.772 в 9.5 п от цены: снятие до отката отменяет ордер",
+  "Красных USD/JPY сегодня после 14:00 нет; NY open 14:30 без релизов"
+ ]
+}
