@@ -1038,15 +1038,43 @@
   "price_at_creation": 1.42578,
   "created_at": "2026-11-13T07:20:00+01:00",
   "expires": "2026-11-13T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 0.9,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "London Judas low 1.42494 (09:35) swept the Asia/M5 EQL 1.42521-1.42532 by 2.7 pips and stopped 0.9 pips above entry 1.42485 (8.4 of 9.3 pips = 90% of path); TP1 1.42688 traded 12:00 (high 1.42708) without a fill. Limit cancelled at midday before the PPI 13:30 blackout. The real cap sat 2.7 pips under the EQL - entry 1-2 pips beyond the pool (1.42505) would have filled and paid TP1 +0.8R; 3.6 pips was one pip too deep."
+  },
+  "last_checked": "2026-11-13T13:05:00+01:00"
+ },
+ {
+  "id": "2026-11-13-pm",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 1.4248,
+  "sl": 1.4221,
+  "tp1": 1.42719,
+  "rr_tp1": 0.89,
+  "zone_high": 1.42494,
+  "zone_low": 1.4238,
+  "price_at_creation": 1.42566,
+  "created_at": "2026-11-13T13:10:00+01:00",
+  "expires": "2026-11-13T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 9.3,
+  "closest_approach": 8.6,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-13T07:05:00+01:00"
+  "last_checked": "2026-11-13T13:05:00+01:00",
+  "note": "Active from 14:45 (after the PPI blackout); 1.4 pips under the London low 1.42494 = H1 OB body top 1.42481. Close before the weekend (Fri 22:00)."
  }
 ]

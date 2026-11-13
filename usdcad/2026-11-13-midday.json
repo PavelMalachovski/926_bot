@@ -1,0 +1,65 @@
+{
+ "date": "2026-11-13",
+ "created_at": "2026-11-13T13:10:00+01:00",
+ "price_at_creation": 1.42566,
+ "morning_order_status": "НЕ ДОШЛА (0.9 пипса до entry)",
+ "morning_order": {
+  "id": "2026-11-13-am",
+  "closest_low": 1.42494,
+  "closest_at": "2026-11-13T09:35:00+01:00",
+  "closest_approach_pips": 0.9,
+  "tp1_traded_unfilled": "12:00-12:25, high 1.42708 >= TP1 1.42688",
+  "invalidated": false,
+  "decision": "снять (CANCELLED): TP1 отработал без заливки, блэкаут PPI 13:30-14:45; заменён ордером 2026-11-13-pm"
+ },
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.4248,
+  "sl": 1.4221,
+  "tp1": 1.42719,
+  "tp2": 1.42994,
+  "tp3": 1.431,
+  "zone_high": 1.42494,
+  "zone_low": 1.4238,
+  "basis": "H1 OB 12.11 14:00 body top 1.42481 + 1.4 pips under the London low 1.42494 (sell-side pool NY has to sweep); M5 CHoCH down 13:00 below 1.42604 is delivering price to it",
+  "risk_pips": 27.0,
+  "activate_from": "2026-11-13T14:45:00+01:00",
+  "expires": "2026-11-13T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.4238,
+  "rule": "H1 body close below 1.42380 before fill -> cancel; after fill H1 close below 1.42261 (Strong Low) -> close manually; Friday: flat before 22:00"
+ },
+ "levels": {
+  "london_high": 1.42708,
+  "london_low": 1.42494,
+  "asia_high": 1.42691,
+  "asia_low": 1.42525,
+  "pdh": 1.42719,
+  "pdl": 1.42261,
+  "eqh": 1.42719,
+  "m5_choch_down": 1.42604,
+  "h1_range_high": 1.42719,
+  "h1_range_low": 1.42261,
+  "h1_range_eq": 1.4249,
+  "swept_today": [
+   "Asia low / M5 EQL 1.42521-1.42532 (09:35, low 1.42494)",
+   "Asia high 1.42691 (12:00, high 1.42708)"
+  ],
+  "unswept": ["PDH/EQH 1.42719", "London low 1.42494", "PDL/Strong Low 1.42261", "D1 EQH 1.42994-1.43015"]
+ },
+ "changed_since_morning": "London swept both sides of Asia (low 09:35, high 12:00) and stalled 1.1 pips under PDH 1.42719; H4 still a 1.42261-1.42719 inside range, no BOS either way; day range only 21 pips.",
+ "h4_context": "H4 (resample) bullish since the 11.11 BOS, 6th H4 bar inside 1.42261-1.42719; price 1.42566 = 66% of it (premium of the H1 leg).",
+ "news": [
+  {"time": "2026-11-13T14:30:00+01:00", "country": "USD", "title": "PPI m/m"},
+  {"time": "2026-11-13T14:30:00+01:00", "country": "USD", "title": "Core PPI m/m"}
+ ],
+ "warnings": [
+  "RR to TP1 1:0.89 (< 1:2): TP1 = PDH/EQH 1.42719 only 24 pips above; 1:1.90 to TP2 1.42994",
+  "Long against D1 premium: entry at 86% of the D1 range 1.39311-1.43015",
+  "Entry zone sits in the PPI 14:30 path: limit only from 14:45, a fill on the release spike is not taken",
+  "Friday: no weekend hold - flat by 22:00"
+ ]
+}
