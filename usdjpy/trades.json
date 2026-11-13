@@ -1213,17 +1213,17 @@
   "price_at_creation": 159.677,
   "created_at": "2026-11-12T13:10:00+01:00",
   "expires": "2026-11-12T23:59:00+01:00",
-  "status": "PENDING",
-  "filled_at": null,
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
-  "closest_approach": 7.5,
+  "status": "TP",
+  "filled_at": "2026-11-12T15:25:00+01:00",
+  "closed_at": "2026-11-12T15:40:00+01:00",
+  "result_r": 1.05,
+  "result_pips": 17.0,
+  "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-12T13:00:00+01:00",
+  "last_checked": "2026-11-13T07:00:00+01:00",
   "risk_pips": 16.2,
-  "note": "BUY от 50% M5 bull OB 12:00 (159.581–159.624) в OTE 62–79% M5 плеча 159.540→159.740, после sweep London-EQL 159.612/159.625 (low 159.540) и M5 CHoCH вверх 12:40 через EQH 159.725/159.727. H4/H1 бычьи (HL 159.484, Strong Low 159.104); Лондон: judas — sweep Asia high 159.876 + PDH 159.941 (159.948) → откат. SL под M5 Strong Low 159.540 −10 п. TP1 H1/M5 LH 159.772 (RR 1.05), TP2 London high 159.948, TP3 D1 EQH 160.206. Инвалидация: H1 body close < 159.581 или снятие 159.772 до исполнения. ⚠ D1 premium ~93%; SL в 4.4 п под Asia low 159.484."
+  "note": "BUY от 50% M5 bull OB 12:00 (159.581–159.624) в OTE 62–79% M5 плеча 159.540→159.740, после sweep London-EQL 159.612/159.625 (low 159.540) и M5 CHoCH вверх 12:40 через EQH 159.725/159.727. H4/H1 бычьи (HL 159.484, Strong Low 159.104); Лондон: judas — sweep Asia high 159.876 + PDH 159.941 (159.948) → откат. SL под M5 Strong Low 159.540 −10 п. TP1 H1/M5 LH 159.772 (RR 1.05), TP2 London high 159.948, TP3 D1 EQH 160.206. Инвалидация: H1 body close < 159.581 или снятие 159.772 до исполнения. ⚠ D1 premium ~93%; SL в 4.4 п под Asia low 159.484. | 13.11 07:10: исполнен M5 15:25 (low 159.576), TP1 159.772 взят M5 15:40 (high 159.793), SL не задет → TP +1.05R, +17.0 п."
  }
 ]
