@@ -1,0 +1,76 @@
+{
+ "date": "2026-11-13",
+ "created_at": "2026-11-13T07:20:00+01:00",
+ "price_at_creation": 1.42578,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.42485,
+  "sl": 1.4221,
+  "tp1": 1.42688,
+  "tp2": 1.4299,
+  "tp3": 1.431,
+  "zone_high": 1.42506,
+  "zone_low": 1.4238,
+  "basis": "H1 OB 11-12 14:00 (body 1.42380-1.42481) + H4 OB 11-12 09:00 (1.42414-1.42545) near edge at H1 leg 50% (1.42490) and the 11-11 PDH flip 1.42506; 3.6 pips under the unswept M5/Asia EQL 1.42521-1.42532 London has to sweep",
+  "risk_pips": 27.5,
+  "expires": "2026-11-13T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.4238,
+  "rule": "H1 body close below 1.42380 (OB body low) before fill -> cancel limit; after fill H1 close below 1.42261 (Strong Low) -> close manually"
+ },
+ "levels": {
+  "asia_high": 1.42691,
+  "asia_low": 1.42525,
+  "pdh": 1.42719,
+  "pdl": 1.42261,
+  "pdh_spike": 1.43041,
+  "pdl_spike": 1.42228,
+  "pwh": 1.41376,
+  "pwl": 1.39311,
+  "eqh": 1.42719,
+  "eql": 1.42521,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41163,
+  "week_open": 1.41235,
+  "h1_leg_low": 1.42261,
+  "h1_leg_high": 1.42719,
+  "ote62": 1.42435,
+  "ote79": 1.42357,
+  "d1_eqh": [
+   1.42994,
+   1.43015
+  ],
+  "h4_bull_fvg": [
+   1.42228,
+   1.42293
+  ],
+  "d1_bull_fvg": [
+   1.41387,
+   1.41808
+  ]
+ },
+ "d1_context": "D1 bullish HH/HL from PWL 1.39311 (04.11): 1.41346 -> 1.42104 -> 1.42506 -> 1.42719 (session; 1.43041 rollover spike). Price 1.42578 = 88% of the D1 range 1.39311-1.43015: deep premium, long is against D1 PD. Buy-side pool D1 EQH 1.42994/1.43015 above (only spiked at rollover), unfilled D1 bull FVG 1.41387-1.41808 below.",
+ "h4_context": "H4 bullish, last BOS 11.11 above 1.42104/1.42506; since 12.11 an inside range 1.42261-1.42719 with HL 1.42261 (NY sweep of the rollover low). H4 OB 1.42414-1.42545 and the remainder of the H4 bull FVG 1.42228-1.42293 below price; no CHoCH down.",
+ "news": [
+  {
+   "time": "2026-11-13T14:30:00+01:00",
+   "country": "USD",
+   "title": "PPI m/m"
+  },
+  {
+   "time": "2026-11-13T14:30:00+01:00",
+   "country": "USD",
+   "title": "Core PPI m/m"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:0.74 (< 1:2): TP1 is the Asia/session EQH 1.42691-1.42719 only 20 pips above; 1:1.69 to TP2 1.42990",
+  "Long against D1 premium: entry at 86% of the D1 range 1.39311-1.43015",
+  "PPI 14:30 blackout 13:30-14:45: a fill in the blackout or holding through PPI - cancel the limit at 13:30 if unfilled, BE/partial before 13:30 if filled",
+  "Friday: do not hold over the weekend"
+ ]
+}
