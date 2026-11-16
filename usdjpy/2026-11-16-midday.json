@@ -1,0 +1,90 @@
+{
+ "date": "2026-11-16",
+ "created_at": "2026-11-16T13:05:00+01:00",
+ "price_at_creation": 159.575,
+ "rules": "v2.2",
+ "morning_order": {
+  "id": "2026-11-16-am",
+  "status": "НЕ ДОШЛА (0.7 п до entry) → снят: TP1 159.366 взят 09:40 до исполнения",
+  "closest_price": 159.697,
+  "closest_at": "2026-11-16T11:50:00+01:00",
+  "closest_approach_pips": 0.7,
+  "tp1_swept_at": "2026-11-16T09:40:00+01:00",
+  "decision": "снять",
+  "journal_status": "CANCELLED"
+ },
+ "setup_valid": false,
+ "bias": "long",
+ "rr_filter": "fail 0.87",
+ "order": null,
+ "rejected_order": {
+  "side": "BUY",
+  "entry": 159.486,
+  "sl": 159.244,
+  "tp1": 159.697,
+  "tp2": 159.877,
+  "tp3": 160.192,
+  "rr_tp1": 0.87,
+  "rr_tp2": 1.62,
+  "rr_tp3": 2.92,
+  "zone_high": 159.527,
+  "zone_low": 159.455,
+  "basis": "нижний край M5 bull FVG 10:35 (159.486–159.527) = верх тела M5 bull OB 10:30 (159.480–159.486, фитиль 159.455), OTE ~60% M5/H1 плеча 159.344→159.697 (62–79% = 159.478–159.418)",
+  "risk_pips": 24.2,
+  "risk_usd_1lot": 152,
+  "distance_pips": 8.9,
+  "expires": "2026-11-16T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 159.455,
+  "rule": "Ордера нет. Для справки: H1 body close < 159.455 ломает бычий reclaim; < 159.344 — Лондон-лоу снят, sell-side продолжение к H1 FVG CE 159.364/159.201."
+ },
+ "levels": {
+  "asia_high": 159.877,
+  "asia_low": 159.366,
+  "london_high": 159.697,
+  "london_low": 159.344,
+  "pdh": 160.192,
+  "pdl": 159.537,
+  "pwh": 160.192,
+  "pwl": 157.672,
+  "eqh": 159.697,
+  "eql": null,
+  "d1_eqh": 160.206,
+  "d1_range_high": 160.192,
+  "d1_range_low": 156.069,
+  "d1_eq": 158.131,
+  "week_open": 159.662,
+  "m5_strong_low": 159.344,
+  "m5_fvg": [
+   159.486,
+   159.527
+  ],
+  "ote_62": 159.478,
+  "ote_79": 159.418,
+  "swept_since_morning": [
+   "asia_low 159.366 (09:40, low 159.344)",
+   "pdl 159.537 (утро)"
+  ]
+ },
+ "d1_context": "С утра: D1 без изменений — бычий (HL 157.672 → HH 160.192), цена 159.57 ≈ 85% range 156.069–160.192 (premium). Цена вошла в D1 bull FVG 158.853–159.484 до 159.344 и отскочила. Buy-side 160.192/EQH 160.206 не снят.",
+ "h4_context": "H4 (ресемпл) бычий: H4 04–08 закрылся 159.546 > 159.484 — утренний CHoCH вниз не подтвердился; H4 08–12 снял лоу 159.366 (159.344) и закрылся 159.671 — бычий отказ. H1: sweep Asia low → reclaim 159.514 (10:00) → H1 body close 11:00 159.671 > LH 159.607 = CHoCH вверх; EQH 159.694/159.697 — ближайший buy-side.",
+ "news": [
+  {
+   "time": "2026-11-16 18:00",
+   "country": "USD",
+   "title": "Fed Chairman Warsh Speaks"
+  },
+  {
+   "time": "2026-11-17 14:30",
+   "country": "USD",
+   "title": "Core Retail Sales m/m / Retail Sales m/m"
+  }
+ ],
+ "warnings": [
+  "Ф1: RR к TP1 0.87 < 1.0 — сетапа нет",
+  "BUY в D1 premium ~85% (по D1 тренду, но против PD)",
+  "блэкаут Warsh 17:00–18:15",
+  "ТЗ рутины vs журнал: применены правила v2.2 (Ф1/Ф2), как и в утреннем ране"
+ ]
+}
