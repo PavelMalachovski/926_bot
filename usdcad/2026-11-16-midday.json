@@ -1,0 +1,71 @@
+{
+ "date": "2026-11-16",
+ "created_at": "2026-11-16T13:10:00+01:00",
+ "price_at_creation": 1.42857,
+ "morning_order_status": "НЕ ДОШЛА (22.7 pips до entry) -> CANCELLED: TP1 1.42803 взят 08:50 без исполнения",
+ "morning_order_action": "снять",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.42735,
+  "sl": 1.4261,
+  "tp1": 1.42912,
+  "tp2": 1.42994,
+  "tp3": 1.431,
+  "zone_high": 1.42752,
+  "zone_low": 1.42716,
+  "basis": "M5 OB 07:15 (1.42717-1.42735) top, 1.5 pips under the London EQL 1.42750/1.42752 = sell-side pool NY has to sweep; H1 HL 1.42716 protects the 10:20 BOS above Asia high 1.42803",
+  "risk_pips": 12.5,
+  "pause": [
+   "13:30-14:45 CAD CPI blackout",
+   "17:00-18:15 Warsh blackout"
+  ],
+  "expires": "2026-11-16T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.42716,
+  "rule": "H1 body close below 1.42716 before fill -> cancel; after fill H1 close below 1.42672 (Asia low) -> close manually"
+ },
+ "levels": {
+  "asia_high": 1.42803,
+  "asia_low": 1.42672,
+  "london_high": 1.42912,
+  "london_low": 1.4275,
+  "pdh": 1.4274,
+  "pdl": 1.4229,
+  "pwh": 1.4274,
+  "pwl": 1.40769,
+  "eqh": 1.42994,
+  "eql": 1.4275,
+  "d1_range_high": 1.43015,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41163,
+  "week_open": 1.42673,
+  "swept_today": "Asia high 1.42803 (08:50), PDH/PWH 1.42740 (Asia); untouched: Asia low 1.42672, Fri EQL 1.42630-1.42648, D1 EQH 1.42994/1.43015"
+ },
+ "d1_context": "Unchanged from morning: D1 bullish after the 06.11 CHoCH; price 1.42857 = 96% of the 1.39311-1.43015 range (deep premium), D1 EQH 1.42994/1.43015 the next buy-side pool 14 pips above.",
+ "h4_context": "H4 (H1 resample) bullish: HL 1.42290 (13.11), London BOS above the Asia high to 1.42912; H1 BOS 10:00, H1 HL 1.42716 is the protected low, leg 1.42290->1.42912 (50% 1.42601, OTE 1.42526-1.42421).",
+ "news": [
+  {
+   "time": "2026-11-16T14:30:00+01:00",
+   "country": "CAD",
+   "title": "CPI m/m, Median CPI y/y, Trimmed CPI y/y"
+  },
+  {
+   "time": "2026-11-16T18:00:00+01:00",
+   "country": "USD",
+   "title": "Fed Chairman Warsh Speaks"
+  },
+  {
+   "time": "2026-11-17T14:30:00+01:00",
+   "country": "USD",
+   "title": "Retail Sales m/m, Core Retail Sales m/m"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:1.42 (< 1:2): London high 1.42912 is 17.7 pips above; 1:2.07 to TP2 D1 EQH 1.42994, 1:2.92 to TP3 1.43100",
+  "Long in D1 premium: entry at 93% of 1.39311-1.43015, right after the Asia-high/PDH sweep (stats proposal: skip longs above 70% after a buy-side sweep) - alternative: no long, wait for a sweep of D1 EQH 1.43015 + M5 CHoCH down for a short",
+  "The fill zone sits right in the CAD CPI release (14:30) / NY open: the order is paused 13:30-14:45 and 17:00-18:15"
+ ]
+}

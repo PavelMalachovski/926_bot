@@ -1093,16 +1093,44 @@
   "price_at_creation": 1.4274,
   "created_at": "2026-11-16T07:20:00+01:00",
   "expires": "2026-11-16T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-11-16T13:10:00+01:00 (cancelled at midday, TP1 1.42803 traded 08:50 without a fill)",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 22.7,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "BUY 1.42490 (OTE 62%/H1 OB, 25 pips under price): the lowest print after creation was 1.42717 at 07:20 (22.7 pips short, 9% of the path); London never swept the Asia low 1.42672 or the Fri EQL 1.42630-1.42648 - instead TP1 Asia high 1.42803 traded 08:50 (high 1.42808) and the 10:20 impulse ran to 1.42912 (H1 BOS). NO_PULLBACK #12: the protected low was the 07:15 M5 OB / H1 HL 1.42716, not the OTE; the sell-side pool the plan expected London to sweep stayed untouched."
+  },
+  "last_checked": "2026-11-16T13:00:00+01:00",
+  "note": "H1 OTE 62% 1.42485 of leg 1.42290->1.42803 + H1 OB (Fri 15:00) body top 1.42485; under the sell-side pools Asia low 1.42672 and Fri NY EQL 1.42630-1.42648 that London has to sweep. Paused in the CAD CPI blackout 13:30-14:45 and the Warsh blackout 17:00-18:15. Against D1 premium (entry at 84% of 1.39311-1.43015)."
+ },
+ {
+  "id": "2026-11-16-pm",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 1.42735,
+  "sl": 1.4261,
+  "tp1": 1.42912,
+  "rr_tp1": 1.42,
+  "zone_high": 1.42752,
+  "zone_low": 1.42716,
+  "price_at_creation": 1.42857,
+  "created_at": "2026-11-16T13:10:00+01:00",
+  "expires": "2026-11-16T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 22.6,
+  "closest_approach": 12.2,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-16T07:05:00+01:00",
-  "note": "H1 OTE 62% 1.42485 of leg 1.42290->1.42803 + H1 OB (Fri 15:00) body top 1.42485; under the sell-side pools Asia low 1.42672 and Fri NY EQL 1.42630-1.42648 that London has to sweep. Paused in the CAD CPI blackout 13:30-14:45 and the Warsh blackout 17:00-18:15. Against D1 premium (entry at 84% of 1.39311-1.43015)."
+  "last_checked": "2026-11-16T13:00:00+01:00",
+  "note": "M5 OB 07:15 top 1.42735 = 1.5 pips under the London EQL 1.42750/1.42752 (the sell-side pool NY has to sweep); SL under Asia low 1.42672 + Fri EQL 1.42630. Active from 14:45 (after the CAD CPI blackout), paused 17:00-18:15 (Warsh). Against D1 premium (entry at 93% of 1.39311-1.43015)."
  }
 ]
