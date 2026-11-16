@@ -1065,16 +1065,44 @@
   "price_at_creation": 1.42566,
   "created_at": "2026-11-13T13:10:00+01:00",
   "expires": "2026-11-13T23:59:00+01:00",
+  "status": "TP",
+  "filled_at": "2026-11-13T15:00:00+01:00",
+  "closed_at": "2026-11-13T22:00:00+01:00",
+  "result_r": 0.74,
+  "result_pips": 19.9,
+  "closest_approach": 0.0,
+  "ambiguous": true,
+  "adjusted": false,
+  "review": {
+   "cause": "TP_ON_FLAT_RULE",
+   "note": "Filled on the post-PPI drop (H1 15:00 low 1.42290, 8 pips above SL; activation 14:45, 14:00 bar low 1.42432 may also have filled). H1 15:00 body close 1.42318 sat below the zone but after the fill and above the 1.42261 Strong Low. TP1 1.42719 printed only in the Fri 22:00 bar (high 1.42740) - the plan's 'flat by Fri 22:00' exit at the 22:00 open 1.42679 = +19.9 pips / +0.74R is booked (mechanical TP1 would be +0.89R). Resolved on H1: the M5 window no longer covers Friday. 3rd of 3 longs set 1-2 pips beyond the London/Asia sell-side pool filled and paid."
+  },
+  "last_checked": "2026-11-13T23:00:00+01:00",
+  "note": "Active from 14:45 (after the PPI blackout); 1.4 pips under the London low 1.42494 = H1 OB body top 1.42481. Close before the weekend (Fri 22:00)."
+ },
+ {
+  "id": "2026-11-16-am",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 1.4249,
+  "sl": 1.4219,
+  "tp1": 1.42803,
+  "rr_tp1": 1.04,
+  "zone_high": 1.42529,
+  "zone_low": 1.42318,
+  "price_at_creation": 1.4274,
+  "created_at": "2026-11-16T07:20:00+01:00",
+  "expires": "2026-11-16T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 8.6,
+  "closest_approach": 22.6,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-13T13:05:00+01:00",
-  "note": "Active from 14:45 (after the PPI blackout); 1.4 pips under the London low 1.42494 = H1 OB body top 1.42481. Close before the weekend (Fri 22:00)."
+  "last_checked": "2026-11-16T07:05:00+01:00",
+  "note": "H1 OTE 62% 1.42485 of leg 1.42290->1.42803 + H1 OB (Fri 15:00) body top 1.42485; under the sell-side pools Asia low 1.42672 and Fri NY EQL 1.42630-1.42648 that London has to sweep. Paused in the CAD CPI blackout 13:30-14:45 and the Warsh blackout 17:00-18:15. Against D1 premium (entry at 84% of 1.39311-1.43015)."
  }
 ]
