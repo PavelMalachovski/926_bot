@@ -1,0 +1,94 @@
+{
+ "date": "2026-11-17",
+ "created_at": "2026-11-17T13:05:00+01:00",
+ "price_at_creation": 159.251,
+ "rules": "v2.2",
+ "morning_order": {
+  "id": "2026-11-17-am",
+  "status": "НЕ ДОШЛА (6.0 п до entry) → снят: TP1 159.117 взят 09:45 до исполнения",
+  "closest_price": 159.369,
+  "closest_at": "2026-11-17T09:00:00+01:00",
+  "closest_approach_pips": 6.0,
+  "tp1_swept_at": "2026-11-17T09:45:00+01:00",
+  "decision": "снять",
+  "journal_status": "CANCELLED"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "rr_filter": "pass 1.26",
+ "order": {
+  "side": "SELL",
+  "entry": 159.296,
+  "sl": 159.469,
+  "tp1": 159.078,
+  "tp2": 158.864,
+  "tp3": 158.662,
+  "zone_high": 159.369,
+  "zone_low": 159.296,
+  "basis": "OB",
+  "risk_pips": 17.3,
+  "expires": "2026-11-17T23:59:00+01:00"
+ },
+ "rr_tp1": 1.26,
+ "rr_tp2": 2.5,
+ "rr_tp3": 3.67,
+ "distance_to_entry_pips": 4.5,
+ "risk_usd_per_lot": 108.6,
+ "invalidation": {
+  "level": 159.369,
+  "rule": "H1 body close > 159.369 → снять лимит; TP1 159.078 снят до исполнения → снять"
+ },
+ "levels": {
+  "asia_high": 159.61,
+  "asia_low": 159.083,
+  "london_high": 159.369,
+  "london_low": 158.864,
+  "pdh": 159.877,
+  "pdl": 159.344,
+  "pwh": 160.192,
+  "pwl": 157.672,
+  "eqh": 160.192,
+  "eql": null,
+  "d1_range_high": 160.192,
+  "d1_range_low": 157.672,
+  "d1_eq": 158.932,
+  "week_open": 159.662,
+  "m5_hl": 159.078,
+  "m5_bull_fvg": [
+   159.153,
+   159.196
+  ]
+ },
+ "swept_since_morning": [
+  "asia_low 159.117/159.083",
+  "eql 159.104",
+  "d1_eq 158.932"
+ ],
+ "d1_context": "Без изменений с утра: D1 uptrend (HL 157.672 → HH 160.192). Цена 159.25 = 63% range; London low 158.864 проколол D1 EQ 158.932 и вошёл в D1 bull FVG 158.853–159.484 почти до низа — дисконт D1 против шорта.",
+ "h4_context": "H4 (ресемпл): CHoCH↓ 16.11 (<159.484), BOS↓ 17.11 04:00 и 08:00 (158.865). Bearish, H4/H1 согласованы.",
+ "h1_context": "H1 bearish: LH 159.610 → LL 159.083 → LH 159.369 (09:00) → LL 158.864 (10:30). Откат 77% плеча (OTE 62–79% = 159.177–159.263). Bear OB 08:00 тело 159.296–159.364, фитиль 159.369; H1 bear FVG 09:00 159.119–159.172 уже закрыт.",
+ "m5_context": "Judas ↑ на открытии Лондона до 159.369, затем слив −50 п до 158.864 (снят Asia low и EQL). С 10:30 M5 HH/HL (158.971 → 159.029 → 159.078), BOS↑ 11:15; M5 bull FVG 159.153–159.196 (12:35). M5 везёт цену в H1 OB.",
+ "news": [
+  {
+   "time": "2026-11-17 14:30",
+   "country": "USD",
+   "title": "Core Retail Sales m/m"
+  },
+  {
+   "time": "2026-11-17 14:30",
+   "country": "USD",
+   "title": "Retail Sales m/m"
+  },
+  {
+   "time": "2026-11-18 20:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "Блэкаут Retail Sales 14:30 → 13:30–14:45; entry в 4.5 п — исполнение вероятно в блэкауте/на открытии NY",
+  "Вход против D1 тренда, цена в D1 bull FVG/дисконте",
+  "RR к TP1 1.26 < 1:2 (Ф1 1.0–1.6 выполнен)",
+  "Entry 86% плеча — глубже OTE 79%"
+ ]
+}
