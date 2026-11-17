@@ -1285,5 +1285,32 @@
   "last_checked": "2026-11-16T13:00:00+01:00",
   "risk_pips": 27.3,
   "note": "SELL от нижнего края тела H1 bear OB 16.11 00:00 (тело 159.704–159.826, фитиль 159.674–159.867) в H1 OTE 66% плеча 159.877→159.366 (OTE 62–79% = 159.683–159.770), после H1 CHoCH вниз: body close 06:00 159.447 < HL 159.484/Strong Low 159.514, PDL 159.537 снят. SL над H1 Strong High (Asia high) 159.877 +10 п. TP1 Asia low 159.366 (RR 1.24), TP2 H1 low 159.104 (RR 2.20), TP3 EQH 11.11 158.962 (RR 2.72) — справочно, Ф2: весь объём на TP1. Отмена: TP1 взят до исполнения / H1 body close > 159.877. ⚠ против D1 тренда (D1 HH 160.192), цена на CE H1 bull FVG 159.364 и внутри D1 bull FVG 158.853–159.484; ⚠ RR < 1:2; блэкаут Warsh 17:00–18:15. | 16.11 13:05: TP1 159.366 взят 09:40 (low 159.344) до исполнения → снят (CANCELLED). Ближе всего 159.697 (11:50) = 0.7 п до entry."
+ },
+ {
+  "id": "2026-11-17-am",
+  "rules": "v2.2",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 159.429,
+  "sl": 159.71,
+  "tp1": 159.117,
+  "rr_tp1": 1.11,
+  "zone_high": 159.61,
+  "zone_low": 159.429,
+  "price_at_creation": 159.132,
+  "created_at": "2026-11-17T07:05:00+01:00",
+  "expires": "2026-11-17T23:59:00+01:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 29.7,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-11-17T07:00:00+01:00",
+  "risk_pips": 28.1,
+  "note": "SELL от нижнего края тела H1 bear OB 02:00 (159.429–159.610) = OTE 62% плеча 159.610→159.117, после H4 CHoCH вниз 16.11 (<159.484) и BOS 17.11 (sweep PDL/EQL 159.344). SL над Strong High/Asia high 159.610 +10 п. TP1 Asia low/EQL 159.117 (RR 1.11), TP2 158.935, TP3 158.662 — справочно, Ф2. Отмена: TP1 снят до исполнения / H1 body close > 159.610. ⚠ против D1, в D1 bull FVG; блэкаут Retail Sales 13:30–14:45."
  }
 ]
