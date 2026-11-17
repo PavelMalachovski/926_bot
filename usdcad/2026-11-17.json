@@ -1,0 +1,51 @@
+{
+ "date": "2026-11-17",
+ "created_at": "2026-11-17T07:10:00+01:00",
+ "price_at_creation": 1.42973,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY",
+  "entry": 1.4289,
+  "sl": 1.42679,
+  "tp1": 1.43165,
+  "tp2": 1.4327,
+  "tp3": 1.43403,
+  "zone_high": 1.42926,
+  "zone_low": 1.4286,
+  "basis": "H1 OTE 71% of the leg 1.42779 (Mon 14:30 CPI low = Strong Low) -> 1.43165 (Asia high); 1.2 pips under the H1 EQL 1.42902/1.42907/1.42911 (sell-side pool London has to sweep) = under the wick of H1 OB 20:00 (1.42902-1.43005)",
+  "risk_pips": 21.1,
+  "pause": ["13:30-14:45 USD Retail Sales blackout"],
+  "expires": "2026-11-17T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.4286,
+  "rule": "H1 body close below 1.42860 (OTE 79%) before fill -> cancel; H1 body close below 1.42779 = H1 CHoCH down -> plan B (short bias)"
+ },
+ "levels": {
+  "asia_high": 1.43165,
+  "asia_low": 1.42952,
+  "pdh": 1.43114,
+  "pdl": 1.42509,
+  "pwh": 1.4274,
+  "pwl": 1.40769,
+  "eqh": null,
+  "eql": 1.42902,
+  "d1_range_high": 1.43165,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41238,
+  "week_open": 1.42673,
+  "note": "Asia low as of 06:55 (session runs to 08:00). PWH/PDH/D1 EQH 1.43015 all swept (Mon 1.43114, Asia 1.43165) - no unswept buy-side pool above in 120 D1 bars, TP2/TP3 are leg extensions 1.272/1.618. H1 EQL 1.42902-1.42918 unswept, Strong Low 1.42779."
+ },
+ "d1_context": "D1 bullish since the 06.11 CHoCH (HL 1.42228/1.42290, new HH 1.43165 today). Price 1.42973 = 95% of the 1.39311-1.43165 range (deep premium), the D1 EQH 1.43015 / PDH 1.43114 just swept. Unfilled D1 bull FVGs 1.42104-1.42228 and 1.41387-1.41808 below.",
+ "h4_context": "H4 bullish HH/HL: HL 1.42779 (Mon CPI), HH 1.43165 (Asia). H1 HL cluster 1.42902-1.42918; H1 OB 00:00 1.42966-1.43007 being tested; M5 CHoCH down 06:35 (below 1.43003) after the Asia-high sweep of PDH - pullback toward the H1 EQL in progress.",
+ "news": [
+  {"time": "2026-11-17T14:30:00+01:00", "country": "USD", "title": "Retail Sales m/m, Core Retail Sales m/m"},
+  {"time": "2026-11-18T20:00:00+01:00", "country": "USD", "title": "FOMC Meeting Minutes"}
+ ],
+ "warnings": [
+  "RR to TP1 1:1.30 (< 1:2): Asia high 1.43165 is the only pool above; 1:1.80 to TP2 1.43270, 1:2.43 to TP3 1.43403 (extensions, not liquidity)",
+  "Long in D1 premium: entry at 93% of 1.39311-1.43165 right after the buy-side sweep of PDH 1.43114 / D1 EQH 1.43015 (stats proposal: skip longs above 70% after a buy-side sweep) - alternative: no long; short only after an H1 body close below 1.42779 (H1 CHoCH) on a retest of 1.42860-1.42900, target PDL 1.42509",
+  "USD Retail Sales 14:30: order paused 13:30-14:45"
+ ]
+}
