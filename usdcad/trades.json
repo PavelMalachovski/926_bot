@@ -1149,16 +1149,23 @@
   "price_at_creation": 1.42973,
   "created_at": "2026-11-17T07:10:00+01:00",
   "expires": "2026-11-17T23:59:00+01:00",
-  "status": "PENDING",
-  "filled_at": null,
+  "status": "OPEN",
+  "filled_at": "2026-11-17T10:55:00+01:00",
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 8.3,
+  "closest_approach": 0.0,
   "ambiguous": false,
-  "adjusted": false,
+  "adjusted": true,
   "review": null,
-  "last_checked": "2026-11-17T07:00:00+01:00",
-  "note": "H1 OTE 71% of the leg 1.42779 (Mon CPI low) -> 1.43165 (Asia high), 1.2 pips under the H1 EQL 1.42902/1.42907/1.42911 (sell-side pool London has to sweep). Paused 13:30-14:45 (USD Retail Sales). Against D1 premium (93% of 1.39311-1.43165) right after the buy-side sweep of PDH 1.43114 / D1 high 1.43015."
+  "last_checked": "2026-11-17T13:05:00+01:00",
+  "note": "H1 OTE 71% of the leg 1.42779 (Mon CPI low) -> 1.43165 (Asia high), 1.2 pips under the H1 EQL 1.42902/1.42907/1.42911 (sell-side pool London has to sweep). Paused 13:30-14:45 (USD Retail Sales). Against D1 premium (93% of 1.39311-1.43165) right after the buy-side sweep of PDH 1.43114 / D1 high 1.43015. | 17.11 midday: filled 10:55 (low 1.42888, 0.2 pips through) on the London sweep of the H1 EQL 1.42902-11 and the Asia low 1.42952 - entry 1-2 pips beyond the sell-side pool filled again (4 of 4 longs); M5 BOS up 11:15.",
+  "midday": {
+   "floating_pips": 10.1,
+   "floating_r": 0.48,
+   "mae_pips": 0.2,
+   "mfe_pips": 13.6,
+   "action": "close 50% at market (~1.42990) before 14:20 (USD Retail Sales 14:30); rest: SL 1.42679 and TP1 1.43165 unchanged; SL -> BE 1.42890 only after 14:45 on an M5 BOS above 1.43028 with a HL above 1.42890"
+  }
  }
 ]

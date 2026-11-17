@@ -1,0 +1,64 @@
+{
+ "date": "2026-11-17",
+ "created_at": "2026-11-17T13:10:00+01:00",
+ "price_at_creation": 1.42991,
+ "morning_order_status": "FILLED_OPEN",
+ "morning_order": {
+  "id": "2026-11-17-am",
+  "filled_at": "2026-11-17T10:55:00+01:00",
+  "fill_low": 1.42888,
+  "floating_pips": 10.1,
+  "floating_r": 0.48,
+  "mae_pips": 0.2,
+  "mfe_pips": 13.6,
+  "invalidated_before_fill": false
+ },
+ "adjustments": {
+  "partial": "close 50% at market ~1.42990 before 14:20 (USD Retail Sales 14:30 blackout 13:30-14:45)",
+  "sl": 1.42679,
+  "sl_note": "unchanged; BE 1.42890 would sit 0.2 pips above the protected low 1.42888 (London low/EQL sweep) - not behind structure. Move to BE only after 14:45 on an M5 BOS above 1.43028 with a HL above 1.42890",
+  "tp1": 1.43165,
+  "tp2": 1.4327,
+  "tp3": 1.43403,
+  "tp_note": "Asia high 1.43165 unswept; London high 1.43104 intermediate pool",
+  "exit_rule": "H1 body close below 1.42779 (H1 CHoCH down) -> close the rest before SL"
+ },
+ "setup_valid": false,
+ "bias": "long",
+ "order": null,
+ "order_note": "no new pm order: the morning long is open",
+ "levels": {
+  "london_high": 1.43104,
+  "london_low": 1.42888,
+  "asia_high": 1.43165,
+  "asia_low": 1.42952,
+  "pdh": 1.43114,
+  "pdl": 1.42509,
+  "strong_low_h1": 1.42779,
+  "m5_bos": 1.42997,
+  "m5_hl": 1.42961,
+  "swept_today": [
+   "asia_low 1.42952 (09:30)",
+   "H1 EQL 1.42902-11 (10:00-10:55)",
+   "PDH 1.43114 (Asia)"
+  ]
+ },
+ "h1_h4_context": "H4 (resampled) HH/HL intact: HL 1.42779, HH 1.43165. H1 pulled back 71.8% of 1.42779->1.43165 into the EQL and bounced; M5 BOS up 11:15 above 1.42997, HL 1.42961.",
+ "news": [
+  {
+   "time": "2026-11-17T14:30:00+01:00",
+   "country": "USD",
+   "title": "Retail Sales m/m, Core Retail Sales m/m"
+  },
+  {
+   "time": "2026-11-18T20:00:00+01:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:1.30 < 1:2",
+  "Long in D1 premium (95% of 1.39311-1.43165)",
+  "USD Retail Sales 14:30 while the position is open"
+ ]
+}
