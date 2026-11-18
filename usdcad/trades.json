@@ -1177,8 +1177,8 @@
   "basis": "OB",
   "entry": 1.4296,
   "sl": 1.42633,
-  "tp1": 1.4317,
-  "rr_tp1": 0.64,
+  "tp1": 1.433,
+  "rr_tp1": 1.04,
   "zone_high": 1.42993,
   "zone_low": 1.42917,
   "price_at_creation": 1.43166,
@@ -1189,11 +1189,11 @@
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 20.6,
+  "closest_approach": 11.3,
   "ambiguous": false,
-  "adjusted": false,
+  "adjusted": true,
   "review": null,
-  "last_checked": "2026-11-18T07:05:00+01:00",
-  "note": "1.7 pips under the overnight/Asia EQL 1.42977-1.42989 (sell-side pool London has to sweep) = H1 OB 23:00 wick, ~50% of the H1 leg 1.42733->1.43170. SL 10 pips under the Strong Low 1.42733. Paused 19:00-20:15 (FOMC Minutes). Against D1 premium (100% of 1.39311-1.43170) right after the PDH/D1-high sweep; RR to TP1 0.64."
+  "last_checked": "2026-11-18T13:00:00+01:00",
+  "note": "1.7 pips under the overnight/Asia EQL 1.42977-1.42989 (sell-side pool London has to sweep) = H1 OB 23:00 wick, ~50% of the H1 leg 1.42733->1.43170. SL 10 pips under the Strong Low 1.42733. Paused 19:00-20:15 (FOMC Minutes). Against D1 premium (100% of 1.39311-1.43170) right after the PDH/D1-high sweep; RR to TP1 0.64. | Midday 13:05: not reached (low 1.43073, 11.3 pips), original TP1 1.43170 traded 07:25 before fill; kept entry/SL, TP1 -> EQH 1.43300 (RR 1.04)."
  }
 ]

@@ -1,0 +1,68 @@
+{
+ "date": "2026-11-18",
+ "created_at": "2026-11-18T13:05:00+01:00",
+ "price_at_creation": 1.43093,
+ "morning_order_status": "NOT_REACHED",
+ "morning_order": {
+  "id": "2026-11-18-am",
+  "closest_approach_pips": 11.3,
+  "closest_low": 1.43073,
+  "closest_at": "2026-11-18T12:55:00+01:00",
+  "path_pct": 45,
+  "invalidated_before_fill": false,
+  "tp1_traded_before_fill": "1.43170 at 07:25 (high 1.43186)"
+ },
+ "morning_decision": "KEEP entry 1.42960 / SL 1.42633; TP1 moved from the swept 1.43170 to EQH 1.43300 (London high 1.43309/1.43300), TP2 1.43403 (127% ext), TP3 1.43525 (161.8%). Entry = 1.7 pips under Asia EQL 1.42977-89 + OTE 62% 1.42952 of the new H1 leg 1.42733->1.43309.",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.4296,
+  "sl": 1.42633,
+  "tp1": 1.433,
+  "tp2": 1.43403,
+  "tp3": 1.43525,
+  "zone_high": 1.42993,
+  "zone_low": 1.42917,
+  "basis": "OB (H1 23:00 wick) / OTE 62% 1.42952 of 1.42733->1.43309, 1.7 pips under Asia EQL",
+  "risk_pips": 32.7,
+  "expires": "2026-11-18T23:59:00+01:00",
+  "pause": "19:00-20:15 FOMC Minutes",
+  "note": "carried from the morning (2026-11-18-am, adjusted), no separate pm order"
+ },
+ "invalidation": {
+  "level": 1.42917,
+  "rule": "H1 body close below 1.42917 before fill -> cancel; H1 body close below 1.42733 = H4 CHoCH down, plan B short only after M5 CHoCH"
+ },
+ "levels": {
+  "london_high": 1.43309,
+  "london_low": 1.43073,
+  "asia_high": 1.43233,
+  "asia_low": 1.42989,
+  "eqh": 1.433,
+  "eql_m5": 1.43073,
+  "h1_eq": 1.43021,
+  "ote62": 1.42952,
+  "ote79": 1.42854,
+  "strong_low": 1.42733,
+  "m5_choch_down": 1.43173,
+  "swept_today": [
+   "PDH/EQH 1.43165-70 (07:25)",
+   "Asia high 1.43233 (08:05)"
+  ]
+ },
+ "h1_h4_context": "H4 (resampled) HH 1.43309 / HL 1.42733, BOS above 1.43165 at 07:25. London swept the 120-day high EQH by 14 pips and rolled over: M5 CHoCH down 10:45 below 1.43173, price 37% into the H1 leg. D1 now 91% premium of 1.39311-1.43309.",
+ "what_changed": "D1 high extended 1.43170 -> 1.43309; morning TP1 traded before fill, entry 11.3 pips away",
+ "news": [
+  {
+   "time": "2026-11-18T20:00:00+01:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:1.04 < 1:2 (TP2 1:1.35, TP3 1:1.73)",
+  "Long in D1 premium (91%) right after a sweep of the 120-day high",
+  "FOMC Minutes 20:00: pause 19:00-20:15"
+ ]
+}
