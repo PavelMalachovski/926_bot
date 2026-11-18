@@ -1,0 +1,74 @@
+{
+ "date": "2026-11-18",
+ "created_at": "2026-11-18T13:05:00+01:00",
+ "price_at_creation": 159.381,
+ "rules": "v1",
+ "morning_order_status": {
+  "id": "2026-11-18-am",
+  "status": "CANCELLED",
+  "text": "НЕ ДОШЛА (12.5 п до entry, max 159.401 в 12:55); TP1 159.146 снят 08:35 (low 159.132) до исполнения → снят по плану",
+  "decision": "снять (CANCELLED)"
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL",
+  "entry": 159.526,
+  "sl": 159.749,
+  "tp1": 159.132,
+  "tp2": 158.865,
+  "tp3": 158.662,
+  "zone_high": 159.619,
+  "zone_low": 159.526,
+  "basis": "OB+OTE",
+  "risk_pips": 22.3,
+  "expires": "2026-11-18T19:00:00+01:00"
+ },
+ "rr_tp1": 1.77,
+ "rr_tp2": 2.96,
+ "rr_tp3": 3.87,
+ "distance_to_entry_pips": 14.5,
+ "risk_usd_per_lot": 139.9,
+ "invalidation": {
+  "level": 159.619,
+  "rule": "H1 body close > 159.619 → снять лимит, план Б (BUY по H1 после M5 CHoCH); TP1 159.132 снят до исполнения → снять; к 19:00 не исполнен → снять (блэкаут FOMC Minutes 19:00–20:15)"
+ },
+ "levels": {
+  "asia_high": 159.649,
+  "asia_low": 159.146,
+  "london_high": 159.401,
+  "london_low": 159.132,
+  "pdh": 159.61,
+  "pdl": 158.865,
+  "pwh": 160.192,
+  "pwl": 157.672,
+  "eqh": 160.192,
+  "eql": 159.122,
+  "d1_range_high": 160.192,
+  "d1_range_low": 157.672,
+  "d1_eq": 158.932,
+  "week_open": 159.662,
+  "strong_high": 159.649,
+  "h1_lh": 159.459
+ },
+ "swept_since_morning": [
+  "asia_low 159.146 (08:35, на 1.4 п)"
+ ],
+ "d1_context": "Без изменений с утра: D1 uptrend, цена 159.38 = 68% range 157.672–160.192 (premium), внутри D1 bull FVG 158.853–159.484.",
+ "h4_context": "H4 (ресемпл): bearish, CHoCH↓ 16.11, BOS↓ 17.11 158.865; LH 159.649 (sweep PDH) держит, закрытий выше нет.",
+ "h1_context": "H1: после CHoCH↑ 00:00 и HH 159.649 — слив до 159.132 (London low, HL над EQL 159.122). Плечо 159.649→159.132: 50% 159.391 (цена там), OTE 159.452–159.540; H1 LH 159.459 (04:00) — выше него H1 CHoCH вверх. H1 OB 01:00 159.526–159.584 (фитиль 159.619) не тронут.",
+ "m5_context": "London 08:00–13:00: 159.132–159.401, judas swing вниз (sweep Asia low 08:35), затем HL 159.152 (10:05), 159.228 (11:30), M5 BOS↑ > 159.371 в 12:50. Bull FVG 159.317–159.347 (12:45) и 159.303–159.331 (11:55). M5 везёт цену в OTE/OB.",
+ "news": [
+  {
+   "time": "2026-11-18 20:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "H4 short, H1 bullish (CHoCH↑ 00:00, HL 159.132) — H4/H1 разошлись",
+  "Вход против D1 тренда (цена в D1 premium 68%)",
+  "RR к TP1 1.77 < 1:2",
+  "FOMC Minutes 20:00 — снять лимит к 19:00"
+ ]
+}
