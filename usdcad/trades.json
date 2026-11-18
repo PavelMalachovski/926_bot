@@ -1149,16 +1149,19 @@
   "price_at_creation": 1.42973,
   "created_at": "2026-11-17T07:10:00+01:00",
   "expires": "2026-11-17T23:59:00+01:00",
-  "status": "OPEN",
+  "status": "BE",
   "filled_at": "2026-11-17T10:55:00+01:00",
-  "closed_at": null,
-  "result_r": null,
-  "result_pips": null,
+  "closed_at": "2026-11-17T16:40:00+01:00",
+  "result_r": 0.22,
+  "result_pips": 4.7,
   "closest_approach": 0.0,
   "ambiguous": false,
   "adjusted": true,
-  "review": null,
-  "last_checked": "2026-11-17T13:05:00+01:00",
+  "review": {
+   "cause": "BE_AFTER_PARTIAL",
+   "note": "50% closed 14:15 at 1.42983 (+9.3 pips/+0.44R) before Retail Sales; BE trigger met 16:20 (M5 BOS 1.43078 > 1.43028 after HL 1.42922 > entry), BE 1.42890 hit 16:40 (low 1.42867); price then swept the Strong Low 1.42779 to 1.42733 (no H1 body close under it) and TP1 1.43165 traded 18.11 06:55 (1.43168). Blended +0.22R / +4.7 pips; the BE move cost the runner again, as on 29.10."
+  },
+  "last_checked": "2026-11-18T07:05:00+01:00",
   "note": "H1 OTE 71% of the leg 1.42779 (Mon CPI low) -> 1.43165 (Asia high), 1.2 pips under the H1 EQL 1.42902/1.42907/1.42911 (sell-side pool London has to sweep). Paused 13:30-14:45 (USD Retail Sales). Against D1 premium (93% of 1.39311-1.43165) right after the buy-side sweep of PDH 1.43114 / D1 high 1.43015. | 17.11 midday: filled 10:55 (low 1.42888, 0.2 pips through) on the London sweep of the H1 EQL 1.42902-11 and the Asia low 1.42952 - entry 1-2 pips beyond the sell-side pool filled again (4 of 4 longs); M5 BOS up 11:15.",
   "midday": {
    "floating_pips": 10.1,
@@ -1167,5 +1170,30 @@
    "mfe_pips": 13.6,
    "action": "close 50% at market (~1.42990) before 14:20 (USD Retail Sales 14:30); rest: SL 1.42679 and TP1 1.43165 unchanged; SL -> BE 1.42890 only after 14:45 on an M5 BOS above 1.43028 with a HL above 1.42890"
   }
+ },
+ {
+  "id": "2026-11-18-am",
+  "side": "BUY",
+  "basis": "OB",
+  "entry": 1.4296,
+  "sl": 1.42633,
+  "tp1": 1.4317,
+  "rr_tp1": 0.64,
+  "zone_high": 1.42993,
+  "zone_low": 1.42917,
+  "price_at_creation": 1.43166,
+  "created_at": "2026-11-18T07:15:00+01:00",
+  "expires": "2026-11-18T23:59:00+01:00",
+  "status": "PENDING",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 20.6,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": null,
+  "last_checked": "2026-11-18T07:05:00+01:00",
+  "note": "1.7 pips under the overnight/Asia EQL 1.42977-1.42989 (sell-side pool London has to sweep) = H1 OB 23:00 wick, ~50% of the H1 leg 1.42733->1.43170. SL 10 pips under the Strong Low 1.42733. Paused 19:00-20:15 (FOMC Minutes). Against D1 premium (100% of 1.39311-1.43170) right after the PDH/D1-high sweep; RR to TP1 0.64."
  }
 ]

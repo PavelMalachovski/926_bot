@@ -1,0 +1,54 @@
+{
+ "date": "2026-11-18",
+ "created_at": "2026-11-18T07:15:00+01:00",
+ "price_at_creation": 1.43166,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.4296,
+  "sl": 1.42633,
+  "tp1": 1.4317,
+  "tp2": 1.43289,
+  "tp3": 1.4344,
+  "zone_high": 1.42993,
+  "zone_low": 1.42917,
+  "basis": "OB (H1 23:00 wick) + 1.7 pips under the overnight/Asia EQL 1.42977-1.42989, ~EQ 50% of the H1 leg 1.42733->1.43170",
+  "risk_pips": 32.7,
+  "expires": "2026-11-18T23:59:00+01:00",
+  "pause": "19:00-20:15 FOMC Minutes"
+ },
+ "invalidation": {
+  "level": 1.42917,
+  "rule": "H1 body close below 1.42917 before fill -> cancel the limit; H1 body close below 1.42733 = H4 CHoCH down, plan B short only after M5 CHoCH"
+ },
+ "levels": {
+  "asia_high": 1.4317,
+  "asia_low": 1.42989,
+  "pdh": 1.43165,
+  "pdl": 1.42733,
+  "pwh": 1.43041,
+  "pwl": 1.40769,
+  "eqh": 1.43168,
+  "eql": 1.42977,
+  "d1_range_high": 1.4317,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41241,
+  "week_open": 1.42673,
+  "note": "Asia as of 07:00. PDH/D1 high 1.43165 swept by 0.5 pip (07:00 high 1.43170) - EQH 1.43165/68/70 at the 120-day high, no older buy-side pool above. Strong Low 1.42733 (17.11 17:15, swept the 1.42779 HL by wick, no H1 body close below)."
+ },
+ "d1_context": "D1 bullish since the 06.11 CHoCH (HL 1.42228, HH 1.43165/1.43170). Price at 100% of the 1.39311-1.43170 range = extreme premium, 120-day high retested as EQH. Unfilled D1 bull FVGs 1.42104-1.42228 and 1.41387-1.41808 below.",
+ "h4_context": "H4 HH/HL: 17.11 dip swept HL 1.42779 to 1.42733 (wick) and reversed; overnight BOS above 1.43085, now at the HH 1.43165. H1 leg 1.42733->1.43170, EQ 1.42952, OTE 62% 1.42899.",
+ "news": [
+  {
+   "time": "2026-11-18T20:00:00+01:00",
+   "country": "USD",
+   "title": "FOMC Meeting Minutes"
+  }
+ ],
+ "warnings": [
+  "RR to TP1 1:0.64 < 1:2 (TP2 1:1.01, TP3 1:1.47)",
+  "Long in D1 premium (100% of 1.39311-1.43170) right after the PDH/D1-high sweep",
+  "FF calendar rate-limited today: news taken from the 17.11 copy (FOMC Minutes 20:00), CAD/USD morning releases not verified"
+ ]
+}
