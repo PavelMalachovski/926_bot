@@ -1,0 +1,41 @@
+{
+ "date": "2026-11-19",
+ "created_at": "2026-11-19T13:10:00+01:00",
+ "price_at_creation": 1.43090,
+ "morning_order_status": {
+  "status": "ЗАКРЫТ ПО SL",
+  "filled_at": "2026-11-19T08:05:00+01:00",
+  "closed_at": "2026-11-19T10:05:00+01:00",
+  "result_pips": -16.8, "result_r": -1.0, "result_usd_1lot": -117.4,
+  "mfe_pips": 2.9, "ambiguous": false,
+  "note": "Filled at the London open (low 1.43283) on the Asia EQL 1.43304 sweep; H1 09:00 body close 1.43175 under the FVG bottom 1.43207; SL 1.43124 hit 10:05 (low 1.43090); London low 1.42998 wicked the Strong Low 1.43008 by 1 pip."
+ },
+ "setup_valid": true,
+ "bias": "short",
+ "order": {
+  "side": "SELL LIMIT", "entry": 1.43185, "sl": 1.43361, "tp1": 1.42985, "tp2": 1.42919, "tp3": 1.42781,
+  "zone_high": 1.43261, "zone_low": 1.43180,
+  "basis": "FVG: bottom of the H1 bear FVG 1.43180-1.43261 (08:00-10:00 displacement), 1.4 pips above the M5 EQH 1.43170/1.43171 (buy-side pool NY has to sweep); SL 10 pips above the FVG top / above the London high 1.43351",
+  "risk_pips": 17.6, "expires": "2026-11-19T23:59:00+01:00"
+ },
+ "invalidation": {"level": 1.43261, "rule": "H1 body close above 1.43261 before fill -> cancel; TP1 1.42985 (PDL-18.11-00:00 1.42977 sweep) traded before fill -> cancel, no chase; plan B long only after a PDL 1.42977 / H4 FVG 1.42919-89 sweep + M5 CHoCH up above 1.43121"},
+ "levels": {
+  "asia_high": 1.43576, "asia_low": 1.43304, "london_high": 1.43351, "london_low": 1.42998,
+  "pdh": 1.43399, "pdl": 1.42781, "h1_low_18_00": 1.42977, "pwh": 1.43041, "pwl": 1.40769,
+  "m5_eqh": 1.43171, "m5_lh": 1.43121, "strong_low": 1.43008,
+  "h1_bear_fvg": [1.43180, 1.43261], "h4_fvg": [1.42919, 1.42989],
+  "leg_high": 1.43576, "leg_low": 1.42998, "leg_50": 1.43287, "ote62": 1.43356, "ote79": 1.43455,
+  "d1_range_high": 1.43576, "d1_range_low": 1.39311, "d1_eq": 1.41444, "week_open": 1.42673,
+  "swept_since_morning": ["asia_low 1.43304", "eql 1.43304", "h1_eql/ote62 1.43224", "ote79 1.43127", "h1_fvg 1.43108-1.43173 filled", "strong_low 1.43008 (wick 1 pip)"]
+ },
+ "d1_context": "Unchanged from the morning: D1 HH/HL bull, new 120-day high 1.43576 overnight; London gave back the whole Asia leg, price 1.43090 = 86% of 1.39311-1.43576 (still premium).",
+ "h4_context": "H4 (resampled) still bull by close: the 08:00 H4 candle (1.43339 -> 1.43040) wicked the Strong Low 1.43008 to 1.42998 but closed above it. H1 CHoCH down: 09:00 body close 1.43175 under the HL 1.43224; H1 leg 1.43576 -> 1.42998, bear FVG 1.43180-1.43261, M5 LH 1.43171 / 1.43121 / 1.43108, no M5 CHoCH up yet.",
+ "news": [],
+ "warnings": [
+  "H4/H1 diverge: short is AGAINST H4 (Strong Low only wicked, no H4/H1 body close below 1.43008), with H1 CHoCH down and D1 premium",
+  "RR to TP1 1:1.14 < 1:2 (TP2 1:1.51, TP3 1:2.30)",
+  "Short within 3 H1 bars of a sell-side sweep (1.42998 at 11:40) - the 03.11/05.11 failure pattern",
+  "Entry 1.43185 sits at 32% of the H1 down leg (below the 50% 1.43287) - near-pool entry, not OTE",
+  "No red USD/CAD news 14:00-23:59 per the FF weekly calendar"
+ ]
+}

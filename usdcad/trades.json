@@ -1212,16 +1212,44 @@
   "price_at_creation": 1.43397,
   "created_at": "2026-11-19T07:08:00+01:00",
   "expires": "2026-11-19T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-11-19T08:05:00+01:00",
+  "closed_at": "2026-11-19T10:05:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -16.8,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "AGAINST_HTF",
+   "note": "BUY 1.43292 filled 08:05 at the London open (low 1.43283) on the Asia-low/EQL 1.43304 sweep, MFE only 2.9 pips (1.43321 08:50); H1 09:00 body close 1.43175 through the FVG bottom 1.43207, SL 1.43124 taken 10:05 (low 1.43090), London then wicked the Strong Low 1.43008 to 1.42998 (no body close) and never came back above 1.43171 - not a stop hunt. Long at 96% of the D1 range right after the buy-side sweep of the 120-day high: exactly the stats.json skip case, AGAINST_HTF #5 (5 of 13 SL)."
+  },
+  "last_checked": "2026-11-19T13:05:00+01:00",
+  "note": "1.2 pips under the Asia EQL 1.43304/1.43304 = top of H1 bull FVG 1.43207-91 / H1 OB 23:00; SL 10 pips under the H1 EQL/OTE62 1.43224. Against D1 premium (96%) right after the 120-day-high sweep; RR to TP1 1.63."
+ },
+ {
+  "id": "2026-11-19-pm",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.43185,
+  "sl": 1.43361,
+  "tp1": 1.42985,
+  "rr_tp1": 1.14,
+  "zone_high": 1.43261,
+  "zone_low": 1.4318,
+  "price_at_creation": 1.4309,
+  "created_at": "2026-11-19T13:10:00+01:00",
+  "expires": "2026-11-19T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 10.5,
+  "closest_approach": 9.5,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-19T07:05:00+01:00",
-  "note": "1.2 pips under the Asia EQL 1.43304/1.43304 = top of H1 bull FVG 1.43207-91 / H1 OB 23:00; SL 10 pips under the H1 EQL/OTE62 1.43224. Against D1 premium (96%) right after the 120-day-high sweep; RR to TP1 1.63."
+  "last_checked": "2026-11-19T13:05:00+01:00",
+  "note": "Bottom of the H1 bear FVG 1.43180-1.43261 (08:00-10:00 displacement), 1.4 pips above the M5 EQH 1.43170/1.43171 (buy-side pool NY has to sweep); SL 10 pips above the FVG top, above the London high 1.43351. With the H1 CHoCH down (09:00 close under HL 1.43224) and D1 premium (86%), AGAINST H4 (Strong Low 1.43008 only wicked, no body close); RR to TP1 1.14; within 3 H1 bars of the sell-side sweep 1.42998."
  }
 ]
