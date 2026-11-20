@@ -1,0 +1,80 @@
+{
+ "date": "2026-11-20",
+ "created_at": "2026-11-20T13:10:00+01:00",
+ "price_at_creation": 1.43297,
+ "morning_order_status": "НЕ ДОШЛА (11.9 пипсов до entry 1.43000; low 1.43119 07:50) -> СНЯТ (CANCELLED) в 13:10",
+ "morning_action": "снять: entry 29.7 пипсов от цены, откат удержал OTE 62% 1.43117 / Asia low 1.43119; заменён лимитом 1.43105 под EQL 1.43119/1.43125",
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.43105,
+  "sl": 1.42913,
+  "tp1": 1.43325,
+  "tp2": 1.43445,
+  "tp3": 1.43505,
+  "zone_high": 1.4315,
+  "zone_low": 1.43014,
+  "basis": "OB: H1 OB 19.11 17:00 (1.43014-1.43150), 1.4 pips under the Asia/London EQL 1.43119/1.43125 (sell-side pool NY has to sweep), OTE 66% of the H1 leg 1.42877->1.43508",
+  "risk_pips": 19.2,
+  "expires": "2026-11-20T22:30:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.43014,
+  "rule": "H1 body close below 1.43014 (OB low / H1 EQL 1.43013) before fill -> cancel; London high 1.43327 traded before fill -> TP1 to 1.43445 (RR 1.77), entry kept; Asia EQH 1.43447 traded before fill -> cancel, no chase; Friday: pull by 22:30"
+ },
+ "levels": {
+  "asia_high": 1.43466,
+  "asia_low": 1.43212,
+  "pdh": 1.43576,
+  "pdl": 1.42877,
+  "pwh": 1.43041,
+  "pwl": 1.40769,
+  "eqh": 1.43447,
+  "eql": 1.43013,
+  "m5_eql_swept": 1.43333,
+  "m5_lh": 1.43392,
+  "d1_range_high": 1.43576,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41444,
+  "week_open": 1.42673,
+  "strong_low": 1.42877,
+  "leg_high": 1.43508,
+  "ote62": 1.43117,
+  "ote79": 1.43009,
+  "h1_ob": [
+   1.43014,
+   1.4315
+  ],
+  "h1_fvg": [
+   1.4315,
+   1.4323
+  ],
+  "d1_fvg": [
+   [
+    1.42104,
+    1.42228
+   ],
+   [
+    1.41387,
+    1.41808
+   ]
+  ],
+  "london_high": 1.43327,
+  "london_low": 1.43125,
+  "h1_lh": 1.43327,
+  "eql_asia_london": [
+   1.43119,
+   1.43125
+  ]
+ },
+ "d1_context": "D1 HH/HL bull since the 04.11 low 1.39311; 19.11 swept the 120-day high to 1.43576, wicked down to 1.42877 and closed 1.43366 near the top. Price 1.43257 = 92% premium of 1.39311-1.43576 (EQ 1.41444); PWH 1.43041 taken, week open 1.42673; unfilled D1 bull FVGs 1.42104-1.42228 and 1.41387-1.41808 far below. Since the morning: unchanged, D1 inside 1.43119-1.43466 today.",
+ "h4_context": "H4 (resample) bull: HL 1.42877 holds, H4 20.11 04:00 dipped to 1.43119 (OTE 62% of 1.42877->1.43508) and the 08/12 H4 bars closed back above 1.43260. H1 internal: LH 1.43466/1.43327, LL 1.43119, HL 1.43125 (EQL) - a range 1.43119-1.43327 inside the bull leg; H1 body close above 1.43327 = internal CHoCH up.",
+ "news": [],
+ "warnings": [
+  "Long in D1 premium (92%) the day after the buy-side sweep of the 120-day high - the stats.json skip case (0 of 3 paid)",
+  "RR to TP1 1:1.15 (< 1:2); TP2 1:1.77, TP3 1:2.08",
+  "Friday NY afternoon, weekly close ~23:00 - pull the limit by 22:30",
+  "No red USD/CAD news 14:00-close (FF weekly calendar)"
+ ]
+}
