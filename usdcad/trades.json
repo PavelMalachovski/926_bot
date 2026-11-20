@@ -1240,16 +1240,44 @@
   "price_at_creation": 1.4309,
   "created_at": "2026-11-19T13:10:00+01:00",
   "expires": "2026-11-19T23:59:00+01:00",
+  "status": "INVALIDATED",
+  "filled_at": null,
+  "closed_at": null,
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 6.9,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "Cancel rule fired: TP1 1.42985 traded 13:40 (low 1.42981), 30 min after creation, with the SELL LIMIT 1.43185 never touched (closest 1.43116, 6.9 pips short, no H1 body close above the FVG top 1.43261). NY then swept the Strong Low/H4 FVG to 1.42877 (14:30) and reversed: the entry printed only at 16:20 (1.43234) and the SL 1.43361 traded 19:xx (high 1.43362) - the cancel saved a -1R; the 1.42877 sell-side sweep was the H4 HL, not a continuation."
+  },
+  "last_checked": "2026-11-20T07:05:00+01:00",
+  "note": "Bottom of the H1 bear FVG 1.43180-1.43261 (08:00-10:00 displacement), 1.4 pips above the M5 EQH 1.43170/1.43171 (buy-side pool NY has to sweep); SL 10 pips above the FVG top, above the London high 1.43351. With the H1 CHoCH down (09:00 close under HL 1.43224) and D1 premium (86%), AGAINST H4 (Strong Low 1.43008 only wicked, no body close); RR to TP1 1.14; within 3 H1 bars of the sell-side sweep 1.42998."
+ },
+ {
+  "id": "2026-11-20-am",
+  "side": "BUY",
+  "basis": "OTE",
+  "entry": 1.43,
+  "sl": 1.42777,
+  "tp1": 1.43447,
+  "rr_tp1": 2.0,
+  "zone_high": 1.43014,
+  "zone_low": 1.42877,
+  "price_at_creation": 1.43257,
+  "created_at": "2026-11-20T07:10:00+01:00",
+  "expires": "2026-11-20T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 9.5,
+  "closest_approach": 25.7,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-19T13:05:00+01:00",
-  "note": "Bottom of the H1 bear FVG 1.43180-1.43261 (08:00-10:00 displacement), 1.4 pips above the M5 EQH 1.43170/1.43171 (buy-side pool NY has to sweep); SL 10 pips above the FVG top, above the London high 1.43351. With the H1 CHoCH down (09:00 close under HL 1.43224) and D1 premium (86%), AGAINST H4 (Strong Low 1.43008 only wicked, no body close); RR to TP1 1.14; within 3 H1 bars of the sell-side sweep 1.42998."
+  "last_checked": "2026-11-20T07:05:00+01:00",
+  "note": "OTE 79% (1.43009) of the H1 leg 1.42877->1.43508, 1.3 pips under the H1 EQL 1.43013/14 (sell-side pool) at the low of the H1 OB 19.11 17:00; SL 10 pips under the Strong Low 1.42877. Long in D1 premium (92%) the day after the 120-day-high sweep."
  }
 ]

@@ -1,0 +1,56 @@
+{
+ "date": "2026-11-20",
+ "created_at": "2026-11-20T07:10:00+01:00",
+ "price_at_creation": 1.43257,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.43,
+  "sl": 1.42777,
+  "tp1": 1.43447,
+  "tp2": 1.43508,
+  "tp3": 1.43576,
+  "zone_high": 1.43014,
+  "zone_low": 1.42877,
+  "basis": "OTE: 79% of the H1 leg 1.42877->1.43508 (1.43009), 1.3 pips under the H1 EQL 1.43013/1.43014 (sell-side pool), at the low of the H1 OB 19.11 17:00 (1.43014-1.43150) under the H1 FVG 1.43150-1.43230",
+  "risk_pips": 22.3,
+  "expires": "2026-11-20T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.42877,
+  "rule": "H1 body close below 1.42877 (Strong Low / H4 HL) before fill -> cancel; TP1 1.43447 traded before fill -> cancel, no chase; plan B short only after a sweep of 1.43576 + M5 CHoCH down"
+ },
+ "levels": {
+  "asia_high": 1.43466,
+  "asia_low": 1.43212,
+  "pdh": 1.43576,
+  "pdl": 1.42877,
+  "pwh": 1.43041,
+  "pwl": 1.40769,
+  "eqh": 1.43447,
+  "eql": 1.43013,
+  "m5_eql_swept": 1.43333,
+  "m5_lh": 1.43392,
+  "d1_range_high": 1.43576,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41444,
+  "week_open": 1.42673,
+  "strong_low": 1.42877,
+  "leg_high": 1.43508,
+  "ote62": 1.43117,
+  "ote79": 1.43009,
+  "h1_ob": [1.43014, 1.4315],
+  "h1_fvg": [1.4315, 1.4323],
+  "d1_fvg": [[1.42104, 1.42228], [1.41387, 1.41808]]
+ },
+ "d1_context": "D1 HH/HL bull since the 04.11 low 1.39311; 19.11 swept the 120-day high to 1.43576, wicked down to 1.42877 and closed 1.43366 near the top. Price 1.43257 = 92% premium of 1.39311-1.43576 (EQ 1.41444); PWH 1.43041 taken, week open 1.42673; unfilled D1 bull FVGs 1.42104-1.42228 and 1.41387-1.41808 far below.",
+ "h4_context": "H4 bull: the 19.11 sell-off wicked the Strong Low 1.43008 to 1.42877 without a body close below and reversed to 1.43508 (lower than 1.43576); new H4 HL 1.42877. H4 FVG 1.42919-1.42989 and 1.43234-1.43343 both filled. H1 CHoCH up 19.11 19:00, leg 1.42877->1.43508, Asia pulled back 40% with an M5 BOS down under the EQL 1.43333.",
+ "news": [],
+ "warnings": [
+  "Long in D1 premium (92%, entry at 86%) the day after the buy-side sweep of the 120-day high - the stats.json skip case (long above 70% after a sweep of the opposite pool); 0 of 3 such longs paid",
+  "RR to TP1 exactly 1:2.0 (TP2 1:2.3, TP3 1:2.6)",
+  "Friday: weekly close ~23:00 Prague - pull the limit by 22:30",
+  "No red USD/CAD news today per the FF weekly calendar"
+ ]
+}
