@@ -1,8 +1,8 @@
 {
- "updated_at": "2026-11-19T14:15:00+01:00",
- "orders": 55,
- "filled": 31,
- "tp": 14,
+ "updated_at": "2026-11-20T08:15:00+01:00",
+ "orders": 56,
+ "filled": 32,
+ "tp": 15,
  "sl": 11,
  "be": 6,
  "open": 0,
@@ -10,13 +10,13 @@
  "expired": 22,
  "invalidated": 1,
  "unknown": 0,
- "winrate": 56.0,
- "fill_rate": 57.4,
- "total_r": 10.47,
- "avg_r": 0.34,
- "total_usd": 185.86,
+ "winrate": 57.7,
+ "fill_rate": 58.2,
+ "total_r": 12.22,
+ "avg_r": 0.38,
+ "total_usd": 195.91,
  "am": {
-  "orders": 29,
+  "orders": 30,
   "filled": 19,
   "tp": 9,
   "sl": 4,
@@ -24,10 +24,10 @@
  },
  "pm": {
   "orders": 26,
-  "filled": 12,
-  "tp": 5,
+  "filled": 13,
+  "tp": 6,
   "sl": 7,
-  "total_r": 1.27
+  "total_r": 3.02
  },
  "v2": {
   "orders": 2,
@@ -47,9 +47,9 @@
   "total_usd": 0
  },
  "v3": {
-  "orders": 18,
-  "filled": 11,
-  "tp": 6,
+  "orders": 19,
+  "filled": 12,
+  "tp": 7,
   "sl": 3,
   "be": 2,
   "open": 0,
@@ -57,12 +57,12 @@
   "expired": 6,
   "invalidated": 0,
   "unknown": 0,
-  "winrate": 66.7,
-  "fill_rate": 64.7,
-  "total_r": 2.17,
-  "avg_r": 0.2,
-  "total_usd": 45.12
+  "winrate": 70.0,
+  "fill_rate": 66.7,
+  "total_r": 3.92,
+  "avg_r": 0.33,
+  "total_usd": 55.17
  },
- "last10": "TTTSSTTBST",
- "review": "б) WR 56.0% (14TP/11SL) < 65% при 25 закрытых, avg_r +0.34, ΣR +10.47 — система в плюсе. Причины SL: ZONE_FAILED 7, AGAINST_HTF 3, STOP_HUNT 1. Хуже: BUY 1TP/5SL (−3.95R) против SELL 13TP/6SL/6BE (+14.42R); pm 5TP/7SL (+1.27R) против am 9TP/4SL/6BE (+9.20R); basis FVG 4TP/6SL/1BE (+0.65R) против OB 6TP/3SL/4BE (+5.37R). v3: 6TP/3SL/2BE, WR 66.7%, ΣR +2.17; только L2 — 4TP/0SL/1BE (+2.42R), L1+L2 — 2TP/3SL/1BE (−0.25R). Правка (предложение, в силе): П8 — SL не ближе 5$ за ближайшим незанятым пулом за swing; 19-pm ей НЕ соответствует (SL 1824.65 в 1.93$ под PDH 1826.58). в) fill 57.4% (31/54) < 65%, у v3 — 64.7% (11/17), впервые ниже цели после 19-am. Недошедшие (EXPIRED 22): DEEP_ENTRY 11, NO_PULLBACK 9, NEWS 1, UNCLEAR 1; средний closest_approach 9.06$ (≈49% пути до ближней части). v3-ордера «только L1» (L2 по ту сторону цены): 2 из 2 — EXPIRED DEEP_ENTRY (17-am 3.79$, 19-am 0.74$). Правка (предложение, в силе): П9 — L2 не дальше M5 swing-экстремума, на sweep которого рассчитан вход (18-am → fill 08:50, TP1 12:10, +0.62R); для случая «только L1» данных 2 ордера — правку не предлагаю, 19-pm ставлю L1 на 50% OB (база П2, не край OTE 79%). П5 (L1 ≤ 25$ от цены) — в силе."
+ "last10": "TTSSTTBSTT",
+ "review": "б) WR 57.7% (15TP/11SL) < 65% при 26 закрытых, avg_r +0.38, ΣR +12.22 — система в плюсе. Причины SL: ZONE_FAILED 7, AGAINST_HTF 3, STOP_HUNT 1. Хуже: BUY 1TP/5SL (−3.95R) против SELL 14TP/6SL/6BE (+16.17R); pm 6TP/7SL (+3.02R) против am 9TP/4SL/6BE (+9.20R); basis FVG 4TP/6SL/1BE (+0.65R) против OB 6TP/3SL/4BE (+5.37R) и OTE∩OB 2TP/0SL/1BE (+2.34R). v3: 7TP/3SL/2BE, WR 70.0%, ΣR +3.92; только L2 — 4TP/0SL/1BE (+2.42R), L1+L2 — 2TP/3SL/1BE (−0.25R), только L1 — 1TP (+1.75R, 19-pm). Правка (предложение, в силе): П8 — SL не ближе 5$ за ближайшим незанятым пулом за swing; 20-am ей соответствует (SL 1775.55 = Asia high 1770.55 + 5$). в) fill 58.2% (32/55) < 65%; у v3 — 66.7% (12/18), снова выше цели после fill 19-pm. Недошедшие (EXPIRED 22): DEEP_ENTRY 11, NO_PULLBACK 9, NEWS 1, UNCLEAR 1; средний closest_approach 9.06$. v3 «только L1»: 3 ордера — 2 EXPIRED DEEP_ENTRY с L1 на OTE 79% (17-am 3.79$, 19-am 0.74$), 1 TP с L1 на 50% H1 OB (19-pm, +1.75R) — 20-am снова L1 на 50% H1 OB. Правка (предложение, в силе): П9 — L2 не дальше M5 swing-экстремума, на sweep которого рассчитан вход. П5 (L1 ≤ 25$ от цены) — в силе (20-am: 7.02$)."
 }
