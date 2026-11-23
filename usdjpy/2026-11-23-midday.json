@@ -1,0 +1,73 @@
+{
+ "date": "2026-11-23",
+ "mode": "midday",
+ "created_at": "2026-11-23T13:05:00+01:00",
+ "price_at_creation": 159.098,
+ "rules": "v1 (промпт без Ф1)",
+ "morning_order": {
+  "id": "2026-11-23-am",
+  "status": "PENDING",
+  "status_text": "НЕ ДОШЛА (8.1 п до entry)",
+  "closest_approach": 8.1,
+  "closest_at": "2026-11-23T10:05:00+01:00",
+  "invalidated": false,
+  "decision": "оставить без изменений: London high 159.188 (buy-stops над Азией) = H4 50% плеча; NY-judas за 159.188 доливает в H4 bear FVG 159.269"
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "no_order_reason": "Единственная зона по H4 bear — та же H4 FVG 159.269 (дубль утреннего лимита = двойной риск). BUY по H1 (HL 158.888 → HH 159.188, OTE 158.951–159.002) — против H4 и в H4 bear FVG, RR к London high 1.09 < 1:2.",
+ "invalidation": {
+  "level": 159.443,
+  "rule": "утренний лимит: H1 body close > 159.443 → снять; TP1 158.803 снят до исполнения → снять; не исполнен к 23:59 → снять"
+ },
+ "levels": {
+  "asia_high": 159.058,
+  "asia_low": 158.803,
+  "london_high": 159.188,
+  "london_low": 158.888,
+  "m5_hl": 159.043,
+  "h4_leg_50": 159.199,
+  "h4_fvg": [
+   159.269,
+   159.567
+  ],
+  "h1_swing_high": 159.443,
+  "pdh": 159.84,
+  "pdl": 158.418,
+  "pwh": 160.114,
+  "pwl": 158.418,
+  "eqh": 159.979,
+  "eql": 158.418,
+  "d1_range_high": 160.192,
+  "d1_range_low": 157.672,
+  "d1_eq": 158.932,
+  "week_open": 158.591,
+  "swept_today": [
+   "asia_high 159.058 (09:00)",
+   "H1 EQH 158.911/158.918 (00:55)"
+  ]
+ },
+ "d1_context": "Без изменений с утра: D1 CHoCH↓, цена 159.10 = 57% range 157.672–160.192 (premium).",
+ "h4_context": "H4 (ресемпл) bear: LH 159.979 → LL 158.418; откат до 159.188 = 49% плеча, у 50% 159.199 остановился; H4 bear FVG 159.269–159.567 не тронут.",
+ "h1_context": "H1 локально bull: CHoCH↑ 00:55, HL 158.888 (08:35) → HH 159.188 (10:05); с 10:00 M5 LH 159.165/159.132/159.125, HL 159.043 держится — дистрибуция у H4 50%.",
+ "m5_context": "Лондон 158.888–159.188: sweep Asia high 159.058 в 09:00 и рост до 159.188 без разворота (judas вверх не отыгран). Пробой M5 HL 159.043 = CHoCH↓ → цель London low 158.888 / Asia low 158.803.",
+ "news": [
+  {
+   "time": "2026-11-25 14:30",
+   "country": "USD",
+   "title": "Core PCE Price Index m/m"
+  },
+  {
+   "time": "2026-11-25 14:30",
+   "country": "USD",
+   "title": "Prelim GDP q/q"
+  }
+ ],
+ "news_note": "Сегодня с 14:00 красных USD/JPY нет; в Японии выходной (Labor Thanksgiving Day) — тонкая ликвидность по JPY.",
+ "warnings": [
+  "утренний лимит: RR к TP1 1.70 < 1:2",
+  "H1 против SELL (CHoCH↑, HH 159.188)",
+  "10-й недолив ≤ 10 п за 3 недели"
+ ]
+}
