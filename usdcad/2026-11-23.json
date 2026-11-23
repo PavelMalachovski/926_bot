@@ -1,0 +1,61 @@
+{
+ "date": "2026-11-23",
+ "created_at": "2026-11-23T07:20:00+01:00",
+ "price_at_creation": 1.4321,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.43138,
+  "sl": 1.42893,
+  "tp1": 1.4341,
+  "tp2": 1.43512,
+  "tp3": 1.43576,
+  "zone_high": 1.43151,
+  "zone_low": 1.43074,
+  "basis": "FVG: unfilled H1 FVG 1.43104-1.43151 (Fri 14:00-16:00) + H1 OB body 1.43074-1.43088, 1.3 pips under the H1 EQL 1.43151/1.43158 (sell-side pool London has to sweep under the Asia low 1.43210), OTE 74% of the H1 leg 1.42993->1.43566",
+  "risk_pips": 24.5,
+  "expires": "2026-11-23T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.43074,
+  "rule": "H1 body close below 1.43074 (FVG/OB body low) before fill -> cancel, plan B; Asia high 1.43410 (TP1) traded before fill -> cancel, no chase; H1 body close below the Strong Low 1.42993 -> bias long off"
+ },
+ "levels": {
+  "asia_high": 1.4341,
+  "asia_low": 1.4321,
+  "pdh": 1.43566,
+  "pdl": 1.42993,
+  "pwh": 1.43576,
+  "pwl": 1.42509,
+  "eqh": 1.43566,
+  "eql": 1.43151,
+  "eqh_pair": [1.43566, 1.43576],
+  "eql_pair": [1.43151, 1.43158],
+  "d1_range_high": 1.43576,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41444,
+  "week_open": 1.43426,
+  "sunday_open_high": 1.43512,
+  "strong_low": 1.42993,
+  "h4_hl": 1.42877,
+  "leg_low": 1.42993,
+  "leg_high": 1.43566,
+  "ote62": 1.43211,
+  "ote79": 1.43113,
+  "h1_fvg": [1.43104, 1.43151],
+  "h1_ob": [1.42993, 1.43104],
+  "m5_lh": 1.43377,
+  "m5_bos_level": 1.4326,
+  "d1_fvg": [[1.42104, 1.42228], [1.41387, 1.41808]]
+ },
+ "d1_context": "D1 HH/HL bull since the 04.11 low 1.39311; 19.11 swept the 120-day high 1.43576, Friday 20.11 printed 1.43566 (EQH 1 pip under it, unswept) and closed 1.43319. Price 1.43210 = 91% premium of 1.39311-1.43576 (EQ 1.41444); PWH 1.43576 / PDH 1.43566 = buy-side pool above, PWL 1.42509 far below; unfilled D1 bull FVGs 1.42104-1.42228 and 1.41387-1.41808. Twelve Data prints weekend bars (Sat/Sun 1.43332-1.43539) - ignored as non-trading.",
+ "h4_context": "H4 (native) bull but compressing: HL 1.42877 (19.11), HL 1.42993 (20.11 13:00), highs 1.43576/1.43566 = EQH - an H4 range 1.42877-1.43576 since 19.11, price 1.43210 at its EQ (48%). Last H4 BOS up 19.11 01:00 through 1.43399; no H4 CHoCH down (needs a body close below 1.42877). H1: leg 1.42993->1.43566, Asia drifted down with an internal H1 CHoCH below 1.43282 and an M5 BOS down 06:30 through 1.43260 - M5 is delivering price into the H1 FVG/EQL.",
+ "news": [],
+ "warnings": [
+  "Long in D1 premium (91%) - against the D1 PD; not the skip case (last buy-side sweep 19.11, Friday's EQH 1.43566 left unswept)",
+  "RR to TP1 1:1.11 (< 1:2); TP2 1:1.53, TP3 1:1.79",
+  "No red USD/CAD news today or tomorrow; next: Wed 25.11 14:30 USD Prelim GDP + Core PCE",
+  "M5 window (401 bars) covers only from Sat 21:45 - Twelve Data weekend bars ignored; the 20.11 pm order was resolved on H1"
+ ]
+}
