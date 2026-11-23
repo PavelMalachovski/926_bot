@@ -1,0 +1,88 @@
+{
+ "date": "2026-11-23",
+ "created_at": "2026-11-23T13:15:00+01:00",
+ "price_at_creation": 1.43408,
+ "morning_order_status": {
+  "id": "2026-11-23-am",
+  "status": "ЗАКРЫТ ПО TP1",
+  "filled_at": "2026-11-23T07:45:00+01:00",
+  "closed_at": "2026-11-23T12:15:00+01:00",
+  "result_r": 1.11,
+  "result_pips": 27.2,
+  "result_usd_per_lot": 190,
+  "mae_pips": 1.4,
+  "decision": "закрыт, лимит не переставлять"
+ },
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.43245,
+  "sl": 1.43064,
+  "tp1": 1.43512,
+  "tp2": 1.43566,
+  "tp3": 1.43576,
+  "zone_high": 1.43263,
+  "zone_low": 1.43237,
+  "basis": "OTE: OTE 62% (1.43244) of the London leg 1.43124->1.43441, 1.4 pips under the London M5 EQL 1.43259/1.43263, inside the H1 FVG 10:00 1.43237-1.43259",
+  "risk_pips": 18.1,
+  "expires": "2026-11-23T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.43237,
+  "rule": "H1 body close below 1.43237 before fill -> cancel; 1.43512 traded before fill -> cancel, no chase; H1 body close below the Strong Low 1.43124 -> bias long off"
+ },
+ "levels": {
+  "asia_high": 1.4341,
+  "asia_low": 1.43128,
+  "london_high": 1.43441,
+  "london_low": 1.43124,
+  "pdh": 1.43566,
+  "pdl": 1.42993,
+  "pwh": 1.43576,
+  "pwl": 1.42509,
+  "eqh": 1.43566,
+  "eql": 1.43259,
+  "eql_pair": [
+   1.43259,
+   1.43263
+  ],
+  "m5_eql_near": [
+   1.43375,
+   1.43379
+  ],
+  "sunday_open_high": 1.43512,
+  "strong_low": 1.43124,
+  "m5_hl": 1.43164,
+  "ote62": 1.43244,
+  "ote79": 1.43191,
+  "h1_fvg": [
+   [
+    1.43237,
+    1.43259
+   ],
+   [
+    1.43272,
+    1.43349
+   ]
+  ],
+  "d1_range_high": 1.43576,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41444,
+  "week_open": 1.43426
+ },
+ "swept_today": [
+  "Asia low 1.43128 (London 08:50, 0.4 pip, Judas)",
+  "H1 EQL 1.43151/58 + H1 FVG fill",
+  "Asia high 1.43410 (12:15)"
+ ],
+ "d1_context": "Unchanged since the morning: D1 HH/HL, price now 96% of 1.39311-1.43576 (premium); buy-side EQH 1.43566/1.43576 (PDH/PWH, 120d high) still unswept.",
+ "h4_context": "H4 (resampled) bull: HL 1.42877 -> 1.42993 -> 1.43124 (today), highs 1.43566/76 unswept; London Judas under Asia, M5 BOS up 10:05 through 1.43237, Asia high swept 12:15, London high 1.43441.",
+ "news": [],
+ "warnings": [
+  "RR to TP1 1:1.48 (< 1:2); TP2 1:1.77, TP3 1:1.83",
+  "Long in D1 premium (96%)",
+  "Entry 16.3 pips from price - past unfilled orders mostly sat 16+ pips away",
+  "No red USD/CAD news today; next Wed 25.11 14:30 USD Prelim GDP + Core PCE"
+ ]
+}
