@@ -1,0 +1,56 @@
+{
+ "date": "2026-11-24",
+ "created_at": "2026-11-24T07:15:00+01:00",
+ "price_at_creation": 1.43601,
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.43528,
+  "sl": 1.4334,
+  "tp1": 1.43687,
+  "tp2": 1.43845,
+  "tp3": 1.44,
+  "zone_high": 1.43542,
+  "zone_low": 1.43441,
+  "basis": "FVG: 1.4 pips under the Asia low 1.43542 (sell-side pool London has to sweep), inside the unfilled remainder 1.43441-1.43542 of the H4 bull FVG 23.11 13:00, top of the H1 FVG 1.43441-1.43527, OTE 80% of the H1 leg 1.43449->1.43845",
+  "risk_pips": 18.8,
+  "expires": "2026-11-24T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.43441,
+  "rule": "H1 body close below 1.43441 before fill -> cancel; TP1 1.43687 traded before fill -> cancel, no chase; H1 body close below the Strong Low 1.43124 -> bias long off"
+ },
+ "levels": {
+  "asia_high": 1.43687,
+  "asia_low": 1.43542,
+  "pdh": 1.43845,
+  "pdl": 1.43124,
+  "pwh": 1.43576,
+  "pwl": 1.42509,
+  "eqh": 1.43687,
+  "eql": 1.43579,
+  "d1_range_high": 1.43845,
+  "d1_range_low": 1.39311,
+  "d1_eq": 1.41578,
+  "week_open": 1.43426,
+  "h1_hl": 1.43449,
+  "strong_low": 1.43124,
+  "ote62": 1.43599,
+  "ote79": 1.43532,
+  "m5_lh": 1.43639,
+  "h4_fvg_remainder": [1.43441, 1.43542],
+  "h4_fvg_lower": [1.43352, 1.43399]
+ },
+ "d1_context": "D1 HH/HL since the 04.11 low 1.39311; Monday took PWH 1.43576 (120-day high) and closed above it at 1.43712 (breakout, not a sweep), new high 1.43845. Price 1.43601 = 94.6% of 1.39311-1.43845 (deep premium). Buy-side above: nothing but PDH 1.43845; sell-side: PDL 1.43124, PWL 1.42509; nearest unfilled D1 FVG far below 1.42104-1.42228.",
+ "h4_context": "H4 bull: BOS up through 1.43576 at 23.11 13:00, Strong Low 1.43124. H4 FVG 1.43441-1.43648 filled down to 1.43542 in Asia (remainder 1.43441-1.43542), lower H4 FVG 1.43352-1.43399 untouched. Asia 1.43542-1.43687, M5 LH/LL pullback (LH 1.43639), no M5 CHoCH up yet.",
+ "news": [
+  {"time": "2026-11-25T14:30:00+01:00", "country": "USD", "title": "Prelim GDP q/q"},
+  {"time": "2026-11-25T14:30:00+01:00", "country": "USD", "title": "Core PCE Price Index m/m"}
+ ],
+ "warnings": [
+  "RR to TP1 1:0.85 (< 1:2); TP2 1:1.69, TP3 1:2.51",
+  "Long in D1 premium (94.6%) - but D1 closed above PWH (breakout), the skip rule (sweep of the opposite pool) does not apply",
+  "No red USD/CAD news today; next Wed 25.11 14:30 USD Prelim GDP + Core PCE"
+ ]
+}

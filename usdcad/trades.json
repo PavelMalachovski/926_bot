@@ -1343,16 +1343,44 @@
   "price_at_creation": 1.43408,
   "created_at": "2026-11-23T13:15:00+01:00",
   "expires": "2026-11-23T23:59:00+01:00",
+  "status": "INVALIDATED",
+  "filled_at": null,
+  "closed_at": "2026-11-23T13:45:00+01:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 16.1,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "TP1 1.43512 traded 13:45, 30 min after creation; the lowest print after creation was 1.43406 (13:15, 16.1 pips short, ~1% of the 16.3-pip path). NY ran to a new 120-day high 1.43845 through PWH 1.43576 without any pullback; the deepest retrace afterwards was 1.43449 (15:00), still 20 pips above entry. 14th NO_PULLBACK: entry 16.3 pips from price again."
+  },
+  "last_checked": "2026-11-24T07:05:00+01:00",
+  "note": "OTE 62% (1.43244) of the London leg 1.43124->1.43441, 1.4 pips under the London M5 EQL 1.43259/1.43263 (11:10/11:35, sell-side pool NY has to sweep), inside the H1 FVG 10:00 1.43237-1.43259 under the H1 FVG 11:00 1.43272-1.43349; SL 10 pips under the M5 HL 1.43164 (10:40). TP1 Sunday-open high 1.43512, TP2 PDH/EQH 1.43566, TP3 PWH 1.43576. London high 1.43441 assumed swept first by NY. Against D1 premium (96%); RR to TP1 1.48; 16.3 pips from price. | 24.11 07:05: INVALIDATED - TP1 1.43512 traded 13:45 before fill, lowest print 1.43406 (16.1 pips short); NY ran to 1.43845."
+ },
+ {
+  "id": "2026-11-24-am",
+  "side": "BUY",
+  "basis": "FVG",
+  "entry": 1.43528,
+  "sl": 1.4334,
+  "tp1": 1.43687,
+  "rr_tp1": 0.85,
+  "zone_high": 1.43542,
+  "zone_low": 1.43441,
+  "price_at_creation": 1.43601,
+  "created_at": "2026-11-24T07:15:00+01:00",
+  "expires": "2026-11-24T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 16.3,
+  "closest_approach": 7.3,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-23T13:05:00+01:00",
-  "note": "OTE 62% (1.43244) of the London leg 1.43124->1.43441, 1.4 pips under the London M5 EQL 1.43259/1.43263 (11:10/11:35, sell-side pool NY has to sweep), inside the H1 FVG 10:00 1.43237-1.43259 under the H1 FVG 11:00 1.43272-1.43349; SL 10 pips under the M5 HL 1.43164 (10:40). TP1 Sunday-open high 1.43512, TP2 PDH/EQH 1.43566, TP3 PWH 1.43576. London high 1.43441 assumed swept first by NY. Against D1 premium (96%); RR to TP1 1.48; 16.3 pips from price."
+  "last_checked": "2026-11-24T07:05:00+01:00",
+  "note": "1.4 pips under the Asia low 1.43542 (02:40, sell-side pool London has to sweep), inside the unfilled remainder 1.43441-1.43542 of the H4 bull FVG 23.11 13:00 (1.43441-1.43648), on top of the H1 FVG 1.43441-1.43527; OTE 80% of the H1 leg 1.43449->1.43845 (62% = 1.43599). SL 10.9 pips under the H1 HL 1.43449 / 10 under the FVG bottom. TP1 Asia/H1 EQH 1.43687/1.43687, TP2 PDH 1.43845 (120d high), TP3 1.44000 (round, ~1.27 ext). D1 94.6% premium after a D1 close above PWH (breakout, not a sweep); RR to TP1 0.85; 7.3 pips from price."
  }
 ]
