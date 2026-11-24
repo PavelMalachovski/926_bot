@@ -1371,16 +1371,44 @@
   "price_at_creation": 1.43601,
   "created_at": "2026-11-24T07:15:00+01:00",
   "expires": "2026-11-24T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-11-24T09:55:00+01:00",
+  "closed_at": "2026-11-24T12:20:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -18.8,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "ZONE_FAILED",
+   "note": "Filled 09:55 (M5 low 1.43516, after 08:20/08:45 stopped 0.1-0.3 pip short at 1.43529/31) - London took the Asia low 1.43542 as planned, but the H4 FVG remainder + H1 FVG 1.43441-1.43542 gave only a 3.3-pip bounce (1.43561 10:40). H1 10:00 closed on the zone bottom 1.43441, H1 11:00 closed below it (1.43408) breaking the H1 HL 1.43449 = H1 CHoCH down; SL 1.43340 traded 12:20 (low 1.43306), London low 1.43250 at 13:00 = 82% of the 1.43124->1.43845 leg. TP1 1.43687 never traded after the fill (high 1.43561). Unswept FVG in 94.6% D1 premium, no M5 CHoCH up before the fill."
+  },
+  "last_checked": "2026-11-24T13:05:00+01:00",
+  "note": "1.4 pips under the Asia low 1.43542 (02:40, sell-side pool London has to sweep), inside the unfilled remainder 1.43441-1.43542 of the H4 bull FVG 23.11 13:00 (1.43441-1.43648), on top of the H1 FVG 1.43441-1.43527; OTE 80% of the H1 leg 1.43449->1.43845 (62% = 1.43599). SL 10.9 pips under the H1 HL 1.43449 / 10 under the FVG bottom. TP1 Asia/H1 EQH 1.43687/1.43687, TP2 PDH 1.43845 (120d high), TP3 1.44000 (round, ~1.27 ext). D1 94.6% premium after a D1 close above PWH (breakout, not a sweep); RR to TP1 0.85; 7.3 pips from price. | Midday 13:10: FILLED 09:55 (low 1.43516), zone gave 3.3 pips, H1 CHoCH down 11:00 (close 1.43408 < HL 1.43449), SL 1.43340 traded 12:20: -1R / -18.8 pips."
+ },
+ {
+  "id": "2026-11-24-pm",
+  "side": "BUY",
+  "basis": "FVG",
+  "entry": 1.4311,
+  "sl": 1.43024,
+  "tp1": 1.43421,
+  "rr_tp1": 3.62,
+  "zone_high": 1.43129,
+  "zone_low": 1.43104,
+  "price_at_creation": 1.43315,
+  "created_at": "2026-11-24T13:10:00+01:00",
+  "expires": "2026-11-24T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 7.3,
+  "closest_approach": 20.5,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-24T07:05:00+01:00",
-  "note": "1.4 pips under the Asia low 1.43542 (02:40, sell-side pool London has to sweep), inside the unfilled remainder 1.43441-1.43542 of the H4 bull FVG 23.11 13:00 (1.43441-1.43648), on top of the H1 FVG 1.43441-1.43527; OTE 80% of the H1 leg 1.43449->1.43845 (62% = 1.43599). SL 10.9 pips under the H1 HL 1.43449 / 10 under the FVG bottom. TP1 Asia/H1 EQH 1.43687/1.43687, TP2 PDH 1.43845 (120d high), TP3 1.44000 (round, ~1.27 ext). D1 94.6% premium after a D1 close above PWH (breakout, not a sweep); RR to TP1 0.85; 7.3 pips from price."
+  "last_checked": "2026-11-24T13:05:00+01:00",
+  "note": "1.4 pips under the Strong Low/EQL 1.43124/1.43129 (23.11 London double bottom = PDL, the sell-side pool NY has to sweep after London took the 23.11 EQL 1.43259/63), inside the unfilled remainder 1.43104-1.43124 of the H1 FVG Fri 14:00-16:00; 85% of the H1 leg 1.43124->1.43845. SL 10 pips under the Strong Low. TP1 M5 LH 1.43421 (11:55, bottom of the H1 bear FVG 1.43414-1.43440), TP2 M5 LH/OB 1.43504, TP3 London high 1.43646. Against the H1 CHoCH down (11:00) - only the H4 Strong Low sweep thesis; D1 88% premium; 20.5 pips from price."
  }
 ]

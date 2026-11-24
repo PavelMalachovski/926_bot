@@ -1,0 +1,56 @@
+{
+ "date": "2026-11-24",
+ "created_at": "2026-11-24T13:10:00+01:00",
+ "price_at_creation": 1.43315,
+ "morning_order_status": {
+  "id": "2026-11-24-am",
+  "status": "ЗАКРЫТ ПО SL",
+  "filled_at": "2026-11-24T09:55:00+01:00",
+  "closed_at": "2026-11-24T12:20:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -18.8,
+  "result_usd_per_lot": -131,
+  "mfe_pips": 3.3,
+  "decision": "закрыт, лимит не переставлять"
+ },
+ "setup_valid": true,
+ "bias": "long",
+ "order": {
+  "side": "BUY LIMIT",
+  "entry": 1.4311,
+  "sl": 1.43024,
+  "tp1": 1.43421,
+  "tp2": 1.43504,
+  "tp3": 1.43646,
+  "zone_high": 1.43129,
+  "zone_low": 1.43104,
+  "basis": "FVG: 1.4 pips under the Strong Low/EQL 1.43124/1.43129 (PDL, sell-side pool NY has to sweep), inside the H1 FVG remainder 1.43104-1.43124, 85% of the H1 leg 1.43124->1.43845",
+  "risk_pips": 8.6,
+  "expires": "2026-11-24T23:59:00+01:00"
+ },
+ "invalidation": {
+  "level": 1.43104,
+  "rule": "TP1 1.43421 traded before fill -> cancel, no chase; H1 body close below 1.43024 (Strong Low lost by body) -> H4 CHoCH down, long bias off, plan B short"
+ },
+ "levels": {
+  "asia_high": 1.43687, "asia_low": 1.43542,
+  "london_high": 1.43646, "london_low": 1.4325,
+  "pdh": 1.43845, "pdl": 1.43124, "pwh": 1.43576, "pwl": 1.42509,
+  "eqh": 1.43687, "eql": [1.43124, 1.43129],
+  "d1_range_high": 1.43845, "d1_range_low": 1.39311, "d1_eq": 1.41578, "week_open": 1.43426,
+  "strong_low": 1.43124, "h1_hl_broken": 1.43449,
+  "m5_lh": [1.43421, 1.43504],
+  "h1_bear_fvg": [1.43414, 1.4344],
+  "fri_low": 1.42993
+ },
+ "swept_today": ["Asia low 1.43542 (London 08:10-09:55)", "H1 HL 1.43449 (body close 11:00 = H1 CHoCH down)", "H4 FVG 1.43352-1.43399", "23.11 London EQL 1.43259/63 (12:55-13:00, low 1.43250)"],
+ "d1_context": "Since the morning: the D1 candle is now red from 1.43712 to 1.43315, still HH/HL; price 88% of 1.39311-1.43845 (premium); PDL/Strong Low 1.43124 unswept.",
+ "h4_context": "H4 (resampled) bull while 1.43124 holds; today a deep pullback to 82% of 1.43124->1.43845. H1 CHoCH down 11:00 (close 1.43408 < HL 1.43449), H1 bear FVG 1.43414-1.43440; M5 13:00 reaction candle off 1.43250, no M5 CHoCH up (needs a close > 1.43344).",
+ "news": [],
+ "warnings": [
+  "H4 bull vs H1 CHoCH down - long only on the Strong Low sweep thesis",
+  "Long in D1 premium (88%)",
+  "Entry 20.5 pips from price - most past unfilled orders sat 16+ pips away",
+  "Forex Factory calendar unavailable (rate limited); the morning check showed no red USD/CAD news today, next Wed 25.11 14:30 USD Prelim GDP + Core PCE"
+ ]
+}
