@@ -2888,16 +2888,41 @@
   "expires": "2026-11-24T23:59:00+01:00",
   "invalidation": "H1 body close > 1713.91 (верх H1 OB 01:00) до fill → снять неисполненные части; TP1 1669.00 (Asia low) взят до fill → снять обе части",
   "be_rule": "SL обеих частей → средний вход исполненных частей после TP1 или после M5 BOS↓ с protected high ниже L2",
-  "status": "PENDING",
-  "filled_at": null,
-  "filled_legs": null,
+  "status": "OPEN",
+  "filled_at": "2026-11-24T08:15:00+01:00",
+  "filled_legs": "L2",
   "closed_at": null,
   "result_r": null,
   "result_usd": null,
-  "closest_approach": 0.59,
+  "closest_approach": 0.52,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-24T08:00:00+01:00"
+  "last_checked": "2026-11-24T14:00:00+01:00",
+  "max_adverse": {
+   "price": 1708.16,
+   "at": "2026-11-24T13:40:00+01:00"
+  },
+  "mae_usd": 7.48,
+  "sl_margin_min_usd": 18.72,
+  "max_favorable": {
+   "price": 1672.7,
+   "at": "2026-11-24T11:50:00+01:00"
+  },
+  "mfe_usd": 27.98,
+  "max_approach": {
+   "price": 1708.16,
+   "at": "2026-11-24T13:40:00+01:00",
+   "to_l1_usd": 0.52
+  },
+  "l1_status": "НЕ ДОШЛА: после 08:15 max 1708.16 (M5 13:40) — L1 1708.68 −0.52$; H1 close max 1702.63 (12:00) < 1713.91 — инвалидации нет; TP1 1669.00 до fill L1 не взят (min 1672.70)",
+  "floating": {
+   "at": "2026-11-24T14:08:00+01:00",
+   "price": 1704.4,
+   "l2_usd": -3.72,
+   "usd_per_eth": -1.86,
+   "r": -0.08
+  },
+  "mgmt": "24.11 день (14:08): L2 1700.68 исполнена M5 08:15 (H 1700.68 — касание, 08:40 H 1700.87); L1 1708.68 не дошла 0.52$ (13:40 H 1708.16). После fill min 1672.70 (11:50) — TP1 1669.00 не взят (3.70$), SL 1726.88 не задет (запас 18.72$). BE не включался: M5 BOS↓ после 10:40 (protected high 1693.88 < L2) закрытием ниже LL 1675.71 не было (min close 1678.19), с 12:30 M5 CHoCH↑ (close 1689.49 > 1689.29), BOS↑ 12:40/13:40. H1 LH 1709.99 цел, H1 close max 1702.63. Решение 4Д: оставить как есть — L2 SL 1726.88 / TP1 1669.00 / TP2 1648.35 / TP3 1618.00; L1 SELL LIMIT 1708.68 до 23:59. Плавающий 14:08 (1704.40): L2 −3.72$ → −1.86$/ETH = −0.08R."
  }
 ]
