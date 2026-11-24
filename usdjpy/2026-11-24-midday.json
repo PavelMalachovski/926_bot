@@ -1,0 +1,63 @@
+{
+ "date": "2026-11-24",
+ "mode": "midday",
+ "created_at": "2026-11-24T13:05:00+01:00",
+ "price_at_creation": 159.209,
+ "rules": "v1 (промпт без Ф1)",
+ "morning_order": {
+  "id": "2026-11-24-am",
+  "status": "OPEN",
+  "status_text": "ИСПОЛНЕН, В РАБОТЕ (+10.3 п, +0.35R)",
+  "filled_at": "2026-11-24T07:40:00+01:00",
+  "mae_pips": 27.8,
+  "mae_at": "2026-11-24T11:05:00+01:00",
+  "invalidated": false,
+  "decision": "оставить как есть: SL 159.609, TP1 158.760 (Asia low не снят), TP2 158.464, TP3 158.418",
+  "be_rule": "M5 close < 159.136 (London low) → SL в BE 159.312 (protected high 159.278 ниже entry)",
+  "news_rule": "открыта к 13:30 25.11 → закрыть по рынку (Core PCE + Prelim GDP 14:30)"
+ },
+ "setup_valid": false,
+ "bias": "short",
+ "order": null,
+ "no_order_reason": "Утренний SELL исполнен и в работе; второй SELL в ту же сторону = двойной риск, BUY против H4 после sweep PDH и M5 CHoCH↓ — нет основания.",
+ "invalidation": {
+  "level": 159.609,
+  "rule": "SL 159.609; H1 body close > 159.590 = структура H1 вверх, но позиция закрывается по SL"
+ },
+ "levels": {
+  "asia_high": 159.21,
+  "asia_low": 158.76,
+  "london_high": 159.59,
+  "london_low": 159.136,
+  "m5_lh": 159.278,
+  "pdh": 159.509,
+  "pdl": 158.464,
+  "pwh": 160.114,
+  "pwl": 158.418,
+  "eqh": 159.979,
+  "eql": 158.418,
+  "taken_today": [
+   "asia_high 159.210 (07:00)",
+   "pdh 159.509 (10:55, sweep до 159.590)"
+  ]
+ },
+ "h4_context": "H4 (ресемпл) bear: LH 159.979 → LL 158.418; бар 08:00 — фитиль 159.590 над LH 159.509 и close 159.276 = sweep buy-side, структура вниз цела.",
+ "h1_context": "H1 10:00 close 159.567 > PDH 159.509 (BOS↑), 11:00 close 159.276 обратно под PDH — fakeout/sweep. Тренд H1 после CHoCH↑ 06:15 сломан обратно вниз на M5.",
+ "m5_context": "London 159.136–159.590: judas вверх за PDH, M5 CHoCH↓ 11:45 (159.495), BOS↓ 12:15 под 159.233; LH 159.278 (12:50). Пулы для NY: London low 159.136, Asia low 158.760.",
+ "news": [
+  {
+   "time": "2026-11-25 14:30",
+   "country": "USD",
+   "title": "Core PCE Price Index m/m"
+  },
+  {
+   "time": "2026-11-25 14:30",
+   "country": "USD",
+   "title": "Prelim GDP q/q"
+  }
+ ],
+ "warnings": [
+  "SL 159.609 в 1.9 п над sweep-high 159.590",
+  "позиция переживёт ночь — Core PCE/GDP 25.11 14:30"
+ ]
+}
