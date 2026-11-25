@@ -1399,16 +1399,44 @@
   "price_at_creation": 1.43315,
   "created_at": "2026-11-24T13:10:00+01:00",
   "expires": "2026-11-24T23:59:00+01:00",
+  "status": "SL",
+  "filled_at": "2026-11-24T15:20:00+01:00",
+  "closed_at": "2026-11-24T15:40:00+01:00",
+  "result_r": -1.0,
+  "result_pips": -8.6,
+  "closest_approach": 0.0,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "AGAINST_HTF",
+   "note": "Filled 15:20 (M5 low 1.43050) on the NY drop into the Strong Low/EQL 1.43124/29; no reaction - SL 1.43024 traded 15:40 (low 1.43023), H1 15:00 body close 1.42924 through the whole zone, TP1 1.43421 never traded (post-fill high 1.43157). The drop was the real H4 reversal, not a sweep: H4 CHoCH down, D1 close 1.42714 under the D1 HLs 1.42733/1.42993 after the sweep of the 120-day high 1.43845, low 1.42606 overnight. Long in 88% D1 premium against the H1 CHoCH down - both flags were on the card."
+  },
+  "last_checked": "2026-11-25T07:05:00+01:00",
+  "note": "1.4 pips under the Strong Low/EQL 1.43124/1.43129 (23.11 London double bottom = PDL, the sell-side pool NY has to sweep after London took the 23.11 EQL 1.43259/63), inside the unfilled remainder 1.43104-1.43124 of the H1 FVG Fri 14:00-16:00; 85% of the H1 leg 1.43124->1.43845. SL 10 pips under the Strong Low. TP1 M5 LH 1.43421 (11:55, bottom of the H1 bear FVG 1.43414-1.43440), TP2 M5 LH/OB 1.43504, TP3 London high 1.43646. Against the H1 CHoCH down (11:00) - only the H4 Strong Low sweep thesis; D1 88% premium; 20.5 pips from price. | 25.11 07:05: SL - filled 15:20, SL 15:40, -1R / -8.6 pips; Strong Low broken = H4/D1 CHoCH down."
+ },
+ {
+  "id": "2026-11-25-am",
+  "side": "SELL",
+  "basis": "OTE",
+  "entry": 1.42998,
+  "sl": 1.43189,
+  "tp1": 1.42606,
+  "rr_tp1": 2.05,
+  "zone_high": 1.43089,
+  "zone_low": 1.42998,
+  "price_at_creation": 1.42769,
+  "created_at": "2026-11-25T07:10:00+01:00",
+  "expires": "2026-11-25T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 20.5,
+  "closest_approach": 22.9,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-24T13:05:00+01:00",
-  "note": "1.4 pips under the Strong Low/EQL 1.43124/1.43129 (23.11 London double bottom = PDL, the sell-side pool NY has to sweep after London took the 23.11 EQL 1.43259/63), inside the unfilled remainder 1.43104-1.43124 of the H1 FVG Fri 14:00-16:00; 85% of the H1 leg 1.43124->1.43845. SL 10 pips under the Strong Low. TP1 M5 LH 1.43421 (11:55, bottom of the H1 bear FVG 1.43414-1.43440), TP2 M5 LH/OB 1.43504, TP3 London high 1.43646. Against the H1 CHoCH down (11:00) - only the H4 Strong Low sweep thesis; D1 88% premium; 20.5 pips from price."
+  "last_checked": "2026-11-25T07:05:00+01:00",
+  "note": "OTE 62% (1.42998) of the H1 leg 1.43239 (LH 24.11 17:00) -> 1.42606 (Asia low), inside the H1 bear FVG 1.42785-1.43089 (remainder 1.42801-1.43089), under the M5 OB 1.43033-1.43070 (18:15, origin of the 18:25 drop). SL 10 pips over the FVG top. TP1 Asia low 1.42606, TP2 PWL 1.42503, TP3 13.11 low 1.42290 (above the D1 bull FVG 1.42104-1.42228). With H4/D1 CHoCH down from 76% D1 premium; 22.9 pips from price; GDP+Core PCE 14:30."
  }
 ]

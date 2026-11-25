@@ -1,0 +1,20 @@
+{
+ "date": "2026-11-25",
+ "created_at": "2026-11-25T07:10:00+01:00",
+ "price_at_creation": 1.42769,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 1.42998, "sl": 1.43189, "tp1": 1.42606, "tp2": 1.42503, "tp3": 1.4229,
+   "zone_high": 1.43089, "zone_low": 1.42998,
+   "basis": "OTE 62% of the H1 leg 1.43239->1.42606 inside the H1 bear FVG 1.42801-1.43089, under the M5 OB 1.43033-1.43070",
+   "risk_pips": 19.1, "expires": "2026-11-25T23:59:00+01:00"},
+ "invalidation": {"level": 1.43089, "rule": "H1 body close above 1.43089 (FVG top) -> cancel, plan B: no short until a new M5 CHoCH down; TP1 1.42606 traded before fill -> cancel, no chase"},
+ "levels": {"asia_high": 1.42801, "asia_low": 1.42606, "pdh": 1.43753, "pdl": 1.42653, "pwh": 1.43576, "pwl": 1.42503,
+   "eqh": [1.42762, 1.42767], "eql": [1.42634, 1.42637], "d1_range_high": 1.43845, "d1_range_low": 1.39311, "d1_eq": 1.41578,
+   "week_open": 1.43426, "h1_lh": 1.43239, "h4_bear_fvg": [1.42762, 1.4289], "h1_bear_fvg": [1.42785, 1.43089],
+   "m5_ob": [1.43033, 1.4307], "d1_bull_fvg": [1.42104, 1.42228], "low_13_11": 1.4229},
+ "d1_context": "D1 swept the 120-day high 1.43845 (23.11) and closed 24.11 at 1.42714, a bearish engulfing below the D1 HLs 1.42733/1.42993 = D1 CHoCH down. Price 76% of the 1.39311-1.43845 range (premium). Sell-side pools: PWL 1.42503, 13.11 low 1.42290, unfilled D1 bull FVG 1.42104-1.42228.",
+ "h4_context": "H4 CHoCH down: body close 1.42714 below the Strong Low 1.43124; H4 bear FVG 1.42762-1.42890 (Asia high 1.42801 inside it). H1 down: LH 1.43239, LL 1.42606 (Asia, swept PDL 1.42653 and EQL 1.42634/37).",
+ "news": [{"time": "2026-11-25T14:30:00+01:00", "country": "USD", "title": "Prelim GDP q/q"}, {"time": "2026-11-25T14:30:00+01:00", "country": "USD", "title": "Core PCE Price Index m/m"}],
+ "warnings": ["Entry 22.9 pips from price - 14 past orders at 16+ pips died NO_PULLBACK", "Blackout 13:30-14:45 (GDP + Core PCE 14:30): the entry may only be reached on the news spike", "Asia low 1.42606 just swept PDL - a sell-side sweep before London; the pullback into the FVG is the expected path, no short below 1.42801"]
+}
