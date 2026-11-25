@@ -1,17 +1,17 @@
 {
- "updated_at": "2026-11-25T08:10:00+01:00",
- "orders": 63,
+ "updated_at": "2026-11-25T14:10:00+01:00",
+ "orders": 64,
  "filled": 38,
  "tp": 17,
  "sl": 13,
  "be": 8,
  "open": 0,
  "pending": 1,
- "expired": 23,
+ "expired": 24,
  "invalidated": 1,
  "unknown": 0,
  "winrate": 56.7,
- "fill_rate": 61.3,
+ "fill_rate": 60.3,
  "total_r": 12.8,
  "avg_r": 0.34,
  "total_usd": 207.98,
@@ -23,7 +23,7 @@
   "total_r": 8.51
  },
  "pm": {
-  "orders": 29,
+  "orders": 30,
   "filled": 15,
   "tp": 7,
   "sl": 7,
@@ -47,22 +47,22 @@
   "total_usd": 0
  },
  "v3": {
-  "orders": 26,
+  "orders": 27,
   "filled": 18,
   "tp": 9,
   "sl": 5,
   "be": 4,
   "open": 0,
   "pending": 1,
-  "expired": 7,
+  "expired": 8,
   "invalidated": 0,
   "unknown": 0,
   "winrate": 64.3,
-  "fill_rate": 72.0,
+  "fill_rate": 69.2,
   "total_r": 4.5,
   "avg_r": 0.25,
   "total_usd": 67.24
  },
  "last10": "BSTTBTSBST",
- "review": "б) WR 56.7% (17TP/13SL) < 65% при 30 закрытых, avg_r +0.34, ΣR +12.80 — система в плюсе. Закрыт 24-am: TP (только L2 1700.68 → TP1 1669.00, +0.71R); L1 1708.68 не дошла 0.52$ и снята по TP1. Причины SL: ZONE_FAILED 8, AGAINST_HTF 4, STOP_HUNT 1. Хуже: BUY 1TP/5SL (−3.95R) против SELL 16TP/8SL/8BE (+16.75R); pm 7TP/7SL/1BE (+4.29R) против am 10TP/6SL/7BE (+8.51R); basis FVG 4TP/6SL/1BE (+0.65R) и FVG∩OTE 1TP/2SL (−1.10R) против OB 6TP/3SL/4BE (+5.37R), OTE∩OB 4TP/1SL/3BE (+3.92R), OTE 2TP/1SL (+3.96R). v3: 9TP/5SL/4BE, WR 64.3%, ΣR +4.50; только L2 — 5TP/0SL/1BE (+3.13R), L1+L2 — 3TP/5SL/2BE (−0.38R), только L1 — 1TP/1BE (+1.75R). Правка (предложение, в силе): П12 — при переносе SL исполненной L2 в BE неисполненную L1 снимать (23-am: −0.40R → 0R). П10, П8, П11 — в силе. в) fill 61.3% (38/62) < 65%; у v3 — 72.0% (18/25, цель ≥ 65% выполнена). Недошедшие (EXPIRED 23): DEEP_ENTRY 11, NO_PULLBACK 10, NEWS 1, UNCLEAR 1; средний closest_approach 9.92$. Правка (предложение, в силе): П5 — L1 не дальше 25$ от цены (25-am: 20.95$). П9 — в силе."
+ "review": "б) WR 56.7% (17TP/13SL) < 65% при 30 закрытых, avg_r +0.34, ΣR +12.80 — система в плюсе. 25-am: EXPIRED (NO_PULLBACK) — 12.18$ до L2, TP1/TP2 взяты без входа в 08:30–08:35. Причины SL: ZONE_FAILED 8, AGAINST_HTF 4, STOP_HUNT 1. Хуже: BUY 1TP/5SL (−3.95R) против SELL 16TP/8SL/8BE (+16.75R); pm 7TP/7SL/1BE (+4.29R) против am 10TP/6SL/7BE (+8.51R); basis FVG 4TP/6SL/1BE (+0.65R) и FVG∩OTE 1TP/2SL (−1.10R) против OB 6TP/3SL/4BE (+5.37R), OTE∩OB 4TP/1SL/3BE (+3.92R), OTE 2TP/1SL (+3.96R). v3: 9TP/5SL/4BE, WR 64.3%, ΣR +4.50; только L2 — 5TP/0SL/1BE (+3.13R), L1+L2 — 3TP/5SL/2BE (−0.38R), только L1 — 1TP/1BE (+1.75R). Правка (предложение, в силе): П12 — при переносе SL исполненной L2 в BE неисполненную L1 снимать. П10, П8, П11 — в силе. в) fill 60.3% (38/63) < 65%; у v3 — 69.2% (18/26, цель ≥ 65% выполнена). Недошедшие (EXPIRED 24): DEEP_ENTRY 11, NO_PULLBACK 11, NEWS 1, UNCLEAR 1; средний closest_approach 10.01$. Новое наблюдение (25-am, 21-pm, 13-pm): при цене у Asia-сжатия L2 в 13–29$ выше — NO_PULLBACK; откат ограничивался sweep ближайшего M5 EQH. Правка (предложение, в силе): П5 — L1 не дальше 25$ от цены; П9 — в силе."
 }
