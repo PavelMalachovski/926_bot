@@ -1427,16 +1427,44 @@
   "price_at_creation": 1.42769,
   "created_at": "2026-11-25T07:10:00+01:00",
   "expires": "2026-11-25T23:59:00+01:00",
+  "status": "CANCELLED",
+  "filled_at": null,
+  "closed_at": "2026-11-25T13:05:00+01:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 5.4,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "DEEP_ENTRY",
+   "note": "London Judas swept the Asia high 1.42857 and stopped at 1.42944 (09:00), 5.4 pips short of 1.42998 (76% of the 22.9-pip path) inside the H4 bear FVG 1.42762-1.42890 top / H1 FVG lower half; M5 CHoCH down 09:55 (1.42755), LH 1.42923 10:55, BOS 12:50 (1.42717). The cap was the swept Asia high + H4 FVG top, not the OTE 62%. Cancelled at midday (structure moved lower), replaced by the 25.11 pm short 1.42860."
+  },
+  "last_checked": "2026-11-25T13:00:00+01:00",
+  "note": "OTE 62% (1.42998) of the H1 leg 1.43239 (LH 24.11 17:00) -> 1.42606 (Asia low), inside the H1 bear FVG 1.42785-1.43089 (remainder 1.42801-1.43089), under the M5 OB 1.43033-1.43070 (18:15, origin of the 18:25 drop). SL 10 pips over the FVG top. TP1 Asia low 1.42606, TP2 PWL 1.42503, TP3 13.11 low 1.42290 (above the D1 bull FVG 1.42104-1.42228). With H4/D1 CHoCH down from 76% D1 premium; 22.9 pips from price; GDP+Core PCE 14:30. | Midday 13:05: CANCELLED - not filled, high 1.42944 (09:00, 5.4 pips short, 76% of path), no invalidation, TP1 1.42606 not traded (low 1.42717); London LH 1.42923 + M5 BOS down make 1.42998 too deep, replaced by the pm short."
+ },
+ {
+  "id": "2026-11-25-pm",
+  "side": "SELL",
+  "basis": "FVG",
+  "entry": 1.4286,
+  "sl": 1.43023,
+  "tp1": 1.42606,
+  "rr_tp1": 1.56,
+  "zone_high": 1.42892,
+  "zone_low": 1.4285,
+  "price_at_creation": 1.42725,
+  "created_at": "2026-11-25T13:05:00+01:00",
+  "expires": "2026-11-25T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 22.9,
+  "closest_approach": 13.5,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-25T07:05:00+01:00",
-  "note": "OTE 62% (1.42998) of the H1 leg 1.43239 (LH 24.11 17:00) -> 1.42606 (Asia low), inside the H1 bear FVG 1.42785-1.43089 (remainder 1.42801-1.43089), under the M5 OB 1.43033-1.43070 (18:15, origin of the 18:25 drop). SL 10 pips over the FVG top. TP1 Asia low 1.42606, TP2 PWL 1.42503, TP3 13.11 low 1.42290 (above the D1 bull FVG 1.42104-1.42228). With H4/D1 CHoCH down from 76% D1 premium; 22.9 pips from price; GDP+Core PCE 14:30."
+  "last_checked": "2026-11-25T13:00:00+01:00",
+  "note": "Inside the untouched M5 bear FVG 1.42850-1.42892 (11:05, origin of the drop from the London LH 1.42923), 1.4 pips above the M5 EQH 1.42839/1.42846 (11:55/12:00, buy-side pool NY has to sweep) = OTE 70.5% of the M5 leg 1.42923->1.42717. SL 10 pips over the London LH 1.42923. TP1 Asia low 1.42606, TP2 PWL 1.42503, TP3 13.11 low 1.42290. With H4/H1/D1 down, D1 76% premium; RR to TP1 1.56; 13.5 pips from price; GDP+Core PCE 14:30 inside the blackout 13:30-14:45; Thanksgiving tomorrow."
  }
 ]
