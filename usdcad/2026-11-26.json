@@ -1,0 +1,21 @@
+{
+ "date": "2026-11-26",
+ "created_at": "2026-11-26T07:10:00+01:00",
+ "price_at_creation": 1.42232,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 1.4236, "sl": 1.42555, "tp1": 1.42103, "tp2": 1.41901, "tp3": 1.41808,
+   "zone_high": 1.4245, "zone_low": 1.42307,
+   "basis": "M5 OB 1.42307-1.42450 (25.11 16:50/16:55, origin of the last leg from the M5 LH 1.42450) = OTE 70.5% of the leg 1.42545->1.41901, H1 OB body 1.42329-1.42380, 10.5 pips above the Asia EQH 1.42246/1.42255",
+   "risk_pips": 19.5, "expires": "2026-11-26T23:59:00+01:00"},
+ "invalidation": {"level": 1.4245, "rule": "H1 body close above 1.42450 (M5 LH) -> cancel; TP1 Asia low 1.42103 traded before fill -> cancel, no chase"},
+ "levels": {"asia_high": 1.42255, "asia_low": 1.42103, "pdh": 1.42944, "pdl": 1.41901, "pwh": 1.43576, "pwl": 1.42503,
+   "eqh": [1.42246, 1.42255], "eql": [1.42103, 1.42104],
+   "d1_range_high": 1.43845, "d1_range_low": 1.39311, "d1_eq": 1.41578, "week_open": 1.43426,
+   "h4_bear_fvg": [1.42395, 1.42717], "h4_bear_fvg_inner": [1.42174, 1.42245], "d1_bear_fvg": [1.42944, 1.43124],
+   "d1_bull_fvg": [1.41387, 1.41808], "d1_low_11_11": 1.41808, "m5_lh": 1.4245, "h1_high_16": 1.42545},
+ "d1_context": "D1 CHoCH down: 120-day-high sweep 1.43845 (23.11), then two bear days (24.11 -106, 25.11 -110 pips) closing 1.42054 under the D1 HLs 1.42733/1.42290 and the PWL 1.42503. Price 64% of the D1 range 1.39311-1.43845 (premium). Sell-side: PDL 1.41901, D1 11.11 low 1.41808 = top of the unfilled D1 bull FVG 1.41387-1.41808; overhead D1 bear FVG 1.42944-1.43124.",
+ "h4_context": "H4 down: LH 1.42944 (25.11 09:00), BOS through 1.42606/1.42503 to LL 1.41901; untouched H4 bear FVG 1.42395-1.42717, inner FVG 1.42174-1.42245 tagged by Asia. H1: corrective grind up from 1.41901 (HL 1.42016/1.42103), no H1 CHoCH up above 1.42545.",
+ "news": [],
+ "warnings": ["RR to TP1 (Asia low) 1.32 < 1:2; TP2 PDL 2.35R", "US Thanksgiving: US closed, thin liquidity, no red USD/CAD news today", "Entry 12.8 pips from price, 10.5 above the Asia EQH - DEEP_ENTRY risk if London caps at the swept EQH", "After a 110-pip trend day (avg 66) an inside/range day is likely"]
+}

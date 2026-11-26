@@ -1455,16 +1455,44 @@
   "price_at_creation": 1.42725,
   "created_at": "2026-11-25T13:05:00+01:00",
   "expires": "2026-11-25T23:59:00+01:00",
+  "status": "INVALIDATED",
+  "filled_at": null,
+  "closed_at": "2026-11-25T13:15:00+01:00",
+  "result_r": null,
+  "result_pips": null,
+  "closest_approach": 11.5,
+  "ambiguous": false,
+  "adjusted": false,
+  "review": {
+   "cause": "NO_PULLBACK",
+   "note": "SELL 1.42860 13.5 pips above price: TP1 Asia low 1.42606 traded 13:15 (10 min after creation, high after creation 1.42745 = 11.5 pips short), TP2 PWL 14:20, TP3 1.42290 15:45 on GDP/PCE, day low 1.41901. Direction right, entry above the M5 EQH never reached - 15th NO_PULLBACK."
+  },
+  "last_checked": "2026-11-26T07:05:00+01:00",
+  "note": "Inside the untouched M5 bear FVG 1.42850-1.42892 (11:05, origin of the drop from the London LH 1.42923), 1.4 pips above the M5 EQH 1.42839/1.42846 (11:55/12:00, buy-side pool NY has to sweep) = OTE 70.5% of the M5 leg 1.42923->1.42717. SL 10 pips over the London LH 1.42923. TP1 Asia low 1.42606, TP2 PWL 1.42503, TP3 13.11 low 1.42290. With H4/H1/D1 down, D1 76% premium; RR to TP1 1.56; 13.5 pips from price; GDP+Core PCE 14:30 inside the blackout 13:30-14:45; Thanksgiving tomorrow."
+ },
+ {
+  "id": "2026-11-26-am",
+  "side": "SELL",
+  "basis": "OB",
+  "entry": 1.4236,
+  "sl": 1.42555,
+  "tp1": 1.42103,
+  "rr_tp1": 1.32,
+  "zone_high": 1.4245,
+  "zone_low": 1.42307,
+  "price_at_creation": 1.42232,
+  "created_at": "2026-11-26T07:10:00+01:00",
+  "expires": "2026-11-26T23:59:00+01:00",
   "status": "PENDING",
   "filled_at": null,
   "closed_at": null,
   "result_r": null,
   "result_pips": null,
-  "closest_approach": 13.5,
+  "closest_approach": 12.8,
   "ambiguous": false,
   "adjusted": false,
   "review": null,
-  "last_checked": "2026-11-25T13:00:00+01:00",
-  "note": "Inside the untouched M5 bear FVG 1.42850-1.42892 (11:05, origin of the drop from the London LH 1.42923), 1.4 pips above the M5 EQH 1.42839/1.42846 (11:55/12:00, buy-side pool NY has to sweep) = OTE 70.5% of the M5 leg 1.42923->1.42717. SL 10 pips over the London LH 1.42923. TP1 Asia low 1.42606, TP2 PWL 1.42503, TP3 13.11 low 1.42290. With H4/H1/D1 down, D1 76% premium; RR to TP1 1.56; 13.5 pips from price; GDP+Core PCE 14:30 inside the blackout 13:30-14:45; Thanksgiving tomorrow."
+  "last_checked": "2026-11-26T07:05:00+01:00",
+  "note": "M5 OB 1.42307-1.42450 (16:50/16:55 25.11, origin of the last leg from the M5 LH 1.42450) = OTE 70.5% of the leg 1.42545->1.41901, H1 OB body 1.42329-1.42380; 10.5 pips above the Asia EQH 1.42246/1.42255. SL 1 pip over the 16:20 high 1.42545 (10.5 over the M5 LH). TP1 Asia low 1.42103, TP2 PDL 1.41901, TP3 D1 11.11 low 1.41808. H4/H1/D1 down, D1 64% premium; Thanksgiving, no red news."
  }
 ]
