@@ -1,0 +1,21 @@
+{
+ "date": "2026-11-27",
+ "created_at": "2026-11-27T07:10:00+01:00",
+ "price_at_creation": 1.42364,
+ "setup_valid": true,
+ "bias": "short",
+ "order": {"side": "SELL LIMIT", "entry": 1.4244, "sl": 1.4258, "tp1": 1.42267, "tp2": 1.42016, "tp3": 1.41901,
+   "zone_high": 1.4248, "zone_low": 1.42407,
+   "basis": "top of the untouched M5 bear FVG 1.42429-1.42438 (06:05) = OTE 62% (1.42449) of the Asia leg 1.42561->1.42267, under the M5 OB 1.42462-1.42480 (05:45 LH), 6 pips above the M5 EQH 1.42372/81",
+   "risk_pips": 14.0, "expires": "2026-11-27T23:59:00+01:00"},
+ "invalidation": {"level": 1.4248, "rule": "H1 body close above 1.42480 (M5 OB top / LH) -> cancel; TP1 Asia low 1.42267 traded before fill -> cancel, no chase"},
+ "levels": {"asia_high": 1.42561, "asia_low": 1.42267, "pdh": 1.42513, "pdl": 1.42016, "pwh": 1.43576, "pwl": 1.42503,
+   "eqh": [1.42372, 1.42381], "eql": [1.42267, 1.42275],
+   "d1_range_high": 1.43845, "d1_range_low": 1.39311, "d1_eq": 1.41578, "week_open": 1.43426,
+   "h4_bear_fvg_remainder": [1.42561, 1.42717], "h1_bear_fvg": [1.42603, 1.42717], "m5_ob": [1.42462, 1.4248],
+   "m5_bear_fvg": [[1.42429, 1.42438], [1.42407, 1.42416]], "h1_choch_level": 1.42342, "low_25_11": 1.41901, "d1_bull_fvg": [1.41387, 1.41808]},
+ "d1_context": "D1 down since the 23.11 sweep of the 120-day high 1.43845 (CHoCH 24-25.11, LL 1.41901). 26.11 inside-ish bull day (+42 pips) closed 1.42473 under the PWL 1.42503. Price at 67% of the range 1.39311-1.43845 (premium) - shorts with the D1 side. Sell-side: PDL 1.42016, 1.41901, D1 bull FVG 1.41387-1.41808; overhead D1 bear FVG 1.42944-1.43124.",
+ "h4_context": "H4 down (LH 1.42944, LL 1.41901); the corrective rally swept PDH 1.42513 at Asia 02:00 (1.42561) into the H4 bear FVG 1.42395-1.42717 and rejected. H1: CHoCH down 03:05 through the HL 1.42342, LH 1.42480 (05:45), low 1.42267; H1 bear FVG 1.42603-1.42717 untouched above.",
+ "news": [],
+ "warnings": ["RR to TP1 (Asia low) 1.24 < 1:2; TP2 PDL 3.03R, TP3 3.85R", "Black Friday: US half-day, thin NY, no red USD/CAD news (FF calendar)", "SL 1.9 pips above the swept Asia high 1.42561 - a second raid would take it", "Yesterday's SELL 1.42360 stopped by 0.6 pip on that same raid"]
+}
